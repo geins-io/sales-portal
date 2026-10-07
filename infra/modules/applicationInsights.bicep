@@ -29,7 +29,7 @@ param tags object = {}
 param webAppResourceId string = ''
 
 @description('Daily data cap in GB (0 = no cap)')
-param dailyCapGb int = environment == 'prod' ? 10 : 1
+param dailyCapGb int = 1
 
 @description('Data retention period in days')
 param retentionDays int = environment == 'prod' ? 90 : 30

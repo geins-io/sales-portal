@@ -80,6 +80,9 @@ param appInsightsConnectionString string = ''
 @description('Application Insights instrumentation key')
 param appInsightsInstrumentationKey string = ''
 
+@description('Log Analytics workspace resource ID for the app logs. Empty sends them nowhere.')
+param logAnalyticsWorkspaceId string = ''
+
 // -----------------------------------------------------------------------------
 // Variables
 // -----------------------------------------------------------------------------
@@ -248,6 +251,58 @@ var configuratorMerchantApiUrlSetting = empty(configuratorMerchantApiUrl)
 // next swap. Nothing here is a slot setting - see infra/README.md.
 var sharedAppSettings = concat(appSettingsAlways, configuratorMerchantApiUrlSetting)
 
+// Prod only: the container's stdout and its start/stop events, sent to the workspace. Without
+// this the only copy is the stream file in /home/LogFiles, which the platform truncates daily.
+// Creating the setting restarts the site or slot it is put on.
+// The name matches the setting first created by hand in the portal on prod, so a deployment
+// updates that setting in place; a different name would add a second one and double ingestion.
+// HTTP logs are left out on purpose: their Cookie and query columns carry the auth cookies and
+// the health-check key unredacted.
+var diagnosticSettingName = 'app-logs-to-log-analytics'
+
+var diagnosticEnabledCategories = [
+  'AppServiceConsoleLogs'
+  'AppServicePlatformLogs'
+]
+
+// Every category the site offers, in the order the portal stores them, with the rest switched
+// off. Declaring the full stored body keeps the deployment from rewriting the setting, which
+// would risk another restart of production.
+var siteDiagnosticLogs = [
+  for category in [
+    'AppServiceAntivirusScanAuditLogs'
+    'AppServiceHTTPLogs'
+    'AppServiceConsoleLogs'
+    'AppServiceAppLogs'
+    'AppServiceFileAuditLogs'
+    'AppServiceAuditLogs'
+    'AppServiceIPSecAuditLogs'
+    'AppServicePlatformLogs'
+    'AppServiceAuthenticationLogs'
+  ]: {
+    category: category
+    enabled: contains(diagnosticEnabledCategories, category)
+    retentionPolicy: {
+      days: 0
+      enabled: false
+    }
+  }
+]
+
+// A slot does not offer authentication logs.
+var slotDiagnosticLogs = filter(siteDiagnosticLogs, log => log.category != 'AppServiceAuthenticationLogs')
+
+var diagnosticMetrics = [
+  {
+    category: 'AllMetrics'
+    enabled: false
+    retentionPolicy: {
+      days: 0
+      enabled: false
+    }
+  }
+]
+
 // -----------------------------------------------------------------------------
 // Resources
 // -----------------------------------------------------------------------------
@@ -302,6 +357,28 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = if (environment ==
       healthCheckPath: '/api/health'
       appSettings: sharedAppSettings
     }
+  }
+}
+
+resource webAppDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (environment == 'prod' && !empty(logAnalyticsWorkspaceId)) {
+  name: diagnosticSettingName
+  scope: webApp
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: siteDiagnosticLogs
+    metrics: diagnosticMetrics
+  }
+}
+
+// A setting belongs to the resource, not to what runs in it, so it stays put on a swap.
+// Rows from the slot carry /slots/staging in _ResourceId.
+resource stagingSlotDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (environment == 'prod' && !empty(logAnalyticsWorkspaceId)) {
+  name: diagnosticSettingName
+  scope: stagingSlot
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: slotDiagnosticLogs
+    metrics: diagnosticMetrics
   }
 }
 
