@@ -318,7 +318,7 @@
   "configurator": {
     "required": "Obligatorisk",
     "required_status": {
-      "remaining": "Gjenstående obligatoriske valg:",
+      "remaining_count": "Gjenstående obligatoriske valg\u00a0({count})",
       "all_done": "Alle obligatoriske valg er gjort",
       "unspecified": "Konfigurasjonen er ikke komplett."
     },

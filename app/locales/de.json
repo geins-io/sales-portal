@@ -318,7 +318,7 @@
   "configurator": {
     "required": "Pflichtfeld",
     "required_status": {
-      "remaining": "Verbleibende Pflichtauswahlen:",
+      "remaining_count": "Verbleibende Pflichtauswahlen\u00a0({count})",
       "all_done": "Alle Pflichtauswahlen sind getroffen",
       "unspecified": "Die Konfiguration ist nicht vollständig."
     },

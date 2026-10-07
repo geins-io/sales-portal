@@ -318,7 +318,7 @@
   "configurator": {
     "required": "Påkrævet",
     "required_status": {
-      "remaining": "Resterende obligatoriske valg:",
+      "remaining_count": "Resterende obligatoriske valg\u00a0({count})",
       "all_done": "Alle obligatoriske valg er truffet",
       "unspecified": "Konfigurationen er ikke komplet."
     },

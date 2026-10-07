@@ -755,14 +755,17 @@ function onRetryOpen(): void {
                      rail when there is nothing to list: a document with no
                      visible section has nothing to configure, and an empty
                      rail would be a frame around nothing. The status stays even
-                     then, as the only reason beside a disabled action. -->
+                     then, as the only reason beside a disabled action.
+                     From lg the column ends 16px above the viewport's bottom,
+                     as the aside does: the rail keeps its own cap and the
+                     status takes the rest. -->
                 <div
                   v-if="stage === 'form' && configuration"
-                  class="lg:sticky lg:top-48"
+                  class="lg:sticky lg:top-48 lg:flex lg:max-h-[calc(100vh-13rem)] lg:flex-col"
                 >
                   <nav
                     v-if="railEntries.length"
-                    class="hidden lg:block"
+                    class="hidden lg:block lg:shrink-0"
                     data-testid="configurator-rail"
                   >
                     <p
@@ -827,7 +830,7 @@ function onRetryOpen(): void {
 
                   <div
                     v-if="railEntries.length"
-                    class="border-border mt-6 hidden border-t pt-6 lg:block"
+                    class="border-border mt-6 hidden border-t pt-6 lg:block lg:shrink-0"
                   />
                   <ConfiguratorRequiredStatus
                     :configuration="configuration"

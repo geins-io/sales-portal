@@ -2101,6 +2101,25 @@ describe('ConfiguratorProduct required status', () => {
     expect(holder.className).toContain('lg:top-48');
   });
 
+  it('ends the sticky column above the viewport bottom, the rail keeping its height', async () => {
+    // 13rem is the 192 px sticky top plus 16 px of air, as for the aside. The
+    // rail and its divider do not shrink, so what is left goes to the status.
+    const wrapper = await formWith(makeSectionTreeConfiguration());
+    const status = wrapper.find('[data-testid="required-status"]').element;
+    const holder = status.parentElement!;
+    expect(Array.from(holder.classList)).toEqual(
+      expect.arrayContaining([
+        'lg:flex',
+        'lg:flex-col',
+        'lg:max-h-[calc(100vh-13rem)]',
+      ]),
+    );
+    expect(
+      wrapper.find('[data-testid="configurator-rail"]').classes(),
+    ).toContain('lg:shrink-0');
+    expect(status.previousElementSibling!.classList).toContain('lg:shrink-0');
+  });
+
   it('shows the status at every width, while the rail is hidden below lg', async () => {
     // Below lg the holder is the first cell of the form grid, so the status
     // stands above the form.
