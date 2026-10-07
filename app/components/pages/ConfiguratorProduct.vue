@@ -605,7 +605,7 @@ async function onRestart(): Promise<void> {
   }
   await release();
   if (editing.value) await reopenLine();
-  else if (order) await replay(productId.value, order);
+  else if (order && !configuration.value) await replay(productId.value, order);
   else await restore(productId.value);
 }
 

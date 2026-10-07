@@ -6,6 +6,7 @@ import {
   signedInState,
   waitForHydration,
 } from './helpers';
+import { localeText } from './locale-text';
 
 /**
  * Opening a configured order row in the configurator, end to end on a real CPQ
@@ -275,6 +276,90 @@ test.describe('Opening a configured order row', () => {
         true,
       );
     }
+  });
+
+  test("resumes the session's own choices after it expired, not the order's again", async ({
+    page,
+  }) => {
+    await orderedSummary(page);
+    await page.clock.install();
+
+    const replayed = replayResponse(page);
+    await openOrderRow(page);
+    const body = (await (await replayed).json()) as {
+      replayed: boolean;
+      configuration: { configurationId: string; sections: WireSection[] };
+    };
+    expect(body.replayed).toBe(true);
+
+    // The buyer moves off the order's choice before the session runs out.
+    const where = locate(body.configuration.sections);
+    const other = where.group.options.find((o) => o.id !== where.orderedId);
+    expect(
+      other,
+      `${GROUP_NAME} has no option but the ordered one`,
+    ).toBeDefined();
+    const chooser = await chooserOf(page, where);
+    await chooser.click();
+    const sheet = page.getByTestId('configurator-group-sheet');
+    await expect(sheet).toBeInViewport({ ratio: 1 });
+    const changed = page.waitForResponse(
+      (r) =>
+        /\/api\/configurations\/[^/]+\/changes$/.test(r.url()) &&
+        r.request().method() === 'POST',
+    );
+    await sheet.locator(`[data-option-id="${other!.id}"]`).click();
+    const { expiresAt } = (await (await changed).json()) as {
+      expiresAt: string;
+    };
+    if (await sheet.isVisible()) await page.keyboard.press('Escape');
+    await expect(chooser).toHaveAttribute('data-option-id', other!.id);
+
+    // A released session answers exactly what an expired one does.
+    const { configurationId } = body.configuration;
+    await page.request.delete(`/api/configurations/${configurationId}`);
+    const asked = page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname ===
+        `/api/configurations/${configurationId}/renew`,
+    );
+    const now = await page.evaluate(() => Date.now());
+    await page.clock.fastForward(Date.parse(expiresAt) - now + 31_000);
+    expect((await asked).status()).toBe(410);
+
+    const expired = page.getByTestId('configurator-panel-expired');
+    await expect(expired).toBeVisible();
+    await expect(expired.getByRole('button')).toHaveText(
+      await localeText(page, 'configurator.panel.resume'),
+    );
+    let replayedAgain = false;
+    page.on('request', (request) => {
+      if (request.url().endsWith('/api/configurations/from-order')) {
+        replayedAgain = true;
+      }
+    });
+    const restored = page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname === '/api/configurations/restore' &&
+        r.request().method() === 'POST',
+    );
+    await expired.getByRole('button').click();
+    const answer = await restored;
+    expect(answer.status()).toBe(200);
+    expect(((await answer.json()) as { replayed: boolean }).replayed).toBe(
+      true,
+    );
+
+    await expect(page.getByTestId('configurator-commit')).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(await chooserOf(page, where)).toHaveAttribute(
+      'data-option-id',
+      other!.id,
+    );
+    await expect(page.getByTestId('configurator-not-restored')).toHaveCount(0);
+    await expect(page.getByTestId('configurator-not-replayed')).toHaveCount(0);
+    expect(replayedAgain).toBe(false);
   });
 
   test("starts from the defaults, and says so, when the row's choices cannot be replayed", async ({

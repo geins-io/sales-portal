@@ -280,9 +280,15 @@ describe('renewDue', () => {
     expect(due({ lastActive: CONTACT - 1 })).toBe(false);
   });
 
-  it('renews nothing once the session has run out', () => {
-    expect(due({ now: EXPIRES })).toBe(false);
-    expect(due({ now: EXPIRES + 1 })).toBe(false);
+  it('asks once the session has run out on this clock, active or idle: the answer says whether it has', () => {
+    expect(due({ now: EXPIRES })).toBe(true);
+    expect(due({ now: EXPIRES + 1 })).toBe(true);
+    expect(due({ now: EXPIRES, lastActive: CONTACT })).toBe(true);
+    expect(due({ now: EXPIRES + 60_000, lastActive: CONTACT - 1 })).toBe(true);
+  });
+
+  it('waits for the boundary on an idle page', () => {
+    expect(due({ now: EXPIRES - 1, lastActive: CONTACT })).toBe(false);
   });
 
   it('renews nothing for an expiry it cannot read', () => {

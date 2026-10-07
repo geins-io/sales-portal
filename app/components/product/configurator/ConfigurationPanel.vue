@@ -4,6 +4,7 @@ import {
   Copy,
   FileText,
   PanelRightOpen,
+  Play,
   RotateCcw,
 } from 'lucide-vue-next';
 import { createReusableTemplate, useClipboard } from '@vueuse/core';
@@ -324,8 +325,14 @@ const netClass = {
       }}
     </p>
     <Button variant="outline" size="sm" @click="emit('restart')">
-      <RotateCcw class="size-4" />
-      {{ t('configurator.panel.start_over') }}
+      <template v-if="editing">
+        <RotateCcw class="size-4" />
+        {{ t('configurator.edit.start_over') }}
+      </template>
+      <template v-else>
+        <Play class="size-4" />
+        {{ t('configurator.panel.resume') }}
+      </template>
     </Button>
   </div>
 

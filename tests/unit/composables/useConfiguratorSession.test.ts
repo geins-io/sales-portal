@@ -426,7 +426,7 @@ describe('useConfiguratorSession', () => {
       await vi.advanceTimersByTimeAsync(MINUTE);
       act('mousemove');
       document.dispatchEvent(new Event('visibilitychange'));
-      await vi.advanceTimersByTimeAsync(10 * MINUTE);
+      await vi.advanceTimersByTimeAsync(8 * MINUTE + MINUTE / 2);
 
       expect(renewCalls()).toEqual([]);
     });
@@ -434,9 +434,147 @@ describe('useConfiguratorSession', () => {
     it('sends nothing from an idle page, right up to expiry', async () => {
       await startedNearExpiry();
 
-      await vi.advanceTimersByTimeAsync(11 * MINUTE);
+      await vi.advanceTimersByTimeAsync(10 * MINUTE - 1);
 
       expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('renews on the first touch inside the last five minutes, without waiting for the next check', async () => {
+      await startedNearExpiry();
+      mockFetch.mockResolvedValue({ expiresAt: EXTENDED });
+      // Just past the check at five minutes before expiry, which found the buyer idle.
+      await vi.advanceTimersByTimeAsync(5 * MINUTE + 1000);
+      expect(renewCalls()).toEqual([]);
+
+      act();
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(renewCalls()).toHaveLength(1);
+    });
+
+    it('asks at most every five seconds while the buyer scrolls against a renew that keeps failing', async () => {
+      await startedNearExpiry();
+      mockFetch.mockRejectedValue(fetchError(500, 'down'));
+      // Inside the last five minutes, between two checks.
+      await vi.advanceTimersByTimeAsync(5 * MINUTE + 1000);
+
+      for (let tick = 0; tick < 300; tick++) {
+        act('scroll');
+        await vi.advanceTimersByTimeAsync(100);
+      }
+
+      // Every five seconds over 30 s, and the 30 s check: not one per answer.
+      expect(renewCalls().length).toBeGreaterThan(0);
+      expect(renewCalls().length).toBeLessThanOrEqual(8);
+    });
+
+    it('sends nothing on activity while expiry is further away', async () => {
+      await startedNearExpiry();
+
+      await vi.advanceTimersByTimeAsync(MINUTE);
+      act();
+      await vi.advanceTimersByTimeAsync(1000);
+      act('keydown');
+      await vi.advanceTimersByTimeAsync(10_000);
+
+      expect(renewCalls()).toEqual([]);
+    });
+
+    describe('once expiry has passed on an idle page', () => {
+      it('asks the server once, and shows the expired face when it answers 410', async () => {
+        const { session } = await startedNearExpiry();
+        mockFetch.mockRejectedValue(fetchError(410, 'gone'));
+
+        await vi.advanceTimersByTimeAsync(10 * MINUTE);
+
+        expect(renewCalls()).toHaveLength(1);
+        expect(session.status.value).toBe('expired');
+        expect(session.error.value).toBeNull();
+
+        await vi.advanceTimersByTimeAsync(5 * MINUTE);
+        expect(renewCalls()).toHaveLength(1);
+      });
+
+      it('carries on, renewed, when the server still holds the session', async () => {
+        const { session } = await startedNearExpiry();
+        mockFetch.mockResolvedValue({ expiresAt: EXTENDED });
+
+        await vi.advanceTimersByTimeAsync(10 * MINUTE);
+
+        expect(renewCalls()).toHaveLength(1);
+        expect(session.status.value).toBe('active');
+        expect(session.configuration.value?.expiresAt).toBe(EXTENDED);
+
+        await vi.advanceTimersByTimeAsync(10 * MINUTE);
+        expect(renewCalls()).toHaveLength(1);
+      });
+
+      it('does not show the expired face while that renew is in flight; its answer decides', async () => {
+        const { session } = await startedNearExpiry();
+        const pending = deferred<{ expiresAt: string }>();
+        mockFetch.mockReturnValue(pending.promise);
+
+        await vi.advanceTimersByTimeAsync(10 * MINUTE);
+        expect(renewCalls()).toHaveLength(1);
+        await vi.advanceTimersByTimeAsync(2 * MINUTE);
+
+        expect(session.status.value).toBe('active');
+        expect(renewCalls()).toHaveLength(1);
+
+        pending.resolve({ expiresAt: EXTENDED });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(session.status.value).toBe('active');
+        expect(session.configuration.value?.expiresAt).toBe(EXTENDED);
+      });
+
+      it('tries again on the next check when the renew fails another way', async () => {
+        const { session } = await startedNearExpiry();
+        mockFetch.mockRejectedValue(fetchError(500, 'down'));
+
+        await vi.advanceTimersByTimeAsync(10 * MINUTE);
+        expect(renewCalls()).toHaveLength(1);
+        expect(session.status.value).toBe('active');
+
+        await vi.advanceTimersByTimeAsync(MINUTE / 2);
+        expect(renewCalls()).toHaveLength(2);
+      });
+    });
+
+    describe('coming back to the tab', () => {
+      afterEach(() => {
+        Reflect.deleteProperty(document, 'visibilityState');
+      });
+
+      function showTab(state: 'visible' | 'hidden'): void {
+        Object.defineProperty(document, 'visibilityState', {
+          configurable: true,
+          get: () => state,
+        });
+        document.dispatchEvent(new Event('visibilitychange'));
+      }
+
+      it('asks at once, without waiting for a check the background tab held back', async () => {
+        const { session } = await startedNearExpiry();
+        mockFetch.mockRejectedValue(fetchError(410, 'gone'));
+        // A background tab's timers lag: the clock moves on, the checks do not.
+        vi.setSystemTime(NOW.getTime() + 11 * MINUTE);
+
+        showTab('visible');
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(renewCalls()).toHaveLength(1);
+        expect(session.status.value).toBe('expired');
+      });
+
+      it('asks nothing when the tab goes to the background', async () => {
+        await startedNearExpiry();
+        vi.setSystemTime(NOW.getTime() + 11 * MINUTE);
+
+        showTab('hidden');
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(renewCalls()).toEqual([]);
+      });
     });
 
     it('does not count activity from before the last change batch answered', async () => {
@@ -451,7 +589,7 @@ describe('useConfiguratorSession', () => {
       await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
       mockFetch.mockReset();
 
-      await vi.advanceTimersByTimeAsync(10 * MINUTE);
+      await vi.advanceTimersByTimeAsync(10 * MINUTE - 1);
 
       expect(renewCalls()).toEqual([]);
     });
@@ -1507,6 +1645,33 @@ describe('useConfiguratorSession', () => {
         status: 422,
         message: 'quantity refused',
       });
+      expect(session.notRestored.value).toBe(false);
+    });
+
+    it("drops the order's notice once it restores an order row's session, which then says only its own", async () => {
+      const held = makeCascadedConfiguration();
+      mockFetch.mockResolvedValue({ configuration: held, replayed: false });
+      const session = open();
+      await session.replay(PRODUCT_ID, {
+        publicOrderId: '6f1c2a9e-0b8d-4e3f-9a51-2c7d8e4b1f03',
+        row: 0,
+      });
+      expect(session.notReplayed.value).toBe(true);
+      mockFetch.mockReset();
+      mockFetch.mockRejectedValue(fetchError(410));
+      await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
+      mockFetch.mockReset();
+      mockFetch.mockResolvedValue({
+        configuration: makeCascadedConfiguration({
+          configurationId: 'restored',
+        }),
+        replayed: true,
+      });
+
+      await session.restore(PRODUCT_ID);
+
+      expect(lastRequest().url).toBe('/api/configurations/restore');
+      expect(session.notReplayed.value).toBe(false);
       expect(session.notRestored.value).toBe(false);
     });
 

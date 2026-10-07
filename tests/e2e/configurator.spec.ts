@@ -7,6 +7,7 @@ import {
   signedInState,
   waitForHydration,
 } from './helpers';
+import { localeText } from './locale-text';
 
 /**
  * Configurator E2E Tests
@@ -431,6 +432,9 @@ test.describe('Configurator', () => {
 
     const expired = page.getByTestId('configurator-panel-expired');
     await expect(expired).toBeVisible();
+    await expect(expired.getByRole('button')).toHaveText(
+      await localeText(page, 'configurator.panel.resume'),
+    );
     const restored = page.waitForResponse(
       (response) =>
         new URL(response.url()).pathname === '/api/configurations/restore' &&
@@ -452,6 +456,74 @@ test.describe('Configurator', () => {
     ).toHaveAttribute('data-selected', 'true');
     await expect(page.getByTestId('configurator-not-restored')).toHaveCount(0);
     await expect(page.getByTestId('configurator-panel-expiry')).toHaveCount(0);
+  });
+
+  test('shows the expired panel once the time has run out, without a click, and resumes with the choices', async ({
+    page,
+  }) => {
+    const unavailable = await unavailableReason(page);
+    outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
+    await page.clock.install();
+
+    const created = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/configurations' &&
+        response.request().method() === 'POST',
+    );
+    await openConfigurator(page);
+    const { configurationId } = (await (await created).json()) as {
+      configurationId: string;
+    };
+
+    await openSection(page, COLOUR_SECTION);
+    const changed = changeResponse(page);
+    await (await openColourSheet(page))
+      .locator(`[data-option-id="${PRICED_COLOUR}"]`)
+      .click();
+    const { expiresAt } = (await (await changed).json()) as {
+      expiresAt: string;
+    };
+    await expect(action(page)).toHaveAttribute('aria-busy', 'false');
+
+    // A released session answers exactly what an expired one does.
+    const released = await page.request.delete(
+      `/api/configurations/${configurationId}`,
+    );
+    expect(released.status()).toBe(204);
+
+    // Past expiry and the next check, with nothing touched on the page.
+    const asked = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname ===
+        `/api/configurations/${configurationId}/renew`,
+    );
+    const now = await page.evaluate(() => Date.now());
+    await page.clock.fastForward(Date.parse(expiresAt) - now + 31_000);
+    expect((await asked).status()).toBe(410);
+
+    const expired = page.getByTestId('configurator-panel-expired');
+    await expect(expired).toBeVisible();
+    await expect(expired.getByRole('button')).toHaveText(
+      await localeText(page, 'configurator.panel.resume'),
+    );
+    const restored = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/configurations/restore' &&
+        response.request().method() === 'POST',
+    );
+    await expired.getByRole('button').click();
+    const answer = await restored;
+    expect(answer.status()).toBe(200);
+    expect(((await answer.json()) as { replayed: boolean }).replayed).toBe(
+      true,
+    );
+
+    await expect(action(page)).toBeVisible({ timeout: 20000 });
+    await openSection(page, COLOUR_SECTION);
+    await expect(
+      colourGroup(page).locator(`[data-option-id="${PRICED_COLOUR}"]`),
+    ).toHaveAttribute('data-selected', 'true');
+    await expect(page.getByTestId('configurator-not-restored')).toHaveCount(0);
   });
 });
 

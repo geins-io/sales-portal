@@ -763,13 +763,16 @@ describe('ConfigurationPanel', () => {
   });
 
   describe('expired', () => {
-    it('offers a way to start over instead of an error', () => {
+    it('offers to resume instead of an error, with no icon that says reset', () => {
       const wrapper = mountPanel({ status: 'expired' });
       const expired = wrapper.find(
         '[data-testid="configurator-panel-expired"]',
       );
       expect(expired.text()).toContain('configurator.panel.expired');
-      expect(expired.text()).toContain('configurator.panel.start_over');
+      const button = expired.find('button');
+      expect(button.text()).toBe('configurator.panel.resume');
+      expect(button.find('[data-name="play"]').exists()).toBe(true);
+      expect(button.find('[data-name="rotate-ccw"]').exists()).toBe(false);
     });
 
     it('drops the specification and the price', () => {
@@ -794,11 +797,17 @@ describe('ConfigurationPanel', () => {
       );
       expect(expired.text()).toContain('configurator.edit.expired');
       expect(expired.text()).not.toContain('configurator.panel.expired');
-      expect(expired.text()).toContain('configurator.panel.start_over');
+      const button = expired.find('button');
+      expect(button.text()).toBe('configurator.edit.start_over');
+      expect(button.find('[data-name="rotate-ccw"]').exists()).toBe(true);
+      expect(button.find('[data-name="play"]').exists()).toBe(false);
     });
 
-    it('emits restart when start over is pressed', async () => {
-      const wrapper = mountPanel({ status: 'expired' });
+    it.each([
+      ['resume is', false],
+      ['start over in an edit is', true],
+    ])('emits restart when %s pressed', async (_case, editing) => {
+      const wrapper = mountPanel({ status: 'expired', editing });
       await wrapper
         .find('[data-testid="configurator-panel-expired"]')
         .find('button')

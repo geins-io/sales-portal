@@ -378,7 +378,7 @@
     },
     "panel": {
       "expired": "Die Konfigurationssitzung ist abgelaufen.",
-      "start_over": "Neu beginnen",
+      "resume": "Fortsetzen",
       "title": "Spezifikation",
       "net_price": "Nettopreis",
       "vat": "MwSt. ({rate}%)",
@@ -392,15 +392,16 @@
       "copy_quantity": "Menge: {count} Stk."
     },
     "edit": {
-      "marker": "Eine Position im Warenkorb wird bearbeitet",
+      "marker": "Ein Produkt im Warenkorb wird bearbeitet",
       "update": "Im Warenkorb aktualisieren",
       "revert": "Änderungen verwerfen",
       "cancel": "Bearbeitung abbrechen",
-      "expired": "Die Sitzung ist abgelaufen. Die Position im Warenkorb ist unverändert.",
-      "not_reopenable": "Die Konfiguration kann nicht erneut geöffnet werden. Konfigurieren Sie sie neu – die Position im Warenkorb bleibt unverändert, bis Sie aktualisieren.",
-      "line_gone": "Die Position ist nicht mehr im Warenkorb.",
-      "open_failed": "Die Position konnte gerade nicht geöffnet werden.",
-      "update_failed": "Die Position konnte nicht aktualisiert werden. Die Position im Warenkorb behält ihre bisherige Auswahl."
+      "expired": "Die Zeit für Ihre Änderung ist abgelaufen. Das Produkt im Warenkorb ist unverändert.",
+      "start_over": "Neu beginnen",
+      "not_reopenable": "Die Konfiguration kann nicht erneut geöffnet werden. Konfigurieren Sie sie neu – das Produkt im Warenkorb bleibt unverändert, bis Sie aktualisieren.",
+      "line_gone": "Das Produkt ist nicht mehr im Warenkorb.",
+      "open_failed": "Das Produkt im Warenkorb konnte gerade nicht geöffnet werden.",
+      "update_failed": "Das Produkt im Warenkorb konnte nicht aktualisiert werden. Es behält seine bisherige Auswahl."
     }
   },
   "account": {
