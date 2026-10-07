@@ -318,7 +318,7 @@
   "configurator": {
     "required": "Pakollinen",
     "required_status": {
-      "remaining": "Jäljellä olevat pakolliset valinnat:",
+      "remaining_count": "Jäljellä olevat pakolliset valinnat\u00a0({count})",
       "all_done": "Kaikki pakolliset valinnat on tehty",
       "unspecified": "Kokoonpano ei ole valmis."
     },

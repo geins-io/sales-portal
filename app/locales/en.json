@@ -318,7 +318,7 @@
   "configurator": {
     "required": "Required",
     "required_status": {
-      "remaining": "Required choices remaining:",
+      "remaining_count": "Required choices remaining\u00a0({count})",
       "all_done": "All required choices are made",
       "unspecified": "The configuration is not complete."
     },

@@ -1496,7 +1496,7 @@ describe('ConfiguratorProduct sections rail', () => {
     ).toHaveLength(0);
   });
 
-  it('renders a one-item rail for a document with a single visible section', async () => {
+  it('renders a one-item rail and no pager for a document with a single visible section', async () => {
     // The cabinet seed carries two visible sections and one hidden one, so the
     // one-section shape is made here rather than taken from a seed: a layout
     // that switched on a count is the rule this replaced.
@@ -1511,12 +1511,46 @@ describe('ConfiguratorProduct sections rail', () => {
 
     expect(railIds(wrapper)).toEqual(['cabinet']);
     expect(activeSectionId(wrapper)).toBe('cabinet');
+    for (const id of [
+      'configurator-prev',
+      'configurator-position',
+      'configurator-next',
+    ]) {
+      expect(wrapper.find(`[data-testid="${id}"]`).exists()).toBe(false);
+    }
+  });
+
+  it('keeps the pager when there are two visible sections', async () => {
+    const wrapper = mountPage();
+    activeWith(makeCabinetConfiguration());
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="configurator-position"]').text()).toBe(
+      'configurator.section_position {"current":1,"total":2}',
+    );
     expect(
       wrapper.find('[data-testid="configurator-prev"]').attributes('disabled'),
     ).toBeDefined();
     expect(
       wrapper.find('[data-testid="configurator-next"]').attributes('disabled'),
-    ).toBeDefined();
+    ).toBeUndefined();
+  });
+
+  it('counts a visible nested section towards the pager', async () => {
+    const nested = makeCabinetConfiguration();
+    const [cabinet, interior] = nested.sections.filter(
+      (section) => section.visible,
+    );
+    nested.sections = [{ ...cabinet!, sections: [interior!] }];
+
+    const wrapper = mountPage();
+    activeWith(nested);
+    await nextTick();
+
+    expect(railIds(wrapper)).toEqual(['cabinet', 'interior']);
+    expect(wrapper.find('[data-testid="configurator-position"]').text()).toBe(
+      'configurator.section_position {"current":1,"total":2}',
+    );
   });
 
   it('renders no rail and no pager for a document with no visible section', async () => {
@@ -1647,6 +1681,34 @@ describe('ConfiguratorProduct section trail', () => {
     expect(
       wrapper.find('[data-testid="configurator-section-number"]').text(),
     ).toBe('1.1.1');
+  });
+
+  it('draws no number before the title of a single visible section, and keeps it in the rail', async () => {
+    const single = makeCabinetConfiguration();
+    single.sections = single.sections.filter(
+      (section) => section.id !== 'interior',
+    );
+
+    const wrapper = mountPage();
+    activeWith(single);
+    await nextTick();
+
+    expect(
+      wrapper.find('[data-testid="configurator-section-number"]').exists(),
+    ).toBe(false);
+    expect(
+      wrapper.find('[data-testid="configurator-rail-number"]').text(),
+    ).toBe('1');
+  });
+
+  it('numbers the title when there are two visible sections', async () => {
+    const wrapper = mountPage();
+    activeWith(makeCabinetConfiguration());
+    await nextTick();
+
+    expect(
+      wrapper.find('[data-testid="configurator-section-number"]').text(),
+    ).toBe('1');
   });
 
   it('keeps the position line a flat count of the rail', async () => {
@@ -2037,6 +2099,25 @@ describe('ConfiguratorProduct required status', () => {
     expect(holder.contains(rail)).toBe(true);
     expect(holder.className).toContain('lg:sticky');
     expect(holder.className).toContain('lg:top-48');
+  });
+
+  it('ends the sticky column above the viewport bottom, the rail keeping its height', async () => {
+    // 13rem is the 192 px sticky top plus 16 px of air, as for the aside. The
+    // rail and its divider do not shrink, so what is left goes to the status.
+    const wrapper = await formWith(makeSectionTreeConfiguration());
+    const status = wrapper.find('[data-testid="required-status"]').element;
+    const holder = status.parentElement!;
+    expect(Array.from(holder.classList)).toEqual(
+      expect.arrayContaining([
+        'lg:flex',
+        'lg:flex-col',
+        'lg:max-h-[calc(100vh-13rem)]',
+      ]),
+    );
+    expect(
+      wrapper.find('[data-testid="configurator-rail"]').classes(),
+    ).toContain('lg:shrink-0');
+    expect(status.previousElementSibling!.classList).toContain('lg:shrink-0');
   });
 
   it('shows the status at every width, while the rail is hidden below lg', async () => {
