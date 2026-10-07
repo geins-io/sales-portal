@@ -348,6 +348,7 @@
     "add_retry": "Prøv igen",
     "not_reopened": "Dine valg kunne ikke indlæses igen. Konfigurationen ligger i kurven.",
     "not_replayed": "Valgene fra ordren kunne ikke indlæses. Du ser standardvalgene.",
+    "not_restored": "Dine tidligere valg kunne ikke hentes tilbage. Du ser standardvalgene.",
     "starting": "Indlæser produktkonfiguratoren",
     "failed": "Noget gik galt. Genindlæs siden, og prøv igen.",
     "change_refused_value": "Værdien blev ikke accepteret. Prøv en anden værdi.",
@@ -374,9 +375,6 @@
       "unit_price": "Pris pr. enhed"
     },
     "panel": {
-      "time_left": "{time} tilbage",
-      "renew": "Forlæng session",
-      "renew_failed": "Sessionen kunne ikke forlænges.",
       "expired": "Konfigurationssessionen er udløbet.",
       "start_over": "Start forfra",
       "title": "Specifikation",

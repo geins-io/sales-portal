@@ -348,6 +348,7 @@
     "add_retry": "Försök igen",
     "not_reopened": "Dina val kunde inte laddas in igen. Konfigurationen ligger i varukorgen.",
     "not_replayed": "Valen från ordern kunde inte laddas in. Du ser standardvalen.",
+    "not_restored": "Dina tidigare val kunde inte tas tillbaka. Du ser standardvalen.",
     "starting": "Laddar in produktkonfiguratorn",
     "failed": "Något gick fel. Ladda om sidan och försök igen.",
     "change_refused_value": "Värdet godtogs inte. Prova ett annat värde.",
@@ -374,9 +375,6 @@
       "unit_price": "Pris per enhet"
     },
     "panel": {
-      "time_left": "{time} kvar",
-      "renew": "Förläng sessionen",
-      "renew_failed": "Sessionen kunde inte förlängas.",
       "expired": "Konfigurationssessionen har gått ut.",
       "start_over": "Börja om",
       "title": "Specifikation",

@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { effectScope, watch, type EffectScope } from 'vue';
 import type {
@@ -39,6 +40,7 @@ vi.stubGlobal('$fetch', mockFetch);
 
 const { useConfiguratorSession } =
   await import('../../../app/composables/useConfiguratorSession');
+const { choicesOf } = await import('../../../app/utils/configurator-replay');
 
 const PRODUCT_ID = '900000000000123';
 const NOW = new Date('2026-01-01T12:00:00.000Z');
@@ -215,13 +217,6 @@ describe('useConfiguratorSession', () => {
 
       expect(mockFetch).not.toHaveBeenCalled();
     });
-
-    it('has nothing to count down before it starts', () => {
-      const session = open();
-
-      expect(session.expiresAt.value).toBeNull();
-      expect(session.remainingMs.value).toBe(0);
-    });
   });
 
   describe('applyChanges', () => {
@@ -364,41 +359,332 @@ describe('useConfiguratorSession', () => {
     });
   });
 
-  describe('renew', () => {
-    it('updates expiresAt and the remaining time', async () => {
-      const initial = makeInitialConfiguration({
-        expiresAt: new Date(NOW.getTime() + 60_000).toISOString(),
+  describe('the silent renew', () => {
+    const MINUTE = 60_000;
+    const EXTENDED = new Date(NOW.getTime() + 240 * MINUTE).toISOString();
+
+    /** A session ten minutes from expiry, answered at NOW. */
+    async function startedNearExpiry(): Promise<{
+      session: ReturnType<typeof useConfiguratorSession>;
+      scope: EffectScope;
+      held: Configuration;
+    }> {
+      const held = makeInitialConfiguration({
+        expiresAt: new Date(NOW.getTime() + 10 * MINUTE).toISOString(),
       });
-      mockFetch.mockResolvedValue(initial);
-      const session = open();
+      mockFetch.mockResolvedValue(held);
+      const { session, scope } = startSession();
+      scopes.push(scope);
       await session.start(PRODUCT_ID);
-      expect(session.remainingMs.value).toBe(60_000);
+      mockFetch.mockReset();
+      return { session, scope, held };
+    }
 
-      const extended = new Date(NOW.getTime() + 900_000).toISOString();
-      mockFetch.mockResolvedValue({ expiresAt: extended });
+    function renewCalls(): string[] {
+      return mockFetch.mock.calls
+        .map(([url]) => url)
+        .filter((url) => url.endsWith('/renew'));
+    }
 
-      await session.renew();
+    function act(type = 'pointerdown'): void {
+      window.dispatchEvent(new Event(type));
+    }
 
-      const { url, options } = lastRequest();
-      expect(url).toBe(`/api/configurations/${initial.configurationId}/renew`);
-      expect(options.method).toBe('POST');
-      expect(session.expiresAt.value).toBe(extended);
-      expect(session.remainingMs.value).toBe(900_000);
-      expect(session.configuration.value?.sections).toEqual(initial.sections);
+    it('renews, near expiry, a session whose buyer has been active since it last answered', async () => {
+      const { session, held } = await startedNearExpiry();
+      mockFetch.mockResolvedValue({ expiresAt: EXTENDED });
+
+      await vi.advanceTimersByTimeAsync(MINUTE);
+      act();
+      await vi.advanceTimersByTimeAsync(5 * MINUTE);
+
+      expect(renewCalls()).toEqual([
+        `/api/configurations/${held.configurationId}/renew`,
+      ]);
+      expect(lastRequest().options.method).toBe('POST');
+      expect(session.configuration.value?.expiresAt).toBe(EXTENDED);
+      expect(session.configuration.value?.sections).toEqual(held.sections);
     });
 
-    it('counts down while the session is open', async () => {
+    it.each(['pointerdown', 'keydown', 'wheel', 'touchmove', 'scroll'])(
+      'counts a %s as activity',
+      async (type) => {
+        await startedNearExpiry();
+        mockFetch.mockResolvedValue({ expiresAt: EXTENDED });
+
+        await vi.advanceTimersByTimeAsync(MINUTE);
+        act(type);
+        await vi.advanceTimersByTimeAsync(5 * MINUTE);
+
+        expect(renewCalls()).toHaveLength(1);
+      },
+    );
+
+    it('does not count a moving cursor, or coming back to the tab, as activity', async () => {
+      await startedNearExpiry();
+
+      await vi.advanceTimersByTimeAsync(MINUTE);
+      act('mousemove');
+      document.dispatchEvent(new Event('visibilitychange'));
+      await vi.advanceTimersByTimeAsync(10 * MINUTE);
+
+      expect(renewCalls()).toEqual([]);
+    });
+
+    it('sends nothing from an idle page, right up to expiry', async () => {
+      await startedNearExpiry();
+
+      await vi.advanceTimersByTimeAsync(11 * MINUTE);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('does not count activity from before the last change batch answered', async () => {
+      const { session } = await startedNearExpiry();
+      act();
+      await vi.advanceTimersByTimeAsync(MINUTE);
       mockFetch.mockResolvedValue(
-        makeInitialConfiguration({
-          expiresAt: new Date(NOW.getTime() + 60_000).toISOString(),
+        makeCascadedConfiguration({
+          expiresAt: new Date(NOW.getTime() + 11 * MINUTE).toISOString(),
         }),
       );
-      const session = open();
+      await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
+      mockFetch.mockReset();
+
+      await vi.advanceTimersByTimeAsync(10 * MINUTE);
+
+      expect(renewCalls()).toEqual([]);
+    });
+
+    it('waits for the last five minutes, however active the buyer', async () => {
+      await startedNearExpiry();
+      mockFetch.mockResolvedValue({ expiresAt: EXTENDED });
+
+      await vi.advanceTimersByTimeAsync(MINUTE);
+      act();
+      await vi.advanceTimersByTimeAsync(3 * MINUTE + MINUTE / 2);
+
+      expect(renewCalls()).toEqual([]);
+    });
+
+    it('renews once, then waits for the next approach to expiry', async () => {
+      await startedNearExpiry();
+      mockFetch.mockResolvedValue({
+        expiresAt: new Date(NOW.getTime() + 20 * MINUTE).toISOString(),
+      });
+
+      await vi.advanceTimersByTimeAsync(MINUTE);
+      act();
+      await vi.advanceTimersByTimeAsync(5 * MINUTE);
+      expect(renewCalls()).toHaveLength(1);
+
+      // Idle since the renew answered: nothing more, however near expiry.
+      await vi.advanceTimersByTimeAsync(10 * MINUTE);
+      expect(renewCalls()).toHaveLength(1);
+
+      act();
+      await vi.advanceTimersByTimeAsync(MINUTE);
+      expect(renewCalls()).toHaveLength(2);
+    });
+
+    it('never locks the form and never reports, so a change during it still goes out', async () => {
+      const { session, held } = await startedNearExpiry();
+      const pending = deferred<{ expiresAt: string }>();
+      const changed = makeCascadedConfiguration({
+        configurationId: held.configurationId,
+        expiresAt: new Date(NOW.getTime() + 60 * MINUTE).toISOString(),
+      });
+      mockFetch.mockImplementation((url) =>
+        url.endsWith('/renew') ? pending.promise : Promise.resolve(changed),
+      );
+
+      await vi.advanceTimersByTimeAsync(MINUTE);
+      act();
+      await vi.advanceTimersByTimeAsync(5 * MINUTE);
+      expect(renewCalls()).toHaveLength(1);
+      expect(session.busy.value).toBe(false);
+
+      await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
+      expect(lastRequest().url).toBe(
+        `/api/configurations/${held.configurationId}/changes`,
+      );
+      expect(session.configuration.value).toEqual(changed);
+
+      pending.resolve({ expiresAt: EXTENDED });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(session.configuration.value?.expiresAt).toBe(EXTENDED);
+      expect(session.configuration.value?.sections).toEqual(changed.sections);
+      expect(session.error.value).toBeNull();
+    });
+
+    it('keeps the later expiry when a batch answered after the renew was sent', async () => {
+      const { session, held } = await startedNearExpiry();
+      const pending = deferred<{ expiresAt: string }>();
+      const later = new Date(NOW.getTime() + 245 * MINUTE).toISOString();
+      mockFetch.mockImplementation((url) =>
+        url.endsWith('/renew')
+          ? pending.promise
+          : Promise.resolve(
+              makeCascadedConfiguration({
+                configurationId: held.configurationId,
+                expiresAt: later,
+              }),
+            ),
+      );
+
+      await vi.advanceTimersByTimeAsync(MINUTE);
+      act();
+      await vi.advanceTimersByTimeAsync(4 * MINUTE);
+      expect(renewCalls()).toHaveLength(1);
+      await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
+
+      // Sent before the batch, so its expiry is the earlier of the two.
+      pending.resolve({ expiresAt: EXTENDED });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(session.configuration.value?.expiresAt).toBe(later);
+    });
+
+    it('leaves a check to the batch in flight, which moves expiry itself', async () => {
+      const { session } = await startedNearExpiry();
+      const pending = deferred<Configuration>();
+      mockFetch.mockReturnValue(pending.promise);
+
+      await vi.advanceTimersByTimeAsync(5 * MINUTE + MINUTE / 2);
+      act();
+      const batch = session.applyChanges([{ type: 'quantity', quantity: 2 }]);
+      await vi.advanceTimersByTimeAsync(MINUTE);
+
+      expect(renewCalls()).toEqual([]);
+      pending.resolve(makeCascadedConfiguration());
+      await batch;
+    });
+
+    it('shows the expired state at once when the renew answers 410', async () => {
+      const { session } = await startedNearExpiry();
+      mockFetch.mockRejectedValue(fetchError(410, 'gone'));
+
+      await vi.advanceTimersByTimeAsync(MINUTE);
+      act();
+      await vi.advanceTimersByTimeAsync(5 * MINUTE);
+
+      expect(session.status.value).toBe('expired');
+      expect(session.error.value).toBeNull();
+    });
+
+    it('shows nothing when the renew fails another way, and tries again on the next check', async () => {
+      const { session, held } = await startedNearExpiry();
+      mockFetch.mockRejectedValue(fetchError(500, 'down'));
+
+      await vi.advanceTimersByTimeAsync(MINUTE);
+      act();
+      // The first check inside the window, five minutes before expiry.
+      await vi.advanceTimersByTimeAsync(4 * MINUTE);
+
+      expect(renewCalls()).toHaveLength(1);
+      expect(session.status.value).toBe('active');
+      expect(session.error.value).toBeNull();
+      expect(session.busy.value).toBe(false);
+      expect(session.configuration.value?.expiresAt).toBe(held.expiresAt);
+
+      await vi.advanceTimersByTimeAsync(MINUTE / 2);
+      expect(renewCalls()).toHaveLength(2);
+    });
+
+    it('drops an answer for a session the page no longer holds', async () => {
+      const { session } = await startedNearExpiry();
+      const pending = deferred<{ expiresAt: string }>();
+      mockFetch.mockReturnValue(pending.promise);
+
+      await vi.advanceTimersByTimeAsync(MINUTE);
+      act();
+      await vi.advanceTimersByTimeAsync(5 * MINUTE);
+      expect(renewCalls()).toHaveLength(1);
+
+      // Earlier than the renew's, so only the session check keeps it.
+      const soon = new Date(NOW.getTime() + 30 * MINUTE).toISOString();
+      const next = makeInitialConfiguration({
+        configurationId: 'next',
+        expiresAt: soon,
+      });
+      mockFetch.mockReset();
+      mockFetch.mockResolvedValue(null);
+      await session.release();
+      mockFetch.mockResolvedValue(next);
       await session.start(PRODUCT_ID);
 
-      await vi.advanceTimersByTimeAsync(10_000);
+      pending.resolve({ expiresAt: EXTENDED });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(session.configuration.value?.configurationId).toBe('next');
+      expect(session.configuration.value?.expiresAt).toBe(soon);
+    });
 
-      expect(session.remainingMs.value).toBe(50_000);
+    it('renews nothing once the session has expired, however active the buyer', async () => {
+      const { session } = await startedNearExpiry();
+      mockFetch.mockRejectedValue(fetchError(410));
+      await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
+      mockFetch.mockReset();
+
+      await vi.advanceTimersByTimeAsync(MINUTE);
+      act();
+      await vi.advanceTimersByTimeAsync(5 * MINUTE);
+
+      expect(session.status.value).toBe('expired');
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('does not expire a session the page no longer holds on a late 410', async () => {
+      const { session } = await startedNearExpiry();
+      let fail!: (cause: unknown) => void;
+      mockFetch.mockReturnValue(
+        new Promise((_, reject) => {
+          fail = reject;
+        }),
+      );
+
+      await vi.advanceTimersByTimeAsync(MINUTE);
+      act();
+      await vi.advanceTimersByTimeAsync(5 * MINUTE);
+
+      mockFetch.mockReset();
+      mockFetch.mockResolvedValue(null);
+      await session.release();
+      mockFetch.mockResolvedValue(
+        makeInitialConfiguration({ configurationId: 'next' }),
+      );
+      await session.start(PRODUCT_ID);
+
+      fail(fetchError(410));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(session.status.value).toBe('active');
+    });
+
+    it('renews nothing once the session is committed', async () => {
+      const { session, held } = await startedNearExpiry();
+      mockFetch.mockResolvedValue(committedFrom(held));
+      await session.commit();
+      mockFetch.mockReset();
+
+      act();
+      await vi.advanceTimersByTimeAsync(10 * MINUTE);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('renews nothing, and drops what is in flight, once the page has gone', async () => {
+      const { scope } = await startedNearExpiry();
+      mockFetch.mockReturnValue(new Promise(() => {}));
+
+      await vi.advanceTimersByTimeAsync(MINUTE);
+      act();
+      await vi.advanceTimersByTimeAsync(5 * MINUTE);
+      expect(renewCalls()).toHaveLength(1);
+      const { signal } = lastRequest().options;
+
+      scope.stop();
+      expect(signal?.aborted).toBe(true);
+      act();
+      await vi.advanceTimersByTimeAsync(5 * MINUTE);
+      expect(renewCalls()).toHaveLength(1);
     });
 
     it('reads expiresAt from a change response too', async () => {
@@ -412,7 +698,7 @@ describe('useConfiguratorSession', () => {
       );
       await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
 
-      expect(session.expiresAt.value).toBe(later);
+      expect(session.configuration.value?.expiresAt).toBe(later);
     });
   });
 
@@ -441,19 +727,10 @@ describe('useConfiguratorSession', () => {
       expect(session.configuration.value).toEqual(held);
     });
 
-    it('expires on a 410 from renew as well', async () => {
-      const session = await started();
-      mockFetch.mockRejectedValue(fetchError(410, 'The configuration expired'));
-
-      await session.renew();
-
-      expect(session.status.value).toBe('expired');
-    });
-
     it('sends nothing more once the session has expired', async () => {
       const session = await started();
       mockFetch.mockRejectedValue(fetchError(410));
-      await session.renew();
+      await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
       mockFetch.mockReset();
 
       await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
@@ -462,18 +739,10 @@ describe('useConfiguratorSession', () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it('stops the countdown when the session expires', async () => {
-      const session = await started();
-      mockFetch.mockRejectedValue(fetchError(410));
-      await session.renew();
-
-      expect(session.remainingMs.value).toBe(0);
-    });
-
     it('starts over on a fresh session after one expired', async () => {
       const session = await started();
       mockFetch.mockRejectedValue(fetchError(410));
-      await session.renew();
+      await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
 
       const replacement = makeInitialConfiguration({
         configurationId: 'second-session',
@@ -535,7 +804,6 @@ describe('useConfiguratorSession', () => {
       await session.commit();
       mockFetch.mockReset();
 
-      await session.renew();
       await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
       await session.release();
 
@@ -702,7 +970,6 @@ describe('useConfiguratorSession', () => {
       const submitted = session.commit();
       await vi.waitFor(() => expect(addLine).toHaveBeenCalled());
       await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
-      await session.renew();
       await session.release();
       await session.commit();
       await session.retryAdd();
@@ -1157,6 +1424,166 @@ describe('useConfiguratorSession', () => {
       mockFetch.mockResolvedValue(null);
       await other.release();
       expect(other.notReplayed.value).toBe(false);
+    });
+  });
+
+  describe('restoring the choices after expiry', () => {
+    async function expired(
+      held = makeCascadedConfiguration(),
+    ): Promise<ReturnType<typeof useConfiguratorSession>> {
+      mockFetch.mockResolvedValue(held);
+      const session = open();
+      await session.start(PRODUCT_ID);
+      mockFetch.mockReset();
+      mockFetch.mockRejectedValue(fetchError(410));
+      await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
+      mockFetch.mockReset();
+      return session;
+    }
+
+    it("sends the expired document's choices and quantity to a new session, and holds it", async () => {
+      const held = makeCascadedConfiguration({ quantity: 3 });
+      const session = await expired(held);
+      const restored = makeCascadedConfiguration({
+        configurationId: 'restored',
+      });
+      mockFetch.mockResolvedValue({ configuration: restored, replayed: true });
+
+      await session.restore(PRODUCT_ID);
+
+      const { url, options } = lastRequest();
+      expect(url).toBe('/api/configurations/restore');
+      expect(options.method).toBe('POST');
+      expect(options.body).toEqual({
+        productId: PRODUCT_ID,
+        quantity: 3,
+        ...choicesOf(held),
+      });
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(session.configuration.value).toEqual(restored);
+      expect(session.status.value).toBe('active');
+      expect(session.notRestored.value).toBe(false);
+      expect(session.notReplayed.value).toBe(false);
+    });
+
+    it('holds the session it is given and says the choices did not come back', async () => {
+      const session = await expired();
+      const fresh = makeInitialConfiguration({ configurationId: 'fresh' });
+      mockFetch.mockResolvedValue({ configuration: fresh, replayed: false });
+
+      await session.restore(PRODUCT_ID);
+
+      expect(session.configuration.value).toEqual(fresh);
+      expect(session.status.value).toBe('active');
+      expect(session.notRestored.value).toBe(true);
+      expect(session.notReplayed.value).toBe(false);
+      expect(session.error.value).toBeNull();
+    });
+
+    it('leaves the expired face while it runs, which the page shows as loading', async () => {
+      const session = await expired();
+      const pending = deferred<unknown>();
+      mockFetch.mockReturnValue(pending.promise);
+
+      const restoring = session.restore(PRODUCT_ID);
+
+      expect(session.status.value).toBe('closed');
+      expect(session.busy.value).toBe(true);
+      pending.resolve({
+        configuration: makeInitialConfiguration(),
+        replayed: true,
+      });
+      await restoring;
+    });
+
+    it('fails as a start fails when no session could be created', async () => {
+      const session = await expired();
+      mockFetch.mockRejectedValue(fetchError(422, 'quantity refused'));
+
+      await session.restore(PRODUCT_ID);
+
+      expect(session.status.value).toBe('closed');
+      expect(session.error.value).toEqual({
+        status: 422,
+        message: 'quantity refused',
+      });
+      expect(session.notRestored.value).toBe(false);
+    });
+
+    it('starts from the defaults when it holds no document to restore', async () => {
+      const session = open();
+      const fresh = makeInitialConfiguration();
+      mockFetch.mockResolvedValue(fresh);
+
+      await session.restore(PRODUCT_ID);
+
+      expect(lastRequest().url).toBe('/api/configurations');
+      expect(lastRequest().options.body).toEqual({
+        productId: PRODUCT_ID,
+        quantity: 1,
+      });
+      expect(session.configuration.value).toEqual(fresh);
+    });
+
+    it('restores nothing while a session is active, nor on the server', async () => {
+      mockFetch.mockResolvedValue(makeInitialConfiguration());
+      const session = open();
+      await session.start(PRODUCT_ID);
+      mockFetch.mockReset();
+
+      await session.restore(PRODUCT_ID);
+      expect(mockFetch).not.toHaveBeenCalled();
+
+      const other = await expired();
+      browser.value = false;
+      await other.restore(PRODUCT_ID);
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(other.status.value).toBe('expired');
+    });
+
+    it('starts a later fresh session at the restored quantity', async () => {
+      const held = makeCascadedConfiguration({ quantity: 3 });
+      const scope = effectScope();
+      const session = scope.run(() =>
+        useConfiguratorSession({ addLine: async () => null }),
+      );
+      if (!session) throw new Error('The scope produced no session');
+      scopes.push(scope);
+      mockFetch.mockResolvedValue(held);
+      await session.start(PRODUCT_ID);
+      mockFetch.mockRejectedValue(fetchError(410));
+      await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
+      mockFetch.mockResolvedValue({ configuration: held, replayed: true });
+      await session.restore(PRODUCT_ID);
+      mockFetch.mockReset();
+      mockFetch.mockImplementation(async (url) =>
+        url.endsWith('/commit') ? committedFrom(held) : held,
+      );
+
+      await session.commit();
+
+      expect(lastRequest().url).toBe('/api/configurations');
+      expect(lastRequest().options.body).toEqual({
+        productId: PRODUCT_ID,
+        quantity: 3,
+      });
+    });
+
+    it('stops saying so once the buyer commits, and once the session is released', async () => {
+      const fresh = makeInitialConfiguration();
+      const session = await expired();
+      mockFetch.mockResolvedValue({ configuration: fresh, replayed: false });
+      await session.restore(PRODUCT_ID);
+      mockFetch.mockResolvedValue(committedFrom(fresh));
+      await session.commit();
+      expect(session.notRestored.value).toBe(false);
+
+      const other = await expired();
+      mockFetch.mockResolvedValue({ configuration: fresh, replayed: false });
+      await other.restore(PRODUCT_ID);
+      mockFetch.mockResolvedValue(null);
+      await other.release();
+      expect(other.notRestored.value).toBe(false);
     });
   });
 

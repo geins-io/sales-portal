@@ -221,6 +221,20 @@ export interface CreateConfigurationInput {
   quantity: number;
 }
 
+/**
+ * The choices a configuration holds, as a replay sends them into a new
+ * session: every variable that carries a value and every selected option,
+ * flattened.
+ */
+export interface ConfigurationChoices {
+  variables: { id: string; value: ConfigurationValue }[];
+  options: { id: string; instanceId: string; quantity: number }[];
+}
+
+/** A new session holding the choices of one that has expired. */
+export type RestoreConfigurationInput = CreateConfigurationInput &
+  ConfigurationChoices;
+
 export interface ConfigurationSummaryLine {
   label: string;
   value: string;

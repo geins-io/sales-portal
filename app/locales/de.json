@@ -348,6 +348,7 @@
     "add_retry": "Erneut versuchen",
     "not_reopened": "Ihre Auswahl konnte nicht erneut geladen werden. Die Konfiguration liegt im Warenkorb.",
     "not_replayed": "Die Auswahl aus der Bestellung konnte nicht geladen werden. Sie sehen die Standardauswahl.",
+    "not_restored": "Ihre vorherige Auswahl konnte nicht wiederhergestellt werden. Sie sehen die Standardauswahl.",
     "starting": "Der Produktkonfigurator wird geladen",
     "failed": "Etwas ist schiefgelaufen. Laden Sie die Seite neu und versuchen Sie es erneut.",
     "change_refused_value": "Der Wert wurde nicht akzeptiert. Versuchen Sie einen anderen Wert.",
@@ -374,9 +375,6 @@
       "unit_price": "Preis pro Einheit"
     },
     "panel": {
-      "time_left": "{time} verbleibend",
-      "renew": "Sitzung verlängern",
-      "renew_failed": "Die Sitzung konnte nicht verlängert werden.",
       "expired": "Die Konfigurationssitzung ist abgelaufen.",
       "start_over": "Neu beginnen",
       "title": "Spezifikation",

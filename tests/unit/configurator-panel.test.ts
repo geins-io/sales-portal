@@ -4,7 +4,6 @@ import type { Configuration } from '#shared/types/configurator';
 import {
   collectBlockingItems,
   collectBlockingMessages,
-  formatRemaining,
   groupSpecificationRows,
   specificationRows,
   specificationText,
@@ -465,31 +464,6 @@ describe('unnamedBlockingMessages', () => {
     expect(unnamedBlockingMessages(config)).toEqual([
       'The width is out of range.',
     ]);
-  });
-});
-
-describe('formatRemaining', () => {
-  it('pads the seconds', () => {
-    expect(formatRemaining(64_000)).toBe('1:04');
-  });
-
-  it('renders a whole minute', () => {
-    expect(formatRemaining(120_000)).toBe('2:00');
-  });
-
-  it('drops the part of a second that is not yet whole', () => {
-    expect(formatRemaining(59_999)).toBe('0:59');
-  });
-
-  it('floors at zero for an elapsed session', () => {
-    expect(formatRemaining(0)).toBe('0:00');
-    expect(formatRemaining(-5_000)).toBe('0:00');
-  });
-
-  it('keeps counting in minutes past an hour', () => {
-    // A session lasts minutes, so an hours field would be a branch no
-    // document can reach.
-    expect(formatRemaining(3_904_000)).toBe('65:04');
   });
 });
 
