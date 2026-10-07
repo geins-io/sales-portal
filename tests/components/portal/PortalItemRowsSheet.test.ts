@@ -167,6 +167,20 @@ describe('PortalItemRowsSheet', () => {
       ]);
     });
 
+    it('offers the toggle on a row committed with the defaults only, and says so opened', async () => {
+      const wrapper = mountSheet({
+        items: [{ ...items[0]!, configuration: { summary: [] } }],
+      });
+
+      await wrapper
+        .find('[data-testid="cart-item-configuration-toggle"]')
+        .trigger('click');
+
+      expect(
+        wrapper.find('[data-testid="cart-item-configuration-default"]').text(),
+      ).toBe('cart.default_configuration');
+    });
+
     it('marks it "Konfigurerad produkt" under its name', () => {
       const [first, second] = mountSheet({ items: configured }).findAll(
         '[data-testid="item-rows-row"]',

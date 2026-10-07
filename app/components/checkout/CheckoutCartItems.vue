@@ -111,7 +111,7 @@ function handleRemove(item: CartItemType) {
                 @update:model-value="handleQuantityUpdate(item, $event)"
               />
             </div>
-            <div v-if="item.configuration?.summary.length" class="mt-3">
+            <div v-if="item.configuration" class="mt-3">
               <LineConfigurationSummary
                 :id="`checkout-cart-item-configuration-${item.id}`"
                 :summary="item.configuration.summary"

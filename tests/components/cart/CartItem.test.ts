@@ -299,16 +299,37 @@ describe('CartItem', () => {
         cart.isOpen = true;
       });
 
-      it('offers to change the configuration at the foot of the expanded block, as the design reference does', () => {
-        const wrapper = mountLine(configuredItem);
-
+      /** The edit link precedes the toggle and sits outside the block. */
+      function expectEditAboveToggle(wrapper: ReturnType<typeof mountLine>) {
         const edit = editOf(wrapper);
         expect(edit.text()).toBe('cart.edit_configuration');
-        const foot = blockOf(wrapper).element.lastElementChild;
-        expect(foot?.getAttribute('data-testid')).toBe(
-          'cart-item-configuration-foot',
-        );
-        expect(foot?.contains(edit.element)).toBe(true);
+        expect(
+          edit.element.compareDocumentPosition(toggleOf(wrapper).element) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(blockOf(wrapper).element.contains(edit.element)).toBe(false);
+      }
+
+      it('offers to change the configuration above the toggle, whether the summary is closed or open', async () => {
+        const wrapper = mountLine(configuredItem);
+
+        expect(shown(wrapper)).toBe(false);
+        expectEditAboveToggle(wrapper);
+
+        await toggleOf(wrapper).trigger('click');
+
+        expect(shown(wrapper)).toBe(true);
+        expectEditAboveToggle(wrapper);
+      });
+
+      it('offers to change a line committed with the defaults only, above its toggle', () => {
+        const wrapper = mountLine({
+          ...configuredItem,
+          configuration: { configurationId: 'committed-1', summary: [] },
+        });
+
+        expect(toggleOf(wrapper).text()).toBe('cart.show_configuration');
+        expectEditAboveToggle(wrapper);
       });
 
       it("links to the product's canonical page with the cart and the line, so the canonical redirect cannot drop them", () => {
@@ -406,7 +427,7 @@ describe('CartItem', () => {
       expect(last?.find('dd').exists()).toBe(true);
     });
 
-    it('renders a configured line without a summary without the block', () => {
+    it('offers the toggle on a line committed with the defaults only, and says so opened', async () => {
       const wrapper = mountLine({
         ...mockItem,
         configuration: { configurationId: 'committed-1', summary: [] },
@@ -415,8 +436,16 @@ describe('CartItem', () => {
       expect(
         wrapper.find('[data-testid="cart-item-configured"]').exists(),
       ).toBe(true);
-      expect(toggleOf(wrapper).exists()).toBe(false);
-      expect(blockOf(wrapper).exists()).toBe(false);
+      expect(shown(wrapper)).toBe(false);
+
+      await toggleOf(wrapper).trigger('click');
+
+      expect(shown(wrapper)).toBe(true);
+      expect(
+        blockOf(wrapper)
+          .find('[data-testid="cart-item-configuration-default"]')
+          .text(),
+      ).toBe('cart.default_configuration');
     });
 
     it('leaves an ordinary line as it was', () => {

@@ -288,6 +288,7 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                   <tr
                     v-for="(item, index) in order?.cart?.items"
                     :key="index"
+                    :class="{ 'align-top': item?.configuration }"
                     data-testid="order-item-row"
                   >
                     <td class="h-24 px-4 py-2">
@@ -326,10 +327,7 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                           </p>
                         </div>
                       </div>
-                      <div
-                        v-if="item?.configuration?.summary.length"
-                        class="mt-2 pl-13"
-                      >
+                      <div v-if="item?.configuration" class="mt-2 pl-13">
                         <LineConfigurationSummary
                           :id="`order-item-configuration-${index}`"
                           :summary="item.configuration.summary"
@@ -356,7 +354,7 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                     </td>
                     <td
                       data-testid="order-item-total-price"
-                      class="px-4 py-5 text-right font-medium"
+                      class="h-24 px-4 py-2 text-right font-medium"
                     >
                       {{ item?.totalPrice?.sellingPriceIncVatFormatted }}
                     </td>

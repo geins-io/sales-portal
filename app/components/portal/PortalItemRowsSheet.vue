@@ -89,7 +89,7 @@ const open = ref(false);
                     item.unitPriceFormatted
                   }}</span>
                 </p>
-                <div v-if="item.configuration?.summary.length" class="mt-2">
+                <div v-if="item.configuration" class="mt-2">
                   <LineConfigurationSummary
                     :id="`item-rows-configuration-${item.key}`"
                     :summary="item.configuration.summary"

@@ -18,6 +18,8 @@ const toggleOf = (wrapper: ReturnType<typeof mountSummary>) =>
   wrapper.find('[data-testid="cart-item-configuration-toggle"]');
 const blockOf = (wrapper: ReturnType<typeof mountSummary>) =>
   wrapper.find('[data-testid="cart-item-configuration"]');
+const defaultOf = (wrapper: ReturnType<typeof mountSummary>) =>
+  wrapper.find('[data-testid="cart-item-configuration-default"]');
 // `v-show`: the block is in the DOM either way, hidden by its style.
 const shown = (wrapper: ReturnType<typeof mountSummary>) =>
   !blockOf(wrapper).attributes('style')?.includes('display: none');
@@ -64,34 +66,37 @@ describe('LineConfigurationSummary', () => {
     ]);
   });
 
-  it('renders nothing for an empty summary', () => {
-    const wrapper = mountSummary([]);
+  it('lists no default text when there are rows', async () => {
+    const wrapper = mountSummary();
 
-    expect(toggleOf(wrapper).exists()).toBe(false);
-    expect(blockOf(wrapper).exists()).toBe(false);
+    await toggleOf(wrapper).trigger('click');
+
+    expect(defaultOf(wrapper).exists()).toBe(false);
   });
 
-  it('puts what its owner slots in at the foot of the rows, and nothing without it', () => {
-    const slotted = mountComponent(LineConfigurationSummary, {
-      props: { summary: SUMMARY, id: 'line-configuration-1' },
-      slots: { default: '<a data-testid="slot-probe" />' },
-    });
-    // In a <div> of its own: a <dl> holds only groups of <dt> and <dd>.
-    const foot = blockOf(slotted).element.lastElementChild;
-    expect(foot?.tagName).toBe('DIV');
-    expect(foot?.getAttribute('data-testid')).toBe(
-      'cart-item-configuration-foot',
-    );
-    expect(foot?.firstElementChild).toBe(
-      slotted.find('[data-testid="slot-probe"]').element,
-    );
+  describe('a summary with no rows: committed with the defaults only', () => {
+    it('still offers the toggle, collapsed and pointing at the block', () => {
+      const wrapper = mountSummary([]);
 
-    const plain = mountSummary();
-    expect(
-      plain.find('[data-testid="cart-item-configuration-foot"]').exists(),
-    ).toBe(false);
-    expect(
-      blockOf(plain).element.lastElementChild?.getAttribute('data-testid'),
-    ).toBe('cart-item-configuration-row');
+      expect(toggleOf(wrapper).text()).toBe('cart.show_configuration');
+      expect(toggleOf(wrapper).attributes('aria-expanded')).toBe('false');
+      expect(toggleOf(wrapper).attributes('aria-controls')).toBe(
+        'line-configuration-1',
+      );
+      expect(blockOf(wrapper).attributes('id')).toBe('line-configuration-1');
+      expect(shown(wrapper)).toBe(false);
+    });
+
+    it('says, opened, that the defaults were kept, and lists no rows', async () => {
+      const wrapper = mountSummary([]);
+
+      await toggleOf(wrapper).trigger('click');
+
+      expect(shown(wrapper)).toBe(true);
+      expect(defaultOf(wrapper).text()).toBe('cart.default_configuration');
+      expect(
+        blockOf(wrapper).findAll('[data-testid="cart-item-configuration-row"]'),
+      ).toHaveLength(0);
+    });
   });
 });

@@ -393,7 +393,7 @@ describe('CheckoutCartItems', () => {
       ).toBe(true);
     });
 
-    it('renders a configured line without a summary without the block', () => {
+    it('offers the toggle on a line committed with the defaults only, and says so opened', async () => {
       const wrapper = mountItems([
         configuredItem({ configurationId: 'committed-1', summary: [] }),
       ]);
@@ -401,9 +401,13 @@ describe('CheckoutCartItems', () => {
       expect(
         wrapper.find('[data-testid="checkout-cart-item-configured"]').exists(),
       ).toBe(true);
+      await wrapper
+        .find('[data-testid="cart-item-configuration-toggle"]')
+        .trigger('click');
+
       expect(
-        wrapper.find('[data-testid="cart-item-configuration-toggle"]').exists(),
-      ).toBe(false);
+        wrapper.find('[data-testid="cart-item-configuration-default"]').text(),
+      ).toBe('cart.default_configuration');
     });
 
     it('leaves a plain line as it was', () => {

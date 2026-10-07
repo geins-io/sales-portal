@@ -696,7 +696,7 @@ describe('OrderDetail', () => {
     const OTHER_SUMMARY = [{ label: 'Adapter', value: 'S60' }];
 
     /** Two configured rows of one product and SKU, after a plain one. */
-    function configuredOrder() {
+    function configuredOrder(otherSummary = OTHER_SUMMARY) {
       const base = makeOrder();
       const [plain] = base.order.cart.items;
       const configured = {
@@ -725,14 +725,14 @@ describe('OrderDetail', () => {
           items: [
             plain,
             { ...configured, configuration: { summary: SUMMARY } },
-            { ...configured, configuration: { summary: OTHER_SUMMARY } },
+            { ...configured, configuration: { summary: otherSummary } },
           ],
         },
       });
     }
 
-    function mountOrder() {
-      mockData.value = configuredOrder();
+    function mountOrder(otherSummary = OTHER_SUMMARY) {
+      mockData.value = configuredOrder(otherSummary);
       return shallowMountComponent(OrderDetail, {
         global: { stubs: defaultStubs },
       });
@@ -756,14 +756,29 @@ describe('OrderDetail', () => {
       expect(summaryOf(1)[0]!.id).not.toBe(summaryOf(2)[0]!.id);
     });
 
-    it("hands the summaries nothing to put at their foot: editing is the cart's alone", () => {
-      const wrapper = mountOrder();
+    it('gives a row committed with the defaults only its summary block too', () => {
+      const row = mountOrder([]).findAll('[data-testid="order-item-row"]')[2]!;
 
-      const blocks = wrapper.findAllComponents(LineConfigurationSummary);
-      expect(blocks.length).toBeGreaterThan(0);
-      for (const block of blocks) {
-        expect(block.vm.$slots.default).toBeUndefined();
-      }
+      expect(
+        row
+          .findAllComponents(LineConfigurationSummary)
+          .map(
+            (block: { props: () => Record<string, unknown> }) =>
+              block.props().summary,
+          ),
+      ).toEqual([[]]);
+    });
+
+    // Opening a summary makes the row taller; its other cells stay on the
+    // title's line instead of following the row's middle down.
+    it('aligns a configured row to the top and leaves a plain row as it was', () => {
+      const rows = mountOrder().findAll('[data-testid="order-item-row"]');
+
+      expect(rows.map((row) => row.classes('align-top'))).toEqual([
+        false,
+        true,
+        true,
+      ]);
     });
 
     it('marks a configured row "Konfigurerad produkt" under its name, and no plain row', () => {
