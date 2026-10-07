@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
+import type {
+  Configuration,
+  ConfigurationOption,
+  ConfigurationOptionGroup,
+  ConfigurationSection,
+  ConfigurationVariable,
+} from '../../shared/types/configurator';
 import {
+  choicesOf,
   replayLineHref,
   replayTarget,
   withoutReplay,
@@ -61,5 +69,160 @@ describe('withoutReplay', () => {
     expect(
       withoutReplay({ order: ORDER_ID, row: '1', utm_source: 'mail' }),
     ).toEqual({ utm_source: 'mail' });
+  });
+});
+
+function variable(
+  id: string,
+  value: ConfigurationVariable['value'],
+): ConfigurationVariable {
+  return {
+    id,
+    name: id,
+    description: '',
+    valueType: 'number',
+    value,
+    defaultValue: null,
+    required: false,
+    available: true,
+    readOnly: false,
+    selectionSource: 'none',
+    valueSource: 'manual',
+    messages: [],
+  };
+}
+
+function option(
+  id: string,
+  selected: boolean,
+  over: Partial<ConfigurationOption> = {},
+): ConfigurationOption {
+  return {
+    id,
+    instanceId: '0',
+    articleNumber: id,
+    name: id,
+    description: '',
+    selected,
+    available: true,
+    readOnly: false,
+    selectionSource: 'none',
+    quantity: 1,
+    defaultQuantity: 1,
+    unitPrice: {},
+    discountPercent: 0,
+    messages: [],
+    product: null,
+    ...over,
+  };
+}
+
+function group(
+  id: string,
+  options: ConfigurationOption[],
+  optionGroups: ConfigurationOptionGroup[] = [],
+): ConfigurationOptionGroup {
+  return {
+    id,
+    code: id,
+    name: id,
+    description: '',
+    available: true,
+    quantityEditable: true,
+    optionGroups,
+    options,
+    messages: [],
+  };
+}
+
+function section(
+  id: string,
+  parts: Partial<ConfigurationSection> = {},
+): ConfigurationSection {
+  return {
+    id,
+    name: id,
+    description: '',
+    visible: true,
+    sections: [],
+    variables: [],
+    optionGroups: [],
+    messages: [],
+    ...parts,
+  };
+}
+
+function document(sections: ConfigurationSection[]): Configuration {
+  return {
+    configurationId: 'session-1',
+    expiresAt: '2030-01-01T00:00:00.000Z',
+    isValid: true,
+    articleNumber: 'M-1',
+    quantity: 2,
+    unitPrice: {},
+    discountPercent: 0,
+    templateId: 't',
+    templateVersion: '1',
+    messages: [],
+    sections,
+  };
+}
+
+describe('choicesOf', () => {
+  it('takes every variable with a value and every selected option, nested ones included', () => {
+    const config = document([
+      section('machine', {
+        variables: [variable('width', 1200), variable('note', null)],
+        optionGroups: [
+          group(
+            'adapters',
+            [
+              option('adapter', true),
+              option('spare', false),
+              option('clamp', true, { instanceId: '3', quantity: 4 }),
+            ],
+            [group('edges', [option('trim', true, { instanceId: '2' })])],
+          ),
+        ],
+        sections: [
+          section('frame', {
+            variables: [
+              variable('depth', 600),
+              variable('painted', false),
+              variable('label', ''),
+            ],
+            optionGroups: [group('finish', [option('matt', true)])],
+          }),
+        ],
+      }),
+    ]);
+
+    expect(choicesOf(config)).toEqual({
+      variables: [
+        { id: 'width', value: 1200 },
+        { id: 'depth', value: 600 },
+        { id: 'painted', value: false },
+        { id: 'label', value: '' },
+      ],
+      options: [
+        { id: 'adapter', instanceId: '0', quantity: 1 },
+        { id: 'clamp', instanceId: '3', quantity: 4 },
+        { id: 'trim', instanceId: '2', quantity: 1 },
+        { id: 'matt', instanceId: '0', quantity: 1 },
+      ],
+    });
+  });
+
+  it('takes nothing from a document with no choices', () => {
+    expect(
+      choicesOf(
+        document([
+          section('machine', {
+            variables: [variable('width', null)],
+            optionGroups: [group('adapters', [option('adapter', false)])],
+          }),
+        ]),
+      ),
+    ).toEqual({ variables: [], options: [] });
   });
 });

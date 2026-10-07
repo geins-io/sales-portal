@@ -11,8 +11,9 @@ import {
   configuredSkuId,
   failureKey,
   formError,
-  headerError,
   refusedChange,
+  RENEW_LEAD_MS,
+  renewDue,
   stickyBoxMaxHeight,
   type ConfiguratorPageState,
 } from '../../app/utils/configurator-page';
@@ -148,26 +149,6 @@ describe('canCommit', () => {
   });
 });
 
-describe('headerError', () => {
-  const FAILURE = { status: 500, message: 'boom' };
-
-  it('hands a failed renew to the header', () => {
-    expect(headerError('renew', FAILURE)).toEqual(FAILURE);
-  });
-
-  it('keeps every other failure away from the header', () => {
-    // The header's message names renew; a failed change batch must not claim
-    // the session could not be extended.
-    expect(headerError('change', FAILURE)).toBeNull();
-    expect(headerError('commit', FAILURE)).toBeNull();
-    expect(headerError('start', FAILURE)).toBeNull();
-  });
-
-  it('passes nothing on when nothing failed', () => {
-    expect(headerError('renew', null)).toBeNull();
-  });
-});
-
 describe('failureKey', () => {
   it('asks a buyer without a company account to sign in with one', () => {
     // MissingCustomerNumber: signed out, or a company with no customer number.
@@ -250,25 +231,69 @@ describe('formError', () => {
   const FAILURE = { status: 500, message: 'x' };
 
   it('shows a failure on the form', () => {
-    expect(formError('change', 'form', FAILURE, null)).toEqual(FAILURE);
-    expect(formError('commit', 'form', FAILURE, null)).toEqual(FAILURE);
+    expect(formError('form', FAILURE, null)).toEqual(FAILURE);
   });
 
   it('leaves a refused change to the node it was aimed at', () => {
-    expect(formError('change', 'form', REFUSAL, WIDTH)).toBeNull();
-  });
-
-  it('leaves a failed renew to the header', () => {
-    expect(formError('renew', 'form', FAILURE, null)).toBeNull();
+    expect(formError('form', REFUSAL, WIDTH)).toBeNull();
   });
 
   it('shows nothing off the form', () => {
-    expect(formError('start', 'error', FAILURE, null)).toBeNull();
-    expect(formError('change', 'expired', FAILURE, null)).toBeNull();
+    expect(formError('error', FAILURE, null)).toBeNull();
+    expect(formError('expired', FAILURE, null)).toBeNull();
   });
 
   it('shows nothing when nothing failed', () => {
-    expect(formError('change', 'form', null, null)).toBeNull();
+    expect(formError('form', null, null)).toBeNull();
+  });
+});
+
+describe('renewDue', () => {
+  const EXPIRES = Date.parse('2026-01-01T13:00:00.000Z');
+  const CONTACT = EXPIRES - 60 * 60_000;
+
+  function due(over: { now?: number; lastActive?: number } = {}): boolean {
+    return renewDue({
+      expiresAt: new Date(EXPIRES).toISOString(),
+      now: over.now ?? EXPIRES - 60_000,
+      lastActive: over.lastActive ?? CONTACT + 1,
+      lastContact: CONTACT,
+    });
+  }
+
+  it('renews five minutes before expiry', () => {
+    expect(RENEW_LEAD_MS).toBe(5 * 60_000);
+  });
+
+  it('renews a session close to expiry for a buyer active since its last answer', () => {
+    expect(due()).toBe(true);
+    expect(due({ now: EXPIRES - RENEW_LEAD_MS })).toBe(true);
+    expect(due({ now: EXPIRES - 1 })).toBe(true);
+  });
+
+  it('waits while expiry is further away', () => {
+    expect(due({ now: EXPIRES - RENEW_LEAD_MS - 1 })).toBe(false);
+  });
+
+  it('renews nothing for a buyer idle since the last answer', () => {
+    expect(due({ lastActive: CONTACT })).toBe(false);
+    expect(due({ lastActive: CONTACT - 1 })).toBe(false);
+  });
+
+  it('renews nothing once the session has run out', () => {
+    expect(due({ now: EXPIRES })).toBe(false);
+    expect(due({ now: EXPIRES + 1 })).toBe(false);
+  });
+
+  it('renews nothing for an expiry it cannot read', () => {
+    expect(
+      renewDue({
+        expiresAt: 'not a date',
+        now: EXPIRES - 60_000,
+        lastActive: CONTACT + 1,
+        lastContact: CONTACT,
+      }),
+    ).toBe(false);
   });
 });
 

@@ -1,3 +1,10 @@
+import type {
+  Configuration,
+  ConfigurationChoices,
+  ConfigurationOptionGroup,
+  ConfigurationSection,
+} from '#shared/types/configurator';
+
 // ---------------------------------------------------------------------------
 // A configured order row opened in the configurator lives in the product
 // page's URL, as ids only: the order's public id and the row's position. The
@@ -54,4 +61,32 @@ export function withoutReplay<T extends Record<string, unknown>>(
 ): Omit<T, typeof ORDER | typeof ROW> {
   const { [ORDER]: _order, [ROW]: _row, ...rest } = query;
   return rest;
+}
+
+/**
+ * The choices a document holds, as an order row's committed choices are read:
+ * every variable with a value and every selected option. What a new session
+ * will not let the buyer change is the server's to leave out.
+ */
+export function choicesOf(configuration: Configuration): ConfigurationChoices {
+  const choices: ConfigurationChoices = { variables: [], options: [] };
+  const visitGroups = (groups: ConfigurationOptionGroup[]): void => {
+    for (const group of groups) {
+      for (const { id, instanceId, quantity, selected } of group.options) {
+        if (selected) choices.options.push({ id, instanceId, quantity });
+      }
+      visitGroups(group.optionGroups);
+    }
+  };
+  const visitSections = (sections: ConfigurationSection[]): void => {
+    for (const section of sections) {
+      for (const { id, value } of section.variables) {
+        if (value !== null) choices.variables.push({ id, value });
+      }
+      visitGroups(section.optionGroups);
+      visitSections(section.sections);
+    }
+  };
+  visitSections(configuration.sections);
+  return choices;
 }

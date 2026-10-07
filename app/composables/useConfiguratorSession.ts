@@ -1,18 +1,21 @@
-import { useIntervalFn } from '@vueuse/core';
-import { computed, onScopeDispose, ref } from 'vue';
+import { useIdle, useIntervalFn, type WindowEventName } from '@vueuse/core';
+import { onScopeDispose, ref } from 'vue';
 import type {
   CommittedConfiguration,
   Configuration,
   ConfigurationChange,
 } from '#shared/types/configurator';
 import { isBrowser } from '~/utils/client-helpers';
-import type { OrderRowRef } from '~/utils/configurator-replay';
+import { RENEW_LEAD_MS, renewDue } from '~/utils/configurator-page';
+import { choicesOf, type OrderRowRef } from '~/utils/configurator-replay';
 
 // ---------------------------------------------------------------------------
-// One configuration session: create it, post every choice as a batch, renew it,
-// commit or release it. Given a way to add a line, a commit also puts the
-// committed configuration in the cart and carries on in a session reopened from
-// that line, so the page stays a live configurator after every add.
+// One configuration session: create it, post every choice as a batch, commit
+// or release it. While the buyer is at work on the page it is renewed
+// silently before it runs out; nothing about that is on screen. Given a way to
+// add a line, a commit also puts the committed configuration in the cart and
+// carries on in a session reopened from that line, so the page stays a live
+// configurator after every add.
 //
 // A session can also edit a configured line: it is reopened from the line, and
 // a commit then puts the new configuration on that same line instead of adding
@@ -24,9 +27,10 @@ import type { OrderRowRef } from '~/utils/configurator-replay';
 // provider never returned.
 //
 // Expiry is a state, not a failure: a session that answers 410 is gone and the
-// page renders a way to start over. A session that was committed or released is
-// `closed` instead, and nothing more is sent to it — which is what keeps the
-// same 410 from telling a buyer who just ordered that their session ran out.
+// page renders a way to start over, with the choices it last held. A session
+// that was committed or released is `closed` instead, and nothing more is sent
+// to it — which is what keeps the same 410 from telling a buyer who just
+// ordered that their session ran out.
 // ---------------------------------------------------------------------------
 
 export type ConfiguratorSessionStatus =
@@ -34,6 +38,18 @@ export type ConfiguratorSessionStatus =
   | 'active'
   | 'expired'
   | 'closed';
+
+/** What counts as the buyer at work on the page. A moving cursor does not. */
+const ACTIVITY_EVENTS: WindowEventName[] = [
+  'pointerdown',
+  'keydown',
+  'wheel',
+  'touchmove',
+  'scroll',
+];
+
+/** How often the page asks whether a renew is due; asking sends nothing. */
+const RENEW_CHECK_MS = 30_000;
 
 export interface ConfiguratorSessionError {
   status: number;
@@ -140,6 +156,11 @@ export function useConfiguratorSession({
    * the order's choices.
    */
   const notReplayed = ref(false);
+  /**
+   * Set when a session restored after an expiry is on the defaults rather
+   * than the choices the expired one held.
+   */
+  const notRestored = ref(false);
   /** The cart line being edited, while the page edits one. */
   const editing = ref<CartLineRef | null>(null);
   const editNotice = ref<ConfiguratorEditNotice | null>(null);
@@ -147,23 +168,18 @@ export function useConfiguratorSession({
   const busy = ref(false);
   const error = ref<ConfiguratorSessionError | null>(null);
 
-  const now = ref(Date.now());
-  const clock = useIntervalFn(
-    () => {
-      now.value = Date.now();
-    },
-    1000,
-    { immediate: false },
-  );
-
-  const expiresAt = computed(() => configuration.value?.expiresAt ?? null);
-
-  const remainingMs = computed(() => {
-    if (status.value !== 'active' || !expiresAt.value) return 0;
-    return Math.max(0, Date.parse(expiresAt.value) - now.value);
+  // The idle flag itself is not read: only when the buyer last did something.
+  // Its own timer outlives the scope unless stopped.
+  const { lastActive, stop: stopIdle } = useIdle(RENEW_LEAD_MS, {
+    events: ACTIVITY_EVENTS,
+    listenForVisibilityChange: false,
   });
+  /** When the session last answered with a new `expiresAt`. */
+  let lastContact = 0;
+  useIntervalFn(() => void renewQuietly(), RENEW_CHECK_MS);
 
   let inFlight: AbortController | null = null;
+  let renewing: AbortController | null = null;
 
   /**
    * Set once the page has gone. A step that was not in flight then, such as the
@@ -174,6 +190,8 @@ export function useConfiguratorSession({
   onScopeDispose(() => {
     disposed = true;
     inFlight?.abort();
+    renewing?.abort();
+    stopIdle();
   });
 
   /**
@@ -200,7 +218,6 @@ export function useConfiguratorSession({
       // add and is a failure like any other.
       if (failure.status === 410 && !committed.value) {
         status.value = 'expired';
-        clock.pause();
       } else {
         error.value = failure;
       }
@@ -220,7 +237,6 @@ export function useConfiguratorSession({
 
   function close(): void {
     status.value = 'closed';
-    clock.pause();
   }
 
   /**
@@ -234,8 +250,7 @@ export function useConfiguratorSession({
     configuration.value = document;
     committed.value = null;
     status.value = 'active';
-    now.value = Date.now();
-    clock.resume();
+    lastContact = Date.now();
   }
 
   async function start(productId: string, quantity = 1): Promise<void> {
@@ -342,22 +357,83 @@ export function useConfiguratorSession({
         signal,
       }),
     );
-    if (updated) configuration.value = updated;
+    if (updated) {
+      configuration.value = updated;
+      lastContact = Date.now();
+    }
   }
 
-  async function renew(): Promise<void> {
+  /**
+   * Renews the session when `renewDue` says so. Asked every `RENEW_CHECK_MS`
+   * whatever the state; a session that is not live answers no. Outside `run`,
+   * so it never locks the form or drops a buyer's change, and never reports a
+   * failure: a session that is gone shows as expired, anything else is tried
+   * again on the next check. A batch in flight moves `expiresAt` itself.
+   */
+  async function renewQuietly(): Promise<void> {
     const id = liveId();
-    if (!id) return;
+    const held = configuration.value;
+    if (!id || !held || busy.value || renewing || disposed) return;
+    const due = renewDue({
+      expiresAt: held.expiresAt,
+      now: Date.now(),
+      lastActive: lastActive.value,
+      lastContact,
+    });
+    if (!due) return;
 
-    const renewed = await run((signal) =>
-      $fetch<{ expiresAt: string }>(`/api/configurations/${id}/renew`, {
-        method: 'POST',
-        signal,
-      }),
-    );
-    if (renewed && configuration.value) {
-      configuration.value.expiresAt = renewed.expiresAt;
+    const controller = new AbortController();
+    renewing = controller;
+    try {
+      const { expiresAt } = await $fetch<{ expiresAt: string }>(
+        `/api/configurations/${id}/renew`,
+        { method: 'POST', signal: controller.signal },
+      );
+      const current = configuration.value;
+      if (liveId() === id && current) {
+        // A batch that answered meanwhile was sent later, and may carry the
+        // later expiry; the earlier one would move expiry back.
+        if (Date.parse(expiresAt) > Date.parse(current.expiresAt)) {
+          current.expiresAt = expiresAt;
+        }
+        lastContact = Date.now();
+      }
+    } catch (cause) {
+      if (!wasAborted(cause) && describe(cause).status === 410) {
+        if (liveId() === id) status.value = 'expired';
+      }
+    } finally {
+      renewing = null;
     }
+  }
+
+  /**
+   * A new session holding the choices of the one that expired, at its
+   * quantity, which the server replays. With no document held there is
+   * nothing to restore, and it starts from the defaults. Not on the server,
+   * for the same reason as `start`.
+   */
+  async function restore(productId: string): Promise<void> {
+    if (!isBrowser() || status.value === 'active') return;
+    const held = configuration.value;
+    if (!held) return start(productId);
+    started = { productId, quantity: held.quantity };
+    // The page shows loading rather than the expired face while it restores.
+    status.value = 'closed';
+
+    const result = await run((signal) =>
+      $fetch<{ configuration: Configuration; replayed: boolean }>(
+        '/api/configurations/restore',
+        {
+          method: 'POST',
+          body: { productId, quantity: held.quantity, ...choicesOf(held) },
+          signal,
+        },
+      ),
+    );
+    if (!result) return;
+    notRestored.value = !result.replayed;
+    hold(result.configuration);
   }
 
   /**
@@ -448,6 +524,7 @@ export function useConfiguratorSession({
     if (!id) return;
     notReopened.value = false;
     notReplayed.value = false;
+    notRestored.value = false;
 
     const added = await run(async (signal) => {
       const result = await $fetch<CommittedConfiguration>(
@@ -516,6 +593,7 @@ export function useConfiguratorSession({
     if (released) {
       notReopened.value = false;
       notReplayed.value = false;
+      notRestored.value = false;
       close();
     }
   }
@@ -525,21 +603,20 @@ export function useConfiguratorSession({
     committed,
     notReopened,
     notReplayed,
+    notRestored,
     editing,
     editNotice,
     status,
     busy,
     error,
-    expiresAt,
-    remainingMs,
     start,
     edit,
     replay,
+    restore,
     reopenLine,
     revertEdit,
     cancelEdit,
     applyChanges,
-    renew,
     commit,
     retryAdd,
     release,

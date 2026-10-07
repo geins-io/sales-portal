@@ -326,6 +326,10 @@ test.describe('Editing a configured cart line', () => {
       await expect(page.getByTestId('configurator-editing')).toBeVisible({
         timeout: 30_000,
       });
+      // Nothing about the session is on screen while editing either.
+      await expect(page.getByTestId('configurator-panel-expiry')).toHaveCount(
+        0,
+      );
 
       // A released session answers exactly what an expired one does.
       await page.request.delete(

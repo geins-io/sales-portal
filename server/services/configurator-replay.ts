@@ -1,26 +1,26 @@
 import type {
   Configuration,
   ConfigurationChange,
+  ConfigurationChoices,
   ConfigurationOptionGroup,
   ConfigurationSection,
+  CreateConfigurationInput,
+  RestoreConfigurationInput,
 } from '#shared/types/configurator';
 import {
   isOptionReadOnly,
   isSingleSelect,
   singleChoiceChanges,
 } from '#shared/utils/configurator-choice';
-import type {
-  ConfiguratorBackend,
-  ConfiguratorContext,
-  OrderLineChoices,
-} from './configurator';
+import type { ConfiguratorBackend, ConfiguratorContext } from './configurator';
 
 // ---------------------------------------------------------------------------
-// A configured order row opened again: a new session, then one batch replaying
-// what the row was committed with. An order row has no committed id to reopen
-// from, so this is the only way back to its choices. The order itself never
-// leaves the server; the page gets the session and whether it holds the
-// order's choices.
+// Choices replayed into a new session: one create, then one batch. Two ways
+// back use it. A configured order row has no committed id to reopen from, so
+// this is the only way back to its choices; the order itself never leaves the
+// server. A session that expired on the product page is gone upstream, and
+// the page sends the choices it last held. Either way the page gets the
+// session and whether it holds the choices.
 // ---------------------------------------------------------------------------
 
 export interface ReplayedConfiguration {
@@ -81,7 +81,7 @@ function optionKey(option: { id: string; instanceId: string }): string {
  * order's configuration.
  */
 export function replayChanges(
-  choices: OrderLineChoices,
+  choices: ConfigurationChoices,
   fresh: Configuration,
 ): ConfigurationChange[] | null {
   const targets = targetsOf(fresh);
@@ -125,26 +125,23 @@ export function replayChanges(
 }
 
 /**
- * A new session of one for the product, holding the order row's choices when
- * they fit. Only a failed create fails the replay: anything after it leaves the
- * buyer on the defaults, told so.
+ * A new session for the product, holding the choices when they fit. The
+ * choices are read while the session is created. Only a failed create fails
+ * the replay: anything after it leaves the buyer on the defaults, told so.
  */
-export async function replayOrderLine(
+async function replayChoices(
   backend: ConfiguratorBackend,
-  input: { productId: string; publicOrderId: string; row: number },
+  input: CreateConfigurationInput,
+  reading: Promise<ConfigurationChoices | null>,
   ctx: ConfiguratorContext,
 ): Promise<ReplayedConfiguration> {
   const [created, choices] = await Promise.all([
-    backend.create({ productId: input.productId, quantity: 1 }, ctx),
-    backend
-      .orderLineChoices(input.publicOrderId, input.row, ctx)
-      .catch(() => null),
+    backend.create(input, ctx),
+    reading,
   ]);
 
   const defaults = { configuration: created, replayed: false };
-  if (!choices || String(choices.productId) !== input.productId) {
-    return defaults;
-  }
+  if (!choices) return defaults;
   const changes = replayChanges(choices, created);
   if (!changes) return defaults;
   if (changes.length === 0) return { configuration: created, replayed: true };
@@ -172,4 +169,41 @@ export async function replayOrderLine(
       throw cause;
     }
   }
+}
+
+/** A new session of one for the product, holding the order row's choices. */
+export function replayOrderLine(
+  backend: ConfiguratorBackend,
+  input: { productId: string; publicOrderId: string; row: number },
+  ctx: ConfiguratorContext,
+): Promise<ReplayedConfiguration> {
+  const reading = backend
+    .orderLineChoices(input.publicOrderId, input.row, ctx)
+    .then((choices) =>
+      choices && String(choices.productId) === input.productId ? choices : null,
+    )
+    .catch(() => null);
+  return replayChoices(
+    backend,
+    { productId: input.productId, quantity: 1 },
+    reading,
+    ctx,
+  );
+}
+
+/**
+ * A new session holding the choices of one that expired on the product page,
+ * at the quantity it held.
+ */
+export function restoreConfiguration(
+  backend: ConfiguratorBackend,
+  { productId, quantity, variables, options }: RestoreConfigurationInput,
+  ctx: ConfiguratorContext,
+): Promise<ReplayedConfiguration> {
+  return replayChoices(
+    backend,
+    { productId, quantity },
+    Promise.resolve({ variables, options }),
+    ctx,
+  );
 }

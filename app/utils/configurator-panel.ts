@@ -201,18 +201,6 @@ export function unnamedBlockingMessages(config: Configuration): string[] {
   ];
 }
 
-/**
- * Remaining session time as a zero-padded `mm:ss` clock, floored at `0:00`.
- *
- * Past an hour it keeps counting in minutes (`65:04`). A session lasts minutes,
- * so an hours field would be a branch no document can reach.
- */
-export function formatRemaining(ms: number): string {
-  const seconds = Math.max(0, Math.floor(ms / 1000));
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
-}
-
 // ---------------------------------------------------------------------------
 // The specification: what has been chosen, grouped the way the form is
 // ---------------------------------------------------------------------------

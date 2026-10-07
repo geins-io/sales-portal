@@ -7,7 +7,7 @@ import type {
   CommittedConfiguration,
   Configuration,
   ConfigurationChange,
-  ConfigurationValue,
+  ConfigurationChoices,
   CreateConfigurationInput,
 } from '#shared/types/configurator';
 import type { GeinsOMS } from '@geins/oms';
@@ -60,14 +60,9 @@ export interface ConfiguredCartLine {
   quantity: number;
 }
 
-/**
- * What a configured order row was committed with, as a replay sends it: every
- * variable that carried a value and every selected option, flattened.
- */
-export interface OrderLineChoices {
+/** What a configured order row was committed with, and for which product. */
+export interface OrderLineChoices extends ConfigurationChoices {
   productId: number | null;
-  variables: { id: string; value: ConfigurationValue }[];
-  options: { id: string; instanceId: string; quantity: number }[];
 }
 
 /** What the merchant-api backend asks through: the tenant's SDK, and the request's channel. */

@@ -17,12 +17,7 @@ import type {
 // ---------------------------------------------------------------------------
 
 /** The verbs the page calls, so a failure can be told apart afterwards. */
-export type ConfiguratorAction =
-  | 'start'
-  | 'change'
-  | 'renew'
-  | 'commit'
-  | 'add';
+export type ConfiguratorAction = 'start' | 'change' | 'commit' | 'add';
 
 export type ConfiguratorStage =
   | 'committed'
@@ -160,22 +155,6 @@ export function replaceRetryable(
 }
 
 /**
- * The error the header may render, which is only ever a failed renew.
- *
- * The session holds one `error` for every verb, and the header's message names
- * renew. Once the page posts change batches and commits through the same ref, a
- * failed batch would tell a buyer their session could not be extended. So the
- * page remembers which verb it called and answers this question for the header;
- * every other failure is rendered by the page itself.
- */
-export function headerError(
-  lastAction: ConfiguratorAction,
-  error: ConfiguratorSessionError | null,
-): ConfiguratorSessionError | null {
-  return lastAction === 'renew' ? error : null;
-}
-
-/**
  * The copy for a failure the page renders itself. A 403 is the provider's
  * `MissingCustomerNumber`: the buyer is signed out, or their company has no
  * customer number, and either way a company account is what fixes it.
@@ -210,16 +189,39 @@ export function refusedChange(
 
 /**
  * The failure the page writes above the form: anything on the form that is
- * neither the header's failed renew nor a refusal, which its own node shows.
+ * not a refusal, which its own node shows.
  */
 export function formError(
-  lastAction: ConfiguratorAction,
   stage: ConfiguratorStage,
   error: ConfiguratorSessionError | null,
   refused: ConfigurationChange | null,
 ): ConfiguratorSessionError | null {
-  if (stage !== 'form' || lastAction === 'renew' || refused) return null;
+  if (stage !== 'form' || refused) return null;
   return error;
+}
+
+/** How long before expiry an active buyer's session is renewed. */
+export const RENEW_LEAD_MS = 5 * 60_000;
+
+/**
+ * Whether to renew the session now: it runs out within `RENEW_LEAD_MS`, and
+ * the buyer has done something on the page since the session last answered.
+ * An idle page lets its session run out; a change batch moves `expiresAt` on
+ * its own, so activity before its answer does not count.
+ */
+export function renewDue({
+  expiresAt,
+  now,
+  lastActive,
+  lastContact,
+}: {
+  expiresAt: string;
+  now: number;
+  lastActive: number;
+  lastContact: number;
+}): boolean {
+  const left = Date.parse(expiresAt) - now;
+  return left > 0 && left <= RENEW_LEAD_MS && lastActive > lastContact;
 }
 
 /** `lg:top-48`, where the box sticks, and Tailwind's `lg` breakpoint. */

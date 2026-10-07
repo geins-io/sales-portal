@@ -87,21 +87,20 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
     committed: ref<CommittedConfiguration | null>(null),
     notReopened: ref(false),
     notReplayed: ref(false),
+    notRestored: ref(false),
     editing: ref<{ cartId: string; itemId: string } | null>(null),
     editNotice: ref<'not_reopenable' | 'line_gone' | null>(null),
     status: ref<ConfiguratorSessionStatus>('idle'),
     busy: ref(false),
     error: ref<ConfiguratorSessionError | null>(null),
-    expiresAt: ref<string | null>(null),
-    remainingMs: ref(600_000),
     start: vi.fn(async () => {}),
     edit: vi.fn(async () => {}),
     replay: vi.fn(async () => {}),
+    restore: vi.fn(async () => {}),
     reopenLine: vi.fn(async () => {}),
     revertEdit: vi.fn(async () => {}),
     cancelEdit: vi.fn(async () => {}),
     applyChanges: vi.fn(async () => {}),
-    renew: vi.fn(async () => {}),
     commit: vi.fn(async () => {}),
     retryAdd: vi.fn(async () => {}),
     release: vi.fn(async () => {}),
@@ -231,20 +230,20 @@ interface MockSession {
   committed: Ref<CommittedConfiguration | null>;
   notReopened: Ref<boolean>;
   notReplayed: Ref<boolean>;
+  notRestored: Ref<boolean>;
   editing: Ref<{ cartId: string; itemId: string } | null>;
   editNotice: Ref<'not_reopenable' | 'line_gone' | null>;
   status: Ref<ConfiguratorSessionStatus>;
   busy: Ref<boolean>;
   error: Ref<ConfiguratorSessionError | null>;
-  remainingMs: Ref<number>;
   start: Mock;
   edit: Mock;
   replay: Mock;
+  restore: Mock;
   reopenLine: Mock;
   revertEdit: Mock;
   cancelEdit: Mock;
   applyChanges: Mock;
-  renew: Mock;
   commit: Mock;
   retryAdd: Mock;
   release: Mock;
@@ -349,13 +348,6 @@ const stubs = {
     props: ['message', 'canRetry', 'busy', 'retryable'],
     emits: ['retry'],
   },
-  ConfigurationSession: {
-    template: `<div data-testid="session" :data-error="error ? 'yes' : 'no'">
-      <button data-testid="session-renew" @click="$emit('renew')"></button>
-    </div>`,
-    props: ['remainingMs', 'busy', 'error'],
-    emits: ['renew'],
-  },
   ConfiguratorSection: {
     template: `<section data-testid="section" :data-section-id="section.id"
       :data-disabled="String(disabled)"
@@ -415,6 +407,7 @@ beforeEach(() => {
   session.committed.value = null;
   session.notReopened.value = false;
   session.notReplayed.value = false;
+  session.notRestored.value = false;
   session.editing.value = null;
   session.editNotice.value = null;
   session.status.value = 'idle';
@@ -424,11 +417,11 @@ beforeEach(() => {
     'start',
     'edit',
     'replay',
+    'restore',
     'reopenLine',
     'revertEdit',
     'cancelEdit',
     'applyChanges',
-    'renew',
     'commit',
     'retryAdd',
     'release',
@@ -619,28 +612,30 @@ describe('ConfiguratorProduct session', () => {
     expect(wrapper.find('[data-slot="card"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="panel"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="action"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="session"]').exists()).toBe(false);
   });
 
-  it('puts the action and the session in the card once the form is there', async () => {
+  it('puts the action in the card once the form is there', async () => {
     const wrapper = mountPage();
     activeWith(makeValidConfiguration());
     await nextTick();
 
     expect(wrapper.find('[data-testid="action"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="session"]').exists()).toBe(true);
   });
 
-  it("hands the action and then the session to the panel's slot", async () => {
-    // The panel places them between the price and the specification.
+  it("hands the action alone to the panel's slot: no countdown and no renew", async () => {
+    // The panel places it between the price and the specification. The
+    // session is renewed silently, so nothing about it is on screen.
     const wrapper = mountPage();
     activeWith(makeValidConfiguration());
     await nextTick();
 
     const slot = wrapper.find('[data-testid="panel-slot"]');
     expect(
-      slot.findAll(':scope > div').map((el) => el.attributes('data-testid')),
-    ).toEqual(['action', 'session']);
+      slot.findAll(':scope > *').map((el) => el.attributes('data-testid')),
+    ).toEqual(['action']);
+    expect(
+      wrapper.find('[data-testid="configurator-panel-expiry"]').exists(),
+    ).toBe(false);
   });
 
   it('makes the aside one sticky column that does not scroll as a whole', async () => {
@@ -780,17 +775,7 @@ describe('ConfiguratorProduct session', () => {
     ).toEqual(replaced.sections.map((section) => section.id));
   });
 
-  it('renews the session from the session row', async () => {
-    const wrapper = mountPage();
-    activeWith(makeValidConfiguration());
-    await nextTick();
-
-    await wrapper.find('[data-testid="session-renew"]').trigger('click');
-
-    expect(session.renew).toHaveBeenCalledTimes(1);
-  });
-
-  it('restarts an expired session in place, releasing it first', async () => {
+  it("brings the buyer's last choices back on a restart after expiry, rather than the defaults", async () => {
     const wrapper = mountPage();
     session.configuration.value = makeValidConfiguration();
     session.status.value = 'expired';
@@ -798,10 +783,34 @@ describe('ConfiguratorProduct session', () => {
     session.start.mockClear();
 
     await wrapper.find('[data-testid="panel-restart"]').trigger('click');
-    await nextTick();
+    await flushPromises();
 
     expect(session.release).toHaveBeenCalledTimes(1);
-    expect(session.start).toHaveBeenCalledWith('1101');
+    expect(session.restore).toHaveBeenCalledWith('1101');
+    expect(session.start).not.toHaveBeenCalled();
+    expect(session.reopenLine).not.toHaveBeenCalled();
+    expect(session.replay).not.toHaveBeenCalled();
+  });
+
+  it('drops a stale order link on a restart, as the reset does', async () => {
+    route.value.query = { order: 'not-a-guid', row: '1', keep: 'x' };
+    const wrapper = mountPage();
+    await flushPromises();
+    session.configuration.value = makeValidConfiguration();
+    session.status.value = 'expired';
+    await nextTick();
+    router.replace.mockClear();
+    route.value.query = { order: 'not-a-guid', row: '1', keep: 'x' };
+
+    await wrapper.find('[data-testid="panel-restart"]').trigger('click');
+    await flushPromises();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    expect(router.replace).toHaveBeenCalledWith({ query: { keep: 'x' } });
+    expect(
+      wrapper.find('[data-testid="configurator-not-replayed"]').exists(),
+    ).toBe(false);
   });
 
   it('shows no form, no action and no countdown once the session has expired', async () => {
@@ -814,9 +823,6 @@ describe('ConfiguratorProduct session', () => {
     expect(wrapper.find('[data-testid="configurator-commit"]').exists()).toBe(
       false,
     );
-    // The panel says the session is gone; a countdown beside it would be
-    // counting down something that has already run out.
-    expect(wrapper.find('[data-testid="session"]').exists()).toBe(false);
   });
 });
 
@@ -1055,24 +1061,7 @@ describe('ConfiguratorProduct add to cart', () => {
 });
 
 describe('ConfiguratorProduct errors', () => {
-  it('gives the session row a failed renew, which is the failure its message names', async () => {
-    const wrapper = mountPage();
-    activeWith(makeValidConfiguration());
-    await nextTick();
-
-    await wrapper.find('[data-testid="session-renew"]').trigger('click');
-    session.error.value = { status: 500, message: 'boom' };
-    await nextTick();
-
-    expect(
-      wrapper.find('[data-testid="session"]').attributes('data-error'),
-    ).toBe('yes');
-    expect(
-      wrapper.find('[data-testid="configurator-form-error"]').exists(),
-    ).toBe(false);
-  });
-
-  it('keeps a failed change batch out of the session row and reports it itself', async () => {
+  it('reports a failed change batch itself', async () => {
     const wrapper = mountPage();
     activeWith(makeValidConfiguration());
     await nextTick();
@@ -1081,9 +1070,6 @@ describe('ConfiguratorProduct errors', () => {
     session.error.value = { status: 500, message: 'boom' };
     await nextTick();
 
-    expect(
-      wrapper.find('[data-testid="session"]').attributes('data-error'),
-    ).toBe('no');
     expect(
       wrapper.find('[data-testid="configurator-form-error"]').exists(),
     ).toBe(true);
@@ -2535,6 +2521,26 @@ describe('ConfiguratorProduct replaying an order row', () => {
     expect(
       wrapper.find('[data-testid="configurator-not-replayed"]').text(),
     ).toBe('configurator.not_replayed');
+  });
+
+  it('says at the top of the form that the choices did not come back after an expiry, when they did not', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+    expect(
+      wrapper.find('[data-testid="configurator-not-restored"]').exists(),
+    ).toBe(false);
+
+    session.notRestored.value = true;
+    await nextTick();
+
+    const notice = wrapper.find('[data-testid="configurator-not-restored"]');
+    expect(notice.text()).toBe('configurator.not_restored');
+    const slot = wrapper.find('[data-testid="configurator-form-slot"]');
+    expect(slot.element.contains(notice.element)).toBe(true);
+    expect(
+      wrapper.find('[data-testid="configurator-not-replayed"]').exists(),
+    ).toBe(false);
   });
 
   it("says at the top of the form that the order's choices did not come back, when they did not", async () => {

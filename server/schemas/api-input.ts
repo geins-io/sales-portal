@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type {
   ConfigurationChange,
   CreateConfigurationInput,
+  RestoreConfigurationInput,
 } from '#shared/types/configurator';
 
 export const LoginSchema = z.object({
@@ -369,12 +370,19 @@ export const CreateConfigurationSchema: z.ZodType<CreateConfigurationInput> =
     quantity: configurationQuantity,
   });
 
+const configurationValue = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+]);
+
 const ConfigurationChangeSchema: z.ZodType<ConfigurationChange> =
   z.discriminatedUnion('type', [
     z.object({
       type: z.literal('variable'),
       variableId: z.string().min(1),
-      value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
+      value: configurationValue,
     }),
     z.object({
       type: z.literal('option'),
@@ -419,3 +427,29 @@ export const ReplayOrderLineSchema = z.object({
   publicOrderId: z.guid(),
   row: z.number().int().min(0),
 });
+
+// A document holds a few hundred nodes at most; the cap is room to spare.
+const RESTORE_NODES = 500;
+
+/** The choices of an expired session, for a new one at the quantity it held. */
+export const RestoreConfigurationSchema: z.ZodType<RestoreConfigurationInput> =
+  z.object({
+    productId: z.string().min(1),
+    quantity: configurationQuantity,
+    variables: z
+      .array(z.object({ id: z.string().min(1), value: configurationValue }))
+      .max(RESTORE_NODES),
+    options: z
+      .array(
+        z.object({
+          id: z.string().min(1),
+          // Not min(1): a document maps a missing instanceId to '', and that
+          // row should fall back to the defaults, not fail the restore.
+          instanceId: z.string(),
+          // What the row holds, not what a buyer types: material parts come
+          // in fractions (0.54 m), and 0 is how a buyer declines an extra.
+          quantity: z.number().min(0),
+        }),
+      )
+      .max(RESTORE_NODES),
+  });

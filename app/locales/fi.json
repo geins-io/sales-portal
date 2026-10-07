@@ -348,6 +348,7 @@
     "add_retry": "Yritä uudelleen",
     "not_reopened": "Valintojasi ei voitu ladata uudelleen. Kokoonpano on ostoskorissa.",
     "not_replayed": "Tilauksen valintoja ei voitu ladata. Näet oletusvalinnat.",
+    "not_restored": "Aiempia valintojasi ei voitu palauttaa. Näet oletusvalinnat.",
     "starting": "Ladataan tuotekonfiguraattoria",
     "failed": "Jokin meni vikaan. Lataa sivu uudelleen ja yritä uudestaan.",
     "change_refused_value": "Arvoa ei hyväksytty. Kokeile toista arvoa.",
@@ -374,9 +375,6 @@
       "unit_price": "Yksikköhinta"
     },
     "panel": {
-      "time_left": "{time} jäljellä",
-      "renew": "Jatka istuntoa",
-      "renew_failed": "Istuntoa ei voitu jatkaa.",
       "expired": "Kokoonpanoistunto on vanhentunut.",
       "start_over": "Aloita alusta",
       "title": "Erittely",

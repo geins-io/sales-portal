@@ -31,7 +31,6 @@ import {
   configuredSkuId,
   failureKey,
   formError,
-  headerError,
   refusedChange,
   replaceFailureKey,
   replaceRetryable,
@@ -225,20 +224,20 @@ const {
   committed,
   notReopened,
   notReplayed,
+  notRestored,
   editing,
   editNotice,
   status,
   busy,
   error,
-  remainingMs,
   start,
   edit,
   replay,
+  restore,
   reopenLine,
   revertEdit,
   cancelEdit,
   applyChanges,
-  renew,
   commit,
   retryAdd,
   release,
@@ -258,7 +257,7 @@ const {
     cart.replaceConfiguredItem(record.committedConfigurationId, line),
 });
 
-/** Which verb failed last; see `headerError`. */
+/** Which verb failed last; see `refusedChange`. */
 const lastAction = ref<ConfiguratorAction>('start');
 
 const productId = computed(() => String(product.productId));
@@ -392,8 +391,6 @@ const addRetryEnabled = computed(() =>
   }),
 );
 
-const forHeader = computed(() => headerError(lastAction.value, error.value));
-
 /** The change sent last, which a refusal is about: one change per batch. */
 const lastChange = ref<ConfigurationChange | null>(null);
 
@@ -401,9 +398,9 @@ const refused = computed(() =>
   refusedChange(lastAction.value, error.value, lastChange.value),
 );
 
-/** What the page shows itself: everything the header and the form's nodes do not. */
+/** What the page shows itself: everything the form's nodes do not. */
 const ownError = computed(() =>
-  formError(lastAction.value, stage.value, error.value, refused.value),
+  formError(stage.value, error.value, refused.value),
 );
 
 // ---------------------------------------------------------------------------
@@ -566,11 +563,6 @@ function onChange(changes: ConfigurationChange[]): void {
   void applyChanges(changes);
 }
 
-function onRenew(): void {
-  lastAction.value = 'renew';
-  void renew();
-}
-
 /** Commit, then add the committed line: one press, one request window. */
 function onSubmit(): void {
   lastAction.value = 'commit';
@@ -601,15 +593,20 @@ async function onReset(): Promise<void> {
 /**
  * Starting over after an expiry. While a line is edited the line still holds
  * its choices, and while an order row is named the order does, so they are
- * what comes back, not the defaults.
+ * what comes back. Otherwise the choices the expired session last held do.
  */
 async function onRestart(): Promise<void> {
   const order = replayTarget(route.query).row;
-  if (!editing.value && !order) return onReset();
   lastAction.value = 'start';
+  if (!editing.value && !order) {
+    staleEdit.value = false;
+    staleReplay.value = false;
+    dropReplayQuery();
+  }
   await release();
   if (editing.value) await reopenLine();
   else if (order) await replay(productId.value, order);
+  else await restore(productId.value);
 }
 
 function onRevert(): void {
@@ -936,6 +933,15 @@ function onRetryOpen(): void {
                       <Info class="mt-0.5 size-4 shrink-0" />
                       {{ t('configurator.not_replayed') }}
                     </p>
+                    <!-- Restored after an expiry, but on the defaults. -->
+                    <p
+                      v-if="notRestored"
+                      class="bg-warning/10 text-warning mb-4 flex items-start gap-2 rounded-md px-3 py-2 text-sm"
+                      data-testid="configurator-not-restored"
+                    >
+                      <Info class="mt-0.5 size-4 shrink-0" />
+                      {{ t('configurator.not_restored') }}
+                    </p>
                     <p
                       v-if="shownEditNotice"
                       class="bg-warning/10 text-warning mb-4 flex items-start gap-2 rounded-md px-3 py-2 text-sm"
@@ -1118,8 +1124,6 @@ function onRetryOpen(): void {
                   <Pencil class="text-primary size-3.5 shrink-0" />
                   {{ t('configurator.edit.marker') }}
                 </div>
-                <!-- The session row has no place in the prototype; it stays
-                     under the action, in view with it. -->
                 <ConfigurationPanel
                   :configuration="configuration"
                   :status="status"
@@ -1140,15 +1144,6 @@ function onRetryOpen(): void {
                     @submit="onSubmit"
                     @revert="onRevert"
                     @cancel="onCancel"
-                  />
-
-                  <ConfigurationSession
-                    v-if="stage === 'form'"
-                    class="shrink-0"
-                    :remaining-ms="remainingMs"
-                    :busy="busy"
-                    :error="forHeader"
-                    @renew="onRenew"
                   />
                 </ConfigurationPanel>
               </Card>

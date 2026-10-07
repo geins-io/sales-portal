@@ -15,6 +15,7 @@ import type {
 import {
   replayChanges,
   replayOrderLine,
+  restoreConfiguration,
 } from '../../../../server/services/configurator-replay';
 
 // ---------------------------------------------------------------------------
@@ -577,6 +578,99 @@ describe('replayOrderLine', () => {
     backend.create.mockRejectedValue(refused);
 
     await expect(replay()).rejects.toBe(refused);
+    expect(backend.applyChanges).not.toHaveBeenCalled();
+    expect(backend.release).not.toHaveBeenCalled();
+  });
+});
+
+describe('restoreConfiguration', () => {
+  const APPLIED = { ...document('fresh-1', []), isValid: true };
+  const CURRENT = { ...document('fresh-1', []), templateVersion: 'now' };
+  const INPUT = {
+    productId: '1359',
+    quantity: 3,
+    variables: CHOICES.variables,
+    options: CHOICES.options,
+  };
+
+  let backend: Record<
+    'create' | 'orderLineChoices' | 'applyChanges' | 'get' | 'release',
+    ReturnType<typeof vi.fn>
+  >;
+
+  beforeEach(() => {
+    backend = {
+      create: vi.fn(async () => freshSession()),
+      orderLineChoices: vi.fn(async () => CHOICES),
+      applyChanges: vi.fn(async () => APPLIED),
+      get: vi.fn(async () => CURRENT),
+      release: vi.fn(async () => undefined),
+    };
+  });
+
+  const restore = (input = INPUT) =>
+    restoreConfiguration(backend as unknown as ConfiguratorBackend, input, CTX);
+
+  it('creates a session at the quantity it is given and replays the choices into it', async () => {
+    const result = await restore();
+
+    expect(backend.create).toHaveBeenCalledWith(
+      { productId: '1359', quantity: 3 },
+      CTX,
+    );
+    expect(backend.applyChanges).toHaveBeenCalledWith(
+      'fresh-1',
+      replayChanges(CHOICES, freshSession()),
+      CTX,
+    );
+    expect(backend.orderLineChoices).not.toHaveBeenCalled();
+    expect(result).toEqual({ configuration: APPLIED, replayed: true });
+  });
+
+  it('answers the fresh session as replayed when there is nothing to replay', async () => {
+    await expect(
+      restore({ ...INPUT, variables: [], options: [] }),
+    ).resolves.toEqual({ configuration: freshSession(), replayed: true });
+    expect(backend.applyChanges).not.toHaveBeenCalled();
+  });
+
+  it('answers the fresh session, not replayed, when a choice is gone from it', async () => {
+    await expect(
+      restore({
+        ...INPUT,
+        options: [{ id: 'gone', instanceId: '0', quantity: 1 }],
+      }),
+    ).resolves.toEqual({ configuration: freshSession(), replayed: false });
+    expect(backend.applyChanges).not.toHaveBeenCalled();
+  });
+
+  it('answers the session as it now is, not replayed, when the provider refuses the batch', async () => {
+    backend.applyChanges.mockRejectedValue(
+      createAppError(ErrorCode.VALIDATION_ERROR, 'refused'),
+    );
+
+    await expect(restore()).resolves.toEqual({
+      configuration: CURRENT,
+      replayed: false,
+    });
+  });
+
+  it('releases the session it created when it cannot be read back, and fails', async () => {
+    const down = createAppError(ErrorCode.EXTERNAL_API_ERROR, 'down');
+    backend.applyChanges.mockRejectedValue(
+      createAppError(ErrorCode.EXTERNAL_API_ERROR, 'timed out'),
+    );
+    backend.get.mockRejectedValue(down);
+
+    await expect(restore()).rejects.toBe(down);
+    expect(backend.release).toHaveBeenCalledWith('fresh-1', CTX);
+  });
+
+  it('fails as a start fails when the session cannot be created, at that quantity or at all', async () => {
+    const refused = createAppError(ErrorCode.VALIDATION_ERROR, 'quantity');
+    backend.create.mockRejectedValue(refused);
+
+    await expect(restore()).rejects.toBe(refused);
     expect(backend.applyChanges).not.toHaveBeenCalled();
     expect(backend.release).not.toHaveBeenCalled();
   });
