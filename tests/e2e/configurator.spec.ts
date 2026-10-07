@@ -388,6 +388,70 @@ test.describe('Configurator', () => {
       sheet.locator(`[data-option-id="${OTHER_COLOUR}"]`),
     ).toHaveAttribute('data-selected', 'false');
   });
+
+  test("brings the buyer's last choices back after the session expired", async ({
+    page,
+  }) => {
+    const unavailable = await unavailableReason(page);
+    outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
+
+    const created = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/configurations' &&
+        response.request().method() === 'POST',
+    );
+    await openConfigurator(page);
+    const { configurationId } = (await (await created).json()) as {
+      configurationId: string;
+    };
+
+    // Nothing about the session is on screen: it is renewed silently.
+    await expect(page.getByTestId('configurator-panel-expiry')).toHaveCount(0);
+
+    await openSection(page, COLOUR_SECTION);
+    const changed = changeResponse(page);
+    await (await openColourSheet(page))
+      .locator(`[data-option-id="${PRICED_COLOUR}"]`)
+      .click();
+    await changed;
+    await expect(action(page)).toHaveAttribute('aria-busy', 'false');
+
+    // A released session answers exactly what an expired one does.
+    const released = await page.request.delete(
+      `/api/configurations/${configurationId}`,
+    );
+    expect(released.status()).toBe(204);
+
+    const refused = changeResponse(page);
+    await (await openColourSheet(page))
+      .locator(`[data-option-id="${OTHER_COLOUR}"]`)
+      .click();
+    expect((await refused).status()).toBe(410);
+
+    const expired = page.getByTestId('configurator-panel-expired');
+    await expect(expired).toBeVisible();
+    const restored = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/configurations/restore' &&
+        response.request().method() === 'POST',
+    );
+    await expired.getByRole('button').click();
+    const answer = await restored;
+    expect(answer.status()).toBe(200);
+    expect(((await answer.json()) as { replayed: boolean }).replayed).toBe(
+      true,
+    );
+
+    // The form holds the choice the expired session took, not the one it
+    // never did, and not the empty default.
+    await expect(action(page)).toBeVisible({ timeout: 20000 });
+    await openSection(page, COLOUR_SECTION);
+    await expect(
+      colourGroup(page).locator(`[data-option-id="${PRICED_COLOUR}"]`),
+    ).toHaveAttribute('data-selected', 'true');
+    await expect(page.getByTestId('configurator-not-restored')).toHaveCount(0);
+    await expect(page.getByTestId('configurator-panel-expiry')).toHaveCount(0);
+  });
 });
 
 /**
