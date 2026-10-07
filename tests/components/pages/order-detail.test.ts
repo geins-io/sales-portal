@@ -1070,11 +1070,12 @@ describe('OrderDetail', () => {
       ]);
     });
 
-    it('leaves out a configured row and a configurable one, and hands the cart the count', async () => {
+    it('leaves out a configured row and a configurable one, and hands the cart the count, when the configurator is on', async () => {
       setFeatures({
         reorder: { enabled: true },
-        configurator: { enabled: true, access: 'all' },
+        configurator: { enabled: true },
       });
+      useAuthStore().user = SIGNED_IN;
       const base = makeOrder();
       const [plain] = base.order.cart.items;
       const configurable = {

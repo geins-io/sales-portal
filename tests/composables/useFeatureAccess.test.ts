@@ -82,4 +82,46 @@ describe('useFeatureAccess', () => {
     const { canAccess } = useFeatureAccess();
     expect(canAccess('search')).toBe(false);
   });
+
+  describe('configuring', () => {
+    it('lets a signed-in buyer configure when the configurator is on', () => {
+      mockFeatures.value = { configurator: { enabled: true } };
+      mockAuthStore.isAuthenticated = true;
+      const { canConfigure, pageTypeOf } = useFeatureAccess();
+      expect(canConfigure()).toBe(true);
+      expect(pageTypeOf({ configurable: true })).toBe('configurable');
+    });
+
+    it("asks a guest to sign in, whatever the configurator's access rule says", () => {
+      mockFeatures.value = { configurator: { enabled: true, access: 'all' } };
+      const { canConfigure, pageTypeOf } = useFeatureAccess();
+      expect(canConfigure()).toBe(false);
+      expect(pageTypeOf({ configurable: true })).toBe('sign-in-to-configure');
+    });
+
+    it('treats a configurable product as ordinary when the configurator is off', () => {
+      mockFeatures.value = { configurator: { enabled: false } };
+      mockAuthStore.isAuthenticated = true;
+      const { canConfigure, pageTypeOf } = useFeatureAccess();
+      expect(canConfigure()).toBe(false);
+      expect(pageTypeOf({ configurable: true })).toBe('ordinary');
+    });
+
+    it('refuses configuring before the tenant config has loaded', () => {
+      mockFeatures.value = undefined;
+      mockAuthStore.isAuthenticated = true;
+      const { canConfigure, pageTypeOf } = useFeatureAccess();
+      expect(canConfigure()).toBe(false);
+      expect(pageTypeOf({ configurable: true })).toBe('ordinary');
+    });
+
+    it('follows the buyer signing in without a new composable', () => {
+      mockFeatures.value = { configurator: { enabled: true } };
+      const { canConfigure, pageTypeOf } = useFeatureAccess();
+      expect(pageTypeOf({ configurable: true })).toBe('sign-in-to-configure');
+      mockAuthStore.isAuthenticated = true;
+      expect(canConfigure()).toBe(true);
+      expect(pageTypeOf({ configurable: true })).toBe('configurable');
+    });
+  });
 });

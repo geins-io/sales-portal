@@ -18,9 +18,23 @@ vi.mock('vue-i18n', () => ({
 // The page's own access gate. The shared mock is permissive, so the denied
 // branch needs a mock this file controls.
 const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
-vi.mock('../../../app/composables/useFeatureAccess', () => ({
-  useFeatureAccess: () => ({ canAccess: mockCanAccess }),
-}));
+const mockConfiguratorOn = ref(true);
+vi.mock('../../../app/composables/useFeatureAccess', async () => {
+  const { resolveProductPageType } =
+    await import('../../../app/utils/product-page-type');
+  return {
+    useFeatureAccess: () => ({
+      canAccess: mockCanAccess,
+      // The portal is signed in, so only the tenant's switch varies here.
+      pageTypeOf: (product: { configurable?: boolean }) =>
+        resolveProductPageType(
+          product,
+          { enabled: mockConfiguratorOn.value },
+          { authenticated: true },
+        ),
+    }),
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Favorites store mock. getListById returns a fixed list regardless of the
@@ -389,6 +403,7 @@ describe('Saved list detail with a configurable product', () => {
 
   afterEach(() => {
     mockFetchProducts.splice(mockFetchProducts.indexOf(BOOKCASE), 1);
+    mockConfiguratorOn.value = true;
   });
 
   function row(wrapper: ReturnType<typeof mountPage>, index: number) {
@@ -486,8 +501,8 @@ describe('Saved list detail with a configurable product', () => {
     expect(wrapper.text()).not.toContain('skipped_configurable');
   });
 
-  it('treats a configurable product as ordinary for a buyer the configurator refuses', async () => {
-    mockCanAccess.mockImplementation((feature) => feature !== 'configurator');
+  it('treats a configurable product as ordinary when the configurator is off', async () => {
+    mockConfiguratorOn.value = false;
     const wrapper = mountPage();
     const bookcase = row(wrapper, 2);
 

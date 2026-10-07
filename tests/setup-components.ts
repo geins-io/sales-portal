@@ -277,11 +277,23 @@ vi.mock('../app/composables/useTenant', () => {
 // `features` fixture reaches the component through the real useFeatureAccess
 // and canAccessFeature, which is what lets the coverage map hang
 // `drives: 'field'` on the test.
-vi.mock('../app/composables/useFeatureAccess', () => ({
-  useFeatureAccess: () => ({
-    canAccess: (_featureName: string) => true,
-  }),
-}));
+// The configurator answers as for a signed-in buyer with it switched on.
+vi.mock('../app/composables/useFeatureAccess', async () => {
+  const { resolveProductPageType } =
+    await import('../app/utils/product-page-type');
+  return {
+    useFeatureAccess: () => ({
+      canAccess: (_featureName: string) => true,
+      canConfigure: () => true,
+      pageTypeOf: (product: { configurable?: boolean } | null | undefined) =>
+        resolveProductPageType(
+          product,
+          { enabled: true },
+          { authenticated: true },
+        ),
+    }),
+  };
+});
 
 // VAT-display preference. Defaults to incl-VAT; tests drive it via the
 // exported mockShowIncVat ref above.

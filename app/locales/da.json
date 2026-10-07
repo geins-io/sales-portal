@@ -354,6 +354,7 @@
     "change_refused_value": "Værdien blev ikke accepteret. Prøv en anden værdi.",
     "change_refused_option": "Valget blev ikke accepteret. Prøv et andet valg.",
     "sign_in_required": "Log ind med en virksomhedskonto for at konfigurere produktet.",
+    "sign_in_to_configure": "{link} som erhvervskunde for at konfigurere produktet.",
     "configure_product": "Konfigurer produkt",
     "price_on_configuration": "Pris beregnes ved konfiguration",
     "product_configuration": "Produktkonfiguration",

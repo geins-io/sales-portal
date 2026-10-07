@@ -1,3 +1,5 @@
+import { canConfigure, type UserContext } from '#shared/utils/feature-access';
+
 /**
  * Which page component a product gets.
  *
@@ -5,12 +7,16 @@
  * asks this, and the page it names renders. A third type is one more member
  * here and one more branch in the page — never a condition inside a page.
  */
-export type ProductPageType = 'ordinary' | 'configurable';
+export type ProductPageType =
+  | 'ordinary'
+  | 'configurable'
+  | 'sign-in-to-configure';
 
 /**
- * The configurator needs both halves: a product the configurator stands
- * behind, and a buyer the access rule lets configure. A buyer it refuses gets
- * the ordinary page, not a 404 — the product exists either way.
+ * A configurable product needs the configurator switched on for the tenant;
+ * without it the product is an ordinary one. With it, a signed-in buyer gets
+ * the configurator and a guest is asked to sign in — never a plain add, which
+ * would land a line without a configuration at catalogue price.
  *
  * The flag is compared to `true` rather than read for truthiness: it is
  * derived server-side and typed `boolean | undefined`, so anything else that
@@ -18,9 +24,13 @@ export type ProductPageType = 'ordinary' | 'configurable';
  */
 export function resolveProductPageType(
   product: { configurable?: boolean } | null | undefined,
-  mayConfigure: boolean,
+  configurator: { enabled: boolean } | undefined,
+  user: UserContext,
 ): ProductPageType {
-  return product?.configurable === true && mayConfigure
+  if (product?.configurable !== true || configurator?.enabled !== true) {
+    return 'ordinary';
+  }
+  return canConfigure(configurator, user)
     ? 'configurable'
-    : 'ordinary';
+    : 'sign-in-to-configure';
 }

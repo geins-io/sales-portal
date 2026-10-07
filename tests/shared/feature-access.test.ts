@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   evaluateAccess,
   canAccessFeature,
+  canConfigure,
 } from '../../shared/utils/feature-access';
 import type { UserContext } from '../../shared/utils/feature-access';
 import type { FeatureAccess } from '../../shared/types/tenant-config';
@@ -84,5 +85,27 @@ describe('canAccessFeature', () => {
     const feature = { enabled: true, access: 'authenticated' as FeatureAccess };
     expect(canAccessFeature(feature, anonymous)).toBe(false);
     expect(canAccessFeature(feature, loggedIn)).toBe(true);
+  });
+});
+
+describe('canConfigure', () => {
+  it('needs the configurator switched on and a signed-in buyer', () => {
+    expect(canConfigure({ enabled: true }, loggedIn)).toBe(true);
+    expect(canConfigure({ enabled: true }, anonymous)).toBe(false);
+  });
+
+  it('refuses when the configurator is off or absent', () => {
+    expect(canConfigure({ enabled: false }, loggedIn)).toBe(false);
+    expect(canConfigure(undefined, loggedIn)).toBe(false);
+  });
+
+  it('does not read the access rule', () => {
+    const openToAll = { enabled: true, access: 'all' as FeatureAccess };
+    const signedInOnly = {
+      enabled: true,
+      access: 'authenticated' as FeatureAccess,
+    };
+    expect(canConfigure(openToAll, anonymous)).toBe(false);
+    expect(canConfigure(signedInOnly, loggedIn)).toBe(true);
   });
 });

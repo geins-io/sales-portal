@@ -5,7 +5,7 @@ import {
   type ConfiguratorBackend,
   type ConfiguratorContext,
 } from '../services/configurator';
-import { canAccessFeatureServer } from './feature-access';
+import { canConfigureServer } from './feature-access';
 
 // ---------------------------------------------------------------------------
 // What every configuration route does before it does anything else.
@@ -27,12 +27,9 @@ export async function requireConfigurator(
   // A configuration is per session and priced per customer.
   setResponseHeader(event, 'Cache-Control', 'private, no-store');
 
-  const allowed = await canAccessFeatureServer(event, 'configurator', {
-    authenticated: !!getSessionToken(event),
-  });
-  if (!allowed) {
-    // 404 rather than 403, for the access rule as well as for the flag: a
-    // request that may not have the feature is not told that it exists.
+  if (!(await canConfigureServer(event))) {
+    // 404 rather than 403, for a guest as well as for the flag: a request
+    // that may not have the feature is not told that it exists.
     throw createAppError(ErrorCode.NOT_FOUND, 'No configurator on this tenant');
   }
 

@@ -949,3 +949,49 @@ test.describe('Configured line through the cart', () => {
     }
   });
 });
+
+/**
+ * A guest on a configurable product. Configuring needs a signed-in buyer, so
+ * the page offers no price and no plain add, only a way to sign in. Asked of
+ * `/api/config` rather than the gate: the gate answers a guest 404 whether the
+ * feature is on or not.
+ */
+test.describe('a guest on a configurable product', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test.beforeEach(async ({ page }) => {
+    outOfScope(
+      !(await isConfigurable(page, SEED_ALIAS)),
+      'fixture-missing',
+      `the configurator backend is off on this target, or ${SEED_ALIAS} is missing from the catalogue`,
+    );
+    const config = await (await page.request.get('/api/config')).json();
+    outOfScope(
+      config?.features?.configurator?.enabled !== true,
+      'tenant-config',
+      'the configurator feature is off for this tenant',
+    );
+  });
+
+  test('is asked to sign in, and gets no price and no add', async ({
+    page,
+  }) => {
+    await page.goto(`/p/${SEED_ALIAS}`);
+    await waitForHydration(page);
+
+    await expect(page.getByTestId('product-name')).toBeVisible();
+    await expect(
+      page.getByTestId('pdp-sign-in-to-configure-note'),
+    ).toBeVisible();
+    await expect(page.getByTestId('configurator-product')).toHaveCount(0);
+    await expect(page.getByTestId('add-to-cart-button')).toHaveCount(0);
+    await expect(page.getByTestId('pdp-price')).toHaveCount(0);
+
+    // The link sits inside the sentence that says why.
+    await page
+      .getByTestId('pdp-sign-in-to-configure-note')
+      .getByTestId('pdp-sign-in-to-configure')
+      .click();
+    await expect(page.getByTestId('auth-sheet')).toBeVisible();
+  });
+});

@@ -90,15 +90,13 @@ function samePrefix(a: string, b: string): boolean {
   return aSeg[0] === bSeg[0] && aSeg[1] === bSeg[1];
 }
 
-const { canAccess } = useFeatureAccess();
+const { pageTypeOf } = useFeatureAccess();
 
-// A computed, not a value settled during setup: `canAccess` reads the auth
+// A computed, not a value settled during setup: `pageTypeOf` reads the auth
 // store, which `plugins/auth-init.ts` has resolved before this page renders on
-// the server and keeps resolving on the client. A buyer who signs in moves the
+// the server and keeps resolving on the client. A guest who signs in moves the
 // page to the configurator without a reload.
-const pageType = computed(() =>
-  resolveProductPageType(product.value, canAccess('configurator')),
-);
+const pageType = computed(() => pageTypeOf(product.value));
 </script>
 
 <template>
@@ -127,5 +125,6 @@ const pageType = computed(() =>
     v-else-if="product"
     :product="product"
     :alias="productAlias"
+    :sign-in-to-configure="pageType === 'sign-in-to-configure'"
   />
 </template>

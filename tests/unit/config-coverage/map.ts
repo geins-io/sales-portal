@@ -536,21 +536,6 @@ function visibilityCells(
 }
 
 /**
- * The one gate case that writes `enabled: true` with no access rule and asserts
- * the request reaches the backend. Hung on two cells for the reason
- * `FeatureCells` gives: an absent access rule cannot be written without also
- * writing `enabled: true`, so the two would otherwise be the same fixture under
- * two titles.
- */
-const CONFIGURATOR_OPEN_RULE: TestRef = {
-  spec: CONFIGURATOR_ROUTES,
-  title:
-    'lets a request through when configurator is enabled with no access rule',
-  kind: 'consumer',
-  drives: 'field',
-};
-
-/**
  * A feature seeded for every tenant and read by nothing. Toggling it in the
  * admin changes nothing on the site, which is worse than an unused field: it
  * is a control that appears to work. Whether these should be removed or wired
@@ -1875,10 +1860,24 @@ export const CONFIG_COVERAGE_MAP = {
         'page gates on orderPlacement instead.',
     ),
     configurator: namedFeature({
-      consumer: 'server/utils/configurator-route.ts:35',
+      consumer: 'server/utils/configurator-route.ts:30',
       cells: {
-        enabledTrue: [CONFIGURATOR_OPEN_RULE],
-        accessAbsent: [CONFIGURATOR_OPEN_RULE],
+        enabledTrue: [
+          {
+            spec: CONFIGURATOR_ROUTES,
+            title:
+              'lets a signed-in request through when configurator is enabled',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: CONFIGURATOR_ROUTES,
+            title:
+              'answers 404 for an anonymous request when configurator is enabled',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
         enabledFalse: [
           {
             spec: CONFIGURATOR_ROUTES,
@@ -1888,42 +1887,22 @@ export const CONFIG_COVERAGE_MAP = {
             drives: 'field',
           },
         ],
-        accessAll: [
-          {
-            spec: CONFIGURATOR_ROUTES,
-            title:
-              "lets an anonymous request through when configurator access is 'all'",
-            kind: 'consumer',
-            drives: 'field',
-          },
-        ],
-        accessAuthenticated: [
-          {
-            spec: CONFIGURATOR_ROUTES,
-            title:
-              "answers 404 for an anonymous request when configurator access is 'authenticated'",
-            kind: 'consumer',
-            drives: 'field',
-          },
-          {
-            spec: CONFIGURATOR_ROUTES,
-            title:
-              "lets a signed-in request through when configurator access is 'authenticated'",
-            kind: 'consumer',
-            drives: 'field',
-          },
-        ],
       },
+      access: accessNeverRead(
+        'Every consumer asks canConfigure, which reads `.enabled` and the ' +
+          "buyer's sign-in and never looks at `.access`: configuring always " +
+          'needs a signed-in buyer, so an access rule on it changes nothing.',
+      ),
       note:
         'The first consumer in this map that is server code rather than a ' +
         'component: the gate is a route util every configuration route calls ' +
         'before it reads a body. The cases are declared once, in the harness ' +
-        'the six route specs share, which is why every reference points at ' +
-        'that one file. The harness mocks the backend and the features ' +
-        'lookup and runs the real canAccessFeatureServer over the configured ' +
-        'value, so each case drives the field. The merchant toggle is per ' +
-        'channel in the storefront-settings schema, so a channel without the ' +
-        'field sits on the seeded default and the routes answer 404.',
+        'the route specs share, which is why every reference points at that ' +
+        'one file. The harness mocks the backend and the features lookup and ' +
+        'runs the real canConfigureServer over the configured value, so each ' +
+        'case drives the field. The merchant toggle is per channel in the ' +
+        'storefront-settings schema, so a channel without the field sits on ' +
+        'the seeded default and the routes answer 404.',
     }),
     lists: namedFeature({
       consumer: 'app/components/portal/PortalShell.vue:116',

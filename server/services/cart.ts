@@ -7,7 +7,7 @@ import type {
   CartType,
 } from '#shared/types/commerce';
 import { createAppError, ErrorCode } from '../utils/errors';
-import { canAccessFeatureServer } from '../utils/feature-access';
+import { canConfigureServer } from '../utils/feature-access';
 import { logger } from '../utils/logger';
 import { isSdkLoginRequired } from '../utils/sdk-error';
 import { getTenantSDK, buildRequestContext } from './_sdk';
@@ -26,10 +26,9 @@ import {
 async function configuratorFor(
   event: H3Event,
 ): Promise<ConfiguratorBackend | null> {
-  const mayConfigure = await canAccessFeatureServer(event, 'configurator', {
-    authenticated: !!getSessionToken(event),
-  });
-  return mayConfigure ? getConfiguratorBackend(event) : null;
+  return (await canConfigureServer(event))
+    ? getConfiguratorBackend(event)
+    : null;
 }
 
 /** Never throws: without the read, the lines render without a configuration. */

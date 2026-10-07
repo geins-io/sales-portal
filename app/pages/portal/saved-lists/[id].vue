@@ -21,7 +21,6 @@ import type { StockType } from '#shared/types/commerce';
 import { useFavoritesStore } from '~/stores/favorites';
 import { useCartStore } from '~/stores/cart';
 import { productPath } from '#shared/utils/route-helpers';
-import { resolveProductPageType } from '~/utils/product-page-type';
 
 definePageMeta({ middleware: ['auth', 'feature'], feature: 'lists' });
 
@@ -57,7 +56,7 @@ const { localePath } = useLocaleMarket();
 const { formatLocale } = useFormatLocale();
 const router = useRouter();
 const { isCatalogMode } = useTenant();
-const { canAccess } = useFeatureAccess();
+const { canAccess, pageTypeOf } = useFeatureAccess();
 const canPurchase = computed(
   () => canAccess('orderPlacement') && !isCatalogMode.value,
 );
@@ -66,10 +65,7 @@ const { showPrice } = usePriceVisibility();
 // A configurable product cannot be bought without a configuration, so its row
 // links to the page that makes one, under the same rule as its product card.
 function isConfigurable(product: ListProduct): boolean {
-  return (
-    resolveProductPageType(product, canAccess('configurator')) ===
-    'configurable'
-  );
+  return pageTypeOf(product) === 'configurable';
 }
 
 const favoritesStore = useFavoritesStore();

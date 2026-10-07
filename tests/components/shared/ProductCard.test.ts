@@ -19,10 +19,6 @@ vi.mock('~/stores/favorites', () => ({
   }),
 }));
 
-vi.mock('../../../app/composables/useFeatureAccess', () => ({
-  useFeatureAccess: () => ({ canAccess: vi.fn(() => true) }),
-}));
-
 const stubs = {
   GeinsImage: {
     props: ['fileName', 'type', 'alt'],

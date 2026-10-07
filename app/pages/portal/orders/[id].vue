@@ -21,7 +21,7 @@ const { localePath } = useLocaleMarket();
 const { formatLocale } = useFormatLocale();
 const cartStore = useCartStore();
 const { isCatalogMode, timezone } = useTenant();
-const { canAccess } = useFeatureAccess();
+const { canAccess, pageTypeOf } = useFeatureAccess();
 const canReorder = computed(
   () =>
     canAccess('reorder') &&
@@ -37,7 +37,7 @@ async function handleReorder() {
 
   isReordering.value = true;
   try {
-    const { lines, skipped } = reorderLines(items, canAccess('configurator'));
+    const { lines, skipped } = reorderLines(items, pageTypeOf);
     await cartStore.addItems(lines, skipped);
   } finally {
     isReordering.value = false;

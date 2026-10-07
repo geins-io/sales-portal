@@ -30,6 +30,11 @@ const props = defineProps<{
    * address the visitor is on.
    */
   alias: string;
+  /**
+   * A configurable product shown to a guest: configuring needs sign-in, so the
+   * page offers sign-in in place of a price and a plain add.
+   */
+  signInToConfigure?: boolean;
 }>();
 
 // The route loads the product and hands it down. It keeps the name `product`
@@ -485,7 +490,10 @@ useProductSeo({
   breadcrumbs: () => breadcrumbItems.value,
   localeAlternates,
   sku: () => resolvedSku.value?.skuId?.toString() ?? '',
-  withOffers: true,
+  // No price for a guest on a configurable product, as on the configurator
+  // page. The flag cannot change under a mounted page: signing in swaps the
+  // component.
+  withOffers: !props.signInToConfigure,
 });
 </script>
 
@@ -504,7 +512,7 @@ useProductSeo({
           <!-- Price: sits above the long-form description so the dominant
              commerce signal anchors the column. -->
           <PriceDisplay
-            v-if="product.unitPrice && showPrice"
+            v-if="product.unitPrice && showPrice && !signInToConfigure"
             :price="product.unitPrice"
             :lowest-price="product.lowestPrice"
             :discount-type="product.discountType"
@@ -522,63 +530,70 @@ useProductSeo({
             {{ text3Plain }}
           </p>
 
-          <!-- Campaign badges -->
-          <div
-            v-if="visibleCampaigns.length"
-            class="flex flex-wrap gap-1"
-            data-testid="pdp-campaign-badges"
-          >
-            <span
-              v-for="campaign in visibleCampaigns"
-              :key="campaign.name"
-              :class="BADGE_DESTRUCTIVE"
+          <!-- The configurator page's top area shows none of what follows:
+               it is about the catalogue SKU, not a configuration. -->
+          <template v-if="!signInToConfigure">
+            <!-- Campaign badges -->
+            <div
+              v-if="visibleCampaigns.length"
+              class="flex flex-wrap gap-1"
+              data-testid="pdp-campaign-badges"
             >
-              {{ campaign.name }}
-            </span>
-          </div>
+              <span
+                v-for="campaign in visibleCampaigns"
+                :key="campaign.name"
+                :class="BADGE_DESTRUCTIVE"
+              >
+                {{ campaign.name }}
+              </span>
+            </div>
 
-          <!-- Negotiated price info banner -->
-          <div
-            v-if="product.discountType === 'EXTERNAL'"
-            class="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800"
-            data-testid="negotiated-price-banner"
-          >
-            <BadgeCheck class="size-4 shrink-0" />
-            <span>{{ $t('discount.negotiated_price_info') }}</span>
-          </div>
+            <!-- Negotiated price info banner -->
+            <div
+              v-if="product.discountType === 'EXTERNAL'"
+              class="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800"
+              data-testid="negotiated-price-banner"
+            >
+              <BadgeCheck class="size-4 shrink-0" />
+              <span>{{ $t('discount.negotiated_price_info') }}</span>
+            </div>
 
-          <!-- Stock -->
-          <div v-if="product.totalStock && showStock" data-testid="stock-badge">
-            <StockBadge :stock="product.totalStock" />
-          </div>
+            <!-- Stock -->
+            <div
+              v-if="product.totalStock && showStock"
+              data-testid="stock-badge"
+            >
+              <StockBadge :stock="product.totalStock" />
+            </div>
 
-          <!-- Variant selector — pass product-level data through so each
+            <!-- Variant selector — pass product-level data through so each
              sheet row can render a real Figma-style item with thumbnail,
              art-nr, stock and price (price is product-level so it's the
              same on every row). -->
-          <VariantSelector
-            v-if="showVariantSelector"
-            v-model="selectedVariants"
-            :variant-dimensions="product.variantDimensions ?? []"
-            :variants="product.variantGroup?.variants ?? []"
-            :combinations="combinations"
-            :skus="product.skus ?? []"
-            :product-images="product.productImages ?? []"
-            :product-name="product.name ?? ''"
-            :price-inc-vat-formatted="
-              product.unitPrice?.sellingPriceIncVatFormatted ?? null
-            "
-            :price-ex-vat-formatted="
-              product.unitPrice?.sellingPriceExVatFormatted ?? null
-            "
-            :product-article-number="product.articleNumber ?? null"
-            :variant-products="variantProductsByAlias"
-          />
+            <VariantSelector
+              v-if="showVariantSelector"
+              v-model="selectedVariants"
+              :variant-dimensions="product.variantDimensions ?? []"
+              :variants="product.variantGroup?.variants ?? []"
+              :combinations="combinations"
+              :skus="product.skus ?? []"
+              :product-images="product.productImages ?? []"
+              :product-name="product.name ?? ''"
+              :price-inc-vat-formatted="
+                product.unitPrice?.sellingPriceIncVatFormatted ?? null
+              "
+              :price-ex-vat-formatted="
+                product.unitPrice?.sellingPriceExVatFormatted ?? null
+              "
+              :product-article-number="product.articleNumber ?? null"
+              :variant-products="variantProductsByAlias"
+            />
+          </template>
         </template>
 
         <template #aside>
           <!-- Quantity + Add to cart + Wishlist -->
-          <template v-if="canPurchase">
+          <template v-if="canPurchase && !signInToConfigure">
             <OutOfStockBlock v-if="isOutOfStock" />
             <div
               v-else
@@ -681,6 +696,27 @@ useProductSeo({
               </span>
             </NuxtLink>
           </div>
+
+          <!-- In the configurator page note's place; the link sits inside
+               the sentence in every language. -->
+          <i18n-t
+            v-if="signInToConfigure"
+            keypath="configurator.sign_in_to_configure"
+            tag="p"
+            class="text-muted-foreground text-xs"
+            data-testid="pdp-sign-in-to-configure-note"
+          >
+            <template #link>
+              <button
+                type="button"
+                class="text-foreground font-medium underline underline-offset-4 hover:no-underline"
+                data-testid="pdp-sign-in-to-configure"
+                @click="authStore.openSheet()"
+              >
+                {{ $t('auth.sign_in') }}
+              </button>
+            </template>
+          </i18n-t>
         </template>
       </ProductTopArea>
 

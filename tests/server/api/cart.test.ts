@@ -38,7 +38,7 @@ vi.mock('../../../server/services/_sdk', () => ({
 
 // A tenant without the configurator: the cart is the SDK's alone.
 vi.mock('../../../server/utils/feature-access', () => ({
-  canAccessFeatureServer: vi.fn().mockResolvedValue(false),
+  canConfigureServer: vi.fn().mockResolvedValue(false),
 }));
 // The copy at sign-in asks the backend whatever the gate says; with the
 // configurator off it answers no configured lines.
