@@ -1496,7 +1496,7 @@ describe('ConfiguratorProduct sections rail', () => {
     ).toHaveLength(0);
   });
 
-  it('renders a one-item rail for a document with a single visible section', async () => {
+  it('renders a one-item rail and no pager for a document with a single visible section', async () => {
     // The cabinet seed carries two visible sections and one hidden one, so the
     // one-section shape is made here rather than taken from a seed: a layout
     // that switched on a count is the rule this replaced.
@@ -1511,12 +1511,46 @@ describe('ConfiguratorProduct sections rail', () => {
 
     expect(railIds(wrapper)).toEqual(['cabinet']);
     expect(activeSectionId(wrapper)).toBe('cabinet');
+    for (const id of [
+      'configurator-prev',
+      'configurator-position',
+      'configurator-next',
+    ]) {
+      expect(wrapper.find(`[data-testid="${id}"]`).exists()).toBe(false);
+    }
+  });
+
+  it('keeps the pager when there are two visible sections', async () => {
+    const wrapper = mountPage();
+    activeWith(makeCabinetConfiguration());
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="configurator-position"]').text()).toBe(
+      'configurator.section_position {"current":1,"total":2}',
+    );
     expect(
       wrapper.find('[data-testid="configurator-prev"]').attributes('disabled'),
     ).toBeDefined();
     expect(
       wrapper.find('[data-testid="configurator-next"]').attributes('disabled'),
-    ).toBeDefined();
+    ).toBeUndefined();
+  });
+
+  it('counts a visible nested section towards the pager', async () => {
+    const nested = makeCabinetConfiguration();
+    const [cabinet, interior] = nested.sections.filter(
+      (section) => section.visible,
+    );
+    nested.sections = [{ ...cabinet!, sections: [interior!] }];
+
+    const wrapper = mountPage();
+    activeWith(nested);
+    await nextTick();
+
+    expect(railIds(wrapper)).toEqual(['cabinet', 'interior']);
+    expect(wrapper.find('[data-testid="configurator-position"]').text()).toBe(
+      'configurator.section_position {"current":1,"total":2}',
+    );
   });
 
   it('renders no rail and no pager for a document with no visible section', async () => {

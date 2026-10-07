@@ -1050,8 +1050,10 @@ function onRetryOpen(): void {
                       </div>
 
                       <!-- Free movement, not a wizard: the rail jumps anywhere and
-                       neither button asks whether the section was answered. -->
+                       neither button asks whether the section was answered.
+                       With one section there is nowhere to move to. -->
                       <div
+                        v-if="railEntries.length > 1"
                         class="border-border mt-6 flex items-center justify-between border-t pt-6"
                       >
                         <Button
