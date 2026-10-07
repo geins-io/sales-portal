@@ -22,7 +22,7 @@ const oms = {
 };
 const cartLineConfigurations = vi.fn();
 const addToCart = vi.fn();
-const canAccessFeatureServer = vi.fn();
+const canConfigureServer = vi.fn();
 const sessionToken = vi.fn();
 
 vi.mock('../../../../server/services/_sdk', () => ({
@@ -36,8 +36,7 @@ vi.mock('../../../../server/services/configurator', () => ({
 }));
 
 vi.mock('../../../../server/utils/feature-access', () => ({
-  canAccessFeatureServer: (...args: unknown[]) =>
-    canAccessFeatureServer(...args),
+  canConfigureServer: (...args: unknown[]) => canConfigureServer(...args),
 }));
 
 const wrapServiceCall = vi.fn((call: () => unknown) => call());
@@ -134,7 +133,7 @@ describe('the cart service', () => {
       .mockReset()
       .mockResolvedValue(new Map([['item-1', CONFIGURATION]]));
     addToCart.mockReset().mockResolvedValue({ itemId: 'carried-1' });
-    canAccessFeatureServer.mockReset().mockResolvedValue(true);
+    canConfigureServer.mockReset().mockResolvedValue(true);
     sessionToken.mockReset().mockReturnValue('user-token-1');
     warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
     error = vi.spyOn(logger, 'error').mockImplementation(() => {});
@@ -180,7 +179,7 @@ describe('the cart service', () => {
     });
 
     it('does not read when the request may not have the configurator', async () => {
-      canAccessFeatureServer.mockResolvedValue(false);
+      canConfigureServer.mockResolvedValue(false);
 
       const cart = await call(service);
 
@@ -200,15 +199,10 @@ describe('the cart service', () => {
     });
   });
 
-  it('asks the gate with the buyer signed in or not', async () => {
-    await service.getCart('cart-1', EVENT);
-    sessionToken.mockReturnValue(undefined);
+  it("asks the configurator's gate for this request", async () => {
     await service.getCart('cart-1', EVENT);
 
-    expect(canAccessFeatureServer.mock.calls).toEqual([
-      [EVENT, 'configurator', { authenticated: true }],
-      [EVENT, 'configurator', { authenticated: false }],
-    ]);
+    expect(canConfigureServer.mock.calls).toEqual([[EVENT]]);
   });
 
   it('answers the SDK cart as it is when no line is configured', async () => {
@@ -255,7 +249,7 @@ describe('the cart service', () => {
     await service.createCart(EVENT);
 
     expect(cartLineConfigurations).not.toHaveBeenCalled();
-    expect(canAccessFeatureServer).not.toHaveBeenCalled();
+    expect(canConfigureServer).not.toHaveBeenCalled();
   });
 
   describe('a read refused until the buyer signs in', () => {
@@ -380,7 +374,7 @@ describe('the cart service', () => {
     });
 
     it("reads the lines with the buyer's new token, whatever the configurator gate says", async () => {
-      canAccessFeatureServer.mockResolvedValue(false);
+      canConfigureServer.mockResolvedValue(false);
 
       await copy();
 

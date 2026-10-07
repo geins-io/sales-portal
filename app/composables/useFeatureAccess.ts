@@ -1,5 +1,6 @@
-import { canAccessFeature } from '#shared/utils/feature-access';
+import { canAccessFeature, canConfigure } from '#shared/utils/feature-access';
 import type { UserContext } from '#shared/utils/feature-access';
+import { resolveProductPageType } from '~/utils/product-page-type';
 import { useAuthStore } from '~/stores/auth';
 
 /**
@@ -13,10 +14,22 @@ export function useFeatureAccess() {
   const { features } = useTenant();
   const auth = useAuthStore();
 
-  function canAccess(featureName: string): boolean {
-    const user: UserContext = { authenticated: auth.isAuthenticated };
-    return canAccessFeature(features.value?.[featureName], user);
+  function user(): UserContext {
+    return { authenticated: auth.isAuthenticated };
   }
 
-  return { canAccess };
+  function canAccess(featureName: string): boolean {
+    return canAccessFeature(features.value?.[featureName], user());
+  }
+
+  function configurator() {
+    return features.value?.configurator;
+  }
+
+  return {
+    canAccess,
+    canConfigure: () => canConfigure(configurator(), user()),
+    pageTypeOf: (product: { configurable?: boolean } | null | undefined) =>
+      resolveProductPageType(product, configurator(), user()),
+  };
 }

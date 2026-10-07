@@ -22,7 +22,7 @@ import { useTenant } from '../../../app/composables/useTenant';
 // run in it), so mount inside a Suspense boundary, full depth with the stubs
 // below, and flush the microtask queue before asserting.
 async function mountProductDetails(
-  props: { product: DetailProduct; alias: string },
+  props: { product: DetailProduct; alias: string; signInToConfigure?: boolean },
   mountOptions: MountOptionsFor<Component> = {},
 ) {
   // The wrapper closes over `props` instead of redeclaring them through
@@ -70,11 +70,14 @@ const mockIsAuthenticated = ref(true);
 const mockIsFavorite = vi.fn(() => false);
 const mockToggleFavorite = vi.fn();
 
+const mockOpenSheet = vi.fn();
+
 vi.mock('~/stores/auth', () => ({
   useAuthStore: () => ({
     get isAuthenticated() {
       return mockIsAuthenticated.value;
     },
+    openSheet: mockOpenSheet,
   }),
 }));
 
@@ -235,10 +238,12 @@ vi.mock('#app/composables/head', () => ({
 vi.stubGlobal('useHead', vi.fn());
 vi.stubGlobal('useSeoMeta', vi.fn());
 vi.stubGlobal('useSchemaOrg', vi.fn());
-vi.stubGlobal(
-  'defineProduct',
-  vi.fn(() => ({})),
-);
+// One shared spy, as for breadcrumbs below, so the offers a page publishes can
+// be read whichever resolution path the auto-import takes.
+const { defineProductMock } = vi.hoisted(() => ({
+  defineProductMock: vi.fn((_input: { offers: () => unknown }) => ({})),
+}));
+vi.stubGlobal('defineProduct', defineProductMock);
 // One shared spy so a breadcrumb assertion reads the same call whichever
 // resolution path the component takes for this auto-import.
 const { defineBreadcrumbMock } = vi.hoisted(() => ({
@@ -252,7 +257,7 @@ vi.stubGlobal('defineBreadcrumb', defineBreadcrumbMock);
 
 // Mock @unhead/schema-org/vue helpers (auto-imported by Nuxt)
 vi.mock('@unhead/schema-org/vue', () => ({
-  defineProduct: vi.fn(() => ({})),
+  defineProduct: defineProductMock,
   defineBreadcrumb: defineBreadcrumbMock,
 }));
 
@@ -1295,6 +1300,156 @@ describe('ProductDetails', () => {
 
       expect(button.attributes('data-favorited')).toBe('false');
       expect(button.get('[data-name="star"]').attributes('fill')).toBe('none');
+    });
+  });
+
+  // A guest on a configurable product: configuring needs sign-in, so the page
+  // offers no price and no plain add, and its top area has the configurator
+  // page's shape.
+  describe('asking a guest to sign in to configure', () => {
+    const everything = () =>
+      makeProduct({
+        configurable: true,
+        discountCampaigns: [{ name: 'Spring Sale', hideTitle: false }],
+        discountType: 'EXTERNAL',
+        texts: { text1: 'Description', text2: 'Short', text3: 'Extra copy' },
+        variantDimensions: [{ dimension: 'Variant', value: '88' }],
+        skus: [
+          { skuId: 101, name: '88', stock: { totalStock: 10 } },
+          { skuId: 102, name: '90', stock: { totalStock: 10 } },
+        ],
+      });
+
+    const stubs = {
+      ...defaultStubs,
+      VariantSelector: { template: '<div data-testid="variant-selector" />' },
+      // vue-i18n is mocked at the tier, so its component is not registered.
+      'i18n-t': {
+        template: '<p :data-keypath="keypath"><slot name="link" /></p>',
+        props: ['keypath', 'tag'],
+      },
+    };
+
+    async function mountGuest(signInToConfigure: boolean) {
+      const product = everything();
+      return mountProductDetails(
+        { product, alias: product.alias, signInToConfigure },
+        { global: { stubs } },
+      );
+    }
+
+    beforeEach(() => {
+      mockIsAuthenticated.value = false;
+      mockOpenSheet.mockClear();
+      defineProductMock.mockClear();
+    });
+
+    function publishedOffers(): unknown {
+      const input = defineProductMock.mock.lastCall?.[0];
+      assert.isDefined(input);
+      return input.offers();
+    }
+
+    afterEach(() => {
+      mockIsAuthenticated.value = true;
+    });
+
+    it('shows no price, add, stock, campaigns, negotiated banner or variant selector', async () => {
+      const wrapper = await mountGuest(true);
+
+      expect(wrapper.find('[data-testid="pdp-price"]').exists()).toBe(false);
+      expect(wrapper.find('.price-display').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.find('.quantity-input').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="stock-badge"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="pdp-campaign-badges"]').exists()).toBe(
+        false,
+      );
+      expect(
+        wrapper.find('[data-testid="negotiated-price-banner"]').exists(),
+      ).toBe(false);
+      expect(wrapper.find('[data-testid="variant-selector"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('publishes no Schema.org offer, as the configurator page does not', async () => {
+      await mountGuest(true);
+
+      expect(publishedOffers()).toBeUndefined();
+    });
+
+    it('keeps the name, the extra copy, the print row and the tabs', async () => {
+      const wrapper = await mountGuest(true);
+
+      expect(wrapper.find('[data-testid="product-name"]').text()).toBe(
+        'Test Product',
+      );
+      expect(wrapper.find('[data-testid="product-text3"]').text()).toBe(
+        'Extra copy',
+      );
+      expect(wrapper.find('[data-testid="pdp-print"]').exists()).toBe(true);
+      expect(wrapper.findComponent({ name: 'ProductTabs' }).exists()).toBe(
+        true,
+      );
+    });
+
+    it('says why in one sentence whose "Logga in" link opens the sign-in sheet', async () => {
+      const wrapper = await mountGuest(true);
+
+      const note = wrapper.get('[data-testid="pdp-sign-in-to-configure-note"]');
+      expect(note.attributes('data-keypath')).toBe(
+        'configurator.sign_in_to_configure',
+      );
+      const link = note.get('[data-testid="pdp-sign-in-to-configure"]');
+      expect(link.element.tagName).toBe('BUTTON');
+      expect(link.attributes('type')).toBe('button');
+      expect(link.text()).toBe('auth.sign_in');
+
+      await link.trigger('click');
+      expect(mockOpenSheet).toHaveBeenCalledTimes(1);
+    });
+
+    it("puts the sentence under the info card, in the configurator page note's place", async () => {
+      const wrapper = await mountGuest(true);
+
+      const aside = wrapper.get('aside');
+      const children = Array.from(aside.element.children);
+      expect(children[0]?.getAttribute('data-testid')).toBe('pdp-info-card');
+      expect(children.at(-1)?.getAttribute('data-testid')).toBe(
+        'pdp-sign-in-to-configure-note',
+      );
+      expect(
+        wrapper.findAll('[data-testid="pdp-sign-in-to-configure-note"]'),
+      ).toHaveLength(1);
+    });
+
+    it('is the ordinary page without the flag', async () => {
+      const wrapper = await mountGuest(false);
+
+      expect(publishedOffers()).toMatchObject({ '@type': 'Offer' });
+      expect(wrapper.find('.price-display').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="stock-badge"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="pdp-campaign-badges"]').exists()).toBe(
+        true,
+      );
+      expect(
+        wrapper.find('[data-testid="negotiated-price-banner"]').exists(),
+      ).toBe(true);
+      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+        true,
+      );
+      expect(wrapper.find('[data-testid="variant-selector"]').exists()).toBe(
+        true,
+      );
+      expect(
+        wrapper.find('[data-testid="pdp-sign-in-to-configure"]').exists(),
+      ).toBe(false);
+      expect(
+        wrapper.find('[data-testid="pdp-sign-in-to-configure-note"]').exists(),
+      ).toBe(false);
     });
   });
 });

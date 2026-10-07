@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3';
-import { canAccessFeature } from '#shared/utils/feature-access';
+import { canAccessFeature, canConfigure } from '#shared/utils/feature-access';
 import type { UserContext } from '#shared/utils/feature-access';
 import { getFeatures } from '../services/tenant-config';
 
@@ -16,6 +16,14 @@ export async function canAccessFeatureServer(
 ): Promise<boolean> {
   const features = await getFeatures(event);
   return canAccessFeature(features?.[featureName], user);
+}
+
+/** Whether this request may configure products: see `canConfigure`. */
+export async function canConfigureServer(event: H3Event): Promise<boolean> {
+  const features = await getFeatures(event);
+  return canConfigure(features?.configurator, {
+    authenticated: !!getSessionToken(event),
+  });
 }
 
 /**

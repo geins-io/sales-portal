@@ -36,17 +36,17 @@ useHead({
 });
 
 const { tenant, suspense } = useTenant();
-const { canAccess } = useFeatureAccess();
+const { canConfigure } = useFeatureAccess();
 const auth = useAuthStore();
 
 if (!tenant.value) await suspense();
-// `access: 'authenticated'` reads the auth store, so an unresolved store makes
-// a signed-in user look anonymous. Mirrors app/middleware/feature.ts.
+// Configuring needs sign-in, so an unresolved store would make a signed-in
+// user look anonymous. Mirrors app/middleware/feature.ts.
 if (!auth.isInitialized) await auth.fetchUser();
 
 // The same 404 the routes answer, rather than the redirect home the feature
 // middleware does: a page that may not exist should not hint that it does.
-if (!canAccess('configurator')) {
+if (!canConfigure()) {
   throw createError({ statusCode: 404, statusMessage: 'Not Found' });
 }
 

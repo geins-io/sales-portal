@@ -144,6 +144,7 @@ function makeEvent(init: { id?: string; body?: unknown } = {}): H3Event {
     params: init.id === undefined ? {} : { id: init.id },
     headers: {},
     body: init.body,
+    authToken: 'a-user-token',
   };
   return event as unknown as H3Event;
 }

@@ -3,7 +3,6 @@ import type { DetailProduct, ListProduct } from '#shared/types/commerce';
 import { filterVisibleCampaigns, getStockStatus } from '#shared/types/commerce';
 import { productPath } from '#shared/utils/route-helpers';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
-import { resolveProductPageType } from '~/utils/product-page-type';
 import {
   ShoppingCart,
   SlidersHorizontal,
@@ -61,18 +60,19 @@ const cartStore = useCartStore();
 const favoritesStore = useFavoritesStore();
 const authStore = useAuthStore();
 const { hasFeature, isCatalogMode } = useTenant();
-const { canAccess } = useFeatureAccess();
+const { canAccess, pageTypeOf } = useFeatureAccess();
 const canPurchase = computed(
   () => canAccess('orderPlacement') && !isCatalogMode.value,
 );
 // A configurable product cannot be bought without a configuration, so where
 // the card would offer add to cart it links to the page that makes one. The
 // page's own rule picks the product, so the card never links a buyer to a
-// configurator the page would not show.
-const isConfigurable = computed(
-  () =>
-    resolveProductPageType(props.product, canAccess('configurator')) ===
-    'configurable',
+// configurator the page would not show. A guest gets neither price nor button:
+// configuring needs sign-in, and the card still links to the product page.
+const pageType = computed(() => pageTypeOf(props.product));
+const isConfigurable = computed(() => pageType.value === 'configurable');
+const signInToConfigure = computed(
+  () => pageType.value === 'sign-in-to-configure',
 );
 const { showPrice } = usePriceVisibility();
 const isOutOfStock = computed(() => {
@@ -280,8 +280,14 @@ async function addToCart() {
       />
 
       <!-- The catalogue price is not what a configuration costs. -->
-      <div v-if="isConfigurable" class="text-sm font-semibold">
-        <p v-if="showPrice" data-testid="card-price-on-configuration">
+      <div
+        v-if="isConfigurable || signInToConfigure"
+        class="text-sm font-semibold"
+      >
+        <p
+          v-if="isConfigurable && showPrice"
+          data-testid="card-price-on-configuration"
+        >
           {{ t('configurator.price_on_configuration') }}
         </p>
       </div>
@@ -321,7 +327,7 @@ async function addToCart() {
         </span>
       </div>
 
-      <template v-if="canPurchase">
+      <template v-if="canPurchase && !signInToConfigure">
         <div v-if="isConfigurable" class="mt-auto flex pt-3">
           <Button v-if="productUrl" as-child class="h-9 min-w-0 flex-1 px-4">
             <NuxtLink :to="productUrl" data-testid="configure-product-link">
@@ -472,10 +478,13 @@ async function addToCart() {
     >
       <!-- Kept when empty: it holds the left slot, as PriceDisplay's root does. -->
       <div
-        v-if="isConfigurable"
+        v-if="isConfigurable || signInToConfigure"
         class="basis-full text-sm font-semibold md:shrink-0 md:basis-auto"
       >
-        <p v-if="showPrice" data-testid="card-price-on-configuration">
+        <p
+          v-if="isConfigurable && showPrice"
+          data-testid="card-price-on-configuration"
+        >
           {{ t('configurator.price_on_configuration') }}
         </p>
       </div>
@@ -489,7 +498,7 @@ async function addToCart() {
         testid="card-price"
       />
 
-      <template v-if="canPurchase">
+      <template v-if="canPurchase && !signInToConfigure">
         <div class="flex shrink-0 items-center gap-2">
           <template v-if="isConfigurable">
             <Button v-if="productUrl" as-child class="h-9 px-4">

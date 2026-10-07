@@ -29,10 +29,6 @@ vi.mock('~/stores/auth', () => ({
   useAuthStore: () => ({ isAuthenticated: false }),
 }));
 
-vi.mock('../../../app/composables/useFeatureAccess', () => ({
-  useFeatureAccess: () => ({ canAccess: vi.fn(() => true) }),
-}));
-
 // Default: stock visibility ON. Individual tests can override via vi.doMock
 // pattern. Using a mutable ref through a module-level wrapper.
 const showStockRef = ref(true);

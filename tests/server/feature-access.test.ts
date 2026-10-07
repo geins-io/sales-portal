@@ -21,7 +21,11 @@ vi.mock('h3', async () => {
   };
 });
 
+const sessionToken = vi.fn<() => string | undefined>();
+vi.stubGlobal('getSessionToken', () => sessionToken());
+
 describe('server feature-access', () => {
+  let canConfigureServer: typeof import('../../server/utils/feature-access').canConfigureServer;
   let canAccessFeatureServer: typeof import('../../server/utils/feature-access').canAccessFeatureServer;
   let assertFeatureAccess: typeof import('../../server/utils/feature-access').assertFeatureAccess;
 
@@ -40,6 +44,8 @@ describe('server feature-access', () => {
     vi.resetModules();
     const mod = await import('../../server/utils/feature-access');
     canAccessFeatureServer = mod.canAccessFeatureServer;
+    canConfigureServer = mod.canConfigureServer;
+    sessionToken.mockReset().mockReturnValue(undefined);
     assertFeatureAccess = mod.assertFeatureAccess;
   });
 
@@ -106,6 +112,30 @@ describe('server feature-access', () => {
       await expect(
         assertFeatureAccess(mockEvent, 'cart', { authenticated: true }),
       ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('canConfigureServer', () => {
+    it('lets a signed-in request configure when the configurator is on', async () => {
+      mockFeatures.mockResolvedValue({ configurator: { enabled: true } });
+      sessionToken.mockReturnValue('a-user-token');
+      expect(await canConfigureServer(mockEvent)).toBe(true);
+      expect(mockFeatures).toHaveBeenCalledWith(mockEvent);
+    });
+
+    it("refuses a guest, even with the configurator's access rule open to all", async () => {
+      mockFeatures.mockResolvedValue({
+        configurator: { enabled: true, access: 'all' },
+      });
+      expect(await canConfigureServer(mockEvent)).toBe(false);
+    });
+
+    it('refuses a signed-in request when the configurator is off or absent', async () => {
+      sessionToken.mockReturnValue('a-user-token');
+      mockFeatures.mockResolvedValue({ configurator: { enabled: false } });
+      expect(await canConfigureServer(mockEvent)).toBe(false);
+      mockFeatures.mockResolvedValue(null);
+      expect(await canConfigureServer(mockEvent)).toBe(false);
     });
   });
 });

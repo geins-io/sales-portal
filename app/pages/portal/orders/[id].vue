@@ -21,23 +21,28 @@ const { localePath } = useLocaleMarket();
 const { formatLocale } = useFormatLocale();
 const cartStore = useCartStore();
 const { isCatalogMode, timezone } = useTenant();
-const { canAccess } = useFeatureAccess();
+const { canAccess, pageTypeOf } = useFeatureAccess();
+// What the button would add, so an order of configured rows offers no button
+// that adds nothing.
+const reorder = computed(() =>
+  reorderLines(order.value?.cart?.items ?? [], pageTypeOf),
+);
 const canReorder = computed(
   () =>
     canAccess('reorder') &&
     !isCatalogMode.value &&
-    order.value?.reorderable === true,
+    order.value?.reorderable === true &&
+    reorder.value.lines.length > 0,
 );
 
 const isReordering = ref(false);
 
 async function handleReorder() {
-  const items = order.value?.cart?.items;
-  if (!items?.length) return;
+  const { lines, skipped } = reorder.value;
+  if (!lines.length) return;
 
   isReordering.value = true;
   try {
-    const { lines, skipped } = reorderLines(items, canAccess('configurator'));
     await cartStore.addItems(lines, skipped);
   } finally {
     isReordering.value = false;

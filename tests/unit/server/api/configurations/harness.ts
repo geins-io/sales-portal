@@ -14,9 +14,9 @@ import type {
 // What the configuration routes are tested against.
 //
 // The backend and the tenant's feature map are mocked; everything else is the
-// real implementation, the access rule included — `canAccessFeatureServer` runs
-// for real over the features returned here, so a rule these tests pass is the
-// rule production evaluates. `createAppError` and `withErrorHandling` are the
+// real implementation, the gate included — `canConfigureServer` runs for real
+// over the features returned here, so a rule these tests pass is the rule
+// production evaluates. `createAppError` and `withErrorHandling` are the
 // real ones too, so the status codes below come from the error table rather
 // than from a hand-written map that could drift from it, and the errors the
 // mocked backend throws are the same `H3Error` class `withErrorHandling`
@@ -107,7 +107,9 @@ export function makeEvent(
     params: init.id === undefined ? {} : { id: init.id },
     headers: {},
     body: init.body,
-    ...(init.authenticated ? { authToken: 'a-user-token' } : {}),
+    // Configuring needs a signed-in buyer, so a request is one unless a case
+    // says otherwise.
+    ...(init.authenticated === false ? {} : { authToken: 'a-user-token' }),
   };
   return event as unknown as H3Event;
 }
@@ -267,41 +269,34 @@ export function lifecycleCases(spec: {
       expect(headersOf(event)['Cache-Control']).toBe('private, no-store');
     });
 
-    it('lets a request through when configurator is enabled with no access rule', async () => {
+    it('lets a signed-in request through when configurator is enabled', async () => {
       configuratorFeature({ enabled: true });
-      reach();
-
-      await spec.handler()(spec.event());
-
-      expect(backend[spec.method]).toHaveBeenCalled();
-    });
-
-    it("lets an anonymous request through when configurator access is 'all'", async () => {
-      configuratorFeature({ enabled: true, access: 'all' });
-      reach();
-
-      await spec.handler()(spec.event());
-
-      expect(backend[spec.method]).toHaveBeenCalled();
-    });
-
-    it("answers 404 for an anonymous request when configurator access is 'authenticated'", async () => {
-      configuratorFeature({ enabled: true, access: 'authenticated' });
-      const event = spec.event();
-
-      await expect(spec.handler()(event)).rejects.toMatchObject({
-        statusCode: 404,
-      });
-      expect(bodyReads).not.toHaveBeenCalled();
-    });
-
-    it("lets a signed-in request through when configurator access is 'authenticated'", async () => {
-      configuratorFeature({ enabled: true, access: 'authenticated' });
       reach();
 
       await spec.handler()(spec.event({ authenticated: true }));
 
       expect(backend[spec.method]).toHaveBeenCalled();
+    });
+
+    it('answers 404 for an anonymous request when configurator is enabled', async () => {
+      configuratorFeature({ enabled: true });
+      const event = spec.event({ authenticated: false });
+
+      await expect(spec.handler()(event)).rejects.toMatchObject({
+        statusCode: 404,
+      });
+      expect(bodyReads).not.toHaveBeenCalled();
+      expect(getConfiguratorBackend).not.toHaveBeenCalled();
+    });
+
+    it("answers 404 for an anonymous request even when configurator access is 'all'", async () => {
+      configuratorFeature({ enabled: true, access: 'all' });
+      const event = spec.event({ authenticated: false });
+
+      await expect(spec.handler()(event)).rejects.toMatchObject({
+        statusCode: 404,
+      });
+      expect(bodyReads).not.toHaveBeenCalled();
     });
 
     it('refuses a catalogue-mode tenant with 403', async () => {

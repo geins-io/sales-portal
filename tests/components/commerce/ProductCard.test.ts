@@ -12,6 +12,7 @@ import { mountComponent } from '../../utils/component';
 import ProductCard from '../../../app/components/shared/ProductCard.vue';
 import { useTenant } from '../../../app/composables/useTenant';
 import { mockIsCatalogMode } from '../../setup-components';
+import { resolveProductPageType } from '../../../app/utils/product-page-type';
 
 // Default to authenticated so wishlist/add-to-list buttons render. Individual
 // tests can override by mutating `mockIsAuthenticated.value`.
@@ -30,9 +31,20 @@ function setFeatures(features: PublicTenantConfig['features']) {
 }
 
 const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
+const mockConfiguratorOn = ref(true);
 
+// The page type runs for real over the tenant's switch and the buyer's
+// sign-in, so a guest case here is the rule production evaluates.
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
-  useFeatureAccess: () => ({ canAccess: mockCanAccess }),
+  useFeatureAccess: () => ({
+    canAccess: mockCanAccess,
+    pageTypeOf: (product: { configurable?: boolean }) =>
+      resolveProductPageType(
+        product,
+        { enabled: mockConfiguratorOn.value },
+        { authenticated: mockIsAuthenticated.value },
+      ),
+  }),
 }));
 
 const geinsImageStub = {
@@ -495,6 +507,8 @@ describe('ProductCard', () => {
   describe('configurable product', () => {
     afterEach(() => {
       mockCanAccess.mockReset().mockReturnValue(true);
+      mockConfiguratorOn.value = true;
+      mockIsAuthenticated.value = true;
     });
 
     const configurable = () => makeProduct({ configurable: true });
@@ -528,18 +542,91 @@ describe('ProductCard', () => {
       },
     );
 
-    it('is an ordinary card for a buyer the configurator access rule refuses', () => {
-      mockCanAccess.mockImplementation((feature) => feature !== 'configurator');
+    it('is an ordinary card when the configurator is off', () => {
+      mockConfiguratorOn.value = false;
       const wrapper = mountComponent(ProductCard, {
         props: { product: configurable() },
         global: { stubs },
       });
-      expect(mockCanAccess).toHaveBeenCalledWith('configurator');
       expect(
         wrapper.find('[data-testid="configure-product-link"]').exists(),
       ).toBe(false);
       expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
         true,
+      );
+      expect(wrapper.find('.price-display').exists()).toBe(true);
+    });
+
+    // Configuring needs sign-in, and a plain add would be a bare line at
+    // catalogue price; the card stays a link to the product page.
+    describe('for a guest', () => {
+      beforeEach(() => {
+        mockIsAuthenticated.value = false;
+      });
+
+      it.each(['grid', 'list'] as const)(
+        'shows no button, no price and no text in the %s variant, whatever orderPlacement and priceVisibility grant',
+        (variant) => {
+          const wrapper = mountComponent(ProductCard, {
+            props: { product: configurable(), variant },
+            global: { stubs },
+          });
+          expect(mockCanAccess('orderPlacement')).toBe(true);
+          expect(mockCanAccess('priceVisibility')).toBe(true);
+          expect(
+            wrapper.find('[data-testid="configure-product-link"]').exists(),
+          ).toBe(false);
+          expect(
+            wrapper.find('[data-testid="add-to-cart-button"]').exists(),
+          ).toBe(false);
+          expect(wrapper.find('.quantity-input').exists()).toBe(false);
+          expect(wrapper.find('.price-display').exists()).toBe(false);
+          expect(
+            wrapper
+              .find('[data-testid="card-price-on-configuration"]')
+              .exists(),
+          ).toBe(false);
+          const links = wrapper.findAll('a');
+          expect(links.length).toBe(2);
+          links.forEach((link) => {
+            expect(link.attributes('href')).toBe(
+              '/se/en/p/products/test-product',
+            );
+          });
+        },
+      );
+
+      it('shows no price on the brief card shape', () => {
+        const wrapper = mountComponent(ProductCard, {
+          props: {
+            product: {
+              name: 'Arbetsbord',
+              alias: 'arbetsbord-pro',
+              price: '3 200 kr',
+              configurable: true,
+            },
+          },
+          global: { stubs },
+        });
+        expect(wrapper.find('[data-testid="price"]').exists()).toBe(false);
+        expect(wrapper.text()).not.toContain('3 200 kr');
+        expect(
+          wrapper.find('[data-testid="add-to-cart-button"]').exists(),
+        ).toBe(false);
+      });
+
+      it.each(['grid', 'list'] as const)(
+        'leaves an ordinary product addable in the %s variant',
+        (variant) => {
+          const wrapper = mountComponent(ProductCard, {
+            props: { product: makeProduct(), variant },
+            global: { stubs },
+          });
+          expect(
+            wrapper.find('[data-testid="add-to-cart-button"]').exists(),
+          ).toBe(true);
+          expect(wrapper.find('.price-display').exists()).toBe(true);
+        },
       );
     });
 
@@ -703,20 +790,6 @@ describe('ProductCard', () => {
           ).toBe(false);
         },
       );
-
-      it('keeps the price for a buyer the configurator access rule refuses', () => {
-        mockCanAccess.mockImplementation(
-          (feature) => feature !== 'configurator',
-        );
-        const wrapper = mountComponent(ProductCard, {
-          props: { product: configurable() },
-          global: { stubs },
-        });
-        expect(wrapper.find('.price-display').exists()).toBe(true);
-        expect(
-          wrapper.find('[data-testid="card-price-on-configuration"]').exists(),
-        ).toBe(false);
-      });
 
       it('shows the configuration text and no price on the brief card shape', () => {
         const wrapper = mountComponent(ProductCard, {

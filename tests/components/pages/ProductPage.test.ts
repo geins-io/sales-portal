@@ -114,18 +114,33 @@ vi.mock('../../../app/composables/useLocaleMarket', () => ({
   }),
 }));
 
-const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => false);
-vi.mock('../../../app/composables/useFeatureAccess', () => ({
-  useFeatureAccess: () => ({ canAccess: mockCanAccess }),
-}));
+// The page type runs for real over these two; only where they come from is
+// mocked.
+const mockConfiguratorOn = ref(true);
+const mockSignedIn = ref(false);
+vi.mock('../../../app/composables/useFeatureAccess', async () => {
+  const { resolveProductPageType } =
+    await import('../../../app/utils/product-page-type');
+  return {
+    useFeatureAccess: () => ({
+      canAccess: () => true,
+      pageTypeOf: (product: { configurable?: boolean } | null | undefined) =>
+        resolveProductPageType(
+          product,
+          { enabled: mockConfiguratorOn.value },
+          { authenticated: mockSignedIn.value },
+        ),
+    }),
+  };
+});
 
 const stubs = {
   // Each stub renders the name off the product it was handed, so "which
   // component" and "with which product" are one assertion.
   ProductDetails: {
     template:
-      '<div data-testid="page-ordinary" :data-alias="alias">{{ product?.name }}</div>',
-    props: ['product', 'alias'],
+      '<div data-testid="page-ordinary" :data-alias="alias" :data-sign-in-to-configure="String(signInToConfigure)">{{ product?.name }}</div>',
+    props: ['product', 'alias', 'signInToConfigure'],
   },
   ConfiguratorProduct: {
     template: '<div data-testid="page-configurator">{{ product?.name }}</div>',
@@ -185,7 +200,8 @@ beforeEach(() => {
   mockProduct.value = makeProduct();
   mockStatus.value = 'success';
   mockError.value = null;
-  mockCanAccess.mockReturnValue(false);
+  mockConfiguratorOn.value = true;
+  mockSignedIn.value = false;
   navigateToMock.mockClear();
   recoverEntityUrlMock.mockClear();
   mockUseFetch.mockClear();
@@ -196,9 +212,9 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('product page: the component a product type gets', () => {
-  it('renders the configurator shell for a configurable product a buyer may configure', async () => {
+  it('renders the configurator shell for a configurable product and a signed-in buyer', async () => {
     mockProduct.value = makeProduct({ configurable: true });
-    mockCanAccess.mockReturnValue(true);
+    mockSignedIn.value = true;
 
     const wrapper = await mountPage();
 
@@ -208,26 +224,40 @@ describe('product page: the component a product type gets', () => {
     expect(wrapper.find('[data-testid="page-ordinary"]').exists()).toBe(false);
   });
 
-  it('renders the ordinary detail page when the access rule refuses the buyer', async () => {
-    // Not a 404: the product exists, it is only the configurator that is not
-    // offered on this tenant or to this buyer.
+  it('renders the detail page asking a guest to sign in on a configurable product', async () => {
+    // Not a 404: the product exists, the guest is only asked to sign in.
     mockProduct.value = makeProduct({ configurable: true });
-    mockCanAccess.mockReturnValue(false);
 
     const wrapper = await mountPage();
 
-    expect(wrapper.find('[data-testid="page-ordinary"]').exists()).toBe(true);
+    const page = wrapper.find('[data-testid="page-ordinary"]');
+    expect(page.exists()).toBe(true);
+    expect(page.attributes('data-sign-in-to-configure')).toBe('true');
     expect(wrapper.find('[data-testid="page-configurator"]').exists()).toBe(
       false,
     );
   });
 
-  it('renders the ordinary detail page for a product with no configurator behind it', async () => {
-    mockCanAccess.mockReturnValue(true);
+  it('renders the ordinary detail page for a configurable product when the configurator is off', async () => {
+    mockProduct.value = makeProduct({ configurable: true });
+    mockConfiguratorOn.value = false;
+    mockSignedIn.value = true;
 
     const wrapper = await mountPage();
 
-    expect(wrapper.find('[data-testid="page-ordinary"]').exists()).toBe(true);
+    const page = wrapper.find('[data-testid="page-ordinary"]');
+    expect(page.exists()).toBe(true);
+    expect(page.attributes('data-sign-in-to-configure')).toBe('false');
+  });
+
+  it('renders the ordinary detail page for a product with no configurator behind it', async () => {
+    mockSignedIn.value = true;
+
+    const wrapper = await mountPage();
+
+    const page = wrapper.find('[data-testid="page-ordinary"]');
+    expect(page.exists()).toBe(true);
+    expect(page.attributes('data-sign-in-to-configure')).toBe('false');
   });
 
   it("hands the detail page the alias from the URL, not the loaded product's", async () => {
@@ -248,31 +278,20 @@ describe('product page: the component a product type gets', () => {
     }
   });
 
-  it('follows the access rule when the buyer signs in, without a reload', async () => {
-    // The rule reads the auth store, and the page reads the rule inside a
-    // computed: a buyer who signs in on the page moves to the configurator.
+  it('moves a guest who signs in to the configurator, without a reload', async () => {
+    // The page type reads the auth store inside a computed.
     mockProduct.value = makeProduct({ configurable: true });
-    const authenticated = ref(false);
-    mockCanAccess.mockImplementation(() => authenticated.value);
 
     const wrapper = await mountPage();
     expect(wrapper.find('[data-testid="page-ordinary"]').exists()).toBe(true);
 
-    authenticated.value = true;
+    mockSignedIn.value = true;
     await nextTick();
 
     expect(wrapper.find('[data-testid="page-configurator"]').exists()).toBe(
       true,
     );
     expect(wrapper.find('[data-testid="page-ordinary"]').exists()).toBe(false);
-  });
-
-  it('asks the access rule for the configurator feature', async () => {
-    mockProduct.value = makeProduct({ configurable: true });
-
-    await mountPage();
-
-    expect(mockCanAccess).toHaveBeenCalledWith('configurator');
   });
 
   it('hands the loaded product to the page component', async () => {

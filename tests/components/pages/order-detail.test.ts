@@ -1070,11 +1070,12 @@ describe('OrderDetail', () => {
       ]);
     });
 
-    it('leaves out a configured row and a configurable one, and hands the cart the count', async () => {
+    it('leaves out a configured row and a configurable one, and hands the cart the count, when the configurator is on', async () => {
       setFeatures({
         reorder: { enabled: true },
-        configurator: { enabled: true, access: 'all' },
+        configurator: { enabled: true },
       });
+      useAuthStore().user = SIGNED_IN;
       const base = makeOrder();
       const [plain] = base.order.cart.items;
       const configurable = {
@@ -1104,6 +1105,65 @@ describe('OrderDetail', () => {
         [[{ skuId: 1001, quantity: 3 }], 2],
       ]);
       expect(mockNavigateTo).not.toHaveBeenCalled();
+    });
+
+    // The button and the click share one rule: an order where "Beställ igen"
+    // would add nothing shows no button.
+    describe('an order with configured rows', () => {
+      const configured = {
+        product: { productId: 1359, name: 'Bucket', configurable: true },
+        skuId: 1652,
+        quantity: 1,
+        configuration: { summary: [{ label: 'A', value: 'B' }] },
+      };
+
+      function orderOf(items: unknown[]) {
+        const base = makeOrder();
+        return makeOrder({ cart: { ...base.order.cart, items } });
+      }
+
+      beforeEach(() => {
+        setFeatures({
+          reorder: { enabled: true },
+          configurator: { enabled: true },
+        });
+        useAuthStore().user = SIGNED_IN;
+      });
+
+      it('offers no "Beställ igen" when every row is configured', () => {
+        const wrapper = mountOrder(orderOf([configured, { ...configured }]));
+
+        expect(wrapper.find('[data-testid="reorder-button"]').exists()).toBe(
+          false,
+        );
+      });
+
+      it('offers it on a mix, and adds the ordinary rows with the count skipped', async () => {
+        const [plain] = makeOrder().order.cart.items;
+        const wrapper = mountOrder(orderOf([plain, configured]));
+
+        await reorder(wrapper);
+
+        expect(mockAddItems.mock.calls).toEqual([
+          [[{ skuId: 1001, quantity: 3 }], 1],
+        ]);
+      });
+
+      it('offers it on an order of ordinary rows only', async () => {
+        const wrapper = mountOrder(orderOf(makeOrder().order.cart.items));
+
+        await reorder(wrapper);
+
+        expect(mockAddItems.mock.calls).toEqual([
+          [
+            [
+              { skuId: 1001, quantity: 3 },
+              { skuId: 1002, quantity: 1 },
+            ],
+            0,
+          ],
+        ]);
+      });
     });
 
     it.each([
