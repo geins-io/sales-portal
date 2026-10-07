@@ -596,6 +596,7 @@ The infrastructure includes comprehensive monitoring through Azure Application I
 | -------------------- | ------------------------------------------------ | ------------ |
 | Application Insights | APM, telemetry, and error tracking               | All          |
 | Log Analytics        | Centralized log storage and querying             | All          |
+| App Service logs     | Container stdout and start/stop events           | Prod         |
 | Availability Tests   | Health endpoint monitoring from multiple regions | Staging/Prod |
 | Alert Rules          | Proactive notifications for issues               | Staging/Prod |
 
@@ -631,7 +632,13 @@ az deployment group create \
 | ----------- | --------- | --------- | ------------------------------ |
 | Dev         | 30 days   | 1 GB      | Cost-effective development     |
 | Staging     | 30 days   | 1 GB      | Pre-production testing         |
-| Prod        | 90 days   | 10 GB     | Compliance and troubleshooting |
+| Prod        | 30 days   | 1 GB      | same as the other environments |
+
+Both come from `main.bicep` (`logRetentionDays`, `logDataCapGb`); the deploy workflow passes
+neither, so these defaults are what runs. The 1 GB cap leaves wide headroom over the app logs
+(about 17 MB a day). When it is reached, the workspace stops ingesting until the daily reset at
+00:00 UTC: everything logged in between is lost, not delayed. Application Insights writes to the
+same workspace and counts against the same cap.
 
 ### Accessing Logs
 
@@ -658,6 +665,73 @@ requests
 | where success == false
 | summarize count() by name
 | order by count_ desc
+```
+
+### App Service Logs in Log Analytics
+
+The container's stdout and the platform's container events are not kept by App Service itself:
+the stream file in `/home/LogFiles` is truncated daily. A diagnostic setting
+(`app-logs-to-log-analytics`, in `modules/webApp.bicep`) sends two categories to
+`sales-portal-prod-logs`, from the prod site and its staging slot. Dev has no log forwarding.
+
+| Table                    | Contents                                                             |
+| ------------------------ | -------------------------------------------------------------------- |
+| `AppServiceConsoleLogs`  | The app's stdout: one JSON line per log entry in `ResultDescription` |
+| `AppServicePlatformLogs` | Container lifecycle: image pull, start, stop, restart                |
+
+HTTP logs (`AppServiceHTTPLogs`) are left out on purpose: their `Cookie` and query-string
+columns would store the auth cookies and the health-check key unredacted, while the app's own
+request lines redact them.
+
+Things to know before querying:
+
+- **Coverage depends on `LOG_LEVEL`.** At `info` the app writes a `Request started` and a
+  `Request completed` line for every request outside `/api/health`, `/_nuxt/`, `/favicon.ico`
+  and `/robots.txt`. At `warn` the 2xx/3xx lines disappear; 4xx (`warn`) and 5xx (`error`)
+  lines stay.
+- **Request lines carry `tenantId`, not the hostname.** The request logger runs before the
+  tenant is resolved, so filter by `properties.tenantId` (completion lines only).
+- **Slot rows** have `/slots/staging` in `_ResourceId`. Filter them out for production-only
+  questions.
+- **Rows arrive a few minutes after the request.**
+- **Creating the setting restarts the app.** The platform applies a new diagnostic setting by
+  updating the site, which restarts the container.
+
+Open the workspace (`sales-portal-prod-logs`), not Application Insights, and choose **Logs**.
+
+```kql
+// Everything one request logged. The id is the x-correlation-id response header.
+AppServiceConsoleLogs
+| where TimeGenerated > ago(1d)
+| where ResultDescription has "<correlation-id>"
+| project TimeGenerated, _ResourceId, ResultDescription
+| order by TimeGenerated asc
+
+// Request lines for one tenant, production only
+AppServiceConsoleLogs
+| where TimeGenerated > ago(1d)
+| where _ResourceId !contains "/slots/"
+| extend log = parse_json(ResultDescription)
+| where tostring(log.properties.tenantId) == "<tenant-id>"
+| project TimeGenerated, level = tostring(log.level), message = tostring(log.message),
+    path = tostring(log.properties.path), status = toint(log.properties.statusCode),
+    correlationId = tostring(log.correlationId)
+
+// 4xx and 5xx on the checkout API, with the correlation id to pull the rest of the request
+AppServiceConsoleLogs
+| where TimeGenerated > ago(7d)
+| where _ResourceId !contains "/slots/"
+| extend log = parse_json(ResultDescription)
+| extend path = tostring(log.properties.path), status = toint(log.properties.statusCode)
+| where path startswith "/api/checkout" and status >= 400
+| project TimeGenerated, status, path, tenantId = tostring(log.properties.tenantId),
+    correlationId = tostring(log.correlationId)
+
+// Container starts. One restart shows several rows: the app and the platform's own containers.
+AppServicePlatformLogs
+| where TimeGenerated > ago(7d)
+| where Message has "Container start method called"
+| project TimeGenerated, _ResourceId
 ```
 
 ### Disabling Monitoring
@@ -773,6 +847,11 @@ To create the Cloudflare API token: Cloudflare dashboard → My Profile → API 
 | Dev         | ~$13/month             | B1 tier, no Always On             |
 | Staging     | ~$73/month             | S1 tier, Always On enabled        |
 | Production  | ~$120/month            | P1v3 tier, zone redundancy, slots |
+
+Log Analytics ingestion is free for the first 5 GB a month per billing account, then about
+$2.99/GB at the West Europe list price. The App Service logs come to about 0.5 GB a month
+measured (console 0.7 MB/h on 2026-10-07; platform rows negligible) in prod, and the 1 GB daily
+cap bounds the worst case.
 
 **Cost Saving Tips:**
 

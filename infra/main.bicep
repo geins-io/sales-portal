@@ -79,7 +79,7 @@ param enableMonitoring bool = true
 @description('Email addresses for alert notifications (comma-separated)')
 param alertEmails array = []
 
-@description('Daily data cap for logging in GB (0 = no cap)')
+@description('Daily data cap for logging in GB (0 = the default of 1 GB)')
 param logDataCapGb int = 0
 
 @description('Log retention period in days')
@@ -154,7 +154,9 @@ module monitoring 'modules/applicationInsights.bicep' = if (enableMonitoring) {
     location: location
     environment: environment
     tags: tags
-    dailyCapGb: logDataCapGb > 0 ? logDataCapGb : (environment == 'prod' ? 10 : 1)
+    // 1 GB on every environment: prod's app logs come to about 17 MB a day. When the cap is
+    // reached, ingestion stops until the daily reset and the rest of that day's logs are lost.
+    dailyCapGb: logDataCapGb > 0 ? logDataCapGb : 1
     retentionDays: logRetentionDays > 0 ? logRetentionDays : (environment == 'prod' ? 90 : 30)
   }
 }
@@ -188,6 +190,8 @@ module webApp 'modules/webApp.bicep' = {
     appInsightsConnectionString: enableMonitoring ? monitoring.outputs.connectionString : ''
     #disable-next-line BCP318
     appInsightsInstrumentationKey: enableMonitoring ? monitoring.outputs.instrumentationKey : ''
+    #disable-next-line BCP318
+    logAnalyticsWorkspaceId: enableMonitoring ? monitoring.outputs.workspaceId : ''
   }
 }
 
