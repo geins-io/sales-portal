@@ -123,6 +123,7 @@
     "skipped_configurable": "{count} product needs configuring and was not added to the cart | {count} products need configuring and were not added to the cart",
     "show_configuration": "Show configuration",
     "hide_configuration": "Hide configuration",
+    "default_configuration": "Standard configuration, no options selected.",
     "edit_configuration": "Change configuration",
     "items_short": "Items"
   },

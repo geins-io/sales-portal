@@ -160,7 +160,7 @@ async function editLine(
   const item = scope
     .getByTestId('cart-item')
     .filter({ has: page.locator(`#cart-item-configuration-${itemId}`) });
-  await item.getByTestId('cart-item-configuration-toggle').click();
+  // Above the toggle, so it shows with the summary closed.
   await item.getByTestId('cart-item-edit').click();
 }
 

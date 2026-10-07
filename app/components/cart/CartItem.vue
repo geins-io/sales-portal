@@ -204,24 +204,23 @@ const maxQuantity = computed(() => {
     </div>
 
     <!-- Row 3: what a configured line was committed with, collapsed -->
-    <div v-if="configuration?.summary.length" class="pl-16">
+    <!-- The edit link sits above the toggle, so opening the summary does not
+         push it down. Checkout and the order rows have no way to edit. -->
+    <div v-if="configuration" class="space-y-1 pl-16">
+      <NuxtLink
+        v-if="editUrl"
+        :to="editUrl"
+        class="text-primary flex items-center gap-1 text-xs font-medium hover:underline"
+        data-testid="cart-item-edit"
+        @click="cart.isOpen = false"
+      >
+        <Pencil class="size-3" />
+        {{ t('cart.edit_configuration') }}
+      </NuxtLink>
       <LineConfigurationSummary
         :id="configurationId"
         :summary="configuration.summary"
-      >
-        <!-- The cart's own: checkout and the order rows render the same
-             summary without a way to edit it. -->
-        <NuxtLink
-          v-if="editUrl"
-          :to="editUrl"
-          class="text-primary flex items-center gap-1 pt-1 text-xs font-medium hover:underline"
-          data-testid="cart-item-edit"
-          @click="cart.isOpen = false"
-        >
-          <Pencil class="size-3" />
-          {{ t('cart.edit_configuration') }}
-        </NuxtLink>
-      </LineConfigurationSummary>
+      />
     </div>
   </div>
 </template>

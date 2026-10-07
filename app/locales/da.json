@@ -123,6 +123,7 @@
     "skipped_configurable": "{count} produkt kræver konfiguration og blev ikke lagt i kurven | {count} produkter kræver konfiguration og blev ikke lagt i kurven",
     "show_configuration": "Vis konfiguration",
     "hide_configuration": "Skjul konfiguration",
+    "default_configuration": "Standardkonfiguration, ingen tilvalg valgt.",
     "edit_configuration": "Rediger konfiguration",
     "items_short": "varer"
   },

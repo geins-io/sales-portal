@@ -844,9 +844,6 @@ test.describe('Configured line through the cart', () => {
       await page.goto('/cart');
       await waitForHydration(page);
       const cartPage = page.getByTestId('cart-page');
-      await lineIn(cartPage)
-        .getByTestId('cart-item-configuration-toggle')
-        .click();
       const reopened = page.waitForResponse(
         (response) =>
           response.url().endsWith('/api/configurations/reopen') &&
