@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ref } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 
@@ -17,7 +17,8 @@ vi.mock('~/utils/internal-fetch', () => ({
 }));
 
 // Must import after mocks are set up
-const { useCartStore } = await import('../../../app/stores/cart');
+const { useCartStore, CONFIGURED_QUANTITY_SETTLE_MS } =
+  await import('../../../app/stores/cart');
 
 const mockCart = {
   id: 'cart-123',
@@ -100,6 +101,32 @@ describe('useCartStore', () => {
       });
       expect(store.cart).toEqual(mockCart);
       expect(store.itemCount).toBe(2);
+    });
+
+    it('is loading while a removal is on its way, and not after', async () => {
+      mockCartIdRef.value = 'cart-123';
+      const store = useCartStore();
+      let loadingDuring: boolean | undefined;
+      mockFetch.mockImplementationOnce(async () => {
+        loadingDuring = store.isLoading;
+        return { ...mockCart, items: [] };
+      });
+
+      await store.updateQuantity('item-1', 0);
+
+      expect(loadingDuring).toBe(true);
+      expect(store.isLoading).toBe(false);
+    });
+
+    it('says so on the cart when a removal fails', async () => {
+      mockCartIdRef.value = 'cart-123';
+      const store = useCartStore();
+      mockFetch.mockRejectedValueOnce(new Error('502'));
+
+      await store.updateQuantity('item-1', 0);
+
+      expect(store.error).toBe('Failed to update item');
+      expect(store.isLoading).toBe(false);
     });
 
     it('does nothing when no cartId', async () => {
@@ -505,6 +532,293 @@ describe('useCartStore', () => {
       const store = useCartStore();
       await store.updateQuantity('item-1', 2);
       expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateQuantity on a configured line', () => {
+    const configuredLine = (id: string, quantity: number) => ({
+      ...mockCart.items[0]!,
+      id,
+      quantity,
+      configuration: { configurationId: `committed-${id}`, summary: [] },
+    });
+    const configuredCart = (quantity = 1) => ({
+      ...mockCart,
+      items: [
+        mockCart.items[0]!,
+        configuredLine('item-c', quantity),
+        configuredLine('item-d', 1),
+      ],
+    });
+    const puts = () =>
+      mockFetch.mock.calls.filter(
+        ([url, options]) =>
+          url === '/api/cart/items' &&
+          (options as { method?: string }).method === 'PUT',
+      );
+
+    function deferred<T>() {
+      let resolve!: (value: T) => void;
+      let reject!: (reason: unknown) => void;
+      const promise = new Promise<T>((done, fail) => {
+        resolve = done;
+        reject = fail;
+      });
+      return { promise, resolve, reject };
+    }
+
+    function storeWithCart() {
+      mockCartIdRef.value = 'cart-123';
+      const store = useCartStore();
+      store.cart = configuredCart() as never;
+      return store;
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('sends rapid changes as one request carrying the last value, once they settle', async () => {
+      const store = storeWithCart();
+      mockFetch.mockResolvedValue(configuredCart(4));
+
+      store.updateQuantity('item-c', 2);
+      store.updateQuantity('item-c', 3);
+      store.updateQuantity('item-c', 4);
+      await vi.advanceTimersByTimeAsync(CONFIGURED_QUANTITY_SETTLE_MS - 1);
+
+      expect(puts()).toHaveLength(0);
+      expect(store.pendingQuantities.get('item-c')).toBe(4);
+      expect(store.isUpdatingLines).toBe(true);
+
+      await vi.advanceTimersByTimeAsync(1);
+
+      expect(puts()).toEqual([
+        [
+          '/api/cart/items',
+          {
+            method: 'PUT',
+            body: { cartId: 'cart-123', itemId: 'item-c', quantity: 4 },
+          },
+        ],
+      ]);
+    });
+
+    it('marks the line as updating until the answer, then shows the answered cart', async () => {
+      const store = storeWithCart();
+      const answer = deferred<unknown>();
+      mockFetch.mockReturnValue(answer.promise);
+
+      store.updateQuantity('item-c', 4);
+      await vi.advanceTimersByTimeAsync(CONFIGURED_QUANTITY_SETTLE_MS);
+
+      expect(store.updatingItems.has('item-c')).toBe(true);
+      expect(store.updatingItems.has('item-d')).toBe(false);
+      expect(store.isUpdatingLines).toBe(true);
+
+      answer.resolve(configuredCart(4));
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(store.updatingItems.has('item-c')).toBe(false);
+      expect(store.pendingQuantities.has('item-c')).toBe(false);
+      expect(store.isUpdatingLines).toBe(false);
+      expect(store.cart?.items[1]?.quantity).toBe(4);
+    });
+
+    it('starts no second change on a line while one is on its way', async () => {
+      const store = storeWithCart();
+      const answer = deferred<unknown>();
+      mockFetch.mockReturnValue(answer.promise);
+
+      store.updateQuantity('item-c', 4);
+      await vi.advanceTimersByTimeAsync(CONFIGURED_QUANTITY_SETTLE_MS);
+      store.updateQuantity('item-c', 7);
+      await vi.advanceTimersByTimeAsync(CONFIGURED_QUANTITY_SETTLE_MS * 2);
+
+      expect(puts()).toHaveLength(1);
+      expect(store.pendingQuantities.get('item-c')).toBe(4);
+      answer.resolve(configuredCart(4));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    it('settles each line on its own', async () => {
+      const store = storeWithCart();
+      mockFetch.mockResolvedValue(configuredCart());
+
+      store.updateQuantity('item-c', 2);
+      store.updateQuantity('item-d', 3);
+      await vi.advanceTimersByTimeAsync(CONFIGURED_QUANTITY_SETTLE_MS);
+
+      expect(
+        puts().map(([, options]) => (options as { body: unknown }).body),
+      ).toEqual([
+        { cartId: 'cart-123', itemId: 'item-c', quantity: 2 },
+        { cartId: 'cart-123', itemId: 'item-d', quantity: 3 },
+      ]);
+    });
+
+    it('sends nothing when the changes settle back on the quantity the line has', async () => {
+      const store = storeWithCart();
+
+      store.updateQuantity('item-c', 2);
+      store.updateQuantity('item-c', 1);
+      await vi.advanceTimersByTimeAsync(CONFIGURED_QUANTITY_SETTLE_MS);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(store.pendingQuantities.has('item-c')).toBe(false);
+      expect(store.isUpdatingLines).toBe(false);
+    });
+
+    it('marks the line as failed and shows its own quantity again when the change is refused', async () => {
+      const store = storeWithCart();
+      mockFetch.mockRejectedValue(new Error('422'));
+
+      store.updateQuantity('item-c', 4);
+      await vi.advanceTimersByTimeAsync(CONFIGURED_QUANTITY_SETTLE_MS);
+
+      expect(store.quantityFailed.has('item-c')).toBe(true);
+      expect(store.pendingQuantities.has('item-c')).toBe(false);
+      expect(store.updatingItems.has('item-c')).toBe(false);
+      expect(store.cart?.items[1]?.quantity).toBe(1);
+      expect(store.error).toBeNull();
+    });
+
+    it("clears the line's failure on its next change", async () => {
+      const store = storeWithCart();
+      mockFetch.mockRejectedValueOnce(new Error('422'));
+      store.updateQuantity('item-c', 4);
+      await vi.advanceTimersByTimeAsync(CONFIGURED_QUANTITY_SETTLE_MS);
+
+      store.updateQuantity('item-c', 5);
+
+      expect(store.quantityFailed.has('item-c')).toBe(false);
+    });
+
+    it('sends one request when the settle ends while an earlier answer is still out', async () => {
+      const store = storeWithCart();
+      const answer = deferred<unknown>();
+      mockFetch.mockReturnValue(answer.promise);
+
+      store.updateQuantity('item-c', 2);
+      await vi.advanceTimersByTimeAsync(CONFIGURED_QUANTITY_SETTLE_MS / 2);
+      store.updateQuantity('item-c', 3);
+      await vi.advanceTimersByTimeAsync(CONFIGURED_QUANTITY_SETTLE_MS * 3);
+
+      expect(puts()).toHaveLength(1);
+      answer.resolve(configuredCart(3));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    it.each([
+      ['the line was removed', () => configuredCart()],
+      ['the cart has no lines', () => ({ ...mockCart, items: null })],
+      ['the cart is gone', () => null],
+    ])(
+      'drops the change, sending nothing, when %s before it settles',
+      async (_case, cartAfter) => {
+        const store = storeWithCart();
+        store.updateQuantity('item-c', 4);
+        const after = cartAfter();
+        store.cart = (
+          after && after.items
+            ? { ...after, items: after.items.filter((i) => i.id !== 'item-c') }
+            : after
+        ) as never;
+
+        await vi.advanceTimersByTimeAsync(CONFIGURED_QUANTITY_SETTLE_MS);
+
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(store.pendingQuantities.has('item-c')).toBe(false);
+        expect(store.isUpdatingLines).toBe(false);
+      },
+    );
+
+    it('removes a configured line at once, with no wait', async () => {
+      const store = storeWithCart();
+      mockFetch.mockResolvedValue(configuredCart());
+
+      await store.updateQuantity('item-c', 0);
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/cart/items', {
+        method: 'DELETE',
+        query: { cartId: 'cart-123', itemId: 'item-c' },
+      });
+    });
+  });
+
+  describe('updateQuantity on an ordinary line', () => {
+    function storeWithCart(cart: unknown = mockCart) {
+      mockCartIdRef.value = 'cart-123';
+      const store = useCartStore();
+      store.cart = cart as never;
+      return store;
+    }
+
+    it('marks the line as failed rather than the whole cart', async () => {
+      const store = storeWithCart();
+      mockFetch.mockRejectedValueOnce(new Error('502'));
+
+      await store.updateQuantity('item-1', 3);
+
+      expect(store.quantityFailed.has('item-1')).toBe(true);
+      expect(store.error).toBeNull();
+    });
+
+    it("clears the line's failure on its next change", async () => {
+      const store = storeWithCart();
+      mockFetch.mockRejectedValueOnce(new Error('502'));
+      await store.updateQuantity('item-1', 3);
+      mockFetch.mockResolvedValueOnce(mockCart);
+
+      await store.updateQuantity('item-1', 4);
+
+      expect(store.quantityFailed.has('item-1')).toBe(false);
+    });
+
+    it('clears an earlier failure banner when the quantity changes', async () => {
+      const store = storeWithCart();
+      store.error = 'Failed to update item';
+      mockFetch.mockResolvedValueOnce(mockCart);
+
+      await store.updateQuantity('item-1', 3);
+
+      expect(store.error).toBeNull();
+    });
+
+    it('is loading while the change is on its way, and not after', async () => {
+      const store = storeWithCart();
+      let loadingDuring: boolean | undefined;
+      mockFetch.mockImplementationOnce(async () => {
+        loadingDuring = store.isLoading;
+        return mockCart;
+      });
+
+      await store.updateQuantity('item-1', 3);
+
+      expect(loadingDuring).toBe(true);
+      expect(store.isLoading).toBe(false);
+    });
+
+    it('is not loading after a failed change', async () => {
+      const store = storeWithCart();
+      mockFetch.mockRejectedValueOnce(new Error('502'));
+
+      await store.updateQuantity('item-1', 3);
+
+      expect(store.isLoading).toBe(false);
+    });
+
+    it('sends the change at once when the cart holds no lines it can read', async () => {
+      const store = storeWithCart({ ...mockCart, items: null });
+      mockFetch.mockResolvedValueOnce(mockCart);
+
+      await store.updateQuantity('item-1', 3);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
     });
   });
 

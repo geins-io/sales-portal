@@ -39,18 +39,23 @@ export interface ConfiguratorContext {
    */
   sdk?: ConfiguratorSdk;
   /**
-   * Set on the cart route only: the portal's ordinary add, for a backend with
-   * no configured cart behind it.
+   * Set on the cart routes only: the portal's ordinary cart writes, for a
+   * backend with no configured cart behind it.
    */
-  cart?: PlainCartAdd;
+  cart?: PlainCart;
 }
 
-export interface PlainCartAdd {
+export interface PlainCart {
   /** Answers the cart, so the caller can tell which line the SKU landed on. */
   addPlainItem(
     cartId: string,
     item: { skuId: number; quantity: number },
   ): Promise<{ items?: { id?: string; skuId?: number | null }[] | null }>;
+  /** Set where a configured line's quantity can change. */
+  updatePlainItem?(
+    cartId: string,
+    item: { id: string; quantity: number },
+  ): Promise<unknown>;
 }
 
 /** A committed configuration as a cart line: the SKU it is sold as, and how many. */
@@ -131,14 +136,15 @@ export interface ConfiguratorBackend {
   ): Promise<Configuration>;
   /**
    * Puts a committed configuration on an existing configured line, which keeps
-   * its id and its quantity. A commit does not touch the cart; this is the step
-   * that does.
+   * its id, and its quantity unless one is given. A commit does not touch the
+   * cart; this is the step that does.
    */
   replaceLine(
     cartId: string,
     itemId: string,
     committedConfigurationId: string,
     ctx: ConfiguratorContext,
+    quantity?: number,
   ): Promise<{ itemId: string }>;
   /**
    * What each configured line of a cart was committed with, by item id. The

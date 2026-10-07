@@ -5,8 +5,9 @@ const props = withDefaults(
     min?: number;
     max?: number;
     step?: number;
+    disabled?: boolean;
   }>(),
-  { min: 1, step: 1 },
+  { min: 1, step: 1, disabled: false },
 );
 
 const emit = defineEmits<{
@@ -28,6 +29,7 @@ function onUpdate(value: number) {
     :min="min"
     :max="max"
     :step="step"
+    :disabled="disabled"
     @update:model-value="onUpdate"
   >
     <NumberFieldContent>

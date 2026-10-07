@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ImageOff, ShoppingCart, Trash2 } from 'lucide-vue-next';
+import { ImageOff, Loader2, ShoppingCart, Trash2 } from 'lucide-vue-next';
 import type { CartItemType } from '#shared/types/commerce';
 import { Card, CardContent } from '~/components/ui/card';
 import CheckoutCardHeader from './CheckoutCardHeader.vue';
@@ -27,6 +27,19 @@ function getSkuName(item: CartItemType): string {
     (s) => String(s.skuId) === String(item.skuId),
   );
   return sku?.name ?? '';
+}
+
+/** A change on its way holds the line's controls until it answers. */
+function isUpdating(item: CartItemType): boolean {
+  return item.id != null && cartStore.updatingItems.has(item.id);
+}
+
+function shownQuantity(item: CartItemType): number {
+  return (
+    (item.id != null ? cartStore.pendingQuantities.get(item.id) : undefined) ??
+    item.quantity ??
+    1
+  );
 }
 
 function handleQuantityUpdate(item: CartItemType, newQty: number) {
@@ -100,17 +113,35 @@ function handleRemove(item: CartItemType) {
                 {{ getSkuName(item) }}
               </template>
             </p>
-            <div
-              class="bg-muted mt-4 inline-flex rounded-md [&_button]:size-7 [&_span]:min-w-7"
-            >
-              <QuantityStepper
-                :model-value="item.quantity ?? 1"
-                :min="1"
-                :disabled="!props.isEditable"
-                data-testid="checkout-quantity-stepper"
-                @update:model-value="handleQuantityUpdate(item, $event)"
-              />
+            <div class="mt-4 flex items-center gap-2">
+              <div
+                class="bg-muted inline-flex rounded-md [&_button]:size-7 [&_span]:min-w-7"
+              >
+                <QuantityStepper
+                  :model-value="shownQuantity(item)"
+                  :min="1"
+                  :disabled="!props.isEditable || isUpdating(item)"
+                  data-testid="checkout-quantity-stepper"
+                  @update:model-value="handleQuantityUpdate(item, $event)"
+                />
+              </div>
+              <span
+                v-if="isUpdating(item)"
+                role="status"
+                class="text-muted-foreground inline-flex"
+                data-testid="checkout-cart-item-updating"
+              >
+                <Loader2 class="size-4 animate-spin" aria-hidden="true" />
+                <span class="sr-only">{{ t('cart.quantity_updating') }}</span>
+              </span>
             </div>
+            <p
+              v-if="item.id != null && cartStore.quantityFailed.has(item.id)"
+              class="text-destructive mt-2 text-xs"
+              data-testid="checkout-cart-item-quantity-error"
+            >
+              {{ t('cart.quantity_change_failed') }}
+            </p>
             <div v-if="item.configuration" class="mt-3">
               <LineConfigurationSummary
                 :id="`checkout-cart-item-configuration-${item.id}`"
@@ -128,6 +159,7 @@ function handleRemove(item: CartItemType) {
               size="icon-sm"
               class="text-muted-foreground hover:text-destructive mb-2 shrink-0"
               :aria-label="t('checkout.remove_item')"
+              :disabled="isUpdating(item)"
               data-testid="checkout-remove-item"
               @click="handleRemove(item)"
             >

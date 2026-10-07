@@ -424,6 +424,33 @@ describe('replaceLine', () => {
       'item-1',
       'real-committed-2',
       CTX,
+      undefined,
+    );
+  });
+
+  it('passes a quantity on to whichever backend it routes to', async () => {
+    const id = await fixtureCommittedId();
+    const updatePlainItem = vi.fn(async () => ({}));
+
+    await composite.replaceLine(
+      'cart-1',
+      'fixture-line',
+      id,
+      { ...CTX, cart: { addPlainItem: async () => ({}), updatePlainItem } },
+      3,
+    );
+    await composite.replaceLine('cart-1', 'item-1', 'real-committed-2', CTX, 4);
+
+    expect(updatePlainItem).toHaveBeenCalledWith('cart-1', {
+      id: 'fixture-line',
+      quantity: 3,
+    });
+    expect(real.replaceLine).toHaveBeenCalledWith(
+      'cart-1',
+      'item-1',
+      'real-committed-2',
+      CTX,
+      4,
     );
   });
 });

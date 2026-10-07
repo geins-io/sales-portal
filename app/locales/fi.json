@@ -125,6 +125,8 @@
     "hide_configuration": "Piilota kokoonpano",
     "default_configuration": "Vakiokokoonpano, ei valittuja lisävarusteita.",
     "edit_configuration": "Muuta kokoonpanoa",
+    "quantity_updating": "Päivitetään…",
+    "quantity_change_failed": "Määrää ei voitu muuttaa. Ostoskorin tuote on ennallaan.",
     "items_short": "tuotetta"
   },
   "checkout": {

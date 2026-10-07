@@ -22,6 +22,7 @@ const oms = {
 };
 const cartLineConfigurations = vi.fn();
 const addToCart = vi.fn();
+const changeConfiguredQuantity = vi.fn();
 const canConfigureServer = vi.fn();
 const sessionToken = vi.fn();
 
@@ -33,6 +34,11 @@ vi.mock('../../../../server/services/_sdk', () => ({
 vi.mock('../../../../server/services/configurator', () => ({
   getConfiguratorBackend: () => ({ cartLineConfigurations, addToCart }),
   buildConfiguratorRequestContext: async () => ({ configuratorContext: true }),
+}));
+
+vi.mock('../../../../server/services/configured-line-quantity', () => ({
+  changeConfiguredQuantity: (...args: unknown[]) =>
+    changeConfiguredQuantity(...args),
 }));
 
 vi.mock('../../../../server/utils/feature-access', () => ({
@@ -86,19 +92,16 @@ function deferred<T>() {
 
 const flush = () => new Promise((done) => setTimeout(done, 0));
 
-/** Every service call that answers a cart with lines, and the SDK call behind it. */
+/**
+ * Every service call that answers a cart with lines, and the SDK call behind it.
+ * `updateItem` reads the lines first as well, so it has its own block.
+ */
 const CALLS = [
   ['getCart', 'get', (s: Service) => s.getCart('cart-1', EVENT)],
   [
     'addItem',
     'addItem',
     (s: Service) => s.addItem('cart-1', { skuId: 1, quantity: 1 }, EVENT),
-  ],
-  [
-    'updateItem',
-    'updateItem',
-    (s: Service) =>
-      s.updateItem('cart-1', { id: 'item-1', quantity: 3 }, EVENT),
   ],
   [
     'deleteItem',
@@ -133,6 +136,7 @@ describe('the cart service', () => {
       .mockReset()
       .mockResolvedValue(new Map([['item-1', CONFIGURATION]]));
     addToCart.mockReset().mockResolvedValue({ itemId: 'carried-1' });
+    changeConfiguredQuantity.mockReset().mockResolvedValue(undefined);
     canConfigureServer.mockReset().mockResolvedValue(true);
     sessionToken.mockReset().mockReturnValue('user-token-1');
     warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
@@ -250,6 +254,129 @@ describe('the cart service', () => {
 
     expect(cartLineConfigurations).not.toHaveBeenCalled();
     expect(canConfigureServer).not.toHaveBeenCalled();
+  });
+
+  describe('updateItem', () => {
+    const update = (id: string, quantity: number) =>
+      service.updateItem('cart-1', { id, quantity }, EVENT);
+
+    it('changes an ordinary line with a plain update and answers the cart with its configurations', async () => {
+      const cart = await update('item-2', 3);
+
+      expect(oms.cart.updateItem).toHaveBeenCalledWith(
+        'cart-1',
+        { id: 'item-2', quantity: 3 },
+        { requestContext: true },
+      );
+      expect(changeConfiguredQuantity).not.toHaveBeenCalled();
+      expect(cart.items[0]).toHaveProperty('configuration', CONFIGURATION);
+    });
+
+    it('changes a configured line through its configuration, never with a plain update', async () => {
+      const cart = await update('item-1', 4);
+
+      expect(oms.cart.updateItem).not.toHaveBeenCalled();
+      expect(changeConfiguredQuantity).toHaveBeenCalledTimes(1);
+      expect(changeConfiguredQuantity).toHaveBeenCalledWith(
+        expect.objectContaining({ cartLineConfigurations }),
+        'cart-1',
+        'item-1',
+        4,
+        {
+          configuratorContext: true,
+          cart: {
+            addPlainItem: expect.any(Function),
+            updatePlainItem: expect.any(Function),
+          },
+        },
+      );
+      // Read back after the swap, so the answer carries the new line.
+      expect(oms.cart.get).toHaveBeenCalledWith('cart-1', false, {
+        requestContext: true,
+      });
+      expect(changeConfiguredQuantity.mock.invocationCallOrder[0]).toBeLessThan(
+        oms.cart.get.mock.invocationCallOrder[0]!,
+      );
+      expect(cart.items[0]).toHaveProperty('configuration', CONFIGURATION);
+    });
+
+    it("gives the backend the portal's plain cart writes, for a backend with no configured cart behind it", async () => {
+      changeConfiguredQuantity.mockImplementation(
+        async (
+          _backend: unknown,
+          cartId: string,
+          itemId: string,
+          quantity: number,
+          ctx: {
+            cart: {
+              updatePlainItem(
+                id: string,
+                item: { id: string; quantity: number },
+              ): Promise<unknown>;
+              addPlainItem(
+                id: string,
+                item: { skuId: number; quantity: number },
+              ): Promise<unknown>;
+            };
+          },
+        ) => {
+          await ctx.cart.updatePlainItem(cartId, { id: itemId, quantity });
+          await ctx.cart.addPlainItem(cartId, { skuId: 9, quantity: 1 });
+        },
+      );
+
+      await update('item-1', 4);
+
+      expect(oms.cart.updateItem).toHaveBeenCalledWith(
+        'cart-1',
+        { id: 'item-1', quantity: 4 },
+        { requestContext: true },
+      );
+      expect(oms.cart.addItem).toHaveBeenCalledWith(
+        'cart-1',
+        { skuId: 9, quantity: 1 },
+        { requestContext: true },
+      );
+    });
+
+    it('passes a failed configured change on, with the line untouched', async () => {
+      const refused = new Error('refused');
+      changeConfiguredQuantity.mockRejectedValue(refused);
+
+      await expect(update('item-1', 4)).rejects.toBe(refused);
+      expect(oms.cart.updateItem).not.toHaveBeenCalled();
+    });
+
+    it('refuses the change, sending nothing, when the lines cannot be read', async () => {
+      const failed = new Error('timed out');
+      cartLineConfigurations.mockRejectedValue(failed);
+
+      await expect(update('item-2', 3)).rejects.toBe(failed);
+      expect(oms.cart.updateItem).not.toHaveBeenCalled();
+      expect(changeConfiguredQuantity).not.toHaveBeenCalled();
+    });
+
+    it('changes the line with a plain update, and reads no lines first, when the request may not have the configurator', async () => {
+      canConfigureServer.mockResolvedValue(false);
+
+      await expect(update('item-1', 4)).resolves.toEqual(sdkCart());
+      expect(oms.cart.updateItem).toHaveBeenCalledTimes(1);
+      expect(cartLineConfigurations).not.toHaveBeenCalled();
+      expect(changeConfiguredQuantity).not.toHaveBeenCalled();
+    });
+
+    it('sends a quantity of 0, which removes the line, as a plain update without reading the lines first', async () => {
+      await update('item-1', 0);
+
+      expect(oms.cart.updateItem).toHaveBeenCalledWith(
+        'cart-1',
+        { id: 'item-1', quantity: 0 },
+        { requestContext: true },
+      );
+      expect(changeConfiguredQuantity).not.toHaveBeenCalled();
+      // Only the read of the answer.
+      expect(cartLineConfigurations).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('a read refused until the buyer signs in', () => {

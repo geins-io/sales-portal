@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
+import { reactive } from 'vue';
 import { mountComponent } from '../../utils/component';
 import CheckoutCartItems from '../../../app/components/checkout/CheckoutCartItems.vue';
 import type { CartItemType } from '@geins/types';
@@ -8,11 +9,19 @@ import type { CartLineConfiguration } from '../../../shared/types/commerce';
 const mockUpdateQuantity = vi.fn();
 const mockRemoveItem = vi.fn();
 
+const lineState = reactive({
+  pendingQuantities: new Map<string, number>(),
+  updatingItems: new Set<string>(),
+  quantityFailed: new Set<string>(),
+});
+
 vi.mock('../../../app/stores/cart', () => ({
-  useCartStore: () => ({
-    updateQuantity: mockUpdateQuantity,
-    removeItem: mockRemoveItem,
-  }),
+  // Reactive, as a Pinia store is, so a test can change a line's state.
+  useCartStore: () =>
+    Object.assign(lineState, {
+      updateQuantity: mockUpdateQuantity,
+      removeItem: mockRemoveItem,
+    }),
 }));
 
 const stubs = {
@@ -391,6 +400,84 @@ describe('CheckoutCartItems', () => {
       expect(
         wrapper.find('[data-testid="checkout-remove-item"]').exists(),
       ).toBe(true);
+    });
+
+    describe('while its quantity changes', () => {
+      beforeEach(() => {
+        lineState.pendingQuantities = new Map();
+        lineState.updatingItems = new Set();
+        lineState.quantityFailed = new Set();
+      });
+
+      const stepper = (wrapper: ReturnType<typeof mountItems>) =>
+        wrapper.find('[data-testid="checkout-quantity-stepper"]');
+
+      it('shows the quantity the buyer chose while it settles', () => {
+        lineState.pendingQuantities.set('1', 5);
+        const wrapper = mountItems([configuredItem()], { isEditable: true });
+
+        expect(wrapper.find('[data-testid="qty-value"]').text()).toBe('5');
+        expect(stepper(wrapper).attributes('data-disabled')).toBe('false');
+      });
+
+      it('spins beside the stepper, named for a screen reader, and holds the stepper and the remove button until the change answers', () => {
+        lineState.pendingQuantities.set('1', 5);
+        lineState.updatingItems.add('1');
+        const wrapper = mountItems([configuredItem()], { isEditable: true });
+
+        const updating = wrapper.find(
+          '[data-testid="checkout-cart-item-updating"]',
+        );
+        expect(updating.attributes('role')).toBe('status');
+        expect(
+          updating.find('.animate-spin[aria-hidden="true"]').exists(),
+        ).toBe(true);
+        expect(updating.find('.sr-only').text()).toBe('cart.quantity_updating');
+        expect(updating.text()).toBe('cart.quantity_updating');
+        expect(stepper(wrapper).attributes('data-disabled')).toBe('true');
+        expect(
+          wrapper
+            .find('[data-testid="checkout-remove-item"]')
+            .attributes('disabled'),
+        ).toBeDefined();
+      });
+
+      it('shows no spinner on a line that is not updating', () => {
+        const wrapper = mountItems([configuredItem()], { isEditable: true });
+
+        expect(
+          wrapper.find('[data-testid="checkout-cart-item-updating"]').exists(),
+        ).toBe(false);
+      });
+
+      it.each([
+        ['a configured line', () => configuredItem()],
+        ['an ordinary line', () => createItem()],
+      ])(
+        'says under %s that the change failed and the line is unchanged',
+        (_case, item) => {
+          lineState.quantityFailed.add('1');
+          const wrapper = mountItems([item()], { isEditable: true });
+
+          expect(
+            wrapper
+              .find('[data-testid="checkout-cart-item-quantity-error"]')
+              .text(),
+          ).toBe('cart.quantity_change_failed');
+        },
+      );
+
+      it("shows the line's own quantity again beside the failure text", () => {
+        lineState.quantityFailed.add('1');
+        const wrapper = mountItems([configuredItem()], { isEditable: true });
+
+        expect(
+          wrapper
+            .find('[data-testid="checkout-cart-item-quantity-error"]')
+            .text(),
+        ).toBe('cart.quantity_change_failed');
+        expect(wrapper.find('[data-testid="qty-value"]').text()).toBe('2');
+      });
     });
 
     it('offers the toggle on a line committed with the defaults only, and says so opened', async () => {

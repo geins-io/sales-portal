@@ -216,6 +216,7 @@ const mockCartStore = {
   cartId: 'cart-test-001' as string | null,
   itemCount: 0,
   discountAmount: 0,
+  isUpdatingLines: false,
 };
 
 vi.mock('../../../app/stores/cart', () => ({
@@ -280,7 +281,7 @@ const stubs = {
     // button. Auto-accept on mount mirrors a buyer who ticked it, clearing the
     // page's place-order gate (acceptedTerms) the same way the real flow does.
     template:
-      '<div data-testid="checkout-order-summary"><button data-testid="place-order-button" @click="$emit(\'placeOrder\')" /></div>',
+      '<div data-testid="checkout-order-summary" :data-can-place-order="String(canPlaceOrder)"><button data-testid="place-order-button" @click="$emit(\'placeOrder\')" /></div>',
     props: [
       'itemCount',
       'subtotal',
@@ -362,6 +363,7 @@ describe('checkout page', () => {
     mockCartStore.cart = null;
     mockCartStore.cartId = 'cart-test-001';
     mockCartStore.itemCount = 0;
+    mockCartStore.isUpdatingLines = false;
     mockFetchCheckout.mockClear();
     mockPlaceOrder = vi.fn().mockResolvedValue(undefined);
     // Reset to non-company state between tests
@@ -532,6 +534,31 @@ describe('checkout page', () => {
     expect(wrapper.find('[data-testid="request-quote-button"]').exists()).toBe(
       false,
     );
+  });
+
+  it('holds the order while a configured line is still changing', async () => {
+    mockCartStore.isUpdatingLines = true;
+
+    const wrapper = await mountCheckoutPage();
+
+    expect(
+      wrapper
+        .find('[data-testid="checkout-order-summary"]')
+        .attributes('data-can-place-order'),
+    ).toBe('false');
+    await wrapper.find('[data-testid="place-order-button"]').trigger('click');
+    await flushPromises();
+    expect(mockPlaceOrder).not.toHaveBeenCalled();
+  });
+
+  it('offers the order when no line is changing', async () => {
+    const wrapper = await mountCheckoutPage();
+
+    expect(
+      wrapper
+        .find('[data-testid="checkout-order-summary"]')
+        .attributes('data-can-place-order'),
+    ).toBe('true');
   });
 
   it('calls fetchCheckout on load when cart cookie is present', async () => {

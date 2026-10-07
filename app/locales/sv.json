@@ -125,6 +125,8 @@
     "hide_configuration": "Dölj konfiguration",
     "default_configuration": "Standardkonfiguration, inga tillval valda.",
     "edit_configuration": "Ändra konfiguration",
+    "quantity_updating": "Uppdaterar…",
+    "quantity_change_failed": "Antalet kunde inte ändras. Produkten i varukorgen är oförändrad.",
     "items_short": "varor"
   },
   "checkout": {

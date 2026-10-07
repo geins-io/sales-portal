@@ -11,6 +11,7 @@ import { canConfigureServer } from '../utils/feature-access';
 import { logger } from '../utils/logger';
 import { isSdkLoginRequired } from '../utils/sdk-error';
 import { getTenantSDK, buildRequestContext } from './_sdk';
+import { changeConfiguredQuantity } from './configured-line-quantity';
 import {
   buildConfiguratorRequestContext,
   getConfiguratorBackend,
@@ -135,6 +136,11 @@ export async function addItem(
   return changed(cartId, event, () => oms.cart.addItem(cartId, input, ctx));
 }
 
+/**
+ * A configured line's quantity changes through its configuration, never with a
+ * plain update. Which lines are configured is read here, not taken from the
+ * client, and a cart whose lines cannot be read is not changed at all.
+ */
 export async function updateItem(
   cartId: string,
   input: CartItemInputType,
@@ -142,6 +148,30 @@ export async function updateItem(
 ): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
   const ctx = buildRequestContext(event);
+  const backend = await configuratorFor(event);
+  if (backend && input.id && input.quantity > 0) {
+    const configuratorCtx = await buildConfiguratorRequestContext(event);
+    const configured = await backend.cartLineConfigurations(
+      cartId,
+      configuratorCtx,
+    );
+    if (configured.has(input.id)) {
+      await changeConfiguredQuantity(
+        backend,
+        cartId,
+        input.id,
+        input.quantity,
+        {
+          ...configuratorCtx,
+          cart: {
+            addPlainItem: (id, item) => oms.cart.addItem(id, item, ctx),
+            updatePlainItem: (id, item) => oms.cart.updateItem(id, item, ctx),
+          },
+        },
+      );
+      return readCart(cartId, event, backend);
+    }
+  }
   return changed(cartId, event, () => oms.cart.updateItem(cartId, input, ctx));
 }
 

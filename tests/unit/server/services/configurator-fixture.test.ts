@@ -2016,6 +2016,76 @@ describe('replaceLine', () => {
     expect(findVariable(reopened, 'shelves').value).toBe(3);
   });
 
+  it('sets the plain line to the quantity it is given, then makes it reopen as the new record', async () => {
+    await addedLine();
+    const next = await committedWith(3);
+    const updatePlainItem = vi.fn(async () => ({}));
+
+    await expect(
+      backend.replaceLine(
+        'cart-1',
+        'line-42',
+        next,
+        {
+          ...WITH_CART(CTX),
+          cart: { ...WITH_CART(CTX).cart!, updatePlainItem },
+        },
+        5,
+      ),
+    ).resolves.toEqual({ itemId: 'line-42' });
+
+    expect(updatePlainItem).toHaveBeenCalledOnce();
+    expect(updatePlainItem).toHaveBeenCalledWith('cart-1', {
+      id: 'line-42',
+      quantity: 5,
+    });
+    const reopened = await backend.reopen('cart-1', 'line-42', CTX);
+    expect(findVariable(reopened, 'shelves').value).toBe(3);
+  });
+
+  it('leaves the line on its old record when the plain update fails', async () => {
+    await addedLine();
+    const next = await committedWith(3);
+    const failed = new Error('update failed');
+    const updatePlainItem = vi.fn(async () => {
+      throw failed;
+    });
+
+    await expect(
+      backend.replaceLine(
+        'cart-1',
+        'line-42',
+        next,
+        {
+          ...WITH_CART(CTX),
+          cart: { ...WITH_CART(CTX).cart!, updatePlainItem },
+        },
+        5,
+      ),
+    ).rejects.toBe(failed);
+
+    const reopened = await backend.reopen('cart-1', 'line-42', CTX);
+    expect(findVariable(reopened, 'shelves').value).toBe(2);
+  });
+
+  it('answers 500, with the line on its old record, when given a quantity but no way to update the cart', async () => {
+    await addedLine();
+    const next = await committedWith(3);
+
+    expect(
+      await statusOf(() =>
+        backend.replaceLine('cart-1', 'line-42', next, WITH_CART(CTX), 5),
+      ),
+    ).toBe(500);
+    expect(
+      await statusOf(() =>
+        backend.replaceLine('cart-1', 'line-42', next, CTX, 5),
+      ),
+    ).toBe(500);
+    const reopened = await backend.reopen('cart-1', 'line-42', CTX);
+    expect(findVariable(reopened, 'shelves').value).toBe(2);
+  });
+
   it('answers 404 for a record it never committed, and leaves the line as it was', async () => {
     await addedLine();
 
