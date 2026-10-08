@@ -8,6 +8,7 @@ import {
   waitForHydration,
 } from './helpers';
 import { localeText } from './locale-text';
+import { PRODUCTION_BUILD } from './target';
 
 /**
  * Configurator E2E Tests
@@ -1284,20 +1285,29 @@ test.describe('Configurator leaving the page', () => {
 
   test('deletes the session when the buyer loads another page', async ({
     page,
+    browserName,
   }) => {
+    // Safari does not deliver a keepalive request started on pagehide during a
+    // full load or a tab close of the production build (measured by hand
+    // 2026-10-08), so the session lives until it expires. The dev server's
+    // WebKit does deliver it.
+    test.fail(
+      browserName === 'webkit' && PRODUCTION_BUILD,
+      'WebKit drops requests sent on pagehide',
+    );
     const unavailable = await unavailableReason(page);
     outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
 
     const id = await openedSession(page);
-    const deleted = page.waitForRequest(
-      (request) =>
-        request.method() === 'DELETE' &&
-        new URL(request.url()).pathname === `/api/configurations/${id}`,
-    );
+    const session = async () =>
+      (await page.request.get(`/api/configurations/${id}`)).status();
+    expect(await session()).toBe(200);
 
     // A full load: the page is not unmounted, only hidden.
     await page.goto('/');
 
-    await deleted;
+    // The server, not the request: Playwright does not report a keepalive
+    // request sent during a full navigation in a production build.
+    await expect.poll(session, { timeout: 5_000 }).toBe(410);
   });
 });
