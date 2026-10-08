@@ -10,6 +10,7 @@ import {
   startFailureKey,
   canPress,
   quantityToFollow,
+  sourceLineQuantity,
   replaceFailureKey,
   replaceRetryable,
   canRetryAdd,
@@ -723,6 +724,43 @@ describe('replaceFailureKey', () => {
     expect(replaceFailureKey({ message: 'x', ...error })).toBe(
       'configurator.edit.update_failed',
     );
+  });
+});
+
+describe('sourceLineQuantity', () => {
+  const LINE = { cartId: 'cart-1', itemId: 'line-1' };
+  const items = [
+    { id: 'other', quantity: 7 },
+    { id: 'line-1', quantity: 3 },
+  ];
+
+  it("is the line's quantity while the cart holds it", () => {
+    expect(sourceLineQuantity(LINE, 'cart-1', items)).toBe(3);
+  });
+
+  it('is nothing to follow without a line behind the session', () => {
+    expect(sourceLineQuantity(null, 'cart-1', items)).toBeNull();
+  });
+
+  // Not read yet, or the read failed: nothing says the line is gone.
+  it('is nothing to follow before the cart has been read', () => {
+    expect(sourceLineQuantity(LINE, 'cart-1', null)).toBeNull();
+    expect(sourceLineQuantity(LINE, 'cart-1', undefined)).toBeNull();
+  });
+
+  it('goes back to one once the line is deleted', () => {
+    expect(
+      sourceLineQuantity(LINE, 'cart-1', [{ id: 'other', quantity: 7 }]),
+    ).toBe(1);
+  });
+
+  it('goes back to one once the cart is emptied', () => {
+    expect(sourceLineQuantity(LINE, 'cart-1', [])).toBe(1);
+  });
+
+  it('goes back to one when the cart read is another cart', () => {
+    expect(sourceLineQuantity(LINE, 'cart-9', items)).toBe(1);
+    expect(sourceLineQuantity(LINE, null, items)).toBe(1);
   });
 });
 

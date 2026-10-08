@@ -43,6 +43,7 @@ import {
   replaceRetryable,
   restartsInMarket,
   showsAddRetry,
+  sourceLineQuantity,
   startFailureKey,
   stickyBoxMaxHeight,
   type ConfiguratorAction,
@@ -608,14 +609,10 @@ function onChange(changes: ConfigurationChange[]): void {
 // as an ordinary change, so the panel and the next add or update use it.
 // ---------------------------------------------------------------------------
 
-/** The quantity the cart holds the held session's line at, if it holds it. */
-const lineQuantity = computed(() => {
-  const line = source.value;
-  if (!line || line.cartId !== cart.cartId) return null;
-  return (
-    cart.cart?.items?.find((item) => item.id === line.itemId)?.quantity ?? null
-  );
-});
+/** The quantity the held session follows; see `sourceLineQuantity`. */
+const lineQuantity = computed(() =>
+  sourceLineQuantity(source.value, cart.cartId, cart.cart?.items),
+);
 
 /** The cart is still settling or sending a quantity change of that line. */
 const linePending = computed(() => {

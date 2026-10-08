@@ -64,6 +64,22 @@ export interface SourceLineState {
 }
 
 /**
+ * The quantity the held session follows: its line's, while the cart holds it,
+ * or 1 once the cart no longer does, as for a buyer who has just arrived; the
+ * page has no quantity control, so a gone line's quantity could never be put
+ * right. `null` with no line behind the session, or no cart read to tell.
+ */
+export function sourceLineQuantity(
+  source: { cartId: string; itemId: string } | null,
+  cartId: string | null,
+  items: readonly { id?: string; quantity: number }[] | null | undefined,
+): number | null {
+  if (!source || !items) return null;
+  if (cartId !== source.cartId) return 1;
+  return items.find((item) => item.id === source.itemId)?.quantity ?? 1;
+}
+
+/**
  * A session at another quantity than its line, or a line the cart is still
  * changing, would add or update at a quantity the line no longer has.
  */

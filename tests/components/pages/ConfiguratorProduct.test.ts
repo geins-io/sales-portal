@@ -3139,6 +3139,83 @@ describe("ConfiguratorProduct following the line's quantity", () => {
     expect(session.commit).toHaveBeenCalledTimes(1);
   });
 
+  describe('when the line leaves the cart', () => {
+    /** A page holding a session opened from `LINE`, both at three. */
+    async function holdingAtThree(): Promise<ReturnType<typeof mountPage>> {
+      cart.cartId = LINE.cartId;
+      lineAt(3);
+      session.source.value = LINE;
+      const wrapper = mountPage();
+      activeWith(heldAt(3));
+      await nextTick();
+      session.applyChanges.mockClear();
+      session.start.mockClear();
+      return wrapper;
+    }
+
+    const leaves = [
+      [
+        'is deleted',
+        () => {
+          cart.cart = { items: [{ id: 'other-line', quantity: 7 }] };
+        },
+      ],
+      [
+        'goes with the emptied cart',
+        () => {
+          cart.cart = { items: [] };
+        },
+      ],
+    ] as const;
+
+    for (const [what, leave] of leaves) {
+      it(`goes back to one, keeping the choices, when the line it carried on from ${what}`, async () => {
+        await holdingAtThree();
+
+        leave();
+        await nextTick();
+
+        expect(session.applyChanges.mock.calls).toEqual(followed(1));
+        expect(session.start).not.toHaveBeenCalled();
+      });
+
+      it(`goes back to one when the edited line ${what}`, async () => {
+        session.editing.value = LINE;
+        await holdingAtThree();
+
+        leave();
+        await nextTick();
+
+        expect(session.applyChanges.mock.calls).toEqual(followed(1));
+      });
+    }
+
+    it('adds at one only once the session is back at one', async () => {
+      const wrapper = await holdingAtThree();
+      cart.cart = { items: [] };
+      await nextTick();
+
+      const button = wrapper.find('[data-testid="configurator-commit"]');
+      expect(button.attributes('aria-disabled')).toBe('true');
+      await button.trigger('click');
+      expect(session.commit).not.toHaveBeenCalled();
+
+      session.configuration.value = heldAt(1);
+      await nextTick();
+      await button.trigger('click');
+      expect(session.commit).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the quantity while the cart has not been read', async () => {
+      await holdingAtThree();
+
+      cart.cart = null;
+      await nextTick();
+
+      expect(session.applyChanges).not.toHaveBeenCalled();
+    });
+  });
+
   describe('while the cart changes the line', () => {
     for (const [what, pend] of [
       ['a change settles', () => cart.pendingQuantities.set(LINE.itemId, 3)],
