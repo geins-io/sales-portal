@@ -39,6 +39,7 @@ const SCOPE_REASONS = [
   'remote-target',
   'feature-hidden',
   'mutation-gate',
+  'browser-engine',
 ] as const;
 const DECLARED = new RegExp(`^(${SCOPE_REASONS.join('|')}): `);
 const SCOPE_NOTE_ANNOTATION = 'scope';

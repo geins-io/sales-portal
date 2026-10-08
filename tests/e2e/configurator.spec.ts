@@ -1161,3 +1161,152 @@ test.describe('Configurator refusals a second try cannot fix', () => {
     expect(adds).toEqual([]);
   });
 });
+
+test.describe('Configurator press straight after typing', () => {
+  /** The cabinet seed's width: a number field on its first section. */
+  const WIDTH = 'cab-width';
+
+  test('commits once and adds once when the action is pressed while the typed value is sent', async ({
+    page,
+  }) => {
+    const unavailable = await unavailableReason(page, CART_SEED_ALIAS);
+    outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
+
+    await openConfigurator(page, CART_SEED_ALIAS);
+    await openSection(page, 'cabinet');
+    const commit = action(page);
+    await expect(commit).toBeEnabled({ timeout: 30_000 });
+
+    // The fixture answers before the mouse comes up, which would hide the
+    // race; held, the batch is in flight for the whole press, as on the real
+    // backend.
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route('**/api/configurations/*/changes', async (route) => {
+      await held;
+      await route.continue();
+    });
+
+    const sent = { changes: 0, commits: 0, adds: 0 };
+    page.on('request', (request) => {
+      if (request.method() !== 'POST') return;
+      const url = request.url();
+      if (/\/api\/configurations\/[^/]+\/changes$/.test(url)) sent.changes++;
+      if (/\/api\/configurations\/[^/]+\/commit$/.test(url)) sent.commits++;
+      if (/\/api\/configurations\/[^/]+\/cart$/.test(url)) sent.adds++;
+    });
+
+    const linesBefore = await cartLineIds(page);
+    try {
+      const input = page
+        .locator(
+          `[data-testid="configurator-variable"][data-variable-id="${WIDTH}"]`,
+        )
+        .locator('input');
+      await input.fill('900');
+
+      const changed = changeResponse(page);
+      const added = page.waitForResponse(
+        (response) =>
+          /\/api\/configurations\/[^/]+\/cart$/.test(response.url()) &&
+          response.request().method() === 'POST',
+      );
+      // No Enter, no Tab: the press itself blurs the field.
+      await commit.click();
+      await expect(commit).toHaveAttribute('aria-busy', 'true');
+      expect(sent).toEqual({ changes: 1, commits: 0, adds: 0 });
+
+      release();
+      expect((await changed).status()).toBe(200);
+      await expect
+        .poll(() => ({ ...sent }))
+        .toEqual({ changes: 1, commits: 1, adds: 1 });
+      expect((await added).status()).toBe(200);
+      await expect(page.getByTestId('cart-drawer')).toBeVisible();
+      expect(sent).toEqual({ changes: 1, commits: 1, adds: 1 });
+      expect((await cartLineIds(page)).length).toBe(linesBefore.length + 1);
+    } finally {
+      release();
+      await removeCartLines(page, linesBefore);
+    }
+  });
+});
+
+test.describe('Configurator leaving the page', () => {
+  /** Opens the configurator and answers the id of the session it created. */
+  async function openedSession(page: Page): Promise<string> {
+    const created = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/configurations' &&
+        response.request().method() === 'POST',
+    );
+    await openConfigurator(page);
+    const { configurationId } = (await (await created).json()) as {
+      configurationId: string;
+    };
+    await expect(action(page)).toHaveAttribute('aria-busy', 'false');
+    return configurationId;
+  }
+
+  function deletesOf(page: Page): string[] {
+    const urls: string[] = [];
+    page.on('request', (request) => {
+      if (
+        request.method() === 'DELETE' &&
+        /\/api\/configurations\/[^/]+$/.test(request.url())
+      ) {
+        urls.push(new URL(request.url()).pathname);
+      }
+    });
+    return urls;
+  }
+
+  test('deletes the session when the buyer navigates away inside the app', async ({
+    page,
+  }) => {
+    const unavailable = await unavailableReason(page);
+    outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
+
+    const id = await openedSession(page);
+    const deletes = deletesOf(page);
+    const deleted = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'DELETE' &&
+        new URL(response.url()).pathname === `/api/configurations/${id}`,
+    );
+
+    await page.getByTestId('topbar-portal').click();
+    await page.waitForURL(/\/portal/);
+
+    expect((await deleted).status()).toBe(204);
+    expect(deletes).toEqual([`/api/configurations/${id}`]);
+  });
+
+  test('deletes the session when the buyer loads another page', async ({
+    page,
+    browserName,
+  }) => {
+    // Whether WebKit delivers a keepalive request started on pagehide during a
+    // full load is a race: macOS WebKit lost it 9 of 10 times, Linux WebKit
+    // won it 6 to 10 of 10 (2026-10-08). Real Safari lost it by hand.
+    outOfScope(
+      browserName === 'webkit',
+      'browser-engine',
+      'Safari drops a keepalive request started on pagehide during a full load, and WebKit differs by platform; the same leave is proven on chromium and Mobile Chrome',
+    );
+    const unavailable = await unavailableReason(page);
+    outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
+
+    const id = await openedSession(page);
+    const session = async () =>
+      (await page.request.get(`/api/configurations/${id}`)).status();
+    expect(await session()).toBe(200);
+
+    // A full load: the page is not unmounted, only hidden.
+    await page.goto('/');
+
+    // The server, not the request: Playwright does not report a keepalive
+    // request sent during a full navigation in a production build.
+    await expect.poll(session, { timeout: 5_000 }).toBe(410);
+  });
+});

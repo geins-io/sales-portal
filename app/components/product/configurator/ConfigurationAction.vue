@@ -48,13 +48,15 @@ const auth = useAuthStore();
     </Button>
 
     <!-- Never dead without a reason: the label says required choices remain,
-         and the page lists which. -->
+         and the page lists which. Not `disabled`: that lets a press fall
+         through, and the press that blurs a typed field lands while the
+         field's batch runs. The page decides what a press does. -->
     <Button
       v-else
-      class="w-full"
+      class="w-full aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
       size="lg"
       variant="purchase"
-      :disabled="!canCommit"
+      :aria-disabled="!canCommit"
       :aria-busy="busy"
       data-testid="configurator-commit"
       @click="emit('submit')"

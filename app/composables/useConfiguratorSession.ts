@@ -1,5 +1,6 @@
 import {
   defaultDocument,
+  defaultWindow,
   useEventListener,
   useIdle,
   useIntervalFn,
@@ -64,6 +65,9 @@ const RENEW_CHECK_MS = 30_000;
  */
 const ACTIVITY_CHECK_MS = 5_000;
 
+/** A change batch, a commit with its add, or anything else `run` sends. */
+type RunKind = 'change' | 'commit' | 'other';
+
 export interface ConfiguratorSessionError {
   status: number;
   message: string;
@@ -122,6 +126,11 @@ export interface ConfiguratorSessionOptions {
     committed: CommittedConfiguration,
     line: CartLineRef,
   ) => Promise<CartLineRef | null>;
+  /**
+   * The page came back from the back-forward cache after its session was
+   * deleted on leaving, and has to open one again.
+   */
+  onReturn?: () => void;
 }
 
 /**
@@ -152,6 +161,7 @@ export function reopenFailure(
 export function useConfiguratorSession({
   addLine,
   replaceLine,
+  onReturn,
 }: ConfiguratorSessionOptions = {}) {
   const configuration = ref<Configuration | null>(null);
   /**
@@ -201,6 +211,13 @@ export function useConfiguratorSession({
 
   let inFlight: AbortController | null = null;
   let renewing: AbortController | null = null;
+  /** What `run` has in flight, which decides whether a press is remembered. */
+  let running: RunKind | null = null;
+  /**
+   * A press on the action made while a change batch was in flight, with the
+   * hook its commit runs. One slot: two presses are still one commit.
+   */
+  let pressed: (() => void) | null = null;
 
   /**
    * Set once the page has gone. A step that was not in flight then, such as the
@@ -208,8 +225,48 @@ export function useConfiguratorSession({
    */
   let disposed = false;
 
+  /** The session deleted when the buyer left, which is never sent twice. */
+  let leftId: string | null = null;
+
+  /**
+   * Deletes the open session when the buyer leaves. Outside `run`, which
+   * refuses once the page has gone, and `keepalive` so the request outlives a
+   * closed tab. Not during a commit or its add: the session is still active
+   * then, with an id that has been committed.
+   */
+  function leave(): void {
+    const id = liveId();
+    if (!id || id === leftId || running === 'commit') return;
+    leftId = id;
+    void Promise.resolve(
+      $fetch(`/api/configurations/${id}`, {
+        method: 'DELETE',
+        keepalive: true,
+      }),
+    ).catch(() => {});
+  }
+
+  // An in-app navigation unmounts the page; a closed tab or a full load only
+  // hides the document.
+  useEventListener(defaultWindow, 'pagehide', leave);
+  // A page the back-forward cache brings back holds the session it deleted.
+  useEventListener(defaultWindow, 'pageshow', (event: PageTransitionEvent) => {
+    const held = configuration.value;
+    if (!event.persisted || !held || held.configurationId !== leftId) return;
+    leftId = null;
+    pressed = null;
+    configuration.value = null;
+    notReopened.value = false;
+    notReplayed.value = false;
+    notRestored.value = false;
+    status.value = 'idle';
+    onReturn?.();
+  });
+
   onScopeDispose(() => {
+    leave();
     disposed = true;
+    pressed = null;
     inFlight?.abort();
     renewing?.abort();
     stopIdle();
@@ -222,11 +279,13 @@ export function useConfiguratorSession({
    */
   async function run<T>(
     task: (signal: AbortSignal) => Promise<T>,
+    kind: RunKind = 'other',
   ): Promise<T | undefined> {
     if (busy.value || disposed) return undefined;
 
     const controller = new AbortController();
     inFlight = controller;
+    running = kind;
     busy.value = true;
     error.value = null;
 
@@ -249,6 +308,7 @@ export function useConfiguratorSession({
       return undefined;
     } finally {
       inFlight = null;
+      running = null;
       busy.value = false;
     }
   }
@@ -374,18 +434,26 @@ export function useConfiguratorSession({
     const id = liveId();
     // The route rejects an empty batch, and there is nothing to re-evaluate.
     if (!id || changes.length === 0) return;
+    // `run` would drop it, and the press held for the batch in flight is not
+    // this call's to take.
+    if (busy.value) return;
 
-    const updated = await run((signal) =>
-      $fetch<Configuration>(`/api/configurations/${id}/changes`, {
-        method: 'POST',
-        body: { changes },
-        signal,
-      }),
+    const updated = await run(
+      (signal) =>
+        $fetch<Configuration>(`/api/configurations/${id}/changes`, {
+          method: 'POST',
+          body: { changes },
+          signal,
+        }),
+      'change',
     );
-    if (updated) {
-      configuration.value = updated;
-      lastContact = Date.now();
-    }
+    const press = pressed;
+    pressed = null;
+    if (!updated) return;
+    configuration.value = updated;
+    lastContact = Date.now();
+    // Validity is the answer's: the page could only judge the document before.
+    if (press && updated.isValid === true) await commit(press);
   }
 
   /**
@@ -547,10 +615,20 @@ export function useConfiguratorSession({
    * would add the same committed id twice, and that gives two lines. The form
    * stays on screen, busy, until the add has answered, so the buyer sees
    * progress from the press to the drawer.
+   *
+   * A press during a change batch is remembered and runs once the batch has
+   * answered, if the answer is valid. `onRun` runs when the commit goes out,
+   * not at the press, so a refusal of that batch is still told as one.
    */
-  async function commit(): Promise<void> {
+  async function commit(onRun?: () => void): Promise<void> {
+    if (busy.value) {
+      // The blur that sent a typed value started this batch on the same press.
+      if (running === 'change') pressed = onRun ?? (() => {});
+      return;
+    }
     const id = liveId();
     if (!id) return;
+    onRun?.();
     notReopened.value = false;
     notReplayed.value = false;
     notRestored.value = false;
@@ -565,7 +643,7 @@ export function useConfiguratorSession({
       committed.value = result;
       close();
       return undefined;
-    });
+    }, 'commit');
     if (added) await carryOn(added.line);
   }
 

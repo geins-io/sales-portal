@@ -8,6 +8,7 @@ import {
   editOpenRetryable,
   restartsInMarket,
   startFailureKey,
+  canPress,
   replaceFailureKey,
   replaceRetryable,
   canRetryAdd,
@@ -149,6 +150,50 @@ describe('canCommit', () => {
 
   it('refuses before a document has arrived', () => {
     expect(canCommit({ ...state({ configuration: null }), busy: false })).toBe(
+      false,
+    );
+  });
+});
+
+describe('canPress', () => {
+  it('passes a press on a complete configuration on', () => {
+    expect(canPress({ ...state(), busy: false, skuId: 1652 })).toBe(true);
+  });
+
+  it('drops a press on an incomplete configuration with nothing in flight', () => {
+    expect(
+      canPress({
+        ...state({ configuration: makeInvalidConfiguration() }),
+        busy: false,
+      }),
+    ).toBe(false);
+  });
+
+  // The batch that the blur sent may be what completes it; its answer decides.
+  it('passes a press on while a request is in flight, whatever the document says', () => {
+    expect(
+      canPress({
+        ...state({ configuration: makeInvalidConfiguration() }),
+        busy: true,
+      }),
+    ).toBe(true);
+    expect(canPress({ ...state(), busy: true })).toBe(true);
+  });
+
+  it('drops a press when there is no SKU to add the line as', () => {
+    expect(canPress({ ...state(), busy: false, skuId: null })).toBe(false);
+    expect(canPress({ ...state(), busy: true, skuId: null })).toBe(false);
+  });
+
+  it('drops a press when the session is no longer active', () => {
+    for (const status of ['expired', 'closed', 'idle'] as const) {
+      expect(canPress({ ...state({ status }), busy: true })).toBe(false);
+      expect(canPress({ ...state({ status }), busy: false })).toBe(false);
+    }
+  });
+
+  it('drops a press before a document has arrived', () => {
+    expect(canPress({ ...state({ configuration: null }), busy: false })).toBe(
       false,
     );
   });
