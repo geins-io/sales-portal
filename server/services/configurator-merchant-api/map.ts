@@ -10,27 +10,33 @@ import type {
   ConfigurationOption,
   ConfigurationOptionGroup,
   ConfigurationSection,
-  ConfigurationValue,
-  ConfigurationValueType,
   ConfigurationVariable,
   SelectionSource,
   ValueSource,
 } from '#shared/types/configurator';
 import { logger } from '../../utils/logger';
-import { cartLineConfiguration, summaryRows } from '../line-configuration';
+import {
+  camel,
+  committedValue,
+  VALUE_TYPES,
+  valueOf,
+} from '../configuration-value';
+import {
+  cartLineConfiguration,
+  lineConfiguration,
+  summaryRows,
+} from '../line-configuration';
 import type { OrderLineChoices } from '../configurator';
 import type {
   CommittedConfigurationOptionGroupType,
   CommittedConfigurationSectionType,
   CommittedConfigurationType,
-  CommittedConfigurationVariableType,
   CommittedOrderLinesType,
   ConfigurationMessageType,
   ConfigurationOptionGroupType,
   ConfigurationOptionType,
   ConfigurationSectionType,
   ConfigurationType,
-  ConfigurationValue as SdkConfigurationValue,
   ConfigurationVariableType,
   ConfiguredCartLinesType,
   ConfiguredOrderLinesType,
@@ -63,20 +69,6 @@ const VALUE_SOURCES: readonly ValueSource[] = [
   'fallback',
   'unknown',
 ];
-
-const VALUE_TYPES: readonly ConfigurationValueType[] = [
-  'string',
-  'number',
-  'boolean',
-  'date',
-];
-
-/** `RULE_SELECTED` → `ruleSelected`. */
-function camel(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
-}
 
 /** The known member, or `unknown` with the provider's own value beside it. */
 function source<T extends string>(
@@ -131,24 +123,6 @@ function messages(list: ConfigurationMessageType[]): ConfigurationMessage[] {
 
 function price(value: PriceType | null): PriceType {
   return value ?? {};
-}
-
-function valueOf(
-  type: ConfigurationValueType,
-  value: SdkConfigurationValue,
-): ConfigurationValue {
-  if (value === null) return null;
-  switch (type) {
-    case 'number': {
-      const number = Number(value);
-      return typeof value === 'boolean' || Number.isNaN(number) ? null : number;
-    }
-    case 'boolean':
-      if (typeof value === 'boolean') return value;
-      return value === 'true' ? true : value === 'false' ? false : null;
-    default:
-      return String(value);
-  }
 }
 
 function variable(
@@ -307,7 +281,7 @@ export function mapCartLineConfigurations(
 
 /**
  * The rows of an order by position, each with its product's type and, when
- * configured, its summary. A null row keeps its place, so positions match the
+ * configured, its summary and sections. A null row keeps its place, so positions match the
  * order's own rows.
  */
 export function mapOrderLineConfigurations(
@@ -319,20 +293,11 @@ export function mapOrderLineConfigurations(
     lines.set(position, {
       productId: line.product?.productId ?? null,
       type: line.product?.type ?? null,
-      configuration: line.configuration && {
-        summary: summaryRows(line.configuration.summary),
-      },
+      configuration:
+        line.configuration && lineConfiguration(line.configuration),
     });
   });
   return lines;
-}
-
-/** A committed value is a string in invariant culture, typed by `valueType`. */
-function committedValue(
-  variable: CommittedConfigurationVariableType,
-): ConfigurationValue {
-  const type = VALUE_TYPES.find((known) => known === camel(variable.valueType));
-  return type ? valueOf(type, variable.value) : variable.value;
 }
 
 function committedOptions(

@@ -260,13 +260,10 @@ describe('CartItem', () => {
       return mountComponent(CartItem, { props: { item }, global: { stubs } });
     }
 
-    const toggleOf = (wrapper: ReturnType<typeof mountLine>) =>
-      wrapper.find('[data-testid="cart-item-configuration-toggle"]');
-    const blockOf = (wrapper: ReturnType<typeof mountLine>) =>
-      wrapper.find('[data-testid="cart-item-configuration"]');
-    // `v-show`: the block is in the DOM either way, hidden by its style.
-    const shown = (wrapper: ReturnType<typeof mountLine>) =>
-      !blockOf(wrapper).attributes('style')?.includes('display: none');
+    const showOf = (wrapper: ReturnType<typeof mountLine>) =>
+      wrapper.find('[data-testid="line-specification-open"]');
+    const actionsOf = (wrapper: ReturnType<typeof mountLine>) =>
+      wrapper.find('[data-testid="cart-item-configuration-actions"]');
 
     it('says it is a configured product instead of the article line', () => {
       const wrapper = mountLine(configuredItem);
@@ -289,6 +286,39 @@ describe('CartItem', () => {
       ).toEqual(['cart-item-edit']);
     });
 
+    it('hands the specification the line: its name, quantity, configuration and prices', () => {
+      const wrapper = mountLine(configuredItem);
+
+      const show = wrapper.findComponent({ name: 'LineSpecification' });
+      expect(show.props()).toEqual({
+        id: 'cart-item-configuration-item-1',
+        productName: 'Test Product',
+        quantity: 2,
+        configuration: configuredItem.configuration,
+        unitPrice: mockItem.unitPrice,
+        totalPrice: mockItem.totalPrice,
+      });
+    });
+
+    it('gives each line its own trigger id', () => {
+      const first = showOf(mountLine(configuredItem)).attributes('id');
+      const second = showOf(
+        mountLine({ ...configuredItem, id: 'item-2' }),
+      ).attributes('id');
+
+      expect(first).toBeTruthy();
+      expect(first).not.toBe(second);
+    });
+
+    it('offers the specification on a line committed with the defaults only', () => {
+      const wrapper = mountLine({
+        ...mockItem,
+        configuration: { configurationId: 'committed-1', summary: [] },
+      });
+
+      expect(showOf(wrapper).exists()).toBe(true);
+    });
+
     describe('editing the line', () => {
       const editOf = (wrapper: ReturnType<typeof mountLine>) =>
         wrapper.find('[data-testid="cart-item-edit"]');
@@ -299,37 +329,29 @@ describe('CartItem', () => {
         cart.isOpen = true;
       });
 
-      /** The edit link precedes the toggle and sits outside the block. */
-      function expectEditAboveToggle(wrapper: ReturnType<typeof mountLine>) {
-        const edit = editOf(wrapper);
-        expect(edit.text()).toBe('cart.edit_configuration');
-        expect(
-          edit.element.compareDocumentPosition(toggleOf(wrapper).element) &
-            Node.DOCUMENT_POSITION_FOLLOWING,
-        ).toBeTruthy();
-        expect(blockOf(wrapper).element.contains(edit.element)).toBe(false);
-      }
-
-      it('offers to change the configuration above the toggle, whether the summary is closed or open', async () => {
+      it('puts "Visa konfiguration" and then "Ändra konfiguration" on one row, as small outline buttons', () => {
         const wrapper = mountLine(configuredItem);
 
-        expect(shown(wrapper)).toBe(false);
-        expectEditAboveToggle(wrapper);
-
-        await toggleOf(wrapper).trigger('click');
-
-        expect(shown(wrapper)).toBe(true);
-        expectEditAboveToggle(wrapper);
+        const actions = actionsOf(wrapper);
+        expect(actions.classes()).toEqual(
+          expect.arrayContaining(['flex', 'flex-wrap', 'gap-2']),
+        );
+        const [show, edit] = actions.element.children;
+        expect(show).toBe(showOf(wrapper).element);
+        expect(edit).toBe(editOf(wrapper).element);
+        expect(editOf(wrapper).text()).toBe('cart.edit_configuration');
+        expect(editOf(wrapper).classes()).toEqual(
+          expect.arrayContaining(['h-6', 'px-2', 'text-[11px]', 'border']),
+        );
       });
 
-      it('offers to change a line committed with the defaults only, above its toggle', () => {
+      it('offers both on a line committed with the defaults only', () => {
         const wrapper = mountLine({
           ...configuredItem,
           configuration: { configurationId: 'committed-1', summary: [] },
         });
 
-        expect(toggleOf(wrapper).text()).toBe('cart.show_configuration');
-        expectEditAboveToggle(wrapper);
+        expect(actionsOf(wrapper).element.children).toHaveLength(2);
       });
 
       it("links to the product's canonical page with the cart and the line, so the canonical redirect cannot drop them", () => {
@@ -348,9 +370,19 @@ describe('CartItem', () => {
         expect(useCartStore().isOpen).toBe(false);
       });
 
-      it('offers nothing to change without a cart or a product page', () => {
+      it('leaves the drawer open when the specification is shown', async () => {
+        const wrapper = mountLine(configuredItem);
+
+        await showOf(wrapper).trigger('click');
+
+        expect(useCartStore().isOpen).toBe(true);
+      });
+
+      it('offers nothing to change without a cart or a product page, and still shows the specification', () => {
         useCartStore().cartId = null;
-        expect(editOf(mountLine(configuredItem)).exists()).toBe(false);
+        const withoutCart = mountLine(configuredItem);
+        expect(editOf(withoutCart).exists()).toBe(false);
+        expect(showOf(withoutCart).exists()).toBe(true);
 
         useCartStore().cartId = 'cart-1';
         const product = { ...mockItem.product, canonicalUrl: '', alias: '' };
@@ -375,101 +407,19 @@ describe('CartItem', () => {
       ).toBe(false);
     });
 
-    it('keeps the configuration collapsed until the buyer opens it', () => {
-      const wrapper = mountLine(configuredItem);
-
-      const toggle = toggleOf(wrapper);
-      expect(toggle.text()).toBe('cart.show_configuration');
-      expect(toggle.attributes('aria-expanded')).toBe('false');
-      expect(toggle.attributes('aria-controls')).toBe(
-        blockOf(wrapper).attributes('id'),
-      );
-      expect(shown(wrapper)).toBe(false);
-    });
-
-    it('opens and closes the configuration from the toggle', async () => {
-      const wrapper = mountLine(configuredItem);
-
-      await toggleOf(wrapper).trigger('click');
-
-      expect(toggleOf(wrapper).text()).toBe('cart.hide_configuration');
-      expect(toggleOf(wrapper).attributes('aria-expanded')).toBe('true');
-      expect(shown(wrapper)).toBe(true);
-
-      await toggleOf(wrapper).trigger('click');
-
-      expect(toggleOf(wrapper).attributes('aria-expanded')).toBe('false');
-      expect(shown(wrapper)).toBe(false);
-    });
-
-    it('lists every summary row as label and value, in the order the cart sends them', () => {
-      const wrapper = mountLine(configuredItem);
-
-      const rows = blockOf(wrapper).findAll(
-        '[data-testid="cart-item-configuration-row"]',
-      );
-      expect(
-        rows.map((row) => [row.find('dt').text(), row.find('dd').text()]),
-      ).toEqual([
-        ['Machine weight (7-20)', '12 t'],
-        ['Adapter', 'S45'],
-        ['Finish', ''],
-      ]);
-    });
-
-    it('keeps a row whose value is empty', () => {
-      const wrapper = mountLine(configuredItem);
-
-      const last = blockOf(wrapper)
-        .findAll('[data-testid="cart-item-configuration-row"]')
-        .at(-1);
-      expect(last?.find('dt').text()).toBe('Finish');
-      expect(last?.find('dd').exists()).toBe(true);
-    });
-
-    it('offers the toggle on a line committed with the defaults only, and says so opened', async () => {
-      const wrapper = mountLine({
-        ...mockItem,
-        configuration: { configurationId: 'committed-1', summary: [] },
-      });
-
-      expect(
-        wrapper.find('[data-testid="cart-item-configured"]').exists(),
-      ).toBe(true);
-      expect(shown(wrapper)).toBe(false);
-
-      await toggleOf(wrapper).trigger('click');
-
-      expect(shown(wrapper)).toBe(true);
-      expect(
-        blockOf(wrapper)
-          .find('[data-testid="cart-item-configuration-default"]')
-          .text(),
-      ).toBe('cart.default_configuration');
-    });
-
     it('leaves an ordinary line as it was', () => {
       const wrapper = mountLine(mockItem);
 
       expect(
         wrapper.find('[data-testid="cart-item-configured"]').exists(),
       ).toBe(false);
-      expect(toggleOf(wrapper).exists()).toBe(false);
+      expect(showOf(wrapper).exists()).toBe(false);
+      expect(actionsOf(wrapper).exists()).toBe(false);
       expect(wrapper.text()).toContain('Art nr. ART-001');
       expect(wrapper.find('a').exists()).toBe(true);
       expect(
         wrapper.find('[data-testid="cart-item-unit-price"]').exists(),
       ).toBe(true);
-    });
-
-    it('gives each line its own block id', () => {
-      const first = blockOf(mountLine(configuredItem)).attributes('id');
-      const second = blockOf(
-        mountLine({ ...configuredItem, id: 'item-2' }),
-      ).attributes('id');
-
-      expect(first).toBeTruthy();
-      expect(first).not.toBe(second);
     });
   });
 

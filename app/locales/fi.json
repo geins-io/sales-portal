@@ -122,7 +122,6 @@
     "configured_product": "Konfiguroitu tuote",
     "skipped_configurable": "{count} tuote vaatii konfiguroinnin, eikä sitä lisätty ostoskoriin | {count} tuotetta vaatii konfiguroinnin, eikä niitä lisätty ostoskoriin",
     "show_configuration": "Näytä kokoonpano",
-    "hide_configuration": "Piilota kokoonpano",
     "default_configuration": "Vakiokokoonpano, ei valittuja lisävarusteita.",
     "edit_configuration": "Muuta kokoonpanoa",
     "quantity_updating": "Päivitetään…",

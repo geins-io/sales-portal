@@ -13,6 +13,7 @@ import type {
   VariantType,
 } from '@geins/types';
 import type { CategoryAncestor } from '../utils/breadcrumb-trail';
+import type { ConfigurationValue } from './configurator';
 
 export type {
   ProductType,
@@ -102,9 +103,45 @@ export interface CartLineConfigurationRow {
   value: string;
 }
 
+/** A chosen option as it was committed. */
+export interface LineConfigurationOption {
+  name: string;
+  quantity?: number;
+  /** One of the option, net of its own discount. */
+  unitPrice?: PriceType;
+}
+
+export interface LineConfigurationGroup {
+  id: string;
+  name: string;
+  sortIndex: number | null;
+  options: LineConfigurationOption[];
+  optionGroups: LineConfigurationGroup[];
+}
+
+export interface LineConfigurationVariable {
+  id: string;
+  name: string;
+  sortIndex: number | null;
+  value: ConfigurationValue;
+  unit?: string;
+  decimals?: number;
+}
+
+/** A section as it was committed: only what the buyer saw and chose. */
+export interface LineConfigurationSection {
+  name: string;
+  sortIndex: number | null;
+  variables: LineConfigurationVariable[];
+  optionGroups: LineConfigurationGroup[];
+  sections: LineConfigurationSection[];
+}
+
 /** What a configured line was committed with, as the buyer reads it. */
 export interface LineConfigurationSummary {
   summary: CartLineConfigurationRow[];
+  /** Absent on a configuration committed before its structure was recorded. */
+  sections?: LineConfigurationSection[];
 }
 
 /** What a configured line was committed with, as the cart carries it. */

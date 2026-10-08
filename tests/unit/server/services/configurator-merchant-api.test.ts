@@ -1680,6 +1680,69 @@ describe('the merchant-api backend', () => {
       ]);
     });
 
+    it("carries a row's committed sections beside its summary", async () => {
+      fetchMock.mockResolvedValue(
+        orderRows([
+          {
+            product: { productId: 1359, type: 'configurable' },
+            configuration: {
+              summary: [{ label: 'Adapter', value: 'S45' }],
+              sections: [
+                {
+                  id: 'machine',
+                  name: 'Machine',
+                  sortIndex: 2,
+                  variables: [],
+                  optionGroups: [
+                    {
+                      id: 'adapters',
+                      code: 'A',
+                      name: 'Adapter',
+                      sortIndex: 1,
+                      options: [
+                        {
+                          id: 's45',
+                          instanceId: '0',
+                          articleNumber: 'S45',
+                          name: 'S45',
+                          quantity: 1,
+                          unitPrice: null,
+                          discountPercent: 0,
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ]),
+      );
+
+      const lines = await backend.orderLineConfigurations('order-1', CTX);
+
+      expect(lines.get(0)?.configuration).toEqual({
+        summary: [{ label: 'Adapter', value: 'S45' }],
+        sections: [
+          {
+            name: 'Machine',
+            sortIndex: 2,
+            variables: [],
+            optionGroups: [
+              {
+                id: 'adapters',
+                name: 'Adapter',
+                sortIndex: 1,
+                options: [{ name: 'S45', quantity: 1 }],
+                optionGroups: [],
+              },
+            ],
+            sections: [],
+          },
+        ],
+      });
+    });
+
     it('counts a null row as a position', async () => {
       fetchMock.mockResolvedValue(
         orderRows([

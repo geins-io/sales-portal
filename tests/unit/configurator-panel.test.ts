@@ -1,10 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import type { PriceType } from '#shared/types/commerce';
+import type {
+  LineConfigurationGroup,
+  LineConfigurationSection,
+  LineConfigurationVariable,
+  PriceType,
+} from '#shared/types/commerce';
 import type { Configuration } from '#shared/types/configurator';
 import {
   collectBlockingItems,
   collectBlockingMessages,
+  committedSpecificationRows,
   groupSpecificationRows,
+  lineSpecificationTotals,
   panelTotals,
   specificationRows,
   specificationText,
@@ -742,6 +749,254 @@ describe('specificationRows', () => {
     const config = makeValidConfiguration();
     config.sections[0]!.visible = false;
     expect(specificationRows(config)).toEqual([]);
+  });
+});
+
+describe('committedSpecificationRows', () => {
+  const PRICE: PriceType = {
+    sellingPriceExVat: 619.49,
+    currency: { code: 'SEK' },
+  };
+
+  function section(
+    name: string,
+    parts: Partial<LineConfigurationSection> = {},
+  ): LineConfigurationSection {
+    return {
+      name,
+      sortIndex: null,
+      variables: [],
+      optionGroups: [],
+      sections: [],
+      ...parts,
+    };
+  }
+
+  function group(
+    id: string,
+    parts: Partial<LineConfigurationGroup> = {},
+  ): LineConfigurationGroup {
+    return {
+      id,
+      name: id,
+      sortIndex: null,
+      options: [{ name: `${id} pick` }],
+      optionGroups: [],
+      ...parts,
+    };
+  }
+
+  function variable(
+    id: string,
+    parts: Partial<LineConfigurationVariable> = {},
+  ): LineConfigurationVariable {
+    return { id, name: id, sortIndex: null, value: 'x', ...parts };
+  }
+
+  const ids = (sections: LineConfigurationSection[]) =>
+    committedSpecificationRows(sections).map((row) => row.id);
+
+  it('gives a group one row, one value per option, with its quantity and price', () => {
+    expect(
+      committedSpecificationRows([
+        section('Machine', {
+          optionGroups: [
+            group('teeth', {
+              name: 'Bucket teeth',
+              options: [
+                { name: 'J250', quantity: 4, unitPrice: PRICE },
+                { name: 'J300' },
+              ],
+            }),
+          ],
+        }),
+      ]),
+    ).toStrictEqual([
+      {
+        id: 'group:teeth',
+        group: 'Machine',
+        label: 'Bucket teeth',
+        values: [{ text: 'J250', quantity: 4, price: PRICE }, { text: 'J300' }],
+      },
+    ]);
+  });
+
+  it("merges a section's groups and variables by index, null last", () => {
+    expect(
+      ids([
+        section('S', {
+          optionGroups: [
+            group('g-none'),
+            group('g-3', { sortIndex: 3 }),
+            group('g-1', { sortIndex: 1 }),
+          ],
+          variables: [variable('v-2', { sortIndex: 2 }), variable('v-none')],
+        }),
+      ]),
+    ).toEqual([
+      'group:g-1',
+      'variable:v-2',
+      'group:g-3',
+      'group:g-none',
+      'variable:v-none',
+    ]);
+  });
+
+  it('puts groups before variables where the index ties or is absent', () => {
+    expect(
+      ids([
+        section('S', {
+          optionGroups: [group('g', { sortIndex: 1 })],
+          variables: [variable('v', { sortIndex: 1 })],
+        }),
+        section('T', {
+          optionGroups: [group('h')],
+          variables: [variable('w')],
+        }),
+      ]),
+    ).toEqual(['group:g', 'variable:v', 'group:h', 'variable:w']);
+  });
+
+  it('orders sibling sections by index, null last, each heading its own rows', () => {
+    const rows = committedSpecificationRows([
+      section('Last', { optionGroups: [group('c')] }),
+      section('Second', { sortIndex: 5, optionGroups: [group('b')] }),
+      section('First', { sortIndex: 2, optionGroups: [group('a')] }),
+    ]);
+
+    expect(rows.map((row) => [row.group, row.id])).toEqual([
+      ['First', 'group:a'],
+      ['Second', 'group:b'],
+      ['Last', 'group:c'],
+    ]);
+  });
+
+  it("puts a nested section after its parent's members, its children in index order", () => {
+    const rows = committedSpecificationRows([
+      section('Outer', {
+        optionGroups: [group('outer', { sortIndex: 1 })],
+        sections: [
+          section('Inner B', { sortIndex: 2, optionGroups: [group('b')] }),
+          section('Inner A', { sortIndex: 1, optionGroups: [group('a')] }),
+        ],
+        variables: [variable('v', { sortIndex: 9 })],
+      }),
+    ]);
+
+    expect(rows.map((row) => [row.group, row.id])).toEqual([
+      ['Outer', 'group:outer'],
+      ['Outer', 'variable:v'],
+      ['Inner A', 'group:a'],
+      ['Inner B', 'group:b'],
+    ]);
+  });
+
+  it('puts a nested group after its parent, siblings in index order', () => {
+    expect(
+      ids([
+        section('S', {
+          optionGroups: [
+            group('parent', {
+              optionGroups: [
+                group('late', { sortIndex: 2 }),
+                group('early', { sortIndex: 1 }),
+              ],
+            }),
+            group('next', { sortIndex: 1 }),
+          ],
+        }),
+      ]),
+    ).toEqual(['group:next', 'group:parent', 'group:early', 'group:late']);
+  });
+
+  it('gives a group with no option no row, but keeps the groups under it', () => {
+    expect(
+      ids([
+        section('S', {
+          optionGroups: [
+            group('empty', { options: [], optionGroups: [group('child')] }),
+          ],
+        }),
+      ]),
+    ).toEqual(['group:child']);
+  });
+
+  it('writes a variable as the specification does, and leaves out one that holds nothing', () => {
+    const rows = committedSpecificationRows([
+      section('S', {
+        variables: [
+          variable('width', {
+            value: 1200.5,
+            unit: 'mm',
+            decimals: 1,
+            sortIndex: 1,
+          }),
+          variable('painted', { value: true, sortIndex: 2 }),
+          variable('label', { value: 'Hall 2', unit: 'm', sortIndex: 3 }),
+          variable('zero', { value: 0 }),
+          variable('unticked', { value: false }),
+          variable('empty', { value: '' }),
+          variable('unset', { value: null }),
+        ],
+      }),
+    ]);
+
+    expect(rows).toEqual([
+      {
+        id: 'variable:width',
+        group: 'S',
+        label: 'width',
+        values: [{ number: 1200.5, decimals: 1, unit: 'mm' }],
+      },
+      {
+        id: 'variable:painted',
+        group: 'S',
+        label: 'painted',
+        values: [{ boolValue: true }],
+      },
+      {
+        id: 'variable:label',
+        group: 'S',
+        label: 'label',
+        values: [{ text: 'Hall 2', unit: 'm' }],
+      },
+    ]);
+  });
+
+  it('answers no rows for a structure with nothing in it', () => {
+    expect(committedSpecificationRows([])).toEqual([]);
+    expect(committedSpecificationRows([section('Empty')])).toEqual([]);
+  });
+});
+
+describe('lineSpecificationTotals', () => {
+  it("reads the amounts from the line's total and the rate from one unit", () => {
+    expect(
+      lineSpecificationTotals(
+        { sellingPriceExVat: 2118.94, vat: 402.6, sellingPriceIncVat: 2521.54 },
+        {
+          sellingPriceExVat: 6356.82,
+          vat: 1207.8,
+          sellingPriceIncVat: 7564.62,
+        },
+      ),
+    ).toEqual({ net: 6356.82, vat: 1207.8, incVat: 7564.62, ratePercent: 19 });
+  });
+
+  it('answers no rate where the unit has nothing to divide by', () => {
+    expect(
+      lineSpecificationTotals(
+        { sellingPriceExVat: 0, vat: 0 },
+        { sellingPriceExVat: 0, vat: 0, sellingPriceIncVat: 0 },
+      )?.ratePercent,
+    ).toBeNull();
+  });
+
+  it('answers nothing for a line without a total', () => {
+    expect(lineSpecificationTotals(undefined, undefined)).toBeNull();
+    expect(
+      lineSpecificationTotals({ sellingPriceExVat: 1, vat: 0.25 }, undefined),
+    ).toBeNull();
   });
 });
 

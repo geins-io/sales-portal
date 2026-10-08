@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import type { CartLineConfiguration } from '#shared/types/commerce';
+import type {
+  CartLineConfiguration,
+  LineConfigurationSection,
+} from '#shared/types/commerce';
 import type {
   CommittedConfiguration,
   Configuration,
@@ -16,6 +19,7 @@ import { applyChangeBatch } from './changes';
 import { cloneSessionState, createSessionState, evaluate } from './evaluate';
 import { findSeed } from './seed';
 import { createSessionStore, type StoredSession } from './store';
+import { buildCommittedSections } from './committed';
 import { buildSummary } from './summary';
 
 // ---------------------------------------------------------------------------
@@ -61,7 +65,15 @@ export function createFixtureConfiguratorBackend({
   now = Date.now,
 }: { now?: () => number } = {}): FixtureConfiguratorBackend {
   const store = createSessionStore(now, DEPARTED_RETENTION_HOURS * HOUR);
-  const committed = new Map<string, CommittedConfiguration>();
+  /**
+   * Each record with the structure it froze. The structure sits beside the
+   * record rather than on it: the record is what a commit answers, and a commit
+   * answers no structure.
+   */
+  const committed = new Map<
+    string,
+    { record: CommittedConfiguration; sections: LineConfigurationSection[] }
+  >();
   /** The state each record was committed from, so a line can be reopened. */
   const committedStates = new Map<
     string,
@@ -172,7 +184,7 @@ export function createFixtureConfiguratorBackend({
         summary: buildSummary(config),
       };
       const key = `${ctx.hostname}|${record.committedConfigurationId}`;
-      committed.set(key, record);
+      committed.set(key, { record, sections: buildCommittedSections(config) });
       committedStates.set(key, {
         seed: session.seed,
         state: cloneSessionState(session.state),
@@ -276,11 +288,12 @@ export function createFixtureConfiguratorBackend({
       const prefix = lineKey(ctx, cartId, '');
       const read = new Map<string, CartLineConfiguration>();
       for (const [line, key] of lines) {
-        const record = committed.get(key);
-        if (!line.startsWith(prefix) || !record) continue;
+        const entry = committed.get(key);
+        if (!line.startsWith(prefix) || !entry) continue;
         read.set(line.slice(prefix.length), {
-          configurationId: record.committedConfigurationId,
-          summary: record.summary,
+          configurationId: entry.record.committedConfigurationId,
+          summary: entry.record.summary,
+          sections: entry.sections,
         });
       }
       return read;
@@ -304,7 +317,7 @@ export function createFixtureConfiguratorBackend({
     },
 
     readCommitted(id: string, ctx: ConfiguratorContext) {
-      return committed.get(`${ctx.hostname}|${id}`);
+      return committed.get(`${ctx.hostname}|${id}`)?.record;
     },
   };
 }

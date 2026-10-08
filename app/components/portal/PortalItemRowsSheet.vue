@@ -90,9 +90,13 @@ const open = ref(false);
                   }}</span>
                 </p>
                 <div v-if="item.configuration" class="mt-2">
-                  <LineConfigurationSummary
+                  <LineSpecification
                     :id="`item-rows-configuration-${item.key}`"
-                    :summary="item.configuration.summary"
+                    :product-name="item.name"
+                    :quantity="item.quantity"
+                    :configuration="item.configuration"
+                    :unit-price="item.unitPrice"
+                    :total-price="item.totalPrice"
                   />
                 </div>
               </div>

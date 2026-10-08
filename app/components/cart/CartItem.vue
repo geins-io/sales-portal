@@ -235,27 +235,41 @@ const maxQuantity = computed(() => {
       {{ t('cart.quantity_change_failed') }}
     </p>
 
-    <!-- Row 3: what a configured line was committed with, collapsed -->
-    <!-- The edit link sits above the toggle, so opening the summary does not
-         push it down. Checkout and the order rows have no way to edit. -->
-    <div v-if="configuration" class="space-y-1 pl-16">
-      <NuxtLink
-        v-if="editUrl"
-        :to="editUrl"
-        class="text-primary flex items-center gap-1 text-xs font-medium hover:underline"
-        :class="{ 'pointer-events-none opacity-50': updating }"
-        :aria-disabled="updating || undefined"
-        :tabindex="updating ? -1 : undefined"
-        data-testid="cart-item-edit"
-        @click="cart.isOpen = false"
-      >
-        <Pencil class="size-3" />
-        {{ t('cart.edit_configuration') }}
-      </NuxtLink>
-      <LineConfigurationSummary
+    <!-- Row 3: what a configured line was committed with opens in a panel,
+         beside the way back to the configurator. Checkout and the order rows
+         have no way to edit. -->
+    <div
+      v-if="configuration"
+      class="flex flex-wrap gap-2 pl-16"
+      data-testid="cart-item-configuration-actions"
+    >
+      <LineSpecification
         :id="configurationId"
-        :summary="configuration.summary"
+        :product-name="item.product?.name ?? ''"
+        :quantity="item.quantity ?? 1"
+        :configuration="configuration"
+        :unit-price="item.unitPrice"
+        :total-price="item.totalPrice"
       />
+      <Button
+        v-if="editUrl"
+        as-child
+        variant="outline"
+        size="sm"
+        class="h-6 gap-1 px-2 text-[11px]"
+        :class="{ 'pointer-events-none opacity-50': updating }"
+      >
+        <NuxtLink
+          :to="editUrl"
+          :aria-disabled="updating || undefined"
+          :tabindex="updating ? -1 : undefined"
+          data-testid="cart-item-edit"
+          @click="cart.isOpen = false"
+        >
+          <Pencil class="size-3" />
+          {{ t('cart.edit_configuration') }}
+        </NuxtLink>
+      </Button>
     </div>
   </div>
 </template>

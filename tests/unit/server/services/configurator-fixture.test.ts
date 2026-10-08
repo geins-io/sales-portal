@@ -36,6 +36,7 @@ import { arbetsbordPro } from '../../../../server/services/configurator-fixture/
 import { monteringsstationPro } from '../../../../server/services/configurator-fixture/seed/monteringsstation-pro';
 import { skapsektionPro } from '../../../../server/services/configurator-fixture/seed/skapsektion-pro';
 import { buildSummary } from '../../../../server/services/configurator-fixture/summary';
+import { buildCommittedSections } from '../../../../server/services/configurator-fixture/committed';
 import {
   findOption,
   findOptionGroup,
@@ -1179,6 +1180,172 @@ describe('buildSummary', () => {
   });
 });
 
+describe('buildCommittedSections', () => {
+  const names = (config: Configuration) =>
+    buildCommittedSections(config).flatMap(function walk(section): string[] {
+      return [
+        section.name,
+        ...section.variables.map((variable) => variable.name),
+        ...section.optionGroups.flatMap(function group(g): string[] {
+          return [
+            g.name,
+            ...g.options.map((option) => option.name),
+            ...g.optionGroups.flatMap(group),
+          ];
+        }),
+        ...section.sections.flatMap(walk),
+      ];
+    });
+
+  it('keeps every visible section with its chosen options, its variables and every index', () => {
+    const config = makeValidConfiguration();
+    const price = findOption(config, 'legs-fixed').unitPrice;
+
+    expect(buildCommittedSections(config)).toEqual([
+      {
+        name: 'Frame',
+        sortIndex: 1,
+        variables: [
+          {
+            id: 'width',
+            name: 'Width',
+            sortIndex: 3,
+            value: 1200,
+            unit: 'mm',
+            decimals: 0,
+          },
+          {
+            id: 'depth',
+            name: 'Depth',
+            sortIndex: 4,
+            value: 700,
+            unit: 'mm',
+            decimals: 0,
+          },
+          {
+            id: 'shelves',
+            name: 'Shelves',
+            sortIndex: 6,
+            value: 0,
+            unit: 'pcs',
+            decimals: 0,
+          },
+          {
+            id: 'oversize',
+            name: 'Oversize margin',
+            sortIndex: 7,
+            value: 0,
+            unit: '%',
+            decimals: 0,
+          },
+        ],
+        optionGroups: [
+          {
+            id: 'legs',
+            name: 'Leg frame',
+            sortIndex: 2,
+            options: [
+              { name: 'Fixed height legs', quantity: 1, unitPrice: price },
+            ],
+            optionGroups: [],
+          },
+        ],
+        sections: [
+          {
+            name: 'Finish',
+            sortIndex: 8,
+            variables: [],
+            optionGroups: [
+              {
+                id: 'top',
+                name: 'Table top',
+                sortIndex: 9,
+                options: [
+                  { name: 'Laminate top', quantity: 1, unitPrice: price },
+                ],
+                optionGroups: [],
+              },
+              {
+                id: 'color',
+                name: 'Colour',
+                sortIndex: 10,
+                options: [
+                  { name: 'Black (RAL 9005)', quantity: 1, unitPrice: price },
+                ],
+                optionGroups: [],
+              },
+            ],
+            sections: [],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('leaves out a variable that is unavailable or has no value, as the summary does', () => {
+    const config = makeValidConfiguration();
+    findVariable(config, 'depth').available = false;
+    findVariable(config, 'width').value = null;
+    findVariable(config, 'shelves').value = '';
+
+    expect(names(config)).not.toEqual(
+      expect.arrayContaining(['Depth', 'Width', 'Shelves']),
+    );
+    expect(names(config)).toContain('Oversize margin');
+  });
+
+  it('leaves out an option not chosen and a group with nothing chosen', () => {
+    const config = makeValidConfiguration();
+    findOption(config, 'top-laminate').selected = false;
+
+    expect(names(config)).not.toContain('Table top');
+    expect(names(config)).not.toContain('Industrial options');
+    expect(names(config)).not.toContain('Accessories');
+  });
+
+  it('keeps a group nested in a group under its parent', () => {
+    const config = makeNestedGroupConfiguration();
+    findOption(config, 'ral-9005').selected = true;
+    findOption(config, 'ind-esd').selected = true;
+
+    const [frame] = buildCommittedSections(config);
+    const legs = frame!.optionGroups.find((group) => group.id === 'legs');
+    expect(legs?.optionGroups.map((group) => group.name)).toEqual([
+      'Industrial options',
+    ]);
+    expect(legs?.optionGroups[0]?.options.map((o) => o.name)).toEqual([
+      'ESD earthing kit',
+    ]);
+  });
+
+  it('keeps a parent group with nothing chosen when a group under it holds a choice', () => {
+    const config = makeNestedGroupConfiguration();
+    findOption(config, 'ral-9005').selected = true;
+    findOption(config, 'ind-esd').selected = true;
+    for (const option of findOptionGroup(config, 'legs').options) {
+      option.selected = false;
+    }
+
+    const [frame] = buildCommittedSections(config);
+    const legs = frame!.optionGroups.find((group) => group.id === 'legs');
+    expect(legs?.options).toEqual([]);
+    expect(legs?.optionGroups.map((group) => group.name)).toEqual([
+      'Industrial options',
+    ]);
+  });
+
+  it('leaves out the whole subtree of a hidden section', () => {
+    const config = makeValidConfiguration();
+    config.sections[0]!.sections[0]!.visible = false;
+
+    expect(names(config)).not.toContain('Finish');
+    expect(names(config)).not.toContain('Colour');
+
+    config.sections[0]!.visible = false;
+    expect(buildCommittedSections(config)).toEqual([]);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // The second seed
 //
@@ -2168,7 +2335,13 @@ describe('cartLineConfigurations', () => {
     expect(lines.get('line-42')).toEqual({
       configurationId: record.committedConfigurationId,
       summary: record.summary,
+      sections: [expect.objectContaining({ name: 'Frame' })],
     });
+    const [frame] = lines.get('line-42')!.sections!;
+    expect(frame!.optionGroups[0]?.options[0]?.name).toBe(
+      'Electric height legs',
+    );
+    expect(frame!.sections.map((section) => section.name)).toEqual(['Finish']);
   });
 
   it('reads a replaced line as the new record', async () => {

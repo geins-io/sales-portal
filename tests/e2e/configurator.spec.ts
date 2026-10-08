@@ -836,9 +836,11 @@ async function cartProduct(page: Page): Promise<string | null> {
 interface CartLine {
   id: string;
   quantity: number;
+  totalPrice?: { sellingPriceExVat?: number };
   configuration?: {
     configurationId: string;
     summary: { label: string; value: string }[];
+    sections?: { name: string }[];
   };
 }
 
@@ -911,12 +913,12 @@ test.describe('Configured line through the cart', () => {
       await expect(
         lineIn(drawer).getByTestId('cart-item-configured'),
       ).toBeVisible();
-      await lineIn(drawer)
-        .getByTestId('cart-item-configuration-toggle')
-        .click();
-      await expect(
-        lineIn(drawer).getByTestId('cart-item-configuration-row'),
-      ).toHaveCount(rowsOf(line).length);
+      await lineIn(drawer).getByTestId('line-specification-open').click();
+      const specification = page.getByTestId('line-specification-sheet');
+      await expect(specification).toBeInViewport();
+      await page.keyboard.press('Escape');
+      await expect(specification).toBeHidden();
+      await expect(drawer).toBeVisible();
 
       // ---------- Edit from the cart page ----------
       await page.goto('/cart');
@@ -1016,6 +1018,144 @@ test.describe('Configured line through the cart', () => {
       expect((await removed).status()).toBe(200);
       await expect(drawer.getByTestId('cart-empty')).toBeVisible();
       expect(await readLines(page, cartId!)).toEqual([]);
+    } finally {
+      if (cartId) {
+        for (const { id } of await readLines(page, cartId)) {
+          await page.request.delete('/api/cart/items', {
+            params: { cartId, itemId: id },
+          });
+        }
+      }
+    }
+  });
+});
+
+/**
+ * "Visa konfiguration" on a configured line opens its specification over
+ * wherever the line sits, and every way of closing it leaves the buyer where
+ * they were. Run on the narrow project too, where the sheet covers the screen
+ * and so has no outside to click.
+ */
+test.describe('The specification of a configured line', () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  /** Opens the line's specification from a scope and waits for it in place. */
+  async function openSpecification(
+    page: Page,
+    line: ReturnType<Page['getByTestId']>,
+  ) {
+    await line.getByTestId('line-specification-open').click();
+    const sheet = page.getByTestId('line-specification-sheet');
+    await expect(sheet).toBeInViewport({ ratio: 1 });
+    return sheet;
+  }
+
+  test('opens over the drawer, the cart page and checkout, and closes back to each', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await waitForHydration(page);
+    const alias = await cartProduct(page);
+    outOfScope(
+      !alias,
+      'tenant-config',
+      'no configurable product here commits as created (the configurator is off, or the catalogue has none)',
+    );
+
+    let cartId: string | undefined;
+    try {
+      await openConfigurator(page, alias!);
+      const commit = action(page);
+      await expect(commit).toBeEnabled({ timeout: 30_000 });
+      await expect(commit).toHaveAttribute('aria-busy', 'false');
+      const added = page.waitForResponse(
+        (response) =>
+          /\/api\/configurations\/[^/]+\/cart$/.test(response.url()) &&
+          response.request().method() === 'POST',
+      );
+      await commit.click();
+      const addResponse = await added;
+      expect(addResponse.status()).toBe(200);
+      const { itemId } = (await addResponse.json()) as { itemId: string };
+      cartId = await cartIdOf(page);
+      const [line] = await readLines(page, cartId!);
+      const sections = line?.configuration?.sections;
+      expect(
+        sections,
+        'the cart answered the line without its committed sections',
+      ).toBeDefined();
+
+      const lineIn = (scope: ReturnType<Page['getByTestId']>) =>
+        scope
+          .getByTestId('cart-item')
+          .or(scope.getByTestId('checkout-cart-item'))
+          .filter({ has: page.locator(`[id$="-configuration-${itemId}"]`) });
+
+      // ---------- Over the drawer ----------
+      const drawer = page.getByTestId('cart-drawer');
+      await expect(drawer).toBeVisible();
+      let sheet = await openSpecification(page, lineIn(drawer));
+
+      await expect(sheet.getByRole('heading').first()).toBeVisible();
+      const headings = await sheet.locator('h4').allInnerTexts();
+      expect(headings.length).toBeGreaterThan(0);
+      for (const heading of headings) {
+        expect(sections!.map((section) => section.name.trim())).toContain(
+          heading.trim(),
+        );
+      }
+      const net = await readPrice(sheet.getByTestId('line-specification-net'));
+      expect(net).toBeCloseTo(line?.totalPrice?.sellingPriceExVat ?? NaN, 2);
+
+      // Escape closes the sheet and leaves the drawer.
+      await page.keyboard.press('Escape');
+      await expect(sheet).toBeHidden();
+      await expect(lineIn(drawer)).toBeInViewport();
+
+      // So does the close button.
+      sheet = await openSpecification(page, lineIn(drawer));
+      await sheet
+        .getByRole('button', { name: await localeText(page, 'common.close') })
+        .click();
+      await expect(sheet).toBeHidden();
+      await expect(lineIn(drawer)).toBeInViewport();
+
+      // And a click beside it, where there is room beside it.
+      sheet = await openSpecification(page, lineIn(drawer));
+      const box = (await sheet.boundingBox())!;
+      if (box.x >= 40) {
+        await page.mouse.click(box.x / 2, box.y + box.height / 2);
+        await expect(sheet).toBeHidden();
+        await expect(lineIn(drawer)).toBeInViewport();
+      } else {
+        test.info().annotations.push({
+          type: 'out-of-scope',
+          description:
+            'the sheet covers the screen at this width, so there is no outside to click; closed by Escape instead',
+        });
+        await page.keyboard.press('Escape');
+        await expect(sheet).toBeHidden();
+      }
+
+      // ---------- Over the cart page ----------
+      await page.goto('/cart');
+      await waitForHydration(page);
+      const cartPage = page.getByTestId('cart-page');
+      sheet = await openSpecification(page, lineIn(cartPage));
+      await page.keyboard.press('Escape');
+      await expect(sheet).toBeHidden();
+      await expect(lineIn(cartPage)).toBeVisible();
+
+      // ---------- Over checkout ----------
+      await page.goto('/checkout');
+      await waitForHydration(page);
+      const checkout = page.getByTestId('checkout-page');
+      sheet = await openSpecification(page, lineIn(checkout));
+      await sheet
+        .getByRole('button', { name: await localeText(page, 'common.close') })
+        .click();
+      await expect(sheet).toBeHidden();
+      await expect(lineIn(checkout)).toBeVisible();
     } finally {
       if (cartId) {
         for (const { id } of await readLines(page, cartId)) {

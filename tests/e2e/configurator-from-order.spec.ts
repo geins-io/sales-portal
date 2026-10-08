@@ -134,7 +134,7 @@ async function openOrderRow(page: Page): Promise<void> {
   const tableLink = tableRow.getByTestId('order-item-name-link');
   if (await tableLink.isVisible()) {
     await expect(
-      tableRow.getByTestId('cart-item-configuration-toggle'),
+      tableRow.getByTestId('line-specification-open'),
       missing,
     ).toBeVisible();
     await expect(tableLink).toHaveAttribute('href', new RegExp(query));
@@ -143,7 +143,7 @@ async function openOrderRow(page: Page): Promise<void> {
   await page.getByTestId('view-rows-trigger').click();
   const sheetRow = page.getByTestId('item-rows-row').nth(ROW);
   await expect(
-    sheetRow.getByTestId('cart-item-configuration-toggle'),
+    sheetRow.getByTestId('line-specification-open'),
     missing,
   ).toBeVisible();
   const sheetLink = sheetRow.getByRole('link');
@@ -209,6 +209,48 @@ test.describe('Opening a configured order row', () => {
       'tenant-config',
       `${ALIAS} is not configurable on this target (it is on the monitor account with the merchant-api or composite backend)`,
     );
+  });
+
+  test("shows the row's specification over the order, and closes back to it", async ({
+    page,
+  }) => {
+    await orderedSummary(page);
+    await page.goto(`/se/sv/portal/orders/${ORDER_ID}`);
+    await waitForHydration(page);
+    const specification = page.getByTestId('line-specification-sheet');
+
+    const tableRow = page.getByTestId('order-item-row').nth(ROW);
+    if (await tableRow.isVisible()) {
+      await tableRow.getByTestId('line-specification-open').click();
+      await expect(specification).toBeInViewport({ ratio: 1 });
+      await expect(specification.locator('h4').first()).toBeVisible();
+      await expect(specification).toContainText(GROUP_NAME);
+      await expect(specification).toContainText(ORDERED_OPTION);
+      await expect(
+        specification.getByTestId('line-specification-net'),
+      ).toBeVisible();
+
+      await page.keyboard.press('Escape');
+      await expect(specification).toBeHidden();
+      await expect(tableRow).toBeInViewport();
+      return;
+    }
+
+    // Narrow: the rows open in a sheet of their own, and the specification
+    // opens on top of it.
+    await page.getByTestId('view-rows-trigger').click();
+    const rows = page.getByTestId('item-rows-sheet');
+    const sheetRow = page.getByTestId('item-rows-row').nth(ROW);
+    await sheetRow.getByTestId('line-specification-open').click();
+    await expect(specification).toBeInViewport({ ratio: 1 });
+    await expect(specification).toContainText(ORDERED_OPTION);
+
+    await specification
+      .getByRole('button', { name: await localeText(page, 'common.close') })
+      .click();
+    await expect(specification).toBeHidden();
+    await expect(rows).toBeVisible();
+    await expect(sheetRow).toBeInViewport();
   });
 
   test("opens the configurator holding the row's choices at their price, and the line it adds carries the order's configuration", async ({

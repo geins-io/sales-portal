@@ -1,4 +1,4 @@
-import type { LineConfigurationSummary } from './commerce';
+import type { LineConfigurationSummary, PriceType } from './commerce';
 
 /** A single order/quotation line item, normalised for the mobile rows sheet. */
 export interface PortalItemRow {
@@ -14,6 +14,9 @@ export interface PortalItemRow {
   href?: string;
   /** Set on a configured order row. */
   configuration?: LineConfigurationSummary;
+  /** A configured row's prices, which its specification totals. */
+  unitPrice?: PriceType;
+  totalPrice?: PriceType;
 }
 
 /** A totals row shown beneath the items in the mobile rows sheet. */

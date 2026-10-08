@@ -203,6 +203,41 @@ describe('orders service', () => {
         expect(order?.reorderable).toBe(true);
       });
 
+      it("carries a row's committed sections beside its summary", async () => {
+        const sections = [
+          {
+            name: 'Machine',
+            sortIndex: 2,
+            variables: [],
+            optionGroups: [],
+            sections: [],
+          },
+        ];
+        mockOrderGet.mockResolvedValueOnce(sdkOrder());
+        orderLineConfigurations.mockResolvedValueOnce(
+          new Map([
+            [
+              1,
+              {
+                productId: 1359,
+                type: 'configurable',
+                configuration: { summary: SUMMARY, sections },
+              },
+            ],
+          ]),
+        );
+
+        const order = await ordersService.getOrder(
+          { publicOrderId: 'abc-123' },
+          mockEvent,
+        );
+
+        expect(order?.cart?.items[1]?.configuration).toEqual({
+          summary: SUMMARY,
+          sections,
+        });
+      });
+
       it('flags a configurable row the configurator holds no configuration for', async () => {
         mockOrderGet.mockResolvedValueOnce(sdkOrder());
         orderLineConfigurations.mockResolvedValueOnce(

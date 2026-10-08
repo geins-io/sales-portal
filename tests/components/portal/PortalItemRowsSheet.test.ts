@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { mountComponent } from '../../utils/component';
+import type { PortalItemRow } from '#shared/types/portal-rows';
 import PortalItemRowsSheet from '../../../app/components/portal/PortalItemRowsSheet.vue';
 
 // Stub the Sheet primitives so the (otherwise portalled, closed) content
@@ -12,6 +13,7 @@ vi.mock('../../../app/components/ui/sheet', () => ({
   },
   SheetHeader: { template: '<div><slot /></div>' },
   SheetTitle: { template: '<div data-testid="sheet-title"><slot /></div>' },
+  SheetDescription: { template: '<p><slot /></p>' },
 }));
 
 const items = [
@@ -117,7 +119,7 @@ describe('PortalItemRowsSheet', () => {
   });
 
   describe('a configured row', () => {
-    const configured = [
+    const configured: PortalItemRow[] = [
       {
         ...items[0]!,
         configuration: {
@@ -130,12 +132,8 @@ describe('PortalItemRowsSheet', () => {
       items[1]!,
     ];
 
-    it("offers no way to edit an order row, which is the cart's alone", async () => {
+    it("offers no way to edit an order row, which is the cart's alone", () => {
       const wrapper = mountSheet({ items: configured });
-
-      await wrapper
-        .find('[data-testid="cart-item-configuration-toggle"]')
-        .trigger('click');
 
       expect(wrapper.find('[data-testid="cart-item-edit"]').exists()).toBe(
         false,
@@ -143,42 +141,37 @@ describe('PortalItemRowsSheet', () => {
       expect(wrapper.text()).not.toContain('cart.edit_configuration');
     });
 
-    it('shows its summary, collapsed, and none on a plain row', async () => {
-      const wrapper = mountSheet({ items: configured });
+    it('offers its specification, handed the row, and none on a plain row', () => {
+      const unitPrice = { sellingPriceExVat: 80, vat: 20 };
+      const totalPrice = { sellingPriceExVat: 160, vat: 40 };
+      const wrapper = mountSheet({
+        items: [{ ...configured[0]!, unitPrice, totalPrice }, configured[1]!],
+      });
 
       const [first, second] = wrapper.findAll('[data-testid="item-rows-row"]');
-      const toggle = first!.find(
-        '[data-testid="cart-item-configuration-toggle"]',
-      );
-      expect(toggle.attributes('aria-expanded')).toBe('false');
       expect(
-        second!.find('[data-testid="cart-item-configuration-toggle"]').exists(),
+        first!.findComponent({ name: 'LineSpecification' }).props(),
+      ).toEqual({
+        id: 'item-rows-configuration-a',
+        productName: 'Widget A',
+        quantity: 2,
+        configuration: configured[0]!.configuration,
+        unitPrice,
+        totalPrice,
+      });
+      expect(
+        second!.find('[data-testid="line-specification-open"]').exists(),
       ).toBe(false);
-
-      await toggle.trigger('click');
-
-      expect(
-        first!
-          .findAll('[data-testid="cart-item-configuration-row"]')
-          .map((row) => [row.find('dt').text(), row.find('dd').text()]),
-      ).toEqual([
-        ['Machine weight (7-20)', '12 t'],
-        ['Adapter', 'S45'],
-      ]);
     });
 
-    it('offers the toggle on a row committed with the defaults only, and says so opened', async () => {
+    it('offers the specification on a row committed with the defaults only', () => {
       const wrapper = mountSheet({
         items: [{ ...items[0]!, configuration: { summary: [] } }],
       });
 
-      await wrapper
-        .find('[data-testid="cart-item-configuration-toggle"]')
-        .trigger('click');
-
       expect(
-        wrapper.find('[data-testid="cart-item-configuration-default"]').text(),
-      ).toBe('cart.default_configuration');
+        wrapper.find('[data-testid="line-specification-open"]').exists(),
+      ).toBe(true);
     });
 
     it('marks it "Konfigurerad produkt" under its name', () => {
