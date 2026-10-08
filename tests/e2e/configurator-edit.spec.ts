@@ -725,6 +725,98 @@ test.describe("Following a line's quantity on the configurator page", () => {
     ).toBe(Math.round(document.unitPrice.sellingPriceExVat * 2 * 100));
   }
 
+  /**
+   * Removes the line from the open drawer; with nothing to follow, the page
+   * goes back to one and holds its action until it is there.
+   */
+  async function removeInDrawer(page: Page, itemId: string): Promise<void> {
+    const item = page
+      .getByTestId('cart-drawer')
+      .getByTestId('cart-item')
+      .filter({ has: page.locator(`#cart-item-configuration-${itemId}`) });
+    const removed = page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname === '/api/cart/items' &&
+        r.request().method() === 'DELETE',
+      { timeout: 60_000 },
+    );
+    const followed = followAnswer(page);
+
+    await item.getByTestId('cart-item-remove').click();
+
+    expect((await removed).status()).toBe(200);
+    const follow = await followed;
+    expect(follow.status()).toBe(200);
+    expect(follow.request().postDataJSON()).toEqual({
+      changes: [{ type: 'quantity', quantity: 1 }],
+    });
+    expect(((await follow.json()) as Followed).quantity).toBe(1);
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('cart-drawer')).toBeHidden();
+    await expect(
+      page.getByTestId('configurator-panel-price'),
+    ).not.toContainText('2 st');
+  }
+
+  test('goes back to one when the line it follows leaves the cart, and adds the next line at one', async ({
+    page,
+  }) => {
+    const reopened = reopenResponse(page);
+    const { cartId, line } = await addConfiguredLine(page);
+    const added = [line.id];
+    try {
+      expect((await reopened).status()).toBe(200);
+      await stepUpInDrawer(page, line.id);
+
+      await removeInDrawer(page, line.id);
+
+      const commit = page.getByTestId('configurator-commit');
+      await expect(commit).toBeEnabled();
+      const add = page.waitForResponse(
+        (r) =>
+          /\/api\/configurations\/[^/]+\/cart$/.test(r.url()) &&
+          r.request().method() === 'POST',
+      );
+      await commit.click();
+      const answer = await add;
+      expect(answer.request().postDataJSON()).toMatchObject({ quantity: 1 });
+      const { itemId } = (await answer.json()) as { itemId: string };
+      added.push(itemId);
+
+      const next = (await lines(page, cartId)).find((l) => l.id === itemId);
+      expect(next?.quantity).toBe(1);
+    } finally {
+      const held = (await lines(page, cartId)).map((l) => l.id);
+      for (const id of added.filter((id) => held.includes(id))) {
+        await removeLine(page, cartId, id);
+      }
+    }
+  });
+
+  test('goes back to one when the line it edits leaves the cart', async ({
+    page,
+  }) => {
+    const { cartId, line } = await addConfiguredLine(page);
+    try {
+      await editLine(page, line.id, 'drawer');
+      await expect(page.getByTestId('configurator-editing')).toBeVisible({
+        timeout: 60_000,
+      });
+      await expect(page.getByTestId('configurator-commit')).toBeEnabled({
+        timeout: 60_000,
+      });
+
+      await page.locator('[data-slot="cart-button"]:visible').first().click();
+      await stepUpInDrawer(page, line.id);
+
+      await removeInDrawer(page, line.id);
+    } finally {
+      const held = (await lines(page, cartId)).some((l) => l.id === line.id);
+      if (held) await removeLine(page, cartId, line.id);
+    }
+  });
+
   test('follows the line the add left in the drawer, and adds the next line at its quantity', async ({
     page,
   }) => {
