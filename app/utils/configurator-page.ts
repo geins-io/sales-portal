@@ -53,22 +53,48 @@ export function configuratorStage(
 }
 
 /**
+ * The cart line the held session was opened from, as the cart has it: its
+ * quantity, or `null` when no line is behind the session or the cart does not
+ * hold it, and whether a quantity change of it is still settling or on its way.
+ */
+export interface SourceLineState {
+  lineQuantity?: number | null;
+  linePending?: boolean;
+}
+
+/**
+ * A session at another quantity than its line, or a line the cart is still
+ * changing, would add or update at a quantity the line no longer has.
+ */
+function atLine(
+  configuration: Configuration | null,
+  line: SourceLineState,
+): boolean {
+  if (line.linePending) return false;
+  return (
+    line.lineQuantity == null || configuration?.quantity === line.lineQuantity
+  );
+}
+
+/**
  * `isValid` is compared to `true` rather than read for truthiness: it comes off
  * the wire, and anything else that arrives is drift that must not enable the
  * one irreversible action on the page.
  */
 export function canCommit(
-  state: Pick<ConfiguratorPageState, 'status' | 'configuration'> & {
-    busy: boolean;
-    /** What the line is added as; a commit with nothing to add would strand it. */
-    skuId?: number | null;
-  },
+  state: Pick<ConfiguratorPageState, 'status' | 'configuration'> &
+    SourceLineState & {
+      busy: boolean;
+      /** What the line is added as; a commit with nothing to add would strand it. */
+      skuId?: number | null;
+    },
 ): boolean {
   return (
     state.status === 'active' &&
     state.configuration?.isValid === true &&
     !state.busy &&
-    state.skuId !== null
+    state.skuId !== null &&
+    atLine(state.configuration, state)
   );
 }
 
@@ -78,16 +104,51 @@ export function canCommit(
  * blur sent may be what completes it, and the session waits for its answer.
  */
 export function canPress(
-  state: Pick<ConfiguratorPageState, 'status' | 'configuration'> & {
-    busy: boolean;
-    skuId?: number | null;
-  },
+  state: Pick<ConfiguratorPageState, 'status' | 'configuration'> &
+    SourceLineState & {
+      busy: boolean;
+      skuId?: number | null;
+    },
 ): boolean {
   return (
     state.status === 'active' &&
     state.skuId !== null &&
-    (state.busy || state.configuration?.isValid === true)
+    (state.busy || state.configuration?.isValid === true) &&
+    atLine(state.configuration, state)
   );
+}
+
+/** A quantity sent to a session to follow its line. */
+export interface FollowedQuantity {
+  configurationId: string;
+  quantity: number;
+}
+
+/**
+ * The quantity to send the held session so it follows its line in the cart,
+ * or `null`. Never while a request is in flight: the answer may move the
+ * session, and the next check runs once it is in. A quantity is sent to a
+ * session once, whatever it answers, so a provider that lands elsewhere is
+ * not asked again until the line moves.
+ */
+export function quantityToFollow(state: {
+  status: ConfiguratorSessionStatus;
+  busy: boolean;
+  configuration: Configuration | null;
+  lineQuantity: number | null;
+  followed: FollowedQuantity | null;
+}): number | null {
+  const { configuration, lineQuantity, followed } = state;
+  if (state.status !== 'active' || state.busy || !configuration) return null;
+  // Without a line every check below falls through to `lineQuantity`: null.
+  if (configuration.quantity === lineQuantity) return null;
+  if (
+    followed?.configurationId === configuration.configurationId &&
+    followed.quantity === lineQuantity
+  ) {
+    return null;
+  }
+  return lineQuantity;
 }
 
 /**

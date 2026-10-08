@@ -643,3 +643,157 @@ test.describe("Changing a configured line's quantity", () => {
     }
   });
 });
+
+test.describe("Following a line's quantity on the configurator page", () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    const configurable = await isConfigurable(page, ALIAS);
+    outOfScope(
+      !configurable,
+      'tenant-config',
+      `${ALIAS} is not configurable on this target (it is on the monitor account with the merchant-api or composite backend)`,
+    );
+  });
+
+  interface Followed {
+    quantity: number;
+    unitPrice: { sellingPriceExVat: number };
+  }
+
+  /** The batch the page sends to follow the line, once it has answered. */
+  function followAnswer(page: Page): Promise<Response> {
+    return page.waitForResponse(
+      (r) =>
+        /\/api\/configurations\/[^/]+\/changes$/.test(r.url()) &&
+        r.request().method() === 'POST' &&
+        (
+          r.request().postDataJSON() as { changes: { type: string }[] }
+        ).changes.some((change) => change.type === 'quantity'),
+      { timeout: 60_000 },
+    );
+  }
+
+  function cartItemPut(page: Page): Promise<Response> {
+    return page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname === '/api/cart/items' &&
+        r.request().method() === 'PUT',
+      { timeout: 60_000 },
+    );
+  }
+
+  /** Every price is written with two decimals, so its digits are its cents. */
+  const cents = (text: string | null) =>
+    Number((text ?? '').replace(/\D/g, ''));
+
+  /**
+   * One step up on the line in the open drawer; the page's action holds until
+   * the cart has changed the line and the page has followed it.
+   */
+  async function stepUpInDrawer(page: Page, itemId: string): Promise<Followed> {
+    const item = page
+      .getByTestId('cart-drawer')
+      .getByTestId('cart-item')
+      .filter({ has: page.locator(`#cart-item-configuration-${itemId}`) });
+    const changed = cartItemPut(page);
+    const followed = followAnswer(page);
+
+    await item
+      .locator('[data-testid="quantity-input"] button:last-of-type')
+      .click();
+    await expect(page.getByTestId('configurator-commit')).toBeDisabled();
+
+    expect((await changed).status()).toBe(200);
+    const follow = await followed;
+    expect(follow.status()).toBe(200);
+    expect(follow.request().postDataJSON()).toEqual({
+      changes: [{ type: 'quantity', quantity: 2 }],
+    });
+    return (await follow.json()) as Followed;
+  }
+
+  async function expectPanelAt(page: Page, document: Followed) {
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('cart-drawer')).toBeHidden();
+    await expect(page.getByTestId('configurator-panel-price')).toContainText(
+      '2 st',
+    );
+    expect(
+      cents(await page.getByTestId('configurator-panel-net').textContent()),
+    ).toBe(Math.round(document.unitPrice.sellingPriceExVat * 2 * 100));
+  }
+
+  test('follows the line the add left in the drawer, and adds the next line at its quantity', async ({
+    page,
+  }) => {
+    // The add carries on in a session reopened from the new line.
+    const reopened = reopenResponse(page);
+    const { cartId, line } = await addConfiguredLine(page);
+    const added = [line.id];
+    try {
+      expect((await reopened).status()).toBe(200);
+
+      const document = await stepUpInDrawer(page, line.id);
+      expect(document.quantity).toBe(2);
+      await expectPanelAt(page, document);
+
+      const commit = page.getByTestId('configurator-commit');
+      await expect(commit).toBeEnabled();
+      const add = page.waitForResponse(
+        (r) =>
+          /\/api\/configurations\/[^/]+\/cart$/.test(r.url()) &&
+          r.request().method() === 'POST',
+      );
+      await commit.click();
+      const answer = await add;
+      expect(answer.request().postDataJSON()).toMatchObject({ quantity: 2 });
+      const { itemId } = (await answer.json()) as { itemId: string };
+      added.push(itemId);
+
+      const second = (await lines(page, cartId)).find((l) => l.id === itemId);
+      expect(second?.quantity).toBe(2);
+    } finally {
+      for (const id of added) await removeLine(page, cartId, id);
+    }
+  });
+
+  test('follows the line it edits, and updates it at the quantity the cart holds', async ({
+    page,
+  }) => {
+    const { cartId, line } = await addConfiguredLine(page);
+    try {
+      await editLine(page, line.id, 'drawer');
+      await expect(page.getByTestId('configurator-editing')).toBeVisible({
+        timeout: 60_000,
+      });
+      const commit = page.getByTestId('configurator-commit');
+      await expect(commit).toBeEnabled({ timeout: 60_000 });
+
+      await page.locator('[data-slot="cart-button"]:visible').first().click();
+      const document = await stepUpInDrawer(page, line.id);
+      await expectPanelAt(page, document);
+
+      await expect(commit).toBeEnabled();
+      const committed = page.waitForResponse(
+        (r) => r.url().endsWith('/commit') && r.request().method() === 'POST',
+      );
+      const swapped = page.waitForResponse(
+        (r) =>
+          /\/api\/configurations\/[^/]+\/cart$/.test(r.url()) &&
+          r.request().method() === 'PUT',
+      );
+      await commit.click();
+      expect(
+        ((await (await committed).json()) as { quantity: number }).quantity,
+      ).toBe(2);
+      expect((await swapped).status()).toBe(200);
+
+      const updated = (await lines(page, cartId)).find((l) => l.id === line.id);
+      expect(updated?.quantity).toBe(2);
+    } finally {
+      await removeLine(page, cartId, line.id);
+    }
+  });
+});

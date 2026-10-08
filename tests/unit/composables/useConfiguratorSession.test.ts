@@ -2271,6 +2271,79 @@ describe('useConfiguratorSession', () => {
       });
     });
 
+    // The page follows this line's quantity in the cart; a session with no
+    // line behind it has nothing to follow.
+    describe('the line the session was opened from', () => {
+      it('is the edited line once it is reopened', async () => {
+        const session = await editing();
+
+        expect(session.source.value).toEqual(LINE);
+      });
+
+      it('is the new line once the session is reopened from it after an add', async () => {
+        const initial = makeInitialConfiguration();
+        const session = openEditing();
+        mockFetch.mockResolvedValue(initial);
+        await session.start(PRODUCT_ID);
+        expect(session.source.value).toBeNull();
+
+        mockFetch.mockReset();
+        const added = { cartId: 'cart-1', itemId: 'item-2' };
+        addLine.mockResolvedValue(added);
+        answering({
+          commit: () => committedFrom(initial),
+          reopen: () => reopened(),
+        });
+        await session.commit();
+
+        expect(session.source.value).toEqual(added);
+      });
+
+      it('is the updated line once the session carries on from it', async () => {
+        const session = await editing();
+        answering({
+          commit: () => committedFrom(reopened()),
+          reopen: () => reopened('reopened-2'),
+        });
+
+        await session.commit();
+
+        expect(session.editing.value).toBeNull();
+        expect(session.source.value).toEqual(LINE);
+      });
+
+      it('is nothing once a failed reopen after an add falls back to a fresh start', async () => {
+        const session = await editing();
+        answering({
+          commit: () => committedFrom(reopened()),
+          reopen: () => {
+            throw fetchError(502);
+          },
+          create: () => makeInitialConfiguration(),
+        });
+
+        await session.commit();
+
+        expect(session.status.value).toBe('active');
+        expect(session.source.value).toBeNull();
+      });
+
+      it('is nothing once the edited line is gone and the page starts afresh', async () => {
+        const session = openEditing();
+        answering({
+          reopen: () => {
+            throw fetchError(404, 'gone', 'CART_LINE_GONE');
+          },
+          create: () => makeInitialConfiguration(),
+        });
+
+        await session.edit(PRODUCT_ID, LINE);
+
+        expect(session.status.value).toBe('active');
+        expect(session.source.value).toBeNull();
+      });
+    });
+
     describe('updating the line', () => {
       it('commits, puts the record on the line instead of adding one, then carries on from the updated line, no longer editing', async () => {
         const session = await editing();
