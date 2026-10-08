@@ -324,9 +324,9 @@ export function createMerchantApiConfiguratorBackend(): ConfiguratorBackend {
     orderLineConfigurations: orderLines,
     orderLineChoices,
 
-    async replaceLine(cartId, itemId, committedConfigurationId, ctx) {
-      // The quantity is the line's as it is now, not the session's. A failed
-      // read fails the swap, which leaves the line as it was.
+    async replaceLine(cartId, itemId, committedConfigurationId, ctx, quantity) {
+      // Without a quantity given, the line's as it is now, not the session's. A
+      // failed read fails the swap, which leaves the line as it was.
       const line = (await readCartLines(cartId, ctx))?.items.find(
         (item) => item.id === itemId,
       );
@@ -336,8 +336,8 @@ export function createMerchantApiConfiguratorBackend(): ConfiguratorBackend {
       // A retry after an answer lost on the way finds the swap already made.
       if (line.configurationId === committedConfigurationId) return { itemId };
       // Sent upstream, a missing quantity would be the provider's to guess.
-      const quantity = line.quantity;
-      if (quantity === null) {
+      const sent = quantity ?? line.quantity;
+      if (sent === null) {
         throw createAppError(
           ErrorCode.CONFLICT,
           'The cart line has no quantity',
@@ -347,7 +347,11 @@ export function createMerchantApiConfiguratorBackend(): ConfiguratorBackend {
       const cart = await call(ctx, (service, requestContext, options) =>
         service.updateCartItem(
           cartId,
-          { id: itemId, quantity, configurationId: committedConfigurationId },
+          {
+            id: itemId,
+            quantity: sent,
+            configurationId: committedConfigurationId,
+          },
           requestContext,
           options,
         ),

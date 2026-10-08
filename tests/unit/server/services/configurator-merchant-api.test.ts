@@ -2316,6 +2316,47 @@ describe('the merchant-api backend', () => {
       expect(headers.authorization).toBe('Bearer user-token-1');
     });
 
+    it("swaps at the quantity it is given, in place of the line's own", async () => {
+      fetchMock
+        .mockResolvedValueOnce(lines(LINE))
+        .mockResolvedValueOnce(
+          swapped({ id: 'item-1', configurationId: NEW_ID }),
+        );
+
+      await expect(
+        backend.replaceLine('cart-1', 'item-1', NEW_ID, CTX, 5),
+      ).resolves.toEqual({ itemId: 'item-1' });
+
+      expect(sentRequest(1).body.variables.item).toEqual({
+        id: 'item-1',
+        quantity: 5,
+        configurationId: NEW_ID,
+      });
+    });
+
+    it('swaps at the quantity it is given when the line has none', async () => {
+      fetchMock
+        .mockResolvedValueOnce(
+          answer({
+            data: {
+              getCart: {
+                items: [{ ...LINE, quantity: null, configuration: null }],
+              },
+            },
+          }),
+        )
+        .mockResolvedValueOnce(
+          swapped({ id: 'item-1', configurationId: NEW_ID }),
+        );
+
+      await expect(
+        backend.replaceLine('cart-1', 'item-1', NEW_ID, CTX, 5),
+      ).resolves.toEqual({ itemId: 'item-1' });
+      expect(sentRequest(1).body.variables.item).toMatchObject({
+        quantity: 5,
+      });
+    });
+
     it('answers the line without sending the swap when it already carries the new id', async () => {
       fetchMock.mockResolvedValueOnce(
         lines({ ...LINE, configurationId: NEW_ID }),

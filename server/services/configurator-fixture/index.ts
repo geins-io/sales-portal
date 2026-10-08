@@ -233,13 +233,14 @@ export function createFixtureConfiguratorBackend({
       return documentOf(id, session);
     },
 
-    // The line is a plain one, so the cart itself does not change: only which
-    // record it reopens as.
+    // The line is a plain one, so the cart itself changes only in quantity:
+    // otherwise only which record it reopens as.
     async replaceLine(
       cartId: string,
       itemId: string,
       committedConfigurationId: string,
       ctx: ConfiguratorContext,
+      quantity?: number,
     ): Promise<{ itemId: string }> {
       const key = `${ctx.hostname}|${committedConfigurationId}`;
       if (!committed.has(key)) {
@@ -251,6 +252,15 @@ export function createFixtureConfiguratorBackend({
       const line = lineKey(ctx, cartId, itemId);
       if (!lines.has(line)) {
         throw createAppError(ErrorCode.CART_LINE_GONE, 'No configured line');
+      }
+      if (quantity !== undefined) {
+        if (!ctx.cart?.updatePlainItem) {
+          throw createAppError(
+            ErrorCode.INTERNAL_ERROR,
+            'The configurator context carries no cart update',
+          );
+        }
+        await ctx.cart.updatePlainItem(cartId, { id: itemId, quantity });
       }
       lines.set(line, key);
       return { itemId };

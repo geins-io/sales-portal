@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { useDebounceFn } from '@vueuse/core';
 import type { CartType } from '#shared/types/commerce';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
 import { COOKIE_NAMES } from '#shared/constants/storage';
@@ -9,6 +10,13 @@ function errorCodeOf(failure: unknown): unknown {
   return (failure as { data?: { data?: { code?: unknown } } } | null)?.data
     ?.data?.code;
 }
+
+/**
+ * How long a configured line waits for the buyer to stop changing its quantity.
+ * Each change is a reopen and a commit upstream, seconds long, so a run of
+ * clicks is sent as one.
+ */
+export const CONFIGURED_QUANTITY_SETTLE_MS = 700;
 
 export const useCartStore = defineStore('cart', () => {
   const cartId = useCookie<string | null>(COOKIE_NAMES.CART_ID, {
@@ -38,6 +46,16 @@ export const useCartStore = defineStore('cart', () => {
       needsSignIn.value = false;
     },
     { flush: 'sync' },
+  );
+
+  /** A configured line's quantity the buyer chose, until its change answers. */
+  const pendingQuantities = ref(new Map<string, number>());
+  /** Configured lines whose change is on its way; their controls hold. */
+  const updatingItems = ref(new Set<string>());
+  /** Lines whose last quantity change failed and left them as they were. */
+  const quantityFailed = ref(new Set<string>());
+  const isUpdatingLines = computed(
+    () => pendingQuantities.value.size > 0 || updatingItems.value.size > 0,
   );
 
   const itemCount = computed(
@@ -188,20 +206,72 @@ export const useCartStore = defineStore('cart', () => {
 
   async function updateQuantity(itemId: string, quantity: number) {
     if (!cartId.value) return;
+    if (quantity === 0) return deleteLine(itemId);
+    const line = cart.value?.items?.find((item) => item.id === itemId);
+    if (line?.configuration) {
+      if (updatingItems.value.has(itemId)) return;
+      quantityFailed.value.delete(itemId);
+      pendingQuantities.value.set(itemId, quantity);
+      settledChange(itemId)();
+      return;
+    }
+    quantityFailed.value.delete(itemId);
+    await putQuantity(itemId, quantity);
+  }
+
+  const settledChanges = new Map<string, () => void>();
+  function settledChange(itemId: string) {
+    let change = settledChanges.get(itemId);
+    if (!change) {
+      change = useDebounceFn(
+        () => sendConfiguredQuantity(itemId),
+        CONFIGURED_QUANTITY_SETTLE_MS,
+      );
+      settledChanges.set(itemId, change);
+    }
+    return change;
+  }
+
+  async function sendConfiguredQuantity(itemId: string) {
+    const quantity = pendingQuantities.value.get(itemId);
+    const line = cart.value?.items?.find((item) => item.id === itemId);
+    // A line that left the cart while the change settled has nothing to change.
+    if (quantity === undefined || !line || line.quantity === quantity) {
+      pendingQuantities.value.delete(itemId);
+      return;
+    }
+    updatingItems.value.add(itemId);
+    try {
+      await putQuantity(itemId, quantity);
+    } finally {
+      pendingQuantities.value.delete(itemId);
+      updatingItems.value.delete(itemId);
+    }
+  }
+
+  async function putQuantity(itemId: string, quantity: number) {
     isLoading.value = true;
     error.value = null;
     try {
-      if (quantity === 0) {
-        cart.value = await $fetch<CartType>('/api/cart/items', {
-          method: 'DELETE',
-          query: { cartId: cartId.value, itemId },
-        });
-      } else {
-        cart.value = await $fetch<CartType>('/api/cart/items', {
-          method: 'PUT',
-          body: { cartId: cartId.value, itemId, quantity },
-        });
-      }
+      cart.value = await $fetch<CartType>('/api/cart/items', {
+        method: 'PUT',
+        body: { cartId: cartId.value, itemId, quantity },
+      });
+    } catch {
+      quantityFailed.value.add(itemId);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  async function deleteLine(itemId: string) {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      cart.value = await $fetch<CartType>('/api/cart/items', {
+        method: 'DELETE',
+        query: { cartId: cartId.value, itemId },
+      });
     } catch {
       error.value = 'Failed to update item';
     } finally {
@@ -253,6 +323,10 @@ export const useCartStore = defineStore('cart', () => {
     error,
     skippedConfigurable,
     needsSignIn,
+    pendingQuantities,
+    updatingItems,
+    quantityFailed,
+    isUpdatingLines,
     itemCount,
     isEmpty,
     discountAmount,

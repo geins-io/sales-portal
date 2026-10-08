@@ -87,6 +87,7 @@ async function cartIdOf(page: Page): Promise<string> {
 
 interface Line {
   id: string;
+  quantity?: number;
   configuration?: {
     configurationId: string;
     summary: { label: string; value: string }[];
@@ -432,6 +433,181 @@ test.describe('Editing a configured cart line', () => {
         line.configuration?.configurationId,
       );
       expect(steelOf(updated)).toBe(OTHER_OPTION);
+    } finally {
+      await removeLine(page, cartId, line.id);
+    }
+  });
+});
+
+test.describe("Changing a configured line's quantity", () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    const configurable = await isConfigurable(page, ALIAS);
+    outOfScope(
+      !configurable,
+      'tenant-config',
+      `${ALIAS} is not configurable on this target (it is on the monitor account with the merchant-api or composite backend)`,
+    );
+  });
+
+  /** Every quantity change the page sends, as the requests leave. */
+  function quantityPuts(page: Page): { quantity: number }[] {
+    const sent: { quantity: number }[] = [];
+    page.on('request', (request) => {
+      if (
+        new URL(request.url()).pathname === '/api/cart/items' &&
+        request.method() === 'PUT'
+      ) {
+        sent.push(request.postDataJSON() as { quantity: number });
+      }
+    });
+    return sent;
+  }
+
+  function quantityAnswer(page: Page): Promise<Response> {
+    return page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname === '/api/cart/items' &&
+        r.request().method() === 'PUT',
+      { timeout: 60_000 },
+    );
+  }
+
+  /**
+   * The line after the change: the same id at the new quantity, carrying a
+   * newly committed configuration, priced by the cart's own answer.
+   */
+  async function expectChanged(
+    page: Page,
+    cartId: string,
+    before: Line,
+    quantity: number,
+    answer: Response,
+  ) {
+    expect(answer.status()).toBe(200);
+    const answered = ((await answer.json()) as { items: Line[] }).items.find(
+      (l) => l.id === before.id,
+    );
+    const read = (await lines(page, cartId)).find((l) => l.id === before.id);
+    expect(read?.quantity).toBe(quantity);
+    expect(read?.configuration?.configurationId).toBeTruthy();
+    expect(read?.configuration?.configurationId).not.toBe(
+      before.configuration?.configurationId,
+    );
+    expect(answered?.totalPrice?.sellingPriceExVat).toBe(
+      read?.totalPrice?.sellingPriceExVat,
+    );
+    expect(read?.totalPrice?.sellingPriceExVat).not.toBe(
+      before.totalPrice?.sellingPriceExVat,
+    );
+  }
+
+  test('sends rapid clicks on the cart page as one change through the configuration', async ({
+    page,
+  }) => {
+    const { cartId, line } = await addConfiguredLine(page);
+    try {
+      await page.goto('/se/sv/cart');
+      await waitForHydration(page);
+      const item = page
+        .getByTestId('cart-page')
+        .getByTestId('cart-item')
+        .filter({ has: page.locator(`#cart-item-configuration-${line.id}`) });
+      const sent = quantityPuts(page);
+      const answered = quantityAnswer(page);
+      const increment = item.locator(
+        '[data-testid="quantity-input"] button:last-of-type',
+      );
+
+      await increment.click();
+      await increment.click();
+      await increment.click();
+      await expect(item.getByTestId('cart-item-updating')).toBeVisible();
+      await expect(increment).toBeDisabled();
+      // Checkout waits for the line, so no order leaves at the old quantity.
+      await expect(page.getByTestId('cart-checkout-button')).toBeDisabled();
+
+      const answer = await answered;
+      await expect(item.getByTestId('cart-item-updating')).toHaveCount(0);
+      expect(sent).toEqual([expect.objectContaining({ quantity: 4 })]);
+      await expectChanged(page, cartId, line, 4, answer);
+      await expect(
+        item.locator('[data-testid="quantity-input"] input'),
+      ).toHaveValue('4');
+      await expect(item.getByTestId('cart-item-quantity-error')).toHaveCount(0);
+    } finally {
+      await removeLine(page, cartId, line.id);
+    }
+  });
+
+  test('changes the quantity from the drawer the add opened', async ({
+    page,
+  }) => {
+    const { cartId, line } = await addConfiguredLine(page);
+    try {
+      const item = page
+        .getByTestId('cart-drawer')
+        .getByTestId('cart-item')
+        .filter({ has: page.locator(`#cart-item-configuration-${line.id}`) });
+      const sent = quantityPuts(page);
+      const answered = quantityAnswer(page);
+
+      await item
+        .locator('[data-testid="quantity-input"] button:last-of-type')
+        .click();
+
+      const answer = await answered;
+      expect(sent).toEqual([expect.objectContaining({ quantity: 2 })]);
+      await expectChanged(page, cartId, line, 2, answer);
+    } finally {
+      await removeLine(page, cartId, line.id);
+    }
+  });
+
+  test('leaves the line as it was, and says so, when the change is refused', async ({
+    page,
+  }) => {
+    const { cartId, line } = await addConfiguredLine(page);
+    try {
+      // What the portal answers when the provider refuses the quantity.
+      await page.route('**/api/cart/items', (route) =>
+        route.request().method() === 'PUT'
+          ? route.fulfill({
+              status: 422,
+              contentType: 'application/json',
+              body: JSON.stringify({
+                statusCode: 422,
+                message: 'The provider rejected the change',
+                data: { code: 'VALIDATION_ERROR' },
+              }),
+            })
+          : route.continue(),
+      );
+      await page.goto('/se/sv/cart');
+      await waitForHydration(page);
+      const item = page
+        .getByTestId('cart-page')
+        .getByTestId('cart-item')
+        .filter({ has: page.locator(`#cart-item-configuration-${line.id}`) });
+
+      await item
+        .locator('[data-testid="quantity-input"] button:last-of-type')
+        .click();
+
+      await expect(item.getByTestId('cart-item-quantity-error')).toHaveText(
+        'Antalet kunde inte ändras. Produkten i varukorgen är oförändrad.',
+      );
+      await expect(
+        item.locator('[data-testid="quantity-input"] input'),
+      ).toHaveValue('1');
+      await page.unroute('**/api/cart/items');
+      const kept = (await lines(page, cartId)).find((l) => l.id === line.id);
+      expect(kept?.quantity).toBe(1);
+      expect(kept?.configuration?.configurationId).toBe(
+        line.configuration?.configurationId,
+      );
     } finally {
       await removeLine(page, cartId, line.id);
     }

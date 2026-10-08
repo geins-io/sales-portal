@@ -125,6 +125,8 @@
     "hide_configuration": "Konfiguration ausblenden",
     "default_configuration": "Standardkonfiguration, keine Optionen gewählt.",
     "edit_configuration": "Konfiguration ändern",
+    "quantity_updating": "Wird aktualisiert…",
+    "quantity_change_failed": "Die Menge konnte nicht geändert werden. Das Produkt im Warenkorb ist unverändert.",
     "items_short": "Artikel"
   },
   "checkout": {

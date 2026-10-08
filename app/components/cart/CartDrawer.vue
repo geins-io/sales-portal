@@ -236,7 +236,7 @@ function goToCheckout() {
               <Button
                 class="w-full"
                 data-testid="cart-drawer-checkout-button"
-                :disabled="cartStore.isLoading"
+                :disabled="cartStore.isLoading || cartStore.isUpdatingLines"
                 @click="goToCheckout"
               >
                 {{ $t('cart.checkout') }}

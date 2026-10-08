@@ -373,6 +373,19 @@ describe('CartPage', () => {
     expect(router.push).toHaveBeenCalledWith('/se/en/checkout');
   });
 
+  it('checkout button is disabled while a configured line is changing', () => {
+    const store = useCartStore();
+    store.cart = mockCart;
+    store.updatingItems.add('item-1');
+
+    const wrapper = shallowMountComponent(CartPage, {
+      global: { stubs: defaultStubs },
+    });
+
+    const btn = wrapper.find('[data-testid="cart-checkout-button"]');
+    expect(btn.attributes('disabled')).toBeDefined();
+  });
+
   it('checkout button is disabled during loading', () => {
     const store = useCartStore();
     store.cart = mockCart;

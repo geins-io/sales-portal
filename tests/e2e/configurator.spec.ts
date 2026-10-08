@@ -994,9 +994,12 @@ test.describe('Configured line through the cart', () => {
       expect(afterQuantity.map((l) => [l.id, l.quantity])).toEqual([
         [itemId, 2],
       ]);
-      expect(afterQuantity[0]?.configuration?.configurationId).toBe(
+      // Through a reopen and a new commit at that quantity, with the choices
+      // the line had.
+      expect(afterQuantity[0]?.configuration?.configurationId).not.toBe(
         edited?.configuration?.configurationId,
       );
+      expect(rowsOf(afterQuantity[0])).toEqual(rowsOf(edited));
 
       // ---------- Remove ----------
       const removed = page.waitForResponse(

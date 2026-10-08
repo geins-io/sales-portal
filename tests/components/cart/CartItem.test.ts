@@ -472,4 +472,117 @@ describe('CartItem', () => {
       expect(first).not.toBe(second);
     });
   });
+
+  describe('while its quantity changes', () => {
+    const stubs = {
+      GeinsImage: true,
+      PriceDisplay: { template: '<span />', props: ['price'] },
+      QuantityInput: {
+        template:
+          '<div data-testid="quantity-stub" :data-value="modelValue" :data-disabled="String(!!disabled)" />',
+        props: ['modelValue', 'min', 'max', 'disabled'],
+      },
+    };
+    const configuredItem = {
+      ...mockItem,
+      configuration: { configurationId: 'committed-1', summary: [] },
+    };
+
+    beforeEach(() => {
+      const cart = useCartStore();
+      cart.pendingQuantities = new Map();
+      cart.updatingItems = new Set();
+      cart.quantityFailed = new Set();
+    });
+
+    function mountLine(item: CartItemType = configuredItem) {
+      const cart = useCartStore();
+      cart.cartId = 'cart-1';
+      return mountComponent(CartItem, { props: { item }, global: { stubs } });
+    }
+
+    const quantity = (wrapper: ReturnType<typeof mountLine>) =>
+      wrapper.find('[data-testid="quantity-stub"]');
+
+    it('shows the quantity the buyer chose while it settles', () => {
+      useCartStore().pendingQuantities.set('item-1', 5);
+      const wrapper = mountLine();
+
+      expect(quantity(wrapper).attributes('data-value')).toBe('5');
+      expect(quantity(wrapper).attributes('data-disabled')).toBe('false');
+      expect(wrapper.find('[data-testid="cart-item-updating"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it("shows the line's own quantity when nothing is pending", () => {
+      const wrapper = mountLine();
+
+      expect(quantity(wrapper).attributes('data-value')).toBe('2');
+    });
+
+    it('spins beside the quantity, named for a screen reader, and holds every control on the line until the change answers', () => {
+      const cart = useCartStore();
+      cart.pendingQuantities.set('item-1', 5);
+      cart.updatingItems.add('item-1');
+      const wrapper = mountLine();
+
+      const updating = wrapper.find('[data-testid="cart-item-updating"]');
+      expect(updating.attributes('role')).toBe('status');
+      expect(updating.find('.animate-spin[aria-hidden="true"]').exists()).toBe(
+        true,
+      );
+      // The words are for a screen reader only; the spinner is what shows.
+      expect(updating.find('.sr-only').text()).toBe('cart.quantity_updating');
+      expect(updating.text()).toBe('cart.quantity_updating');
+      expect(updating.element.parentElement).toBe(
+        quantity(wrapper).element.parentElement,
+      );
+      expect(quantity(wrapper).attributes('data-disabled')).toBe('true');
+      expect(
+        wrapper.find('[data-testid="cart-item-remove"]').attributes('disabled'),
+      ).toBeDefined();
+      const edit = wrapper.find('[data-testid="cart-item-edit"]');
+      expect(edit.attributes('aria-disabled')).toBe('true');
+      expect(edit.attributes('tabindex')).toBe('-1');
+    });
+
+    it('holds nothing on another line', () => {
+      useCartStore().updatingItems.add('item-9');
+      const wrapper = mountLine();
+
+      expect(quantity(wrapper).attributes('data-disabled')).toBe('false');
+      expect(
+        wrapper.find('[data-testid="cart-item-remove"]').attributes('disabled'),
+      ).toBeUndefined();
+      expect(
+        wrapper
+          .find('[data-testid="cart-item-edit"]')
+          .attributes('aria-disabled'),
+      ).toBeUndefined();
+    });
+
+    it.each([
+      ['a configured line', configuredItem],
+      ['an ordinary line', mockItem],
+    ])(
+      'says under %s that the change failed and the line is unchanged',
+      (_case, item) => {
+        useCartStore().quantityFailed.add('item-1');
+        const wrapper = mountLine(item);
+
+        expect(
+          wrapper.find('[data-testid="cart-item-quantity-error"]').text(),
+        ).toBe('cart.quantity_change_failed');
+      },
+    );
+
+    it('says nothing of a failure on a line that has none', () => {
+      const wrapper = mountLine();
+
+      expect(
+        wrapper.find('[data-testid="cart-item-quantity-error"]').exists(),
+      ).toBe(false);
+    });
+  });
 });

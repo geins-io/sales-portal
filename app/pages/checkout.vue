@@ -218,6 +218,8 @@ watch(
 
 async function handlePlaceOrder() {
   if (!cartStore.cartId || !checkoutStore.canPlaceOrder) return;
+  // An order placed mid-change would carry the line's old quantity.
+  if (cartStore.isUpdatingLines) return;
   if (!acceptedTerms.value) return;
   await checkoutStore.placeOrder(cartStore.cartId);
 }
@@ -495,7 +497,9 @@ async function handlePlaceOrder() {
                 :total="total"
                 :discount="discountFormatted || undefined"
                 :can-place-order="
-                  checkoutStore.canPlaceOrder && !checkoutStore.isBlacklisted
+                  checkoutStore.canPlaceOrder &&
+                  !checkoutStore.isBlacklisted &&
+                  !cartStore.isUpdatingLines
                 "
                 :terms-accepted="acceptedTerms"
                 :is-placing-order="checkoutStore.isPlacingOrder"

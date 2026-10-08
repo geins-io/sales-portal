@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Pencil, Trash2 } from 'lucide-vue-next';
+import { Loader2, Pencil, Trash2 } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import type { CartItemType } from '#shared/types/commerce';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
@@ -67,6 +67,19 @@ const editUrl = computed(() => {
     itemId: props.item.id,
   });
 });
+
+/** A change on its way holds the line's controls until it answers. */
+const updating = computed(
+  () => !!props.item.id && cart.updatingItems.has(props.item.id),
+);
+const shownQuantity = computed(
+  () =>
+    (props.item.id ? cart.pendingQuantities.get(props.item.id) : undefined) ??
+    props.item.quantity,
+);
+const quantityFailed = computed(
+  () => !!props.item.id && cart.quantityFailed.has(props.item.id),
+);
 
 const visibleItemCampaigns = computed(() =>
   filterVisibleCampaigns(props.item.campaign?.appliedCampaigns ?? []),
@@ -149,6 +162,7 @@ const maxQuantity = computed(() => {
         size="icon-sm"
         class="text-muted-foreground hover:text-destructive shrink-0"
         data-testid="cart-item-remove"
+        :disabled="updating"
         :aria-label="
           item.product?.name
             ? t('cart.remove_item_named', { name: item.product.name })
@@ -163,13 +177,23 @@ const maxQuantity = computed(() => {
     <!-- Row 2: Quantity + unit price + total price (aligned under product info) -->
     <div class="flex items-center gap-4 pl-16">
       <!-- Quantity -->
-      <div class="shrink-0">
+      <div class="flex shrink-0 items-center gap-2">
         <QuantityInput
-          :model-value="item.quantity"
+          :model-value="shownQuantity"
           :min="1"
           :max="maxQuantity"
+          :disabled="updating"
           @update:model-value="onQuantityUpdate"
         />
+        <span
+          v-if="updating"
+          role="status"
+          class="text-muted-foreground inline-flex"
+          data-testid="cart-item-updating"
+        >
+          <Loader2 class="size-4 animate-spin" aria-hidden="true" />
+          <span class="sr-only">{{ t('cart.quantity_updating') }}</span>
+        </span>
       </div>
 
       <div class="flex-1" />
@@ -203,6 +227,14 @@ const maxQuantity = computed(() => {
       </div>
     </div>
 
+    <p
+      v-if="quantityFailed"
+      class="text-destructive pl-16 text-xs"
+      data-testid="cart-item-quantity-error"
+    >
+      {{ t('cart.quantity_change_failed') }}
+    </p>
+
     <!-- Row 3: what a configured line was committed with, collapsed -->
     <!-- The edit link sits above the toggle, so opening the summary does not
          push it down. Checkout and the order rows have no way to edit. -->
@@ -211,6 +243,9 @@ const maxQuantity = computed(() => {
         v-if="editUrl"
         :to="editUrl"
         class="text-primary flex items-center gap-1 text-xs font-medium hover:underline"
+        :class="{ 'pointer-events-none opacity-50': updating }"
+        :aria-disabled="updating || undefined"
+        :tabindex="updating ? -1 : undefined"
         data-testid="cart-item-edit"
         @click="cart.isOpen = false"
       >
