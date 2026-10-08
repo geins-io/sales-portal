@@ -338,7 +338,6 @@ export function createMerchantApiConfiguratorBackend(): ConfiguratorBackend {
       return { itemId: added.id };
     },
 
-    cartLineConfigurations: cartLines,
     orderLineConfigurations: orderLines,
     orderLineChoices,
 

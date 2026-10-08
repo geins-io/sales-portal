@@ -1,7 +1,11 @@
-import type { OrderSummaryType } from '@geins/types';
+import type {
+  CartItemType as SdkCartItemType,
+  OrderSummaryType,
+} from '@geins/types';
 import { OrderError } from '@geins/core';
 import type { H3Event } from 'h3';
 import type {
+  OrderDetailItem,
   OrderDetailType,
   OrderLineRead,
   OrderListItem,
@@ -54,10 +58,13 @@ export function withOrderLineConfigurations(
   lines: Map<number, OrderLineRead> | null,
   isConfigurable: (product: ConfigurableCandidate) => boolean,
 ): OrderDetailType {
-  if (!order.cart?.items) return { ...order, reorderable: lines !== null };
+  const { cart } = order;
   let unmatched = false;
-  const items = order.cart.items.map((item, position) => {
-    if (!item?.product || item.product.productId == null) return item;
+  const toRow = (row: SdkCartItemType, position: number): OrderDetailItem => {
+    if (!row) return row;
+    // An order read selects no configuration; the cpq read is the only one.
+    const { configurationId: _id, configuration: _none, ...item } = row;
+    if (!item.product || item.product.productId == null) return item;
     const productId = String(item.product.productId);
     const read = lines?.get(position);
     const line =
@@ -76,11 +83,16 @@ export function withOrderLineConfigurations(
         ? { configuration: { summary: line.configuration.summary } }
         : {}),
     };
-  });
+  };
+  // A cart or its rows the SDK answered null for stay null.
+  const detail = cart && {
+    ...cart,
+    items: cart.items && cart.items.map(toRow),
+  };
   return {
     ...order,
     reorderable: lines !== null && !(lines.size > 0 && unmatched),
-    cart: { ...order.cart, items },
+    cart: detail,
   };
 }
 

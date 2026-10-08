@@ -1531,149 +1531,85 @@ describe('the merchant-api backend', () => {
     });
   });
 
-  describe('cartLineConfigurations', () => {
+  it('has no cart line read of its own: its lines carry their configuration in the cart', () => {
+    expect(backend.cartLineConfigurations).toBeUndefined();
+  });
+
+  // The read behind addToCart's duplicate guard and replaceLine.
+  describe('the read of the lines before a configured write', () => {
+    const LINE = {
+      committedConfigurationId: 'committed-1',
+      skuId: 1652,
+      quantity: 2,
+    };
+
     function cartLines(items: unknown) {
       return answer({ data: { getCart: { items } } });
     }
 
-    it('reads the lines of the cart, with the channel and the buyer', async () => {
-      fetchMock.mockResolvedValue(cartLines([]));
-
-      await backend.cartLineConfigurations('cart-1', CTX);
-
-      const { url, body, headers } = sentRequest();
-      expect(url).toBe(URL);
-      expect(body.query).toContain('getCart(');
-      expect(body.variables).toEqual({
-        id: 'cart-1',
-        channelId: '1|se',
-        languageId: 'sv-SE',
-        marketId: 'SE|SEK',
-      });
-      expect(headers.authorization).toBe('Bearer user-token-1');
-    });
-
-    it('gives the read 2 s, since the cart waits for it', async () => {
+    it('gives the read 2 s, since the buyer waits for it', async () => {
       const deadlines = watchDeadlines();
-      fetchMock.mockResolvedValue(cartLines([]));
-
-      await backend.cartLineConfigurations('cart-1', CTX);
-
-      expect(deadlines()).toEqual([2_000]);
-    });
-
-    it('answers the configured lines by item id, with their summary in the order sent', async () => {
-      fetchMock.mockResolvedValue(
-        cartLines([
-          {
-            id: 'item-1',
-            configurationId: 'committed-1',
-            configuration: {
-              summary: [
-                { label: 'Adapter', value: 'S45' },
-                { label: 'Width (500-1500)', value: '1200 mm' },
-              ],
-            },
-          },
-          { id: 'item-2', configurationId: null, configuration: null },
-        ]),
-      );
-
-      const lines = await backend.cartLineConfigurations('cart-1', CTX);
-
-      expect([...lines]).toEqual([
-        [
-          'item-1',
-          {
-            configurationId: 'committed-1',
-            summary: [
-              { label: 'Adapter', value: 'S45' },
-              { label: 'Width (500-1500)', value: '1200 mm' },
-            ],
-          },
-        ],
-      ]);
-    });
-
-    it('keeps a configured line whose configuration is null, with an empty summary', async () => {
       fetchMock.mockResolvedValue(
         cartLines([
           { id: 'item-1', configurationId: 'committed-1', configuration: null },
         ]),
       );
 
-      const lines = await backend.cartLineConfigurations('cart-1', CTX);
+      await backend.addToCart('cart-1', LINE, CTX);
 
-      expect(lines.get('item-1')).toEqual({
-        configurationId: 'committed-1',
-        summary: [],
+      expect(deadlines()).toEqual([2_000]);
+    });
+
+    it('never answers a line without an id, and skips a null entry', async () => {
+      fetchMock
+        .mockResolvedValueOnce(
+          cartLines([
+            null,
+            { id: null, configurationId: 'committed-1', configuration: null },
+          ]),
+        )
+        .mockResolvedValueOnce(
+          answer({
+            data: {
+              addToCart: {
+                id: 'cart-1',
+                items: [{ id: 'item-9', configurationId: 'committed-1' }],
+              },
+            },
+          }),
+        );
+
+      await expect(backend.addToCart('cart-1', LINE, CTX)).resolves.toEqual({
+        itemId: 'item-9',
       });
     });
 
-    it('reads a missing label or value as empty and skips a null row', async () => {
-      fetchMock.mockResolvedValue(
-        cartLines([
-          {
-            id: 'item-1',
-            configurationId: 'committed-1',
-            configuration: {
-              summary: [
-                null,
-                { label: 'Finish', value: null },
-                { label: null, value: '12 t' },
-              ],
+    it('reads a cart without items as one without the line', async () => {
+      fetchMock.mockResolvedValueOnce(cartLines(null)).mockResolvedValueOnce(
+        answer({
+          data: {
+            addToCart: {
+              id: 'cart-1',
+              items: [{ id: 'item-1', configurationId: 'committed-1' }],
             },
           },
-        ]),
+        }),
       );
 
-      const lines = await backend.cartLineConfigurations('cart-1', CTX);
-
-      expect(lines.get('item-1')?.summary).toEqual([
-        { label: 'Finish', value: '' },
-        { label: '', value: '12 t' },
-      ]);
+      await expect(backend.addToCart('cart-1', LINE, CTX)).resolves.toEqual({
+        itemId: 'item-1',
+      });
     });
 
-    it('skips a null entry and a line without an id', async () => {
-      fetchMock.mockResolvedValue(
-        cartLines([
-          null,
-          { id: null, configurationId: 'committed-1', configuration: null },
-          { id: 'item-2', configurationId: 'committed-2', configuration: null },
-        ]),
-      );
-
-      const lines = await backend.cartLineConfigurations('cart-1', CTX);
-
-      expect([...lines.keys()]).toEqual(['item-2']);
-    });
-
-    it('answers no lines for a cart without items', async () => {
-      fetchMock.mockResolvedValue(cartLines(null));
-
-      const lines = await backend.cartLineConfigurations('cart-1', CTX);
-
-      expect(lines.size).toBe(0);
-    });
-
-    it('fails when it answers without the cart', async () => {
+    it('fails the write when it answers without the cart', async () => {
       fetchMock.mockResolvedValue(answer({ data: { getCart: null } }));
 
       const failure = await failureOf(() =>
-        backend.cartLineConfigurations('cart-1', CTX),
+        backend.addToCart('cart-1', LINE, CTX),
       );
 
       expect(failure.statusCode).toBe(502);
-    });
-
-    it('passes a failure on', async () => {
-      fetchMock.mockResolvedValue(answer({}, 503));
-
-      expect(
-        (await failureOf(() => backend.cartLineConfigurations('cart-1', CTX)))
-          .statusCode,
-      ).toBe(502);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -3050,7 +2986,7 @@ describe('the cart line swap', () => {
   it("reads each line's quantity, which the swap sends back", async () => {
     fetchMock.mockResolvedValue(answer({ data: { getCart: null } }));
     await createMerchantApiConfiguratorBackend()
-      .cartLineConfigurations('cart-1', CTX)
+      .replaceLine('cart-1', 'item-1', 'new', CTX)
       .catch(() => undefined);
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
