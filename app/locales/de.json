@@ -354,6 +354,8 @@
     "not_restored": "Ihre vorherige Auswahl konnte nicht wiederhergestellt werden. Sie sehen die Standardauswahl.",
     "starting": "Der Produktkonfigurator wird geladen",
     "failed": "Etwas ist schiefgelaufen. Laden Sie die Seite neu und versuchen Sie es erneut.",
+    "not_available": "Dieses Produkt kann gerade nicht konfiguriert werden.",
+    "currency_mismatch": "Sie haben den Markt gewechselt, seit Sie begonnen haben. Wählen Sie Fortsetzen, um mit Ihrer Auswahl zu den Preisen dieses Marktes weiterzumachen.",
     "change_refused_value": "Der Wert wurde nicht akzeptiert. Versuchen Sie einen anderen Wert.",
     "change_refused_option": "Die Auswahl wurde nicht akzeptiert. Versuchen Sie eine andere Auswahl.",
     "sign_in_required": "Melden Sie sich mit einem Firmenkonto an, um das Produkt zu konfigurieren.",
@@ -403,7 +405,8 @@
       "not_reopenable": "Die Konfiguration kann nicht erneut geöffnet werden. Konfigurieren Sie sie neu – das Produkt im Warenkorb bleibt unverändert, bis Sie aktualisieren.",
       "line_gone": "Das Produkt ist nicht mehr im Warenkorb.",
       "open_failed": "Das Produkt im Warenkorb konnte gerade nicht geöffnet werden.",
-      "update_failed": "Das Produkt im Warenkorb konnte nicht aktualisiert werden. Es behält seine bisherige Auswahl."
+      "update_failed": "Das Produkt im Warenkorb konnte nicht aktualisiert werden. Es behält seine bisherige Auswahl.",
+      "currency_mismatch": "Das Produkt im Warenkorb wurde in einem anderen Markt hinzugefügt und kann hier nicht geändert werden. Es bleibt unverändert."
     }
   },
   "account": {

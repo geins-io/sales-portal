@@ -354,6 +354,8 @@
     "not_restored": "Your earlier choices could not be brought back. You are seeing the default choices.",
     "starting": "Loading the product configurator",
     "failed": "Something went wrong. Reload the page and try again.",
+    "not_available": "This product cannot be configured right now.",
+    "currency_mismatch": "You have changed market since you started. Choose Resume to continue with your choices at this market's prices.",
     "change_refused_value": "The value was not accepted. Try another value.",
     "change_refused_option": "The choice was not accepted. Try another choice.",
     "sign_in_required": "Sign in with a company account to configure this product.",
@@ -403,7 +405,8 @@
       "not_reopenable": "The configuration cannot be opened again. Configure it from the start – the product in the cart stays as it is until you update it.",
       "line_gone": "The product is no longer in the cart.",
       "open_failed": "The product in the cart could not be opened right now.",
-      "update_failed": "The product in the cart could not be updated. It keeps its previous choices."
+      "update_failed": "The product in the cart could not be updated. It keeps its previous choices.",
+      "currency_mismatch": "The product in the cart was added in another market and cannot be changed here. It is unchanged."
     }
   },
   "account": {

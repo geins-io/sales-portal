@@ -115,6 +115,14 @@ export function showsAddRetry(state: {
 }
 
 /**
+ * The portal's codes for what no second try can fix: the session or the record
+ * is priced in another currency than the buyer's market, or the account has no
+ * configurator behind it.
+ */
+const CURRENCY_MISMATCH = 'CURRENCY_MISMATCH';
+const NOT_AVAILABLE = 'CONFIGURATOR_NOT_AVAILABLE';
+
+/**
  * The copy for a failed add. `UNAUTHORIZED` is the cart's `LoginRequired`, read
  * by code as `refusedChange` does; a 403 is a signed-in buyer the cart refuses,
  * whom the sign-in copy would mislead. 409 is a line the cart dropped, which it
@@ -124,11 +132,19 @@ export function addFailureKey(
   error: ConfiguratorSessionError | null,
 ):
   | 'configurator.sign_in_required'
+  | 'configurator.currency_mismatch'
   | 'configurator.add_not_added'
   | 'configurator.add_failed' {
   if (error?.code === 'UNAUTHORIZED') return 'configurator.sign_in_required';
+  if (error?.code === CURRENCY_MISMATCH)
+    return 'configurator.currency_mismatch';
   if (error?.status === 409) return 'configurator.add_not_added';
   return 'configurator.add_failed';
+}
+
+/** Whether a failed add is worth sending again. */
+export function addRetryable(error: ConfiguratorSessionError | null): boolean {
+  return error?.code !== CURRENCY_MISMATCH;
 }
 
 /**
@@ -137,10 +153,15 @@ export function addFailureKey(
  */
 export function replaceFailureKey(
   error: ConfiguratorSessionError | null,
-): 'configurator.edit.line_gone' | 'configurator.edit.update_failed' {
-  return error?.code === 'CART_LINE_GONE'
-    ? 'configurator.edit.line_gone'
-    : 'configurator.edit.update_failed';
+):
+  | 'configurator.edit.line_gone'
+  | 'configurator.edit.currency_mismatch'
+  | 'configurator.edit.update_failed' {
+  if (error?.code === 'CART_LINE_GONE') return 'configurator.edit.line_gone';
+  if (error?.code === CURRENCY_MISMATCH) {
+    return 'configurator.edit.currency_mismatch';
+  }
+  return 'configurator.edit.update_failed';
 }
 
 /**
@@ -151,7 +172,42 @@ export function replaceFailureKey(
 export function replaceRetryable(
   error: ConfiguratorSessionError | null,
 ): boolean {
-  return error?.status !== 404;
+  return error?.status !== 404 && error?.code !== CURRENCY_MISMATCH;
+}
+
+/** The copy for a cart line that could not be opened for an edit. */
+export function editOpenFailureKey(
+  error: ConfiguratorSessionError | null,
+):
+  | 'configurator.edit.currency_mismatch'
+  | 'configurator.not_available'
+  | 'configurator.edit.open_failed' {
+  if (error?.code === CURRENCY_MISMATCH) {
+    return 'configurator.edit.currency_mismatch';
+  }
+  if (error?.code === NOT_AVAILABLE) return 'configurator.not_available';
+  return 'configurator.edit.open_failed';
+}
+
+/** Whether opening the line again could answer anything else. */
+export function editOpenRetryable(
+  error: ConfiguratorSessionError | null,
+): boolean {
+  return error?.code !== CURRENCY_MISMATCH && error?.code !== NOT_AVAILABLE;
+}
+
+/**
+ * Whether the page offers to resume the held choices in a new session, in the
+ * buyer's market now. Not in an edit: the line itself is in the other currency.
+ */
+export function restartsInMarket({
+  error,
+  editing,
+}: {
+  error: ConfiguratorSessionError | null;
+  editing: boolean;
+}): boolean {
+  return !editing && error?.code === CURRENCY_MISMATCH;
 }
 
 /**
@@ -165,6 +221,24 @@ export function failureKey(
   return error?.status === 403
     ? 'configurator.sign_in_required'
     : 'configurator.failed';
+}
+
+/**
+ * The copy for a session that could not start or carry on, outside an edit. A
+ * 404 here is the account without a configurator or a product it does not
+ * know; on the form it would be an unknown session, which is why this is not
+ * `failureKey`.
+ */
+export function startFailureKey(
+  error: ConfiguratorSessionError | null,
+):
+  | 'configurator.currency_mismatch'
+  | 'configurator.not_available'
+  | ReturnType<typeof failureKey> {
+  if (error?.code === CURRENCY_MISMATCH)
+    return 'configurator.currency_mismatch';
+  if (error?.status === 404) return 'configurator.not_available';
+  return failureKey(error);
 }
 
 /**

@@ -1372,6 +1372,67 @@ describe('useConfiguratorSession', () => {
       expect(session.status.value).toBe('active');
     });
 
+    it('adds nothing, and closes the session, when the commit is priced in another currency', async () => {
+      const { session, initial } = await startedWithCart();
+      answering({
+        commit: () => {
+          throw fetchError(409, 'currency', 'CURRENCY_MISMATCH');
+        },
+      });
+
+      await session.commit();
+
+      expect(addLine).not.toHaveBeenCalled();
+      expect(session.committed.value).toBeNull();
+      expect(session.status.value).toBe('closed');
+      expect(session.configuration.value).toEqual(initial);
+      expect(session.error.value).toMatchObject({
+        status: 409,
+        code: 'CURRENCY_MISMATCH',
+      });
+    });
+
+    it('then releases nothing, and restores the held choices in a new session', async () => {
+      const { session } = await startedWithCart();
+      answering({
+        commit: () => {
+          throw fetchError(409, 'currency', 'CURRENCY_MISMATCH');
+        },
+      });
+      await session.commit();
+      mockFetch.mockReset();
+      const fresh = makeInitialConfiguration();
+      mockFetch.mockResolvedValue({ configuration: fresh, replayed: true });
+
+      await session.release();
+      await session.restore(PRODUCT_ID);
+
+      expect(urls()).toEqual(['/api/configurations/restore']);
+      expect(session.status.value).toBe('active');
+      expect(session.configuration.value).toEqual(fresh);
+      expect(session.error.value).toBeNull();
+    });
+
+    it('closes the session when a change batch is priced in another currency', async () => {
+      const { session } = await startedWithCart();
+      mockFetch.mockRejectedValue(
+        fetchError(409, 'currency', 'CURRENCY_MISMATCH'),
+      );
+
+      await session.applyChanges([{ type: 'quantity', quantity: 3 }]);
+
+      expect(session.status.value).toBe('closed');
+    });
+
+    it('keeps the session for a 409 of another kind', async () => {
+      const { session } = await startedWithCart();
+      mockFetch.mockRejectedValue(fetchError(409, 'conflict', 'CONFLICT'));
+
+      await session.applyChanges([{ type: 'quantity', quantity: 3 }]);
+
+      expect(session.status.value).toBe('active');
+    });
+
     it('retries the add with the record it kept, never commits again, then reopens', async () => {
       const { session, initial } = await startedWithCart();
       const committed = committedFrom(initial);

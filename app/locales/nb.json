@@ -354,6 +354,8 @@
     "not_restored": "De tidligere valgene dine kunne ikke hentes tilbake. Du ser standardvalgene.",
     "starting": "Laster inn produktkonfiguratoren",
     "failed": "Noe gikk galt. Last inn siden på nytt og prøv igjen.",
+    "not_available": "Dette produktet kan ikke konfigureres akkurat nå.",
+    "currency_mismatch": "Du har byttet marked siden du begynte. Velg Gjenoppta for å fortsette med valgene dine til dette markedets priser.",
     "change_refused_value": "Verdien ble ikke godtatt. Prøv en annen verdi.",
     "change_refused_option": "Valget ble ikke godtatt. Prøv et annet valg.",
     "sign_in_required": "Logg inn med en bedriftskonto for å konfigurere produktet.",
@@ -403,7 +405,8 @@
       "not_reopenable": "Konfigurasjonen kan ikke åpnes igjen. Konfigurer den på nytt – produktet i handlekurven er uendret til du oppdaterer.",
       "line_gone": "Produktet finnes ikke lenger i handlekurven.",
       "open_failed": "Produktet i handlekurven kunne ikke åpnes akkurat nå.",
-      "update_failed": "Produktet i handlekurven kunne ikke oppdateres. Det beholder sine tidligere valg."
+      "update_failed": "Produktet i handlekurven kunne ikke oppdateres. Det beholder sine tidligere valg.",
+      "currency_mismatch": "Produktet i handlekurven ble lagt til på et annet marked og kan ikke endres her. Det er uendret."
     }
   },
   "account": {

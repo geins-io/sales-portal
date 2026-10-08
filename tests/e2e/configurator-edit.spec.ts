@@ -388,6 +388,36 @@ test.describe('Editing a configured cart line', () => {
     }
   });
 
+  test('says a line added in another market cannot be changed here, and offers no retry', async ({
+    page,
+  }) => {
+    const { cartId, line } = await addConfiguredLine(page);
+    try {
+      // What the portal answers for the provider's ConfigurationCurrencyMismatch.
+      await page.route('**/api/configurations/reopen', (route) =>
+        route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            statusCode: 409,
+            message: 'Priced in another currency',
+            data: { code: 'CURRENCY_MISMATCH' },
+          }),
+        }),
+      );
+      await editLine(page, line.id, 'cart page');
+
+      await expect(page.getByTestId('configurator-error')).toHaveText(
+        await localeText(page, 'configurator.edit.currency_mismatch'),
+        { timeout: 30_000 },
+      );
+      await expect(page.getByTestId('configurator-edit-retry')).toHaveCount(0);
+      await expect(page.getByTestId('configurator-resume')).toHaveCount(0);
+    } finally {
+      await removeLine(page, cartId, line.id);
+    }
+  });
+
   test('configures afresh, still updating the same line, when the configuration cannot be reopened', async ({
     page,
   }) => {

@@ -7,6 +7,7 @@ import {
   Info,
   Loader2,
   Pencil,
+  Play,
   RotateCcw,
   SlidersHorizontal,
 } from 'lucide-vue-next';
@@ -25,16 +26,21 @@ import { useCartStore } from '~/stores/cart';
 import {
   addError,
   addFailureKey,
+  addRetryable,
   canCommit,
   canRetryAdd,
   configuratorStage,
   configuredSkuId,
+  editOpenFailureKey,
+  editOpenRetryable,
   failureKey,
   formError,
   refusedChange,
   replaceFailureKey,
   replaceRetryable,
+  restartsInMarket,
   showsAddRetry,
+  startFailureKey,
   stickyBoxMaxHeight,
   type ConfiguratorAction,
 } from '~/utils/configurator-page';
@@ -389,6 +395,10 @@ const addRetryEnabled = computed(() =>
     committed: committed.value,
     busy: busy.value,
   }),
+);
+
+const resumeShown = computed(() =>
+  restartsInMarket({ error: error.value, editing: !!editing.value }),
 );
 
 /** The change sent last, which a refusal is about: one change per batch. */
@@ -866,13 +876,24 @@ function onRetryOpen(): void {
                       {{
                         t(
                           editing
-                            ? 'configurator.edit.open_failed'
-                            : failureKey(error),
+                            ? editOpenFailureKey(error)
+                            : startFailureKey(error),
                         )
                       }}
                     </p>
                     <Button
-                      v-if="editing"
+                      v-if="resumeShown"
+                      variant="outline"
+                      size="sm"
+                      :disabled="busy"
+                      data-testid="configurator-resume"
+                      @click="onRestart"
+                    >
+                      <Play class="size-4" />
+                      {{ t('configurator.panel.resume') }}
+                    </Button>
+                    <Button
+                      v-if="editing && editOpenRetryable(error)"
                       variant="outline"
                       size="sm"
                       :disabled="busy"
@@ -898,9 +919,22 @@ function onRetryOpen(): void {
                       "
                       :can-retry="addRetryEnabled"
                       :busy="busy"
-                      :retryable="!editing || replaceRetryable(error)"
+                      :retryable="
+                        editing ? replaceRetryable(error) : addRetryable(error)
+                      "
                       @retry="onRetryAdd"
                     />
+                    <Button
+                      v-if="resumeShown"
+                      variant="outline"
+                      class="w-full"
+                      :disabled="busy"
+                      data-testid="configurator-resume"
+                      @click="onRestart"
+                    >
+                      <Play class="size-4" />
+                      {{ t('configurator.panel.resume') }}
+                    </Button>
                     <!-- The line kept its old choices; leaving the edit is
                          always a way out of a swap that did not go through. -->
                     <Button

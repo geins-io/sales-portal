@@ -1068,3 +1068,96 @@ test.describe('a guest on a configurable product', () => {
     await expect(page.getByTestId('auth-sheet')).toBeVisible();
   });
 });
+
+test.describe('Configurator refusals a second try cannot fix', () => {
+  /** What the portal answers for a provider code, as its error body. */
+  function refusal(status: number, code: string) {
+    return {
+      status,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        statusCode: status,
+        message: 'x',
+        data: { code },
+      }),
+    };
+  }
+
+  for (const [why, code] of [
+    ['an account without a configurator', 'CONFIGURATOR_NOT_AVAILABLE'],
+    ['a product the configurator does not know', 'NOT_FOUND'],
+  ] as const) {
+    test(`says the product cannot be configured for ${why}`, async ({
+      page,
+    }) => {
+      const unavailable = await unavailableReason(page);
+      outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
+
+      await page.route('**/api/configurations', (route) =>
+        route.request().method() === 'POST'
+          ? route.fulfill(refusal(404, code))
+          : route.continue(),
+      );
+      await page.goto(`/p/${SEED_ALIAS}`);
+      await waitForHydration(page);
+
+      await expect(page.getByTestId('configurator-error')).toHaveText(
+        await localeText(page, 'configurator.not_available'),
+        { timeout: 20000 },
+      );
+      await expect(page.getByTestId('configurator-resume')).toHaveCount(0);
+    });
+  }
+
+  test('adds nothing when the commit is priced in another currency, and resumes the choices in this market', async ({
+    page,
+  }) => {
+    const unavailable = await unavailableReason(page);
+    outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
+
+    await openConfigurator(page);
+    await openSection(page, COLOUR_SECTION);
+    const changed = changeResponse(page);
+    await (await openColourSheet(page))
+      .locator(`[data-option-id="${PRICED_COLOUR}"]`)
+      .click();
+    await changed;
+    await expect(action(page)).toBeEnabled();
+
+    const adds: string[] = [];
+    page.on('request', (request) => {
+      if (/\/api\/configurations\/[^/]+\/cart$/.test(request.url())) {
+        adds.push(request.url());
+      }
+    });
+    await page.route('**/api/configurations/*/commit', (route) =>
+      route.fulfill(refusal(409, 'CURRENCY_MISMATCH')),
+    );
+    await action(page).click();
+
+    await expect(page.getByTestId('configurator-error')).toHaveText(
+      await localeText(page, 'configurator.currency_mismatch'),
+    );
+    await expect(page.getByTestId('configurator-add-retry')).toHaveCount(0);
+    expect(adds).toEqual([]);
+
+    const restored = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/configurations/restore' &&
+        response.request().method() === 'POST',
+    );
+    const resume = page.getByTestId('configurator-resume');
+    await expect(resume).toHaveText(
+      await localeText(page, 'configurator.panel.resume'),
+    );
+    await resume.click();
+    expect((await restored).status()).toBe(200);
+
+    await expect(action(page)).toBeVisible({ timeout: 20000 });
+    await openSection(page, COLOUR_SECTION);
+    await expect(
+      colourGroup(page).locator(`[data-option-id="${PRICED_COLOUR}"]`),
+    ).toHaveAttribute('data-selected', 'true');
+    expect(adds).toEqual([]);
+  });
+});

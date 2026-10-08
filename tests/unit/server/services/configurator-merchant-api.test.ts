@@ -1508,6 +1508,27 @@ describe('the merchant-api backend', () => {
         (await failureOf(() => backend.commit('cfg-1', CTX))).statusCode,
       ).toBe(410);
     });
+
+    it('refuses a commit priced in another currency, though it carries a committed id', async () => {
+      fetchMock.mockResolvedValue(
+        answer({
+          data: { commitConfiguration: wireCommitted() },
+          errors: [
+            {
+              message: 'currency',
+              extensions: { code: 'ConfigurationCurrencyMismatch' },
+            },
+          ],
+        }),
+      );
+
+      const failure = await failureOf(() => backend.commit('cfg-1', CTX));
+
+      expect(failure.statusCode).toBe(409);
+      expect((failure.data as { code?: string } | undefined)?.code).toBe(
+        'CURRENCY_MISMATCH',
+      );
+    });
   });
 
   describe('cartLineConfigurations', () => {
@@ -2482,6 +2503,34 @@ describe('the merchant-api backend', () => {
       );
       expect(failure.statusCode).toBe(404);
     });
+
+    it('refuses a line added in another currency, though the cart comes back with it', async () => {
+      fetchMock.mockResolvedValueOnce(lines(LINE)).mockResolvedValueOnce(
+        answer({
+          data: {
+            updateCartItem: {
+              id: 'cart-1',
+              items: [{ id: 'item-1', configurationId: 'committed-1' }],
+            },
+          },
+          errors: [
+            {
+              message: 'currency',
+              extensions: { code: 'ConfigurationCurrencyMismatch' },
+            },
+          ],
+        }),
+      );
+
+      const failure = await failureOf(() =>
+        backend.replaceLine('cart-1', 'item-1', NEW_ID, CTX),
+      );
+
+      expect(failure.statusCode).toBe(409);
+      expect((failure.data as { code?: string } | undefined)?.code).toBe(
+        'CURRENCY_MISMATCH',
+      );
+    });
   });
 
   describe('failures', () => {
@@ -2522,6 +2571,10 @@ describe('the merchant-api backend', () => {
       ['CartBelongsToAnotherCompany', 403],
       ['ConfigurationNotReopenable', 422],
       ['CartItemNotConfigured', 404],
+      ['NotAvailable', 404],
+      ['ConfigurationCurrencyMismatch', 409],
+      ['ProductNotFound', 404],
+      ['InvalidProductReference', 404],
       ['SomethingElse', 502],
     ])('maps the error code %s to %i', async (code, status) => {
       for (const [name, call] of calls) {
@@ -2535,6 +2588,10 @@ describe('the merchant-api backend', () => {
       ['CartBelongsToAnotherCompany', 'CART_NOT_OWN'],
       ['MissingCustomerNumber', 'FORBIDDEN'],
       ['ConfigurationNotFound', 'NOT_FOUND'],
+      ['NotAvailable', 'CONFIGURATOR_NOT_AVAILABLE'],
+      ['ConfigurationCurrencyMismatch', 'CURRENCY_MISMATCH'],
+      ['ProductNotFound', 'NOT_FOUND'],
+      ['InvalidProductReference', 'NOT_FOUND'],
     ])(
       "answers %s with the portal's own code %s, which tells the line's refusals from the rest",
       async (upstream, code) => {

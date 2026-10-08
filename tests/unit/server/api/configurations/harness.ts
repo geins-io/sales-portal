@@ -353,5 +353,20 @@ export function lifecycleCases(spec: {
         statusCode: 422,
       });
     });
+
+    it.each([
+      [ErrorCode.CONFIGURATOR_NOT_AVAILABLE, 404],
+      [ErrorCode.CURRENCY_MISMATCH, 409],
+    ])(
+      'passes %s through with its status and its code',
+      async (code, status) => {
+        backend[spec.method].mockRejectedValue(createAppError(code));
+
+        await expect(spec.handler()(spec.event())).rejects.toMatchObject({
+          statusCode: status,
+          data: { code },
+        });
+      },
+    );
   });
 }
