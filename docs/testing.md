@@ -851,8 +851,11 @@ cache forever and pay the webkit download on every run. That is also why the ord
 needs chromium alone, carries a key of its own rather than sharing the other two's, and why all
 three PR jobs install chromium and webkit although only one of them drives webkit: they share one
 entry, and the first green job to finish is the one that saves it. Two things that cache does not buy —
-`--with-deps` runs `apt-get` every time and that is never cached, and an entry only saves from a
-green job, so the first runs after a key changes look slower than the steady state.
+the system dependencies (the apt half of `--with-deps`, a step of their own) run `apt-get` every time
+and that is never cached, and an entry only saves from a green job, so the first runs after a key
+changes look slower than the steady state. On a slow or stalled mirror that apt step is what eats a
+job, so `infra/scripts/install-playwright-deps.sh` bounds each attempt at 5 minutes and makes up to
+three attempts.
 
 ## Gotchas
 

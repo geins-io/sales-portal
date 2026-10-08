@@ -35,8 +35,10 @@ jobs:
     name: E2E Suite
     runs-on: ubuntu-latest
     # Generous on purpose. Phase one exists to learn the real number; the PR
-    # gate sets a tight timeout from what this measures.
-    timeout-minutes: 30
+    # gate sets a tight timeout from what this measures. At its worst: a
+    # measured ~14.5 min without the system dependencies, plus their three
+    # attempts at ~15.6 min: ~30.1.
+    timeout-minutes: 35
     env:
       # Empty repository variables fall through to the committed defaults in
       # tests/e2e/target-defaults.mjs, which is the one place the target is
@@ -69,10 +71,18 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-chromium-webkit-${{ hashFiles('pnpm-lock.yaml') }}
 
+      # The apt half of --with-deps, on its own: it is never cached, and on the
+      # runner's mirror it sometimes crawls or hangs, so the script makes up to
+      # three bounded attempts (3 × 5 min). The step timeout is a backstop
+      # above that.
+      - name: Install Playwright system dependencies
+        timeout-minutes: 17
+        run: ./infra/scripts/install-playwright-deps.sh chromium webkit
+
       # Mobile Chrome is a device profile on chromium, so it needs no download
       # of its own.
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium webkit
+        run: pnpm exec playwright install chromium webkit
 
       # The hostname comes from the suite's own resolver rather than a literal,
       # so the workflow cannot drift from tests/e2e/target-defaults.mjs.

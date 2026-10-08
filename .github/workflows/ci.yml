@@ -149,7 +149,9 @@ jobs:
     needs: e2e-build
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # One leg at its worst: ~1.3 min of fixed steps, the system dependencies'
+    # three attempts at ~15.6 min, and the slowest suite at ~8.5 min: ~25.4.
+    timeout-minutes: 28
     strategy:
       # Each project is its own answer: a red webkit leaves chromium and
       # Mobile Chrome running to the end.
@@ -197,9 +199,17 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-chromium-webkit-${{ hashFiles('pnpm-lock.yaml') }}
 
+      # The apt half of --with-deps, on its own: it is never cached, and on the
+      # runner's mirror it sometimes crawls or hangs, so the script makes up to
+      # three bounded attempts (3 × 5 min). The step timeout is a backstop
+      # above that.
+      - name: Install Playwright system dependencies
+        timeout-minutes: 17
+        run: ./infra/scripts/install-playwright-deps.sh chromium webkit
+
       # Mobile Chrome is a device profile on chromium, so it needs no download.
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium webkit
+        run: pnpm exec playwright install chromium webkit
 
       # The target: an origin, the tenant it must resolve to, and a test
       # account. Repository variables/secrets override the committed defaults.

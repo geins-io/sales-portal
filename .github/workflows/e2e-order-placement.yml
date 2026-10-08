@@ -47,7 +47,9 @@ jobs:
   place-order:
     name: Place one real order
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # At its worst: ~2.8 min of other steps, the system dependencies' three
+    # attempts at ~15.6 min, and the order's full 120 s wait: ~20.4.
+    timeout-minutes: 25
     env:
       # Empty repository variables fall through to the committed defaults in
       # tests/e2e/target-defaults.mjs, which is the one place the target is
@@ -103,8 +105,16 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-chromium-${{ hashFiles('pnpm-lock.yaml') }}
 
+      # The apt half of --with-deps, on its own: it is never cached, and on the
+      # runner's mirror it sometimes crawls or hangs, so the script makes up to
+      # three bounded attempts (3 × 5 min). The step timeout is a backstop
+      # above that.
+      - name: Install Playwright system dependencies
+        timeout-minutes: 17
+        run: ./infra/scripts/install-playwright-deps.sh chromium
+
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install chromium
 
       # The hostname comes from the suite's own resolver rather than a literal,
       # so the workflow cannot drift from tests/e2e/target-defaults.mjs.
