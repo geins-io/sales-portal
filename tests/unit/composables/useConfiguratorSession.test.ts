@@ -8,6 +8,8 @@ import type {
 import {
   makeCascadedConfiguration,
   makeInitialConfiguration,
+  makeInvalidConfiguration,
+  makeValidConfiguration,
 } from '../../fixtures/configurator';
 
 // ---------------------------------------------------------------------------
@@ -1502,6 +1504,248 @@ describe('useConfiguratorSession', () => {
       expect(session.status.value).toBe('closed');
       expect(session.error.value).toBeNull();
       expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // The blur that sends a typed value starts its batch on the mouse-down that
+  // also presses the action, so the press arrives with the form busy.
+  describe('a press during a change batch', () => {
+    const LINE = { cartId: 'cart-1', itemId: 'item-1' };
+    const CHANGE = {
+      type: 'variable',
+      variableId: 'width',
+      value: 140,
+    } as const;
+    const addLine =
+      vi.fn<(committed: CommittedConfiguration) => Promise<unknown>>();
+
+    let batch: ReturnType<typeof deferred<Configuration>>;
+    let commitAnswer: ReturnType<typeof deferred<CommittedConfiguration>>;
+
+    function urls(): string[] {
+      return mockFetch.mock.calls.map(([url]) => url);
+    }
+
+    function commits(): number {
+      return urls().filter((url) => url.endsWith('/commit')).length;
+    }
+
+    async function startedWith(document: Configuration): Promise<{
+      session: ReturnType<typeof useConfiguratorSession>;
+      scope: EffectScope;
+    }> {
+      mockFetch.mockResolvedValue(document);
+      const scope = effectScope();
+      const session = scope.run(() =>
+        useConfiguratorSession({
+          addLine: addLine as (
+            committed: CommittedConfiguration,
+          ) => Promise<{ cartId: string; itemId: string } | null>,
+        }),
+      );
+      if (!session) throw new Error('The scope produced no session');
+      scopes.push(scope);
+      await session.start(PRODUCT_ID);
+      mockFetch.mockReset();
+      mockFetch.mockImplementation(async (url) => {
+        if (url.endsWith('/changes')) return batch.promise;
+        if (url.endsWith('/commit')) return commitAnswer.promise;
+        if (url === '/api/configurations/reopen') {
+          return { ...makeValidConfiguration(), configurationId: 'reopened-1' };
+        }
+        throw new Error(`unexpected request ${url}`);
+      });
+      return { session, scope };
+    }
+
+    beforeEach(() => {
+      addLine.mockReset().mockResolvedValue(LINE);
+      batch = deferred<Configuration>();
+      commitAnswer = deferred<CommittedConfiguration>();
+    });
+
+    it('commits once and adds once after the batch answers valid', async () => {
+      const { session } = await startedWith(makeInitialConfiguration());
+      const valid = makeValidConfiguration();
+      commitAnswer.resolve(committedFrom(valid));
+
+      const changed = session.applyChanges([CHANGE]);
+      void session.commit();
+      expect(commits()).toBe(0);
+
+      batch.resolve(valid);
+      await changed;
+
+      expect(commits()).toBe(1);
+      expect(addLine).toHaveBeenCalledTimes(1);
+      expect(session.configuration.value?.configurationId).toBe('reopened-1');
+    });
+
+    it('drops the press when the answered document is not valid', async () => {
+      const { session } = await startedWith(makeInitialConfiguration());
+
+      const changed = session.applyChanges([CHANGE]);
+      void session.commit();
+      batch.resolve(makeInvalidConfiguration());
+      await changed;
+
+      expect(commits()).toBe(0);
+      expect(addLine).not.toHaveBeenCalled();
+      expect(session.status.value).toBe('active');
+    });
+
+    it('drops the press when the provider refuses the batch, and keeps the refusal', async () => {
+      const { session } = await startedWith(makeValidConfiguration());
+      mockFetch.mockRejectedValueOnce(
+        fetchError(422, 'Validation failed', 'VALIDATION_ERROR'),
+      );
+
+      const changed = session.applyChanges([CHANGE]);
+      void session.commit();
+      await changed;
+
+      expect(commits()).toBe(0);
+      expect(addLine).not.toHaveBeenCalled();
+      expect(session.error.value?.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('drops the press when the batch finds the session expired', async () => {
+      const { session } = await startedWith(makeValidConfiguration());
+      mockFetch.mockRejectedValueOnce(fetchError(410, 'Gone'));
+
+      const changed = session.applyChanges([CHANGE]);
+      void session.commit();
+      await changed;
+
+      expect(commits()).toBe(0);
+      expect(session.status.value).toBe('expired');
+    });
+
+    it('commits once for two presses during one batch', async () => {
+      const { session } = await startedWith(makeInitialConfiguration());
+      const valid = makeValidConfiguration();
+      commitAnswer.resolve(committedFrom(valid));
+
+      const changed = session.applyChanges([CHANGE]);
+      void session.commit();
+      void session.commit();
+      batch.resolve(valid);
+      await changed;
+
+      expect(commits()).toBe(1);
+      expect(addLine).toHaveBeenCalledTimes(1);
+    });
+
+    // The second batch is dropped while the first runs; the press is still
+    // the first batch's to answer.
+    it('leaves the press to the running batch when another batch is dropped', async () => {
+      const { session } = await startedWith(makeInitialConfiguration());
+      const valid = makeValidConfiguration();
+      commitAnswer.resolve(committedFrom(valid));
+
+      const changed = session.applyChanges([CHANGE]);
+      void session.commit();
+      await session.applyChanges([{ ...CHANGE, value: 160 }]);
+      batch.resolve(valid);
+      await changed;
+
+      expect(urls().filter((url) => url.endsWith('/changes'))).toHaveLength(1);
+      expect(commits()).toBe(1);
+      expect(addLine).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not remember a press made while the commit is in flight', async () => {
+      const valid = makeValidConfiguration();
+      const { session } = await startedWith(valid);
+
+      const first = session.commit();
+      void session.commit();
+      commitAnswer.resolve(committedFrom(valid));
+      await first;
+
+      expect(commits()).toBe(1);
+      expect(addLine).toHaveBeenCalledTimes(1);
+      // The session reopened from the new line is the buyer's, not a press's,
+      // and its next batch carries no press either.
+      expect(session.configuration.value?.configurationId).toBe('reopened-1');
+      expect(session.status.value).toBe('active');
+      batch.resolve(makeValidConfiguration());
+      await session.applyChanges([CHANGE]);
+      expect(commits()).toBe(1);
+    });
+
+    it('does not remember a press made while the add is in flight', async () => {
+      const valid = makeValidConfiguration();
+      const { session } = await startedWith(valid);
+      const added = deferred<{ cartId: string; itemId: string }>();
+      addLine.mockReturnValueOnce(added.promise);
+      commitAnswer.resolve(committedFrom(valid));
+
+      const first = session.commit();
+      await vi.waitFor(() => expect(addLine).toHaveBeenCalledTimes(1));
+      void session.commit();
+      added.resolve(LINE);
+      await first;
+
+      expect(commits()).toBe(1);
+      expect(addLine).toHaveBeenCalledTimes(1);
+    });
+
+    it('runs the caller’s hook when the remembered commit goes out, not at the press', async () => {
+      const { session } = await startedWith(makeInitialConfiguration());
+      const valid = makeValidConfiguration();
+      commitAnswer.resolve(committedFrom(valid));
+      const onRun = vi.fn(() => {
+        expect(commits()).toBe(0);
+      });
+
+      const changed = session.applyChanges([CHANGE]);
+      void session.commit(onRun);
+      expect(onRun).not.toHaveBeenCalled();
+
+      batch.resolve(valid);
+      await changed;
+
+      expect(onRun).toHaveBeenCalledTimes(1);
+      expect(commits()).toBe(1);
+    });
+
+    it('does not run the hook for a dropped press', async () => {
+      const { session } = await startedWith(makeInitialConfiguration());
+      const onRun = vi.fn();
+
+      const changed = session.applyChanges([CHANGE]);
+      void session.commit(onRun);
+      batch.resolve(makeInvalidConfiguration());
+      await changed;
+
+      expect(onRun).not.toHaveBeenCalled();
+    });
+
+    it('commits nothing once the page has gone during the batch', async () => {
+      const { session, scope } = await startedWith(makeInitialConfiguration());
+      mockFetch.mockImplementation(async (url, options) => {
+        if (url.endsWith('/changes')) {
+          return new Promise((_, reject) =>
+            options?.signal?.addEventListener('abort', () =>
+              reject(
+                Object.assign(new Error('aborted'), { name: 'AbortError' }),
+              ),
+            ),
+          );
+        }
+        if (url.endsWith('/commit'))
+          return committedFrom(makeValidConfiguration());
+        return null;
+      });
+
+      const changed = session.applyChanges([CHANGE]);
+      void session.commit();
+      scope.stop();
+      await changed;
+
+      expect(commits()).toBe(0);
+      expect(addLine).not.toHaveBeenCalled();
     });
   });
 

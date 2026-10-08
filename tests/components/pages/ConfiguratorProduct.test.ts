@@ -101,7 +101,10 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
     revertEdit: vi.fn(async () => {}),
     cancelEdit: vi.fn(async () => {}),
     applyChanges: vi.fn(async () => {}),
-    commit: vi.fn(async () => {}),
+    // Runs the page's hook as the session does when nothing is in flight.
+    commit: vi.fn(async (onRun?: () => void) => {
+      onRun?.();
+    }),
     retryAdd: vi.fn(async () => {}),
     release: vi.fn(async () => {}),
     /** What the page passed in, so its add can be called directly. */
@@ -332,8 +335,8 @@ const stubs = {
   ConfigurationAction: {
     template: `<div data-testid="action" :data-incomplete="incomplete"
       :data-error="error ?? ''" :data-editing="String(editing)">
-      <button data-testid="configurator-commit" :disabled="!canCommit"
-        @click="$emit('submit')"></button>
+      <button data-testid="configurator-commit"
+        :aria-disabled="String(!canCommit)" @click="$emit('submit')"></button>
       <button data-testid="action-revert" @click="$emit('revert')"></button>
       <button data-testid="action-cancel" @click="$emit('cancel')"></button>
     </div>`,
@@ -876,11 +879,11 @@ describe('ConfiguratorProduct commit', () => {
     activeWith(makeInvalidConfiguration());
     await nextTick();
 
-    expect(
-      wrapper
-        .find('[data-testid="configurator-commit"]')
-        .attributes('disabled'),
-    ).toBeDefined();
+    const button = wrapper.find('[data-testid="configurator-commit"]');
+    expect(button.attributes('aria-disabled')).toBe('true');
+    await button.trigger('click');
+
+    expect(session.commit).not.toHaveBeenCalled();
   });
 
   it('tells the action the configuration is incomplete', async () => {
@@ -905,7 +908,7 @@ describe('ConfiguratorProduct commit', () => {
     ).toBe('false');
   });
 
-  it('refuses a commit while a batch is in flight', async () => {
+  it('shows the action unavailable while a batch is in flight', async () => {
     const wrapper = mountPage();
     activeWith(makeValidConfiguration());
     session.busy.value = true;
@@ -914,8 +917,58 @@ describe('ConfiguratorProduct commit', () => {
     expect(
       wrapper
         .find('[data-testid="configurator-commit"]')
-        .attributes('disabled'),
-    ).toBeDefined();
+        .attributes('aria-disabled'),
+    ).toBe('true');
+  });
+
+  // Typing then pressing: the blur's batch is in flight when the press lands,
+  // and the document in hand may be the incomplete one the batch completes.
+  it('hands a press made during a batch to the session, which decides once it answers', async () => {
+    const wrapper = mountPage();
+    activeWith(makeInvalidConfiguration());
+    session.busy.value = true;
+    await nextTick();
+
+    await wrapper.find('[data-testid="configurator-commit"]').trigger('click');
+
+    expect(session.commit).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a refusal of the batch at the field when a press waits on it', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+    // The session holds the press; its hook has not run.
+    session.commit.mockImplementationOnce(async () => {});
+
+    await wrapper.find('[data-testid="section-change"]').trigger('click');
+    session.busy.value = true;
+    await nextTick();
+    await wrapper.find('[data-testid="configurator-commit"]').trigger('click');
+    session.busy.value = false;
+    session.error.value = {
+      status: 422,
+      message: 'x',
+      code: 'VALIDATION_ERROR',
+    };
+    await nextTick();
+
+    expect(
+      JSON.parse(
+        wrapper.find('[data-testid="section"]').attributes('data-refused')!,
+      ),
+    ).toEqual(CHANGE);
+  });
+
+  it('drops a press when there is no single SKU to add the line as', async () => {
+    const wrapper = mountPage(makeProduct({ skus: [] }));
+    activeWith(makeValidConfiguration());
+    session.busy.value = true;
+    await nextTick();
+
+    await wrapper.find('[data-testid="configurator-commit"]').trigger('click');
+
+    expect(session.commit).not.toHaveBeenCalled();
   });
 
   it('commits a complete configuration', async () => {
@@ -924,7 +977,7 @@ describe('ConfiguratorProduct commit', () => {
     await nextTick();
 
     const button = wrapper.find('[data-testid="configurator-commit"]');
-    expect(button.attributes('disabled')).toBeUndefined();
+    expect(button.attributes('aria-disabled')).toBe('false');
     await button.trigger('click');
 
     expect(session.commit).toHaveBeenCalledTimes(1);
@@ -987,11 +1040,10 @@ describe('ConfiguratorProduct add to cart', () => {
       activeWith(makeValidConfiguration());
       await nextTick();
 
-      expect(
-        wrapper
-          .find('[data-testid="configurator-commit"]')
-          .attributes('disabled'),
-      ).toBeDefined();
+      const button = wrapper.find('[data-testid="configurator-commit"]');
+      expect(button.attributes('aria-disabled')).toBe('true');
+      await button.trigger('click');
+      expect(session.commit).not.toHaveBeenCalled();
       expect(
         wrapper.find('[data-testid="action"]').attributes('data-error'),
       ).toBe('configurator.failed');

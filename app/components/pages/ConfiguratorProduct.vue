@@ -28,6 +28,7 @@ import {
   addFailureKey,
   addRetryable,
   canCommit,
+  canPress,
   canRetryAdd,
   configuratorStage,
   configuredSkuId,
@@ -573,12 +574,27 @@ function onChange(changes: ConfigurationChange[]): void {
   void applyChanges(changes);
 }
 
-/** Commit, then add the committed line: one press, one request window. */
+/**
+ * Commit, then add the committed line: one press, one request window. During
+ * a change batch the session holds the press, and the batch is still the last
+ * action until the commit goes out.
+ */
 function onSubmit(): void {
-  lastAction.value = 'commit';
-  staleEdit.value = false;
-  staleReplay.value = false;
-  void commit();
+  if (
+    !canPress({
+      status: status.value,
+      configuration: configuration.value,
+      busy: busy.value,
+      skuId: skuId.value,
+    })
+  ) {
+    return;
+  }
+  void commit(() => {
+    lastAction.value = 'commit';
+    staleEdit.value = false;
+    staleReplay.value = false;
+  });
 }
 
 function onRetryAdd(): void {

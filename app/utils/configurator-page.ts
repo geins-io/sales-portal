@@ -73,6 +73,24 @@ export function canCommit(
 }
 
 /**
+ * Whether a press on the action goes on to the session. While a request is in
+ * flight it does whatever the document in hand says: the batch the press's own
+ * blur sent may be what completes it, and the session waits for its answer.
+ */
+export function canPress(
+  state: Pick<ConfiguratorPageState, 'status' | 'configuration'> & {
+    busy: boolean;
+    skuId?: number | null;
+  },
+): boolean {
+  return (
+    state.status === 'active' &&
+    state.skuId !== null &&
+    (state.busy || state.configuration?.isValid === true)
+  );
+}
+
+/**
  * The SKU a configured line is added as: the product's only one. A product with
  * none or several has no answer here, and the page does not guess.
  */

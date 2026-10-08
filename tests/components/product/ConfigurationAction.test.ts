@@ -45,6 +45,7 @@ describe('ConfigurationAction', () => {
     const button = wrapper.find('[data-testid="configurator-commit"]');
     expect(button.text()).toBe('product.add_to_cart');
     expect(button.attributes('disabled')).toBeUndefined();
+    expect(button.attributes('aria-disabled')).toBe('false');
 
     await button.trigger('click');
     expect(wrapper.emitted('submit')).toHaveLength(1);
@@ -95,13 +96,16 @@ describe('ConfigurationAction', () => {
     ).toBe(false);
   });
 
-  it('refuses a commit the page has not allowed', async () => {
+  // A natively disabled button lets the press fall through to the panel: the
+  // press that blurs a typed field lands while its batch runs. The page decides.
+  it('marks a commit the page has not allowed as unavailable, and passes the press on', async () => {
     const wrapper = mountAction({ canCommit: false });
     const button = wrapper.find('[data-testid="configurator-commit"]');
-    expect(button.attributes('disabled')).toBeDefined();
+    expect(button.attributes('disabled')).toBeUndefined();
+    expect(button.attributes('aria-disabled')).toBe('true');
 
     await button.trigger('click');
-    expect(wrapper.emitted('submit')).toBeUndefined();
+    expect(wrapper.emitted('submit')).toHaveLength(1);
   });
 
   it('says required choices remain while the configuration is incomplete', () => {
@@ -109,7 +113,7 @@ describe('ConfigurationAction', () => {
     const button = wrapper.find('[data-testid="configurator-commit"]');
 
     expect(button.text()).toBe('configurator.commit_incomplete');
-    expect(button.attributes('disabled')).toBeDefined();
+    expect(button.attributes('aria-disabled')).toBe('true');
   });
 
   it('keeps the cart label and the spinner while a request is in flight', () => {
@@ -117,7 +121,7 @@ describe('ConfigurationAction', () => {
     const button = wrapper.find('[data-testid="configurator-commit"]');
 
     expect(button.text()).toBe('product.add_to_cart');
-    expect(button.attributes('disabled')).toBeDefined();
+    expect(button.attributes('aria-disabled')).toBe('true');
     expect(button.find('.animate-spin').exists()).toBe(true);
   });
 
@@ -198,7 +202,7 @@ describe('ConfigurationAction', () => {
       );
 
       expect(update.text()).toBe('configurator.commit_incomplete');
-      expect(update.attributes('disabled')).toBeDefined();
+      expect(update.attributes('aria-disabled')).toBe('true');
     });
 
     it('offers to revert and to cancel, under the update', async () => {
