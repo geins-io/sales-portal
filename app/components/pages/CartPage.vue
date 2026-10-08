@@ -111,7 +111,7 @@ function goToCheckout() {
         <div class="min-w-0 flex-1">
           <CartSkippedNote class="mb-2" />
           <ErrorBoundary section="cart-items">
-            <div class="divide-border divide-y">
+            <div>
               <CartItem
                 v-for="item in cartStore.cart?.items"
                 :key="item.id"

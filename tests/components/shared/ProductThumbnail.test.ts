@@ -7,7 +7,7 @@ const stubs = {
   GeinsImage: {
     props: ['fileName', 'type', 'alt', 'aspectRatio', 'sizes'],
     template:
-      '<img data-testid="geins-image" :data-file-name="fileName" :data-type="type" :alt="alt" />',
+      '<img data-testid="geins-image" :data-file-name="fileName" :data-type="type" :data-sizes="sizes" :alt="alt" />',
   },
   Icon: defineComponent({
     name: 'Icon',
@@ -89,5 +89,25 @@ describe('ProductThumbnail', () => {
       global: { stubs },
     });
     expect(w.classes()).toContain('rounded-md');
+  });
+
+  it('asks for the image at 48 px when no size hint is passed', () => {
+    const w = mount(ProductThumbnail, {
+      props: { fileName: 'x.png', alt: 'x' },
+      global: { stubs },
+    });
+    expect(w.find('[data-testid="geins-image"]').attributes('data-sizes')).toBe(
+      '48px',
+    );
+  });
+
+  it('asks for the image at the size the caller shows it', () => {
+    const w = mount(ProductThumbnail, {
+      props: { fileName: 'x.png', alt: 'x', size: 'size-20', sizes: '80px' },
+      global: { stubs },
+    });
+    expect(w.find('[data-testid="geins-image"]').attributes('data-sizes')).toBe(
+      '80px',
+    );
   });
 });
