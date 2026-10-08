@@ -91,6 +91,7 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
     notRestored: ref(false),
     editing: ref<{ cartId: string; itemId: string } | null>(null),
     source: ref<{ cartId: string; itemId: string } | null>(null),
+    changed: ref(false),
     editNotice: ref<'not_reopenable' | 'line_gone' | null>(null),
     status: ref<ConfiguratorSessionStatus>('idle'),
     busy: ref(false),
@@ -123,7 +124,9 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
 const cartStore = vi.hoisted(() => ({
   cartId: null as string | null,
   isOpen: false,
-  cart: null as { items: { id: string; quantity: number }[] } | null,
+  cart: null as {
+    items: { id: string; quantity: number; skuId?: number }[];
+  } | null,
   pendingQuantities: new Map<string, number>(),
   updatingItems: new Set<string>(),
   addConfiguredItem: vi.fn(
@@ -135,6 +138,7 @@ const cartStore = vi.hoisted(() => ({
       line: { cartId: string; itemId: string },
     ): Promise<{ cartId: string; itemId: string }> => line,
   ),
+  updateQuantity: vi.fn(async (_itemId: string, _quantity: number) => {}),
 }));
 // Reactive, as the Pinia store is: the page follows a line's quantity in it.
 vi.mock('../../../app/stores/cart', async () => {
@@ -244,6 +248,7 @@ interface MockSession {
   notRestored: Ref<boolean>;
   editing: Ref<{ cartId: string; itemId: string } | null>;
   source: Ref<{ cartId: string; itemId: string } | null>;
+  changed: Ref<boolean>;
   editNotice: Ref<'not_reopenable' | 'line_gone' | null>;
   status: Ref<ConfiguratorSessionStatus>;
   busy: Ref<boolean>;
@@ -347,13 +352,21 @@ const stubs = {
   },
   ConfigurationAction: {
     template: `<div data-testid="action" :data-incomplete="incomplete" :data-busy="String(busy)"
-      :data-error="error ?? ''" :data-editing="String(editing)">
+      :data-error="error ?? ''" :data-editing="String(editing)"
+      :data-stock-block="stockBlock ?? ''">
       <button data-testid="configurator-commit"
         :aria-disabled="String(!canCommit)" @click="$emit('submit')"></button>
       <button data-testid="action-revert" @click="$emit('revert')"></button>
       <button data-testid="action-cancel" @click="$emit('cancel')"></button>
     </div>`,
-    props: ['canCommit', 'busy', 'incomplete', 'error', 'editing'],
+    props: [
+      'canCommit',
+      'busy',
+      'incomplete',
+      'error',
+      'editing',
+      'stockBlock',
+    ],
     emits: ['submit', 'revert', 'cancel'],
   },
   ConfiguratorAddRetry: {
@@ -430,6 +443,7 @@ beforeEach(() => {
   session.notRestored.value = false;
   session.editing.value = null;
   session.source.value = null;
+  session.changed.value = false;
   session.editNotice.value = null;
   session.status.value = 'idle';
   session.busy.value = false;
@@ -451,6 +465,7 @@ beforeEach(() => {
   }
   cart.addConfiguredItem.mockClear();
   cart.replaceConfiguredItem.mockClear();
+  cart.updateQuantity.mockClear();
   cart.cartId = null;
   cart.isOpen = false;
   cart.cart = null;
@@ -2920,11 +2935,12 @@ describe("ConfiguratorProduct following the line's quantity", () => {
     };
   }
 
-  /** A page holding a session opened from `LINE`, both at one. */
+  /** A page editing `LINE`, its session and the line both at one. */
   async function holding(): Promise<ReturnType<typeof mountPage>> {
     cart.cartId = LINE.cartId;
     lineAt(1);
     session.source.value = LINE;
+    session.editing.value = LINE;
     const wrapper = mountPage();
     activeWith(heldAt(1));
     await nextTick();
@@ -2945,19 +2961,35 @@ describe("ConfiguratorProduct following the line's quantity", () => {
     expect(session.applyChanges.mock.calls).toEqual(followed(3));
   });
 
-  it('follows the line it carried on from after an add, with no line edited', async () => {
+  // Outside an edit the page is at one: the line's quantity is the cart's.
+  it('follows nothing from the line it carried on from after an add', async () => {
     await holding();
+    session.editing.value = null;
+    await nextTick();
 
     lineAt(3);
     await nextTick();
 
-    expect(session.applyChanges.mock.calls).toEqual(followed(3));
+    expect(session.applyChanges).not.toHaveBeenCalled();
+  });
+
+  it('goes back to one when it carries on from a line at three outside an edit', async () => {
+    cart.cartId = LINE.cartId;
+    lineAt(3);
+    session.source.value = LINE;
+    mountPage();
+
+    activeWith(heldAt(3));
+    await nextTick();
+
+    expect(session.applyChanges.mock.calls).toEqual(followed(1));
   });
 
   it('follows a session opened at another quantity than the line already has', async () => {
     cart.cartId = LINE.cartId;
     lineAt(3);
     session.source.value = LINE;
+    session.editing.value = LINE;
     mountPage();
 
     activeWith(heldAt(1));
@@ -2978,6 +3010,7 @@ describe("ConfiguratorProduct following the line's quantity", () => {
   it('follows nothing for a session no line is behind', async () => {
     await holding();
     session.source.value = null;
+    session.editing.value = null;
     await nextTick();
 
     lineAt(3);
@@ -3129,6 +3162,70 @@ describe("ConfiguratorProduct following the line's quantity", () => {
     expect(session.commit).toHaveBeenCalledTimes(1);
   });
 
+  describe('when the edited line leaves the cart', () => {
+    /** A page editing `LINE`, its session and the line both at three. */
+    async function editingAtThree(): Promise<ReturnType<typeof mountPage>> {
+      cart.cartId = LINE.cartId;
+      lineAt(3);
+      session.source.value = LINE;
+      session.editing.value = LINE;
+      const wrapper = mountPage();
+      activeWith(heldAt(3));
+      await nextTick();
+      session.applyChanges.mockClear();
+      return wrapper;
+    }
+
+    for (const [what, leave] of [
+      [
+        'is deleted',
+        () => {
+          cart.cart = { items: [{ id: 'other-line', quantity: 7 }] };
+        },
+      ],
+      [
+        'goes with the emptied cart',
+        () => {
+          cart.cart = { items: [] };
+        },
+      ],
+    ] as const) {
+      it(`goes back to one, keeping the choices, when the line ${what}`, async () => {
+        await editingAtThree();
+
+        leave();
+        await nextTick();
+
+        expect(session.applyChanges.mock.calls).toEqual(followed(1));
+      });
+    }
+
+    it('acts only once the session is back at one', async () => {
+      const wrapper = await editingAtThree();
+      cart.cart = { items: [] };
+      await nextTick();
+
+      const button = wrapper.find('[data-testid="configurator-commit"]');
+      expect(button.attributes('aria-disabled')).toBe('true');
+      await button.trigger('click');
+      expect(session.commit).not.toHaveBeenCalled();
+
+      session.configuration.value = heldAt(1);
+      await nextTick();
+      await button.trigger('click');
+      expect(session.commit).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the quantity while the cart has not been read', async () => {
+      await editingAtThree();
+
+      cart.cart = null;
+      await nextTick();
+
+      expect(session.applyChanges).not.toHaveBeenCalled();
+    });
+  });
+
   describe('while the cart changes the line', () => {
     for (const [what, pend] of [
       ['a change settles', () => cart.pendingQuantities.set(LINE.itemId, 3)],
@@ -3165,5 +3262,275 @@ describe("ConfiguratorProduct following the line's quantity", () => {
           .attributes('aria-disabled'),
       ).toBe('false');
     });
+  });
+});
+
+describe('ConfiguratorProduct stock', () => {
+  const SKU = 1788;
+  const LINE = { cartId: 'cart-1', itemId: 'line-1' };
+
+  function withStock(
+    stock: Partial<{
+      totalStock: number;
+      oversellable: number;
+      static: number;
+    }>,
+  ): DetailProduct {
+    return makeProduct({
+      skus: [
+        {
+          skuId: SKU,
+          stock: {
+            inStock: 0,
+            oversellable: 0,
+            totalStock: 1,
+            static: 0,
+            ...stock,
+          },
+        },
+      ],
+    });
+  }
+
+  function inCart(
+    ...items: { id: string; quantity: number; skuId?: number }[]
+  ) {
+    cart.cartId = LINE.cartId;
+    cart.cart = { items };
+  }
+
+  async function pageWith(product: DetailProduct) {
+    const wrapper = mountPage(product);
+    activeWith(makeValidConfiguration());
+    await nextTick();
+    return wrapper;
+  }
+
+  const action = (wrapper: ReturnType<typeof mountPage>) =>
+    wrapper.find('[data-testid="action"]');
+  const press = (wrapper: ReturnType<typeof mountPage>) =>
+    wrapper.find('[data-testid="configurator-commit"]').trigger('click');
+
+  // The page carries on from the line it just added; that line counts.
+  it('shuts the action when the stock of one is the configured line just added', async () => {
+    inCart({ id: LINE.itemId, quantity: 1, skuId: SKU });
+    session.source.value = LINE;
+    const wrapper = await pageWith(withStock({ totalStock: 1 }));
+
+    expect(action(wrapper).attributes('data-stock-block')).toBe('max_in_cart');
+    expect(
+      wrapper
+        .find('[data-testid="configurator-commit"]')
+        .attributes('aria-disabled'),
+    ).toBe('true');
+    await press(wrapper);
+    expect(session.commit).not.toHaveBeenCalled();
+  });
+
+  it('counts every line of the SKU, configured or not, and no other SKU', async () => {
+    inCart(
+      { id: 'plain', quantity: 2, skuId: SKU },
+      { id: LINE.itemId, quantity: 1, skuId: SKU },
+      { id: 'other', quantity: 9, skuId: 1474 },
+    );
+    const wrapper = await pageWith(withStock({ totalStock: 3 }));
+
+    expect(action(wrapper).attributes('data-stock-block')).toBe('max_in_cart');
+  });
+
+  it('drops a press made during a batch once the stock is in the cart', async () => {
+    inCart({ id: LINE.itemId, quantity: 1, skuId: SKU });
+    const wrapper = await pageWith(withStock({ totalStock: 1 }));
+    session.busy.value = true;
+    await nextTick();
+
+    await press(wrapper);
+    expect(session.commit).not.toHaveBeenCalled();
+  });
+
+  it('changes nothing while stock is left', async () => {
+    inCart({ id: LINE.itemId, quantity: 1, skuId: SKU });
+    const wrapper = await pageWith(withStock({ totalStock: 2 }));
+
+    expect(action(wrapper).attributes('data-stock-block')).toBe('');
+    await press(wrapper);
+    expect(session.commit).toHaveBeenCalledTimes(1);
+  });
+
+  it('never limits oversellable stock', async () => {
+    inCart({ id: LINE.itemId, quantity: 1, skuId: SKU });
+    const wrapper = await pageWith(
+      withStock({ totalStock: 1, oversellable: 10 }),
+    );
+
+    expect(action(wrapper).attributes('data-stock-block')).toBe('');
+    await press(wrapper);
+    expect(session.commit).toHaveBeenCalledTimes(1);
+  });
+
+  it('never limits static stock', async () => {
+    inCart({ id: LINE.itemId, quantity: 1, skuId: SKU });
+    const wrapper = await pageWith(withStock({ totalStock: 1, static: 1 }));
+
+    expect(action(wrapper).attributes('data-stock-block')).toBe('');
+  });
+
+  it('says out of stock when there is none and the cart holds none', async () => {
+    const wrapper = await pageWith(withStock({ totalStock: 0 }));
+
+    expect(action(wrapper).attributes('data-stock-block')).toBe('out_of_stock');
+    await press(wrapper);
+    expect(session.commit).not.toHaveBeenCalled();
+  });
+
+  describe('editing a line', () => {
+    it('is not shut by the line it updates', async () => {
+      inCart({ id: LINE.itemId, quantity: 1, skuId: SKU });
+      session.source.value = LINE;
+      session.editing.value = LINE;
+      const wrapper = await pageWith(withStock({ totalStock: 1 }));
+
+      expect(action(wrapper).attributes('data-stock-block')).toBe('');
+      await press(wrapper);
+      expect(session.commit).toHaveBeenCalledTimes(1);
+    });
+
+    it('is shut when the other lines of the SKU hold the stock', async () => {
+      inCart(
+        { id: 'plain', quantity: 1, skuId: SKU },
+        { id: LINE.itemId, quantity: 1, skuId: SKU },
+      );
+      session.source.value = LINE;
+      session.editing.value = LINE;
+      const wrapper = await pageWith(withStock({ totalStock: 1 }));
+
+      expect(action(wrapper).attributes('data-stock-block')).toBe(
+        'max_in_cart',
+      );
+    });
+  });
+});
+
+describe('ConfiguratorProduct pressing again after an add', () => {
+  const LINE = { cartId: 'cart-1', itemId: 'line-1' };
+  const SKU = 1788;
+
+  function lineAt(quantity: number): void {
+    cart.cart = {
+      items: [
+        { id: 'other-line', quantity: 7, skuId: 1474 },
+        { id: LINE.itemId, quantity, skuId: SKU },
+      ],
+    };
+  }
+
+  /** The page after an add, an update or a cancel: at one, from `LINE`. */
+  async function carriedOn(
+    lineQuantity: number,
+    product = makeProduct({ skus: [{ skuId: SKU }] }),
+  ) {
+    cart.cartId = LINE.cartId;
+    lineAt(lineQuantity);
+    session.source.value = LINE;
+    const wrapper = mountPage(product);
+    activeWith({ ...makeValidConfiguration(), quantity: 1 });
+    await nextTick();
+    session.applyChanges.mockClear();
+    return wrapper;
+  }
+
+  const press = (wrapper: ReturnType<typeof mountPage>) =>
+    wrapper.find('[data-testid="configurator-commit"]').trigger('click');
+
+  it('raises the line by one, as its plus button does, and opens the drawer', async () => {
+    const wrapper = await carriedOn(2);
+
+    await press(wrapper);
+
+    expect(cart.updateQuantity).toHaveBeenCalledWith(LINE.itemId, 3);
+    expect(cart.isOpen).toBe(true);
+    expect(session.commit).not.toHaveBeenCalled();
+  });
+
+  it('adds a new line once a choice has changed', async () => {
+    const wrapper = await carriedOn(2);
+    session.changed.value = true;
+    await nextTick();
+
+    await press(wrapper);
+
+    expect(session.commit).toHaveBeenCalledTimes(1);
+    expect(cart.updateQuantity).not.toHaveBeenCalled();
+  });
+
+  it('adds a new line once the line has left the cart', async () => {
+    const wrapper = await carriedOn(2);
+    cart.cart = { items: [] };
+    await nextTick();
+
+    await press(wrapper);
+
+    expect(session.commit).toHaveBeenCalledTimes(1);
+    expect(cart.updateQuantity).not.toHaveBeenCalled();
+  });
+
+  it('updates the edited line rather than raising it', async () => {
+    session.editing.value = LINE;
+    const wrapper = await carriedOn(1);
+
+    await press(wrapper);
+
+    expect(session.commit).toHaveBeenCalledTimes(1);
+    expect(cart.updateQuantity).not.toHaveBeenCalled();
+  });
+
+  // The raise swaps a new committed id onto the line; the line's id stays.
+  it('raises the same line again on the next press', async () => {
+    const wrapper = await carriedOn(3);
+    await press(wrapper);
+    lineAt(4);
+    await nextTick();
+
+    await press(wrapper);
+
+    expect(cart.updateQuantity.mock.calls).toEqual([
+      [LINE.itemId, 4],
+      [LINE.itemId, 5],
+    ]);
+    expect(session.commit).not.toHaveBeenCalled();
+  });
+
+  it('holds the action while the raise is on its way', async () => {
+    const wrapper = await carriedOn(2);
+    await press(wrapper);
+    cart.pendingQuantities.set(LINE.itemId, 3);
+    await nextTick();
+
+    await press(wrapper);
+
+    expect(cart.updateQuantity).toHaveBeenCalledTimes(1);
+  });
+
+  it('raises to the stock and then says all of it is in the cart', async () => {
+    const product = makeProduct({
+      skus: [
+        {
+          skuId: SKU,
+          stock: { inStock: 3, oversellable: 0, totalStock: 3, static: 0 },
+        },
+      ],
+    });
+    const wrapper = await carriedOn(2, product);
+
+    await press(wrapper);
+    expect(cart.updateQuantity).toHaveBeenCalledWith(LINE.itemId, 3);
+    lineAt(3);
+    await nextTick();
+
+    expect(
+      wrapper.find('[data-testid="action"]').attributes('data-stock-block'),
+    ).toBe('max_in_cart');
+    await press(wrapper);
+    expect(cart.updateQuantity).toHaveBeenCalledTimes(1);
   });
 });

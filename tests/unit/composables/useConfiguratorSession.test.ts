@@ -2344,6 +2344,78 @@ describe('useConfiguratorSession', () => {
       });
     });
 
+    describe('whether the choices changed since the reopen', () => {
+      const PICK = {
+        type: 'option',
+        optionId: 'top-steel',
+        instanceId: 'top-steel',
+        selected: true,
+        lock: 'none',
+      } as const;
+
+      it('is unchanged once the line is reopened', async () => {
+        const session = await editing();
+
+        expect(session.changed.value).toBe(false);
+      });
+
+      it('is changed once a choice is sent', async () => {
+        const session = await editing();
+        answering({ changes: () => reopened() });
+
+        await session.applyChanges([PICK]);
+
+        expect(session.changed.value).toBe(true);
+      });
+
+      it('is changed by a choice the provider refuses: it was sent', async () => {
+        const session = await editing();
+        answering({
+          changes: () => {
+            throw fetchError(422, 'no', 'VALIDATION_ERROR');
+          },
+        });
+
+        await session.applyChanges([PICK]);
+
+        expect(session.changed.value).toBe(true);
+      });
+
+      it('is changed by a choice sent together with a quantity', async () => {
+        const session = await editing();
+        answering({ changes: () => reopened() });
+
+        await session.applyChanges([{ type: 'quantity', quantity: 2 }, PICK]);
+
+        expect(session.changed.value).toBe(true);
+      });
+
+      // The page sends the quantity to follow the line, never the buyer.
+      it('is unchanged by a quantity alone', async () => {
+        const session = await editing();
+        answering({ changes: () => reopened() });
+
+        await session.applyChanges([{ type: 'quantity', quantity: 1 }]);
+
+        expect(session.changed.value).toBe(false);
+      });
+
+      it('is unchanged again once the session carries on from the line', async () => {
+        const session = await editing();
+        answering({ changes: () => reopened() });
+        await session.applyChanges([PICK]);
+        answering({
+          commit: () => committedFrom(reopened()),
+          reopen: () => reopened('reopened-2'),
+        });
+
+        await session.commit();
+
+        expect(session.source.value).toEqual(LINE);
+        expect(session.changed.value).toBe(false);
+      });
+    });
+
     describe('updating the line', () => {
       it('commits, puts the record on the line instead of adding one, then carries on from the updated line, no longer editing', async () => {
         const session = await editing();

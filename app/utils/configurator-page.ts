@@ -7,6 +7,7 @@ import type {
   ConfiguratorSessionError,
   ConfiguratorSessionStatus,
 } from '~/composables/useConfiguratorSession';
+import type { StockBlock } from '~/utils/stock-in-cart';
 
 // ---------------------------------------------------------------------------
 // What the configurator page shows, and what the buyer may do.
@@ -63,6 +64,41 @@ export interface SourceLineState {
 }
 
 /**
+ * The quantity the page holds: the edited line's, while the cart holds it,
+ * and 1 otherwise. After an add, an update or a cancel, a press raises the
+ * line itself (`lineToRaise`), so the page never carries the line's quantity.
+ * `null` in an edit before a cart read can tell whether the line is there.
+ */
+export function pageQuantity(
+  edited: { cartId: string; itemId: string } | null,
+  cartId: string | null,
+  items: readonly { id?: string; quantity: number }[] | null | undefined,
+): number | null {
+  if (!edited) return 1;
+  if (!items) return null;
+  if (cartId !== edited.cartId) return 1;
+  return items.find((item) => item.id === edited.itemId)?.quantity ?? 1;
+}
+
+/**
+ * The line a press raises by one instead of adding another: the one the
+ * session was reopened from, outside an edit, with no choice sent since.
+ */
+export function lineToRaise(state: {
+  editing: boolean;
+  changed: boolean;
+  source: { cartId: string; itemId: string } | null;
+  cartId: string | null;
+  items: readonly { id?: string; quantity: number }[] | null | undefined;
+}): { itemId: string; quantity: number } | null {
+  const { source } = state;
+  if (state.editing || state.changed || !source) return null;
+  if (state.cartId !== source.cartId) return null;
+  const line = state.items?.find((item) => item.id === source.itemId);
+  return line ? { itemId: source.itemId, quantity: line.quantity + 1 } : null;
+}
+
+/**
  * A session at another quantity than its line, or a line the cart is still
  * changing, would add or update at a quantity the line no longer has.
  */
@@ -87,6 +123,8 @@ export function canCommit(
       busy: boolean;
       /** What the line is added as; a commit with nothing to add would strand it. */
       skuId?: number | null;
+      /** Past the stock, the cart replaces a configured line of the SKU instead. */
+      stockBlock?: StockBlock | null;
     },
 ): boolean {
   return (
@@ -94,6 +132,7 @@ export function canCommit(
     state.configuration?.isValid === true &&
     !state.busy &&
     state.skuId !== null &&
+    !state.stockBlock &&
     atLine(state.configuration, state)
   );
 }
@@ -108,11 +147,13 @@ export function canPress(
     SourceLineState & {
       busy: boolean;
       skuId?: number | null;
+      stockBlock?: StockBlock | null;
     },
 ): boolean {
   return (
     state.status === 'active' &&
     state.skuId !== null &&
+    !state.stockBlock &&
     (state.busy || state.configuration?.isValid === true) &&
     atLine(state.configuration, state)
   );
@@ -140,7 +181,8 @@ export function quantityToFollow(state: {
 }): number | null {
   const { configuration, lineQuantity, followed } = state;
   if (state.status !== 'active' || state.busy || !configuration) return null;
-  // Without a line every check below falls through to `lineQuantity`: null.
+  // In an edit before the cart is read, `lineQuantity` is null and every check
+  // below falls through to it.
   if (configuration.quantity === lineQuantity) return null;
   if (
     followed?.configurationId === configuration.configurationId &&

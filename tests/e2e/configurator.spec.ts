@@ -266,7 +266,8 @@ test.describe('Configurator', () => {
       expect((await cartLineIds(page)).length).toBe(linesBefore.length + 1);
 
       // The page carries on as it was: the form, reopened from the new line,
-      // holds the buyer's choice and its price, and the action is live again.
+      // holds the buyer's choice and its price. The seed's one unit is now in
+      // the cart, so the action is shut as on an ordinary product page.
       await expect(
         page.locator('[data-testid="configurator-section"]').first(),
       ).toBeVisible({ timeout: 20000 });
@@ -280,7 +281,13 @@ test.describe('Configurator', () => {
       await expect
         .poll(() => readPrice(page.getByTestId('configurator-panel-net')))
         .toBe(priceBefore + PRICED_COLOUR_NET);
-      await expect(page.getByTestId('configurator-commit')).toBeEnabled();
+      await expect(page.getByTestId('configurator-commit')).toBeDisabled();
+      await expect(page.getByTestId('configurator-commit')).toHaveText(
+        await localeText(page, 'product.max_in_cart'),
+      );
+      await expect(
+        page.getByTestId('configurator-max-quantity-info'),
+      ).toBeVisible();
       await expect(page.getByTestId('configurator-committed')).toHaveCount(0);
       await expect(page.getByTestId('configurator-add-failed')).toHaveCount(0);
     } finally {

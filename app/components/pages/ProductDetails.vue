@@ -21,6 +21,7 @@ import {
 } from '#shared/utils/route-helpers';
 import { ancestorCrumbs } from '#shared/utils/breadcrumb-trail';
 import { resolveCombination, variantCombinations } from '~/utils/variant-tree';
+import { quantityInCart, stockLeft } from '~/utils/stock-in-cart';
 
 const props = defineProps<{
   product: DetailProduct;
@@ -143,26 +144,14 @@ const isOutOfStock = computed(() => {
   if (!stock) return false;
   return getStockStatus(stock) === 'out-of-stock';
 });
-const cartQtyForSelectedSku = computed(() => {
-  const skuId = resolvedSku.value?.skuId;
-  if (!skuId) return 0;
-  const items = cartStore.cart?.items ?? [];
-  return items
-    .filter((i) => String(i.skuId) === String(skuId))
-    .reduce((sum, i) => sum + (i.quantity ?? 0), 0);
-});
-// Effective remaining = totalStock minus the quantity of this SKU already
-// in the cart. Used to cap the quantity stepper and disable add-to-cart so
-// the user cannot push the cart past the available stock. Oversellable and
-// static (on-demand) products are not stock-limited.
-const stockThreshold = computed(() => {
-  const stock = product.value?.totalStock;
-  if (!stock) return Number.POSITIVE_INFINITY;
-  if (stock.oversellable > 0 || stock.static > 0) {
-    return Number.POSITIVE_INFINITY;
-  }
-  return Math.max(0, (stock.totalStock ?? 0) - cartQtyForSelectedSku.value);
-});
+// Caps the quantity stepper and disables add-to-cart so the user cannot push
+// the cart past the available stock.
+const stockThreshold = computed(() =>
+  stockLeft(
+    product.value?.totalStock,
+    quantityInCart(cartStore.cart?.items, resolvedSku.value?.skuId),
+  ),
+);
 const maxQuantity = computed(() => {
   const threshold = stockThreshold.value;
   if (!Number.isFinite(threshold)) return 99;

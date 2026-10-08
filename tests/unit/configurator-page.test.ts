@@ -10,6 +10,8 @@ import {
   startFailureKey,
   canPress,
   quantityToFollow,
+  pageQuantity,
+  lineToRaise,
   replaceFailureKey,
   replaceRetryable,
   canRetryAdd,
@@ -154,6 +156,16 @@ describe('canCommit', () => {
       false,
     );
   });
+
+  it('refuses when the stock is all in the cart or there is none', () => {
+    for (const stockBlock of ['max_in_cart', 'out_of_stock'] as const) {
+      expect(canCommit({ ...state(), busy: false, stockBlock })).toBe(false);
+    }
+  });
+
+  it('allows a commit while stock is left', () => {
+    expect(canCommit({ ...state(), busy: false, stockBlock: null })).toBe(true);
+  });
 });
 
 describe('canPress', () => {
@@ -197,6 +209,18 @@ describe('canPress', () => {
     expect(canPress({ ...state({ configuration: null }), busy: false })).toBe(
       false,
     );
+  });
+
+  // A press held for a batch would add past the stock once the batch answers.
+  it('drops a press when the stock is all in the cart or there is none, in flight too', () => {
+    for (const stockBlock of ['max_in_cart', 'out_of_stock'] as const) {
+      expect(canPress({ ...state(), busy: false, stockBlock })).toBe(false);
+      expect(canPress({ ...state(), busy: true, stockBlock })).toBe(false);
+    }
+  });
+
+  it('passes a press on while stock is left', () => {
+    expect(canPress({ ...state(), busy: false, stockBlock: null })).toBe(true);
   });
 });
 
@@ -701,6 +725,87 @@ describe('replaceFailureKey', () => {
     expect(replaceFailureKey({ message: 'x', ...error })).toBe(
       'configurator.edit.update_failed',
     );
+  });
+});
+
+describe('pageQuantity', () => {
+  const LINE = { cartId: 'cart-1', itemId: 'line-1' };
+  const items = [
+    { id: 'other', quantity: 7 },
+    { id: 'line-1', quantity: 3 },
+  ];
+
+  it('is one outside an edit, whatever line the session came from', () => {
+    expect(pageQuantity(null, 'cart-1', items)).toBe(1);
+    expect(pageQuantity(null, 'cart-1', null)).toBe(1);
+  });
+
+  it("is the edited line's quantity while the cart holds it", () => {
+    expect(pageQuantity(LINE, 'cart-1', items)).toBe(3);
+  });
+
+  // Not read yet, or the read failed: nothing says the line is gone.
+  it('is nothing to follow in an edit before the cart has been read', () => {
+    expect(pageQuantity(LINE, 'cart-1', null)).toBeNull();
+    expect(pageQuantity(LINE, 'cart-1', undefined)).toBeNull();
+  });
+
+  it('goes back to one once the edited line is deleted', () => {
+    expect(pageQuantity(LINE, 'cart-1', [{ id: 'other', quantity: 7 }])).toBe(
+      1,
+    );
+  });
+
+  it('goes back to one once the cart is emptied', () => {
+    expect(pageQuantity(LINE, 'cart-1', [])).toBe(1);
+  });
+
+  it('goes back to one when the cart read is another cart', () => {
+    expect(pageQuantity(LINE, 'cart-9', items)).toBe(1);
+    expect(pageQuantity(LINE, null, items)).toBe(1);
+  });
+});
+
+describe('lineToRaise', () => {
+  const LINE = { cartId: 'cart-1', itemId: 'line-1' };
+  function raise(over: Partial<Parameters<typeof lineToRaise>[0]> = {}) {
+    return lineToRaise({
+      editing: false,
+      changed: false,
+      source: LINE,
+      cartId: 'cart-1',
+      items: [
+        { id: 'other', quantity: 7 },
+        { id: 'line-1', quantity: 2 },
+      ],
+      ...over,
+    });
+  }
+
+  it('raises the line the session came from by one while the choices are unchanged', () => {
+    expect(raise()).toEqual({ itemId: 'line-1', quantity: 3 });
+  });
+
+  it('adds a new line once a choice has changed', () => {
+    expect(raise({ changed: true })).toBeNull();
+  });
+
+  it('never raises in an edit, which updates the line instead', () => {
+    expect(raise({ editing: true })).toBeNull();
+  });
+
+  it('adds a new line for a session no line is behind', () => {
+    expect(raise({ source: null })).toBeNull();
+  });
+
+  it('adds a new line once the line has left the cart', () => {
+    expect(raise({ items: [{ id: 'other', quantity: 7 }] })).toBeNull();
+    expect(raise({ items: [] })).toBeNull();
+    expect(raise({ items: null })).toBeNull();
+  });
+
+  it('adds a new line when the cart read is another cart', () => {
+    expect(raise({ cartId: 'cart-9' })).toBeNull();
   });
 });
 
