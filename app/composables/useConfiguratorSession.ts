@@ -192,6 +192,11 @@ export function useConfiguratorSession({
    * started, replayed or restored.
    */
   const source = ref<CartLineRef | null>(null);
+  /**
+   * A choice was sent to the held session since it was opened. A quantity
+   * alone is the page following a line, not the buyer choosing.
+   */
+  const changed = ref(false);
   const editNotice = ref<ConfiguratorEditNotice | null>(null);
   const status = ref<ConfiguratorSessionStatus>('idle');
   const busy = ref(false);
@@ -344,6 +349,7 @@ export function useConfiguratorSession({
   ): void {
     configuration.value = document;
     source.value = line;
+    changed.value = false;
     committed.value = null;
     status.value = 'active';
     lastContact = Date.now();
@@ -448,6 +454,9 @@ export function useConfiguratorSession({
     // `run` would drop it, and the press held for the batch in flight is not
     // this call's to take.
     if (busy.value) return;
+    if (changes.some((change) => change.type !== 'quantity')) {
+      changed.value = true;
+    }
 
     const updated = await run(
       (signal) =>
@@ -724,6 +733,7 @@ export function useConfiguratorSession({
     notRestored,
     editing,
     source,
+    changed,
     editNotice,
     status,
     busy,

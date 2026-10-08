@@ -43,7 +43,8 @@ import {
   replaceRetryable,
   restartsInMarket,
   showsAddRetry,
-  sourceLineQuantity,
+  pageQuantity,
+  lineToRaise,
   startFailureKey,
   stickyBoxMaxHeight,
   type ConfiguratorAction,
@@ -238,6 +239,7 @@ const {
   notRestored,
   editing,
   source,
+  changed,
   editNotice,
   status,
   busy,
@@ -605,13 +607,14 @@ function onChange(changes: ConfigurationChange[]): void {
 // Following the line's quantity
 //
 // The cart changes a configured line's quantity on the server, in a session of
-// its own. The session this page holds from that line is told the new quantity
-// as an ordinary change, so the panel and the next add or update use it.
+// its own. While the page edits that line, its session is told the new
+// quantity as an ordinary change, so the panel and the update use it. Outside
+// an edit the page is told 1.
 // ---------------------------------------------------------------------------
 
-/** The quantity the held session follows; see `sourceLineQuantity`. */
+/** The quantity the held session follows; see `pageQuantity`. */
 const lineQuantity = computed(() =>
-  sourceLineQuantity(source.value, cart.cartId, cart.cart?.items),
+  pageQuantity(editing.value, cart.cartId, cart.cart?.items),
 );
 
 /** The cart is still settling or sending a quantity change of that line. */
@@ -641,7 +644,8 @@ watch([lineQuantity, configuration, status, busy], () => {
 /**
  * Commit, then add the committed line: one press, one request window. During
  * a change batch the session holds the press, and the batch is still the last
- * action until the commit goes out.
+ * action until the commit goes out. A press on the choices of a line already
+ * in the cart raises that line by one instead, as its plus button does.
  */
 function onSubmit(): void {
   if (
@@ -655,6 +659,18 @@ function onSubmit(): void {
       linePending: linePending.value,
     })
   ) {
+    return;
+  }
+  const raise = lineToRaise({
+    editing: !!editing.value,
+    changed: changed.value,
+    source: source.value,
+    cartId: cart.cartId,
+    items: cart.cart?.items,
+  });
+  if (raise) {
+    cart.isOpen = true;
+    void cart.updateQuantity(raise.itemId, raise.quantity);
     return;
   }
   void commit(() => {

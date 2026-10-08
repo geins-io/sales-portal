@@ -64,19 +64,38 @@ export interface SourceLineState {
 }
 
 /**
- * The quantity the held session follows: its line's, while the cart holds it,
- * or 1 once the cart no longer does, as for a buyer who has just arrived; the
- * page has no quantity control, so a gone line's quantity could never be put
- * right. `null` with no line behind the session, or no cart read to tell.
+ * The quantity the page holds: the edited line's, while the cart holds it,
+ * and 1 otherwise. After an add, an update or a cancel, a press raises the
+ * line itself (`lineToRaise`), so the page never carries the line's quantity.
+ * `null` in an edit before a cart read can tell whether the line is there.
  */
-export function sourceLineQuantity(
-  source: { cartId: string; itemId: string } | null,
+export function pageQuantity(
+  edited: { cartId: string; itemId: string } | null,
   cartId: string | null,
   items: readonly { id?: string; quantity: number }[] | null | undefined,
 ): number | null {
-  if (!source || !items) return null;
-  if (cartId !== source.cartId) return 1;
-  return items.find((item) => item.id === source.itemId)?.quantity ?? 1;
+  if (!edited) return 1;
+  if (!items) return null;
+  if (cartId !== edited.cartId) return 1;
+  return items.find((item) => item.id === edited.itemId)?.quantity ?? 1;
+}
+
+/**
+ * The line a press raises by one instead of adding another: the one the
+ * session was reopened from, outside an edit, with no choice sent since.
+ */
+export function lineToRaise(state: {
+  editing: boolean;
+  changed: boolean;
+  source: { cartId: string; itemId: string } | null;
+  cartId: string | null;
+  items: readonly { id?: string; quantity: number }[] | null | undefined;
+}): { itemId: string; quantity: number } | null {
+  const { source } = state;
+  if (state.editing || state.changed || !source) return null;
+  if (state.cartId !== source.cartId) return null;
+  const line = state.items?.find((item) => item.id === source.itemId);
+  return line ? { itemId: source.itemId, quantity: line.quantity + 1 } : null;
 }
 
 /**
@@ -162,7 +181,8 @@ export function quantityToFollow(state: {
 }): number | null {
   const { configuration, lineQuantity, followed } = state;
   if (state.status !== 'active' || state.busy || !configuration) return null;
-  // Without a line every check below falls through to `lineQuantity`: null.
+  // In an edit before the cart is read, `lineQuantity` is null and every check
+  // below falls through to it.
   if (configuration.quantity === lineQuantity) return null;
   if (
     followed?.configurationId === configuration.configurationId &&
