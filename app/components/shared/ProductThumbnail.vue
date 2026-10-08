@@ -8,6 +8,8 @@ withDefaults(
     size?: string;
     radius?: string;
     iconSize?: string;
+    /** The width the image is shown at, so the browser picks a sharp file. */
+    sizes?: string;
   }>(),
   {
     fileName: '',
@@ -15,6 +17,7 @@ withDefaults(
     size: 'size-10',
     radius: 'rounded',
     iconSize: 'size-4',
+    sizes: '48px',
   },
 );
 </script>
@@ -27,7 +30,7 @@ withDefaults(
       type="product"
       :alt="alt ?? ''"
       aspect-ratio="1"
-      sizes="48px"
+      :sizes="sizes"
     />
     <div v-else class="bg-muted flex size-full items-center justify-center">
       <ImageOff :class="['text-muted-foreground', iconSize]" />

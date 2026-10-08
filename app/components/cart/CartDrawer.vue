@@ -131,7 +131,7 @@ function goToCheckout() {
           <div class="flex flex-1 flex-col overflow-hidden">
             <div class="flex-1 overflow-y-auto px-6 py-4">
               <CartSkippedNote class="mb-2" />
-              <div class="divide-border divide-y">
+              <div>
                 <CartItem
                   v-for="item in cartStore.cart?.items"
                   :key="item.id"

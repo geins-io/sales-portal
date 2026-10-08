@@ -126,6 +126,15 @@ describe('PriceDisplay', () => {
       expect(wrapper.text()).toContain('159,20 kr');
       expect(wrapper.text()).toContain('common.vat_excl');
     });
+
+    it('leaves the VAT word to the caller when asked to', () => {
+      mockShowIncVat.value = false;
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice(), vatLabel: false },
+      });
+      expect(wrapper.text()).toContain('159,20 kr');
+      expect(wrapper.text()).not.toContain('common.vat_excl');
+    });
   });
 
   it('shows crossed-out regular price when discounted', () => {

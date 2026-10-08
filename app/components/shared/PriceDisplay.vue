@@ -14,6 +14,8 @@ const props = withDefaults(
     /** The line's quantity when `price` is a line total; widens the rounding threshold. */
     quantity?: number;
     showVat?: boolean;
+    /** Off when the caller prints the VAT word itself. */
+    vatLabel?: boolean;
     showDiscount?: boolean;
     fromPrice?: boolean;
     lowestPrice?: LowestPriceInfo;
@@ -33,6 +35,7 @@ const props = withDefaults(
     // coercion so an omitted showVat stays undefined and effectiveShowVat can fall
     // back to the user's VAT preference. An explicitly passed true/false still wins.
     showVat: undefined,
+    vatLabel: true,
     showDiscount: true,
     fromPrice: false,
   },
@@ -148,9 +151,11 @@ const lowestPriceFormatted = computed(() => {
       >
         {{ discountLabel }}
       </span>
-      <span v-if="!effectiveShowVat" class="text-muted-foreground text-xs">{{
-        t('common.vat_excl')
-      }}</span>
+      <span
+        v-if="vatLabel && !effectiveShowVat"
+        class="text-muted-foreground text-xs"
+        >{{ t('common.vat_excl') }}</span
+      >
     </div>
     <div
       v-if="showPrice && lowestPriceFormatted"
