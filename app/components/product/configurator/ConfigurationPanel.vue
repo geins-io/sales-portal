@@ -13,8 +13,6 @@ import type { Configuration } from '#shared/types/configurator';
 import {
   currencyCode,
   exVatAmount,
-  incVatAmount,
-  vatAmount,
   vatRatePercent,
 } from '#shared/utils/configurator-price';
 import type { ConfiguratorSessionStatus } from '~/composables/useConfiguratorSession';
@@ -35,6 +33,7 @@ import {
 import { optionPricePrefix } from '~/utils/configurator-form';
 import {
   groupSpecificationRows,
+  panelTotals,
   specificationRows,
   specificationText,
   type SpecificationValue,
@@ -92,10 +91,12 @@ function money(net: number): string {
 
 /**
  * Net leads and VAT and the total support it, as the prototype. Every figure is
- * the unit price as sent, already net of any discount; none is derived from
- * another.
+ * for the whole quantity, from the unit price as sent, already net of any
+ * discount; none is derived from another.
  */
-const price = computed(() => money(exVatAmount(configuration?.unitPrice)));
+const totals = computed(() => panelTotals(configuration));
+
+const price = computed(() => money(totals.value?.net ?? 0));
 
 const vatLabel = computed(() => {
   const rate = vatRatePercent(configuration?.unitPrice);
@@ -105,10 +106,10 @@ const vatLabel = computed(() => {
 });
 
 const supportingRows = computed(() => [
-  { label: vatLabel.value, amount: money(vatAmount(configuration?.unitPrice)) },
+  { label: vatLabel.value, amount: money(totals.value?.vat ?? 0) },
   {
     label: t('configurator.panel.inc_vat'),
-    amount: money(incVatAmount(configuration?.unitPrice)),
+    amount: money(totals.value?.incVat ?? 0),
   },
 ]);
 

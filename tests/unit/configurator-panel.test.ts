@@ -5,6 +5,7 @@ import {
   collectBlockingItems,
   collectBlockingMessages,
   groupSpecificationRows,
+  panelTotals,
   specificationRows,
   specificationText,
   unnamedBlockingMessages,
@@ -852,5 +853,59 @@ describe('specificationText', () => {
 
     expect(text).not.toContain('Nettopris');
     expect(text).toContain('  Colour:');
+  });
+});
+
+describe('panelTotals', () => {
+  // Amounts that do not add up prove each total is its own amount times the
+  // quantity, never derived from another.
+  function pricedAt(quantity: number): Configuration {
+    const config = makeValidConfiguration();
+    config.quantity = quantity;
+    config.unitPrice = {
+      sellingPriceExVat: 1000,
+      sellingPriceIncVat: 1300,
+      vat: 120,
+      currency: { code: 'SEK' },
+    };
+    return config;
+  }
+
+  it('answers the unit amounts at quantity 1', () => {
+    expect(panelTotals(pricedAt(1))).toEqual({
+      net: 1000,
+      vat: 120,
+      incVat: 1300,
+    });
+  });
+
+  it('multiplies each amount by the quantity', () => {
+    expect(panelTotals(pricedAt(3))).toEqual({
+      net: 3000,
+      vat: 360,
+      incVat: 3900,
+    });
+  });
+
+  it('multiplies the unrounded unit amount, as the cart line does', () => {
+    const config = pricedAt(3);
+    config.unitPrice = { sellingPriceExVat: 2118.9384230567 };
+    expect(panelTotals(config)?.net).toBeCloseTo(6356.815269, 6);
+  });
+
+  it('counts an amount the price leaves out as zero', () => {
+    const config = pricedAt(3);
+    config.unitPrice = { sellingPriceExVat: 1000 };
+    expect(panelTotals(config)).toEqual({ net: 3000, vat: 0, incVat: 0 });
+  });
+
+  it('answers nothing for a configuration without a unit price', () => {
+    const config = pricedAt(3);
+    Reflect.deleteProperty(config, 'unitPrice');
+    expect(panelTotals(config)).toBeNull();
+  });
+
+  it('answers nothing without a configuration', () => {
+    expect(panelTotals(null)).toBeNull();
   });
 });
