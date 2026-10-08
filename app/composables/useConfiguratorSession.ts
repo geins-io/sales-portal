@@ -1,5 +1,6 @@
 import {
   defaultDocument,
+  defaultWindow,
   useEventListener,
   useIdle,
   useIntervalFn,
@@ -125,6 +126,11 @@ export interface ConfiguratorSessionOptions {
     committed: CommittedConfiguration,
     line: CartLineRef,
   ) => Promise<CartLineRef | null>;
+  /**
+   * The page came back from the back-forward cache after its session was
+   * deleted on leaving, and has to open one again.
+   */
+  onReturn?: () => void;
 }
 
 /**
@@ -155,6 +161,7 @@ export function reopenFailure(
 export function useConfiguratorSession({
   addLine,
   replaceLine,
+  onReturn,
 }: ConfiguratorSessionOptions = {}) {
   const configuration = ref<Configuration | null>(null);
   /**
@@ -218,7 +225,46 @@ export function useConfiguratorSession({
    */
   let disposed = false;
 
+  /** The session deleted when the buyer left, which is never sent twice. */
+  let leftId: string | null = null;
+
+  /**
+   * Deletes the open session when the buyer leaves. Outside `run`, which
+   * refuses once the page has gone, and `keepalive` so the request outlives a
+   * closed tab. Not during a commit or its add: the session is still active
+   * then, with an id that has been committed.
+   */
+  function leave(): void {
+    const id = liveId();
+    if (!id || id === leftId || running === 'commit') return;
+    leftId = id;
+    void Promise.resolve(
+      $fetch(`/api/configurations/${id}`, {
+        method: 'DELETE',
+        keepalive: true,
+      }),
+    ).catch(() => {});
+  }
+
+  // An in-app navigation unmounts the page; a closed tab or a full load only
+  // hides the document.
+  useEventListener(defaultWindow, 'pagehide', leave);
+  // A page the back-forward cache brings back holds the session it deleted.
+  useEventListener(defaultWindow, 'pageshow', (event: PageTransitionEvent) => {
+    const held = configuration.value;
+    if (!event.persisted || !held || held.configurationId !== leftId) return;
+    leftId = null;
+    pressed = null;
+    configuration.value = null;
+    notReopened.value = false;
+    notReplayed.value = false;
+    notRestored.value = false;
+    status.value = 'idle';
+    onReturn?.();
+  });
+
   onScopeDispose(() => {
+    leave();
     disposed = true;
     pressed = null;
     inFlight?.abort();

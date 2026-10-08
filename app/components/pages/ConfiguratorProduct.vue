@@ -262,6 +262,7 @@ const {
   },
   replaceLine: (record, line) =>
     cart.replaceConfiguredItem(record.committedConfigurationId, line),
+  onReturn: open,
 });
 
 /** Which verb failed last; see `refusedChange`. */
@@ -316,7 +317,12 @@ function dropReplayQuery(): void {
   void router.replace({ query: withoutReplay(route.query) });
 }
 
-onMounted(() => {
+/**
+ * What the URL asks for: a line to edit, an order row to replay, or the
+ * defaults. On mount, and again when the back-forward cache brings back a
+ * page whose session was deleted on leaving, as a reload of the URL would.
+ */
+function open(): void {
   const target = editTarget(route.query, cart.cartId);
   if (target.line) return void edit(productId.value, target.line);
   if (target.stale) {
@@ -330,7 +336,9 @@ onMounted(() => {
     dropReplayQuery();
   }
   void start(productId.value);
-});
+}
+
+onMounted(open);
 
 /**
  * "Ändra" on a line of the product already on screen — the drawer's link after

@@ -258,6 +258,7 @@ interface MockSession {
       committed: CommittedConfiguration,
       line: { cartId: string; itemId: string },
     ) => Promise<{ cartId: string; itemId: string } | null>;
+    onReturn: () => void;
   };
 }
 
@@ -512,6 +513,33 @@ describe('ConfiguratorProduct session', () => {
     mountPage();
 
     expect(session.start).toHaveBeenCalledWith('1101');
+  });
+
+  // The session it held was deleted when the buyer left.
+  it('opens again as on mount when the back-forward cache brings the page back', async () => {
+    mountPage();
+    session.start.mockClear();
+
+    session.options.onReturn();
+
+    expect(session.start).toHaveBeenCalledTimes(1);
+    expect(session.start).toHaveBeenCalledWith('1101');
+  });
+
+  it('reopens the line it was editing when the back-forward cache brings the page back', async () => {
+    cartStore.cartId = 'cart-1';
+    route.value.query = { cart: 'cart-1', line: 'item-1' };
+    mountPage();
+    await flushPromises();
+    session.edit.mockClear();
+
+    session.options.onReturn();
+
+    expect(session.edit).toHaveBeenCalledWith('1101', {
+      cartId: 'cart-1',
+      itemId: 'item-1',
+    });
+    expect(session.start).not.toHaveBeenCalled();
   });
 
   it('shows the starting state until a document arrives', () => {

@@ -35,6 +35,7 @@ interface RequestOptions {
   method?: string;
   body?: unknown;
   signal?: AbortSignal;
+  keepalive?: boolean;
 }
 
 const mockFetch = vi.fn<(url: string, options?: RequestOptions) => unknown>();
@@ -2569,6 +2570,296 @@ describe('useConfiguratorSession', () => {
 
       expect(session.error.value).toBeNull();
       expect(session.busy.value).toBe(false);
+    });
+  });
+
+  // Leaving is either the page unmounting (a navigation inside the app) or the
+  // document going (a closed tab, a full load), where only `pagehide` runs.
+  describe('leaving the page', () => {
+    const LINE = { cartId: 'cart-1', itemId: 'item-1' };
+    const addLine =
+      vi.fn<(committed: CommittedConfiguration) => Promise<unknown>>();
+    const onReturn = vi.fn();
+
+    function deletes(): { url: string; options: RequestOptions }[] {
+      return mockFetch.mock.calls
+        .filter(([, options]) => options?.method === 'DELETE')
+        .map(([url, options]) => ({ url, options: options ?? {} }));
+    }
+
+    function cartCalls(): string[] {
+      return mockFetch.mock.calls
+        .map(([url]) => url)
+        .filter(
+          (url) =>
+            url.endsWith('/cart') || url === '/api/configurations/reopen',
+        );
+    }
+
+    function pageEvent(type: 'pagehide' | 'pageshow', persisted: boolean) {
+      window.dispatchEvent(Object.assign(new Event(type), { persisted }));
+    }
+
+    async function startedWith(document: Configuration): Promise<{
+      session: ReturnType<typeof useConfiguratorSession>;
+      scope: EffectScope;
+    }> {
+      mockFetch.mockResolvedValue(document);
+      const scope = effectScope();
+      const session = scope.run(() =>
+        useConfiguratorSession({
+          addLine: addLine as (
+            committed: CommittedConfiguration,
+          ) => Promise<{ cartId: string; itemId: string } | null>,
+          onReturn,
+        }),
+      );
+      if (!session) throw new Error('The scope produced no session');
+      scopes.push(scope);
+      await session.start(PRODUCT_ID);
+      mockFetch.mockReset().mockResolvedValue(null);
+      return { session, scope };
+    }
+
+    beforeEach(() => {
+      addLine.mockReset().mockResolvedValue(LINE);
+      onReturn.mockReset();
+    });
+
+    it('deletes the open session once when the page unmounts, in a request that outlives the page', async () => {
+      const initial = makeInitialConfiguration();
+      const { scope } = await startedWith(initial);
+
+      scope.stop();
+
+      expect(deletes()).toEqual([
+        {
+          url: `/api/configurations/${initial.configurationId}`,
+          options: { method: 'DELETE', keepalive: true },
+        },
+      ]);
+    });
+
+    it('deletes the open session when the document goes, and once only when the page unmounts after', async () => {
+      const initial = makeInitialConfiguration();
+      const { scope } = await startedWith(initial);
+
+      pageEvent('pagehide', false);
+      pageEvent('pagehide', true);
+      scope.stop();
+
+      expect(deletes().map(({ url }) => url)).toEqual([
+        `/api/configurations/${initial.configurationId}`,
+      ]);
+    });
+
+    it('sends nothing for a session that never started', () => {
+      const scope = effectScope();
+      scope.run(() => useConfiguratorSession());
+
+      pageEvent('pagehide', false);
+      scope.stop();
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('sends nothing for a session that has expired', async () => {
+      const { session, scope } = await startedWith(makeInitialConfiguration());
+      mockFetch.mockRejectedValueOnce(fetchError(410, 'Gone'));
+      await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
+      expect(session.status.value).toBe('expired');
+      mockFetch.mockClear();
+
+      scope.stop();
+
+      expect(deletes()).toEqual([]);
+    });
+
+    it('sends nothing more for a session it has released', async () => {
+      const { session, scope } = await startedWith(makeInitialConfiguration());
+      await session.release();
+      mockFetch.mockClear();
+
+      scope.stop();
+
+      expect(deletes()).toEqual([]);
+    });
+
+    it('sends nothing while it holds a record whose add failed', async () => {
+      const valid = makeValidConfiguration();
+      const { session, scope } = await startedWith(valid);
+      mockFetch.mockResolvedValue(committedFrom(valid));
+      addLine.mockRejectedValueOnce(fetchError(502, 'Bad gateway'));
+      await session.commit();
+      expect(session.committed.value).not.toBeNull();
+      mockFetch.mockClear();
+
+      scope.stop();
+
+      expect(deletes()).toEqual([]);
+    });
+
+    // Between the commit's answer and the add's, the session is still active
+    // and its id is a committed one.
+    it('sends nothing while the commit is in flight', async () => {
+      const valid = makeValidConfiguration();
+      const { session, scope } = await startedWith(valid);
+      mockFetch.mockReturnValue(deferred<CommittedConfiguration>().promise);
+      void session.commit();
+
+      scope.stop();
+
+      expect(deletes()).toEqual([]);
+    });
+
+    it('sends nothing while the add is in flight', async () => {
+      const valid = makeValidConfiguration();
+      const { session, scope } = await startedWith(valid);
+      mockFetch.mockResolvedValue(committedFrom(valid));
+      addLine.mockReturnValueOnce(deferred<typeof LINE>().promise);
+      void session.commit();
+      await vi.waitFor(() => expect(addLine).toHaveBeenCalledTimes(1));
+      expect(session.status.value).toBe('active');
+
+      pageEvent('pagehide', false);
+      scope.stop();
+
+      expect(deletes()).toEqual([]);
+    });
+
+    it('deletes the session after an add, the one reopened from the new line, and touches no line', async () => {
+      const valid = makeValidConfiguration();
+      const { session, scope } = await startedWith(valid);
+      mockFetch.mockImplementation(async (url) => {
+        if (url.endsWith('/commit')) return committedFrom(valid);
+        if (url === '/api/configurations/reopen') {
+          return { ...valid, configurationId: 'reopened-1' };
+        }
+        return null;
+      });
+      await session.commit();
+      const before = cartCalls();
+      mockFetch.mockClear();
+
+      scope.stop();
+
+      expect(before).toEqual(['/api/configurations/reopen']);
+      expect(deletes().map(({ url }) => url)).toEqual([
+        '/api/configurations/reopened-1',
+      ]);
+      expect(cartCalls()).toEqual([]);
+      expect(addLine).toHaveBeenCalledTimes(1);
+    });
+
+    it('aborts a change batch in flight and still deletes the session', async () => {
+      const initial = makeInitialConfiguration();
+      const { session, scope } = await startedWith(initial);
+      mockFetch.mockReturnValueOnce(deferred<Configuration>().promise);
+      void session.applyChanges([{ type: 'quantity', quantity: 2 }]);
+      const { options: batch } = lastRequest();
+
+      scope.stop();
+
+      expect(batch.signal?.aborted).toBe(true);
+      expect(deletes().map(({ url }) => url)).toEqual([
+        `/api/configurations/${initial.configurationId}`,
+      ]);
+    });
+
+    describe('coming back to the page from the back-forward cache', () => {
+      it('drops the deleted session and asks the page to open again', async () => {
+        const { session } = await startedWith(makeInitialConfiguration());
+
+        pageEvent('pagehide', true);
+        pageEvent('pageshow', true);
+
+        expect(session.configuration.value).toBeNull();
+        expect(session.status.value).toBe('idle');
+        expect(onReturn).toHaveBeenCalledTimes(1);
+      });
+
+      it('forgets what the deleted session said about its choices', async () => {
+        const { session } = await startedWith(makeInitialConfiguration());
+        session.notReopened.value = true;
+        session.notReplayed.value = true;
+        session.notRestored.value = true;
+
+        pageEvent('pagehide', true);
+        pageEvent('pageshow', true);
+
+        expect(session.notReopened.value).toBe(false);
+        expect(session.notReplayed.value).toBe(false);
+        expect(session.notRestored.value).toBe(false);
+      });
+
+      it('drops the deleted session without a page to tell', async () => {
+        mockFetch.mockResolvedValue(makeInitialConfiguration());
+        const session = open();
+        await session.start(PRODUCT_ID);
+        const errors = vi.fn();
+        window.addEventListener('error', errors);
+
+        pageEvent('pagehide', true);
+        pageEvent('pageshow', true);
+        window.removeEventListener('error', errors);
+
+        expect(session.status.value).toBe('idle');
+        expect(errors).not.toHaveBeenCalled();
+      });
+
+      it('does nothing on a show that is not from the cache', async () => {
+        const initial = makeInitialConfiguration();
+        const { session } = await startedWith(initial);
+
+        pageEvent('pagehide', false);
+        pageEvent('pageshow', false);
+
+        expect(session.configuration.value).toEqual(initial);
+        expect(onReturn).not.toHaveBeenCalled();
+      });
+
+      it('deletes the next session when the page is left again', async () => {
+        const { session } = await startedWith(makeInitialConfiguration());
+        pageEvent('pagehide', true);
+        pageEvent('pageshow', true);
+        const next = {
+          ...makeInitialConfiguration(),
+          configurationId: 'next-1',
+        };
+        mockFetch.mockResolvedValueOnce(next);
+        await session.start(PRODUCT_ID);
+        mockFetch.mockClear();
+
+        pageEvent('pagehide', false);
+
+        expect(deletes().map(({ url }) => url)).toEqual([
+          '/api/configurations/next-1',
+        ]);
+      });
+
+      it('does nothing on a first show', async () => {
+        const initial = makeInitialConfiguration();
+        const { session } = await startedWith(initial);
+
+        pageEvent('pageshow', false);
+        pageEvent('pageshow', true);
+
+        expect(session.configuration.value).toEqual(initial);
+        expect(onReturn).not.toHaveBeenCalled();
+      });
+
+      it('keeps a session it did not delete', async () => {
+        const valid = makeValidConfiguration();
+        const { session } = await startedWith(valid);
+        mockFetch.mockReturnValue(deferred<CommittedConfiguration>().promise);
+        void session.commit();
+
+        pageEvent('pagehide', true);
+        pageEvent('pageshow', true);
+
+        expect(session.configuration.value).toEqual(valid);
+        expect(onReturn).not.toHaveBeenCalled();
+      });
     });
   });
 });

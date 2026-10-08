@@ -1231,3 +1231,73 @@ test.describe('Configurator press straight after typing', () => {
     }
   });
 });
+
+test.describe('Configurator leaving the page', () => {
+  /** Opens the configurator and answers the id of the session it created. */
+  async function openedSession(page: Page): Promise<string> {
+    const created = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/configurations' &&
+        response.request().method() === 'POST',
+    );
+    await openConfigurator(page);
+    const { configurationId } = (await (await created).json()) as {
+      configurationId: string;
+    };
+    await expect(action(page)).toHaveAttribute('aria-busy', 'false');
+    return configurationId;
+  }
+
+  function deletesOf(page: Page): string[] {
+    const urls: string[] = [];
+    page.on('request', (request) => {
+      if (
+        request.method() === 'DELETE' &&
+        /\/api\/configurations\/[^/]+$/.test(request.url())
+      ) {
+        urls.push(new URL(request.url()).pathname);
+      }
+    });
+    return urls;
+  }
+
+  test('deletes the session when the buyer navigates away inside the app', async ({
+    page,
+  }) => {
+    const unavailable = await unavailableReason(page);
+    outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
+
+    const id = await openedSession(page);
+    const deletes = deletesOf(page);
+    const deleted = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'DELETE' &&
+        new URL(response.url()).pathname === `/api/configurations/${id}`,
+    );
+
+    await page.getByTestId('topbar-portal').click();
+    await page.waitForURL(/\/portal/);
+
+    expect((await deleted).status()).toBe(204);
+    expect(deletes).toEqual([`/api/configurations/${id}`]);
+  });
+
+  test('deletes the session when the buyer loads another page', async ({
+    page,
+  }) => {
+    const unavailable = await unavailableReason(page);
+    outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
+
+    const id = await openedSession(page);
+    const deleted = page.waitForRequest(
+      (request) =>
+        request.method() === 'DELETE' &&
+        new URL(request.url()).pathname === `/api/configurations/${id}`,
+    );
+
+    // A full load: the page is not unmounted, only hidden.
+    await page.goto('/');
+
+    await deleted;
+  });
+});
