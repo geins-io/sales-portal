@@ -17,6 +17,7 @@ import type {
   ValueSource,
 } from '#shared/types/configurator';
 import { logger } from '../../utils/logger';
+import { cartLineConfiguration, summaryRows } from '../line-configuration';
 import type { OrderLineChoices } from '../configurator';
 import type {
   CommittedConfigurationOptionGroupType,
@@ -28,7 +29,6 @@ import type {
   ConfigurationOptionGroupType,
   ConfigurationOptionType,
   ConfigurationSectionType,
-  ConfigurationSummaryLineType,
   ConfigurationType,
   ConfigurationValue as SdkConfigurationValue,
   ConfigurationVariableType,
@@ -289,15 +289,8 @@ export function mapCommittedConfiguration(
     unitPrice: price(wire.unitPrice),
     discountPercent: decimal(wire.discountPercent) ?? 0,
     ...optional('weightPerUnit', decimal(wire.weightPerUnit)),
-    summary: summaryLines(wire.summary),
+    summary: summaryRows(wire.summary),
   };
-}
-
-function summaryLines(list: ConfigurationSummaryLineType[]) {
-  return list.map((line) => ({
-    label: line.label ?? '',
-    value: line.value ?? '',
-  }));
 }
 
 /** The configured lines of a cart by item id; a plain line is not in it. */
@@ -306,11 +299,8 @@ export function mapCartLineConfigurations(
 ): Map<string, CartLineConfiguration> {
   const lines = new Map<string, CartLineConfiguration>();
   for (const line of cart.items) {
-    if (!line.id || !line.configurationId) continue;
-    lines.set(line.id, {
-      configurationId: line.configurationId,
-      summary: summaryLines(line.configuration?.summary ?? []),
-    });
+    const configuration = cartLineConfiguration(line);
+    if (line.id && configuration) lines.set(line.id, configuration);
   }
   return lines;
 }
@@ -330,7 +320,7 @@ export function mapOrderLineConfigurations(
       productId: line.product?.productId ?? null,
       type: line.product?.type ?? null,
       configuration: line.configuration && {
-        summary: summaryLines(line.configuration.summary),
+        summary: summaryRows(line.configuration.summary),
       },
     });
   });

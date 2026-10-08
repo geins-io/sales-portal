@@ -183,18 +183,21 @@ describe('getConfiguratorBackend', () => {
   it.each([
     ['off', 'off'],
     ['an absent key', undefined],
-    ['fixture', 'fixture'],
-  ])(
+  ])('has no cart line read on %s', (_label, value) => {
+    expect(withBackend(value).cartLineConfigurations).toBeUndefined();
+  });
+
+  it.each([['fixture', 'fixture']])(
     'answers no configured cart lines on %s, without a request',
     async (_label, value) => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch');
 
-      const lines = await withBackend(value).cartLineConfigurations(
+      const lines = await withBackend(value).cartLineConfigurations?.(
         'cart-1',
         CTX,
       );
 
-      expect(lines.size).toBe(0);
+      expect(lines?.size).toBe(0);
       expect(fetchSpy).not.toHaveBeenCalled();
       fetchSpy.mockRestore();
     },

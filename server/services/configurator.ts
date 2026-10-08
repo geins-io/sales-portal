@@ -147,10 +147,12 @@ export interface ConfiguratorBackend {
     quantity?: number,
   ): Promise<{ itemId: string }>;
   /**
-   * What each configured line of a cart was committed with, by item id. The
-   * cart itself is the portal's ordinary read; this is merged into it.
+   * What each configured line of a cart was committed with, by item id, merged
+   * into the portal's ordinary cart read. Only for a backend whose configured
+   * lines the cart cannot carry: the fixture's are plain Geins lines. A real
+   * backend's lines carry their configuration in the cart itself.
    */
-  cartLineConfigurations(
+  cartLineConfigurations?(
     cartId: string,
     ctx: ConfiguratorContext,
   ): Promise<Map<string, CartLineConfiguration>>;
@@ -246,9 +248,7 @@ function rejectingBackend(
     reopen: reject,
     replaceLine: reject,
     orderLineChoices: reject,
-    // Asked of every cart and order, not of a request to configure: no lines,
-    // no error.
-    cartLineConfigurations: async () => new Map(),
+    // Asked of every order, not of a request to configure: no lines, no error.
     orderLineConfigurations: async () => new Map(),
   };
 }

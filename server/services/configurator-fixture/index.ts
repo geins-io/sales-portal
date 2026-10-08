@@ -38,6 +38,10 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 
 export interface FixtureConfiguratorBackend extends ConfiguratorBackend {
+  /** Its lines are plain Geins lines, so it always reads them itself. */
+  cartLineConfigurations: NonNullable<
+    ConfiguratorBackend['cartLineConfigurations']
+  >;
   /**
    * Whether the id is one of this fixture's sessions, finished ones included.
    * The composite backend routes an id-only call by it, so it answers and

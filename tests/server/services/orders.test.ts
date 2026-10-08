@@ -451,6 +451,48 @@ describe('orders service', () => {
         ).resolves.toEqual({ ...bare, reorderable: false });
       });
 
+      it("puts on a row only the configuration the cpq read gave it, never the SDK row's own fields", async () => {
+        mockOrderGet.mockResolvedValueOnce({
+          publicId: 'abc-123',
+          cart: {
+            items: [
+              {
+                skuId: 20,
+                product: { productId: 1359 },
+                configurationId: 'committed-1',
+                configuration: { summary: [{ label: 'Adapter', value: null }] },
+              },
+              {
+                skuId: 10,
+                product: { productId: 7 },
+                configurationId: undefined,
+                configuration: undefined,
+              },
+            ],
+          },
+        });
+        orderLineConfigurations.mockResolvedValueOnce(
+          new Map([
+            [0, line(1359, 'configurable', SUMMARY)],
+            [1, line(7, 'product')],
+          ]),
+        );
+
+        const order = await ordersService.getOrder(
+          { publicOrderId: 'abc-123' },
+          mockEvent,
+        );
+
+        expect(order?.cart?.items).toStrictEqual([
+          {
+            skuId: 20,
+            product: { productId: 1359, configurable: true },
+            configuration: { summary: SUMMARY },
+          },
+          { skuId: 10, product: { productId: 7 } },
+        ]);
+      });
+
       it('skips a null row and keeps its position', async () => {
         mockOrderGet.mockResolvedValueOnce({
           publicId: 'abc-123',

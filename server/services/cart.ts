@@ -1,8 +1,12 @@
-import type { CartType as SdkCartType } from '@geins/types';
+import type {
+  CartItemType as SdkCartItemType,
+  CartType as SdkCartType,
+} from '@geins/types';
 import { CartError } from '@geins/core';
 import type { H3Event } from 'h3';
 import type {
   CartItemInputType,
+  CartItemType,
   CartLineConfiguration,
   CartType,
 } from '#shared/types/commerce';
@@ -17,10 +21,12 @@ import {
   getConfiguratorBackend,
   type ConfiguratorBackend,
 } from './configurator';
+import { cartLineConfiguration } from './line-configuration';
 
 // ---------------------------------------------------------------------------
-// The SDK's cart, with each configured line's configuration merged in from the
-// configurator backend's own read, until the SDK's cart carries it.
+// The SDK's cart, each configured line's configuration read from the line
+// itself. The fixture's lines are plain Geins lines, so its configurations are
+// merged in from its own read.
 // ---------------------------------------------------------------------------
 
 /** The configurator backend, when the request may have configured lines at all. */
@@ -38,7 +44,7 @@ async function lineConfigurations(
   event: H3Event,
   backend: ConfiguratorBackend | null,
 ): Promise<Map<string, CartLineConfiguration>> {
-  if (!backend) return new Map();
+  if (!backend?.cartLineConfigurations) return new Map();
   try {
     return await backend.cartLineConfigurations(
       cartId,
@@ -50,17 +56,27 @@ async function lineConfigurations(
   }
 }
 
+function fromSdkLine({
+  configurationId,
+  configuration,
+  ...line
+}: SdkCartItemType): CartItemType {
+  const read = cartLineConfiguration({ configurationId, configuration });
+  return read ? { ...line, configuration: read } : line;
+}
+
 function withLineConfigurations(
   cart: SdkCartType,
   lines: Map<string, CartLineConfiguration>,
 ): CartType {
   // The SDK answers null for a cart it cannot find, whatever its type says.
-  if (!cart || lines.size === 0) return cart;
+  if (!cart) return cart;
   return {
     ...cart,
     items: cart.items.map((item) => {
       const configuration = item.id ? lines.get(item.id) : undefined;
-      return configuration ? { ...item, configuration } : item;
+      const line = fromSdkLine(item);
+      return configuration ? { ...line, configuration } : line;
     }),
   };
 }
@@ -151,11 +167,18 @@ export async function updateItem(
   const backend = await configuratorFor(event);
   if (backend && input.id && input.quantity > 0) {
     const configuratorCtx = await buildConfiguratorRequestContext(event);
-    const configured = await backend.cartLineConfigurations(
-      cartId,
-      configuratorCtx,
+    const [cart, lines] = await Promise.all([
+      wrapServiceCall(
+        () => oms.cart.get(cartId, false, ctx),
+        'cart',
+        CartError,
+      ),
+      backend.cartLineConfigurations?.(cartId, configuratorCtx),
+    ]);
+    const line = withLineConfigurations(cart, lines ?? new Map())?.items.find(
+      (item) => item.id === input.id,
     );
-    if (configured.has(input.id)) {
+    if (line?.configuration) {
       await changeConfiguredQuantity(
         backend,
         cartId,
@@ -232,14 +255,15 @@ export async function copyCart(
   // A configured line that cannot be carried fails the copy.
   return wrapServiceCall(
     async () => {
-      const [guest, configured] = await Promise.all([
+      const [guest, lines] = await Promise.all([
         oms.cart.get(cartId, false, ctx),
-        backend.cartLineConfigurations(cartId, configuratorCtx),
+        backend.cartLineConfigurations?.(cartId, configuratorCtx),
       ]);
       const authed = await oms.cart.create(ctx);
-      for (const item of guest.items ?? []) {
+      const { items } = withLineConfigurations(guest, lines ?? new Map());
+      for (const item of items) {
         if (item.skuId == null || item.quantity <= 0) continue;
-        const configuration = item.id ? configured.get(item.id) : undefined;
+        const { configuration } = item;
         if (configuration) {
           await backend.addToCart(
             authed.id,

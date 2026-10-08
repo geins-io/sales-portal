@@ -123,7 +123,11 @@ export interface OrderLineRead {
   configuration: LineConfigurationSummary | null;
 }
 
-export type CartItemType = SdkCartItemType & {
+/** The SDK's line, its configuration fields read into one. */
+export type CartItemType = Omit<
+  SdkCartItemType,
+  'configurationId' | 'configuration'
+> & {
   configuration?: CartLineConfiguration;
 };
 
@@ -407,7 +411,10 @@ export interface OrderListItem {
 // ---------------------------------------------------------------------------
 // Order detail (the SDK's order, a row extended with its configuration)
 // ---------------------------------------------------------------------------
-export type OrderDetailItem = Omit<SdkCartItemType, 'product'> & {
+export type OrderDetailItem = Omit<
+  SdkCartItemType,
+  'product' | 'configurationId' | 'configuration'
+> & {
   product?: SdkCartItemType['product'] & { configurable?: true };
   configuration?: LineConfigurationSummary;
 };

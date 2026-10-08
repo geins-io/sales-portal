@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
 import { reactive } from 'vue';
 import { mountComponent } from '../../utils/component';
 import CheckoutCartItems from '../../../app/components/checkout/CheckoutCartItems.vue';
-import type { CartItemType } from '@geins/types';
-import type { CartLineConfiguration } from '../../../shared/types/commerce';
+import type {
+  CartItemType,
+  CartLineConfiguration,
+} from '../../../shared/types/commerce';
 
 // Mock the cart store
 const mockUpdateQuantity = vi.fn();
