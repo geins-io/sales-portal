@@ -9,6 +9,7 @@ import {
   Download,
   ListPlus,
   ShoppingCart,
+  SlidersHorizontal,
   Star,
 } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
@@ -589,9 +590,45 @@ useProductSeo({
               :variant-products="variantProductsByAlias"
             />
           </template>
+
+          <Alert
+            v-else
+            role="note"
+            class="bg-muted/30 max-w-md border-dashed"
+            data-testid="pdp-sign-in-to-configure-box"
+          >
+            <SlidersHorizontal />
+            <AlertTitle>{{
+              $t('configurator.configurable_product')
+            }}</AlertTitle>
+            <AlertDescription>
+              <p>{{ $t('configurator.sign_in_as_business_customer') }}</p>
+              <button
+                type="button"
+                class="text-primary mt-1.5 font-medium underline-offset-4 hover:underline"
+                data-testid="pdp-sign-in-to-configure"
+                @click="authStore.openSheet()"
+              >
+                {{ $t('auth.sign_in') }}
+              </button>
+            </AlertDescription>
+          </Alert>
         </template>
 
         <template #aside>
+          <!-- Disabled, with no handler: a guest never adds a configurable
+               product. Sign-in is reached from the box. -->
+          <Button
+            v-if="signInToConfigure"
+            variant="secondary"
+            class="w-full gap-2"
+            disabled
+            data-testid="pdp-sign-in-to-order"
+          >
+            <ShoppingCart class="size-4" />
+            {{ $t('configurator.sign_in_to_order') }}
+          </Button>
+
           <!-- Quantity + Add to cart + Wishlist -->
           <template v-if="canPurchase && !signInToConfigure">
             <OutOfStockBlock v-if="isOutOfStock" />
@@ -696,27 +733,6 @@ useProductSeo({
               </span>
             </NuxtLink>
           </div>
-
-          <!-- In the configurator page note's place; the link sits inside
-               the sentence in every language. -->
-          <i18n-t
-            v-if="signInToConfigure"
-            keypath="configurator.sign_in_to_configure"
-            tag="p"
-            class="text-muted-foreground text-xs"
-            data-testid="pdp-sign-in-to-configure-note"
-          >
-            <template #link>
-              <button
-                type="button"
-                class="text-foreground font-medium underline underline-offset-4 hover:no-underline"
-                data-testid="pdp-sign-in-to-configure"
-                @click="authStore.openSheet()"
-              >
-                {{ $t('auth.sign_in') }}
-              </button>
-            </template>
-          </i18n-t>
         </template>
       </ProductTopArea>
 
