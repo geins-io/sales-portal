@@ -36,6 +36,7 @@ import {
   editOpenRetryable,
   failureKey,
   formError,
+  quantityToFollow,
   refusedChange,
   replaceFailureKey,
   replaceRetryable,
@@ -44,6 +45,7 @@ import {
   startFailureKey,
   stickyBoxMaxHeight,
   type ConfiguratorAction,
+  type FollowedQuantity,
 } from '~/utils/configurator-page';
 import {
   activeIndex,
@@ -233,6 +235,7 @@ const {
   notReplayed,
   notRestored,
   editing,
+  source,
   editNotice,
   status,
   busy,
@@ -381,6 +384,8 @@ const commitEnabled = computed(() =>
     configuration: configuration.value,
     busy: busy.value,
     skuId: skuId.value,
+    lineQuantity: lineQuantity.value,
+    linePending: linePending.value,
   }),
 );
 
@@ -582,6 +587,47 @@ function onChange(changes: ConfigurationChange[]): void {
   void applyChanges(changes);
 }
 
+// ---------------------------------------------------------------------------
+// Following the line's quantity
+//
+// The cart changes a configured line's quantity on the server, in a session of
+// its own. The session this page holds from that line is told the new quantity
+// as an ordinary change, so the panel and the next add or update use it.
+// ---------------------------------------------------------------------------
+
+/** The quantity the cart holds the held session's line at, if it holds it. */
+const lineQuantity = computed(() => {
+  const line = source.value;
+  if (!line || line.cartId !== cart.cartId) return null;
+  return (
+    cart.cart?.items?.find((item) => item.id === line.itemId)?.quantity ?? null
+  );
+});
+
+/** The cart is still settling or sending a quantity change of that line. */
+const linePending = computed(() => {
+  const id = source.value?.itemId;
+  return !!id && (cart.pendingQuantities.has(id) || cart.updatingItems.has(id));
+});
+
+/** Waiting on the session or on the cart; either way the action holds. */
+const waiting = computed(() => busy.value || linePending.value);
+
+let followed: FollowedQuantity | null = null;
+
+watch([lineQuantity, configuration, status, busy], () => {
+  const quantity = quantityToFollow({
+    status: status.value,
+    busy: busy.value,
+    configuration: configuration.value,
+    lineQuantity: lineQuantity.value,
+    followed,
+  });
+  if (quantity === null || !configuration.value) return;
+  followed = { configurationId: configuration.value.configurationId, quantity };
+  onChange([{ type: 'quantity', quantity }]);
+});
+
 /**
  * Commit, then add the committed line: one press, one request window. During
  * a change batch the session holds the press, and the batch is still the last
@@ -594,6 +640,8 @@ function onSubmit(): void {
       configuration: configuration.value,
       busy: busy.value,
       skuId: skuId.value,
+      lineQuantity: lineQuantity.value,
+      linePending: linePending.value,
     })
   ) {
     return;
@@ -1191,7 +1239,7 @@ function onRetryOpen(): void {
                 <ConfigurationPanel
                   :configuration="configuration"
                   :status="status"
-                  :busy="busy"
+                  :busy="waiting"
                   :product-name="product.name ?? ''"
                   :article-number="product.articleNumber ?? ''"
                   :editing="!!editing"
@@ -1201,7 +1249,7 @@ function onRetryOpen(): void {
                     v-if="stage === 'form'"
                     class="shrink-0"
                     :can-commit="commitEnabled"
-                    :busy="busy"
+                    :busy="waiting"
                     :incomplete="configuration?.isValid === false"
                     :error="actionError"
                     :editing="!!editing"

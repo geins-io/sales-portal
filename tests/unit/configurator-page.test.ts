@@ -9,6 +9,7 @@ import {
   restartsInMarket,
   startFailureKey,
   canPress,
+  quantityToFollow,
   replaceFailureKey,
   replaceRetryable,
   canRetryAdd,
@@ -701,4 +702,124 @@ describe('replaceFailureKey', () => {
       'configurator.edit.update_failed',
     );
   });
+});
+
+describe('quantityToFollow', () => {
+  function at(quantity: number, configurationId = 'session-1') {
+    return {
+      ...makeValidConfiguration(),
+      configurationId,
+      quantity,
+    };
+  }
+
+  function follow(over: Partial<Parameters<typeof quantityToFollow>[0]> = {}) {
+    return quantityToFollow({
+      status: 'active',
+      busy: false,
+      configuration: at(1),
+      lineQuantity: 3,
+      followed: null,
+      ...over,
+    });
+  }
+
+  it("answers the line's quantity when the session is at another", () => {
+    expect(follow()).toBe(3);
+  });
+
+  it('answers nothing when the session is at the line’s quantity', () => {
+    expect(follow({ lineQuantity: 1 })).toBeNull();
+  });
+
+  it('answers nothing when no line is behind the session', () => {
+    expect(follow({ lineQuantity: null })).toBeNull();
+  });
+
+  it('answers nothing while a request is in flight', () => {
+    expect(follow({ busy: true })).toBeNull();
+  });
+
+  it('answers nothing for a session that is not active', () => {
+    for (const status of ['idle', 'expired', 'closed'] as const) {
+      expect(follow({ status })).toBeNull();
+    }
+  });
+
+  it('answers nothing without a document', () => {
+    expect(follow({ configuration: null })).toBeNull();
+  });
+
+  it('answers nothing for a quantity already sent to this session', () => {
+    expect(
+      follow({ followed: { configurationId: 'session-1', quantity: 3 } }),
+    ).toBeNull();
+  });
+
+  // A provider that answers 5 for a 3 would otherwise be asked forever.
+  it('answers nothing when the session answered another quantity than the one sent', () => {
+    expect(
+      follow({
+        configuration: at(5),
+        followed: { configurationId: 'session-1', quantity: 3 },
+      }),
+    ).toBeNull();
+  });
+
+  it('answers a quantity sent before once the line moves to another', () => {
+    expect(
+      follow({
+        lineQuantity: 4,
+        followed: { configurationId: 'session-1', quantity: 3 },
+      }),
+    ).toBe(4);
+  });
+
+  it('answers a quantity sent to another session', () => {
+    expect(
+      follow({ followed: { configurationId: 'session-0', quantity: 3 } }),
+    ).toBe(3);
+  });
+});
+
+describe('the line behind the session', () => {
+  const atOne = () => ({
+    ...state({ configuration: { ...makeValidConfiguration(), quantity: 1 } }),
+    skuId: 1652,
+  });
+
+  for (const [name, can] of [
+    ['canCommit', canCommit],
+    ['canPress', canPress],
+  ] as const) {
+    describe(name, () => {
+      it('refuses while the session is at another quantity than the line', () => {
+        expect(can({ ...atOne(), busy: false, lineQuantity: 3 })).toBe(false);
+        expect(can({ ...atOne(), busy: true, lineQuantity: 3 })).toBe(false);
+      });
+
+      it('allows at the line’s quantity, or with no line known', () => {
+        expect(can({ ...atOne(), busy: false, lineQuantity: 1 })).toBe(true);
+        expect(can({ ...atOne(), busy: false, lineQuantity: null })).toBe(true);
+        expect(can({ ...atOne(), busy: false })).toBe(true);
+      });
+
+      it('refuses with no document, whatever is in flight', () => {
+        expect(
+          can({
+            ...state({ configuration: null }),
+            busy: true,
+            skuId: 1652,
+            lineQuantity: 3,
+          }),
+        ).toBe(false);
+      });
+
+      it('refuses while the cart is changing the line', () => {
+        expect(
+          can({ ...atOne(), busy: false, lineQuantity: 1, linePending: true }),
+        ).toBe(false);
+      });
+    });
+  }
 });

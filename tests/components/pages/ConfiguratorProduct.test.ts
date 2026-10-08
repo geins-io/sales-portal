@@ -8,7 +8,7 @@ import {
   type Mock,
 } from 'vitest';
 import { nextTick, ref, type Ref } from 'vue';
-import { flushPromises } from '@vue/test-utils';
+import { enableAutoUnmount, flushPromises } from '@vue/test-utils';
 import { mountComponent } from '../../utils/component';
 import ConfiguratorProduct from '../../../app/components/pages/ConfiguratorProduct.vue';
 import type { DetailProduct } from '../../../shared/types/commerce';
@@ -28,6 +28,7 @@ import {
   makeSectionTreeConfiguration,
   makeValidConfiguration,
 } from '../../fixtures/configurator';
+import { useCartStore } from '../../../app/stores/cart';
 import { CONFIGURATION_TAB_ID } from '../../../app/utils/product-tabs';
 import type { BlockingItem } from '../../../app/utils/configurator-panel';
 
@@ -89,6 +90,7 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
     notReplayed: ref(false),
     notRestored: ref(false),
     editing: ref<{ cartId: string; itemId: string } | null>(null),
+    source: ref<{ cartId: string; itemId: string } | null>(null),
     editNotice: ref<'not_reopenable' | 'line_gone' | null>(null),
     status: ref<ConfiguratorSessionStatus>('idle'),
     busy: ref(false),
@@ -121,6 +123,9 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
 const cartStore = vi.hoisted(() => ({
   cartId: null as string | null,
   isOpen: false,
+  cart: null as { items: { id: string; quantity: number }[] } | null,
+  pendingQuantities: new Map<string, number>(),
+  updatingItems: new Set<string>(),
   addConfiguredItem: vi.fn(
     async (): Promise<{ cartId: string; itemId: string } | null> => null,
   ),
@@ -131,9 +136,12 @@ const cartStore = vi.hoisted(() => ({
     ): Promise<{ cartId: string; itemId: string }> => line,
   ),
 }));
-vi.mock('../../../app/stores/cart', () => ({
-  useCartStore: () => cartStore,
-}));
+// Reactive, as the Pinia store is: the page follows a line's quantity in it.
+vi.mock('../../../app/stores/cart', async () => {
+  const { reactive } = await vi.importActual<typeof import('vue')>('vue');
+  const store = reactive(cartStore);
+  return { useCartStore: () => store };
+});
 
 // The shared passthrough drops a count the key does not spell out; this one
 // keeps it visible so the rail mark's spoken count can be read.
@@ -235,6 +243,7 @@ interface MockSession {
   notReplayed: Ref<boolean>;
   notRestored: Ref<boolean>;
   editing: Ref<{ cartId: string; itemId: string } | null>;
+  source: Ref<{ cartId: string; itemId: string } | null>;
   editNotice: Ref<'not_reopenable' | 'line_gone' | null>;
   status: Ref<ConfiguratorSessionStatus>;
   busy: Ref<boolean>;
@@ -263,6 +272,9 @@ interface MockSession {
 }
 
 const session = useConfiguratorSession({}) as unknown as MockSession;
+
+/** The store the page reads, through which every test writes. */
+const cart = useCartStore() as unknown as typeof cartStore;
 
 /** The tier's router mock, whose current route the page reads its query from. */
 const router = (
@@ -308,7 +320,7 @@ const stubs = {
     props: ['section'],
   },
   ConfigurationPanel: {
-    template: `<div data-testid="panel" :data-status="status"
+    template: `<div data-testid="panel" :data-status="status" :data-busy="String(busy)"
       :data-article="articleNumber" :data-editing="String(editing)">
       <button data-testid="panel-restart" @click="$emit('restart')"></button>
       <div data-testid="panel-slot"><slot /></div>
@@ -334,7 +346,7 @@ const stubs = {
     setup: () => ({ goToTarget }),
   },
   ConfigurationAction: {
-    template: `<div data-testid="action" :data-incomplete="incomplete"
+    template: `<div data-testid="action" :data-incomplete="incomplete" :data-busy="String(busy)"
       :data-error="error ?? ''" :data-editing="String(editing)">
       <button data-testid="configurator-commit"
         :aria-disabled="String(!canCommit)" @click="$emit('submit')"></button>
@@ -403,6 +415,10 @@ function activeWith(configuration: Configuration): void {
   session.status.value = 'active';
 }
 
+// Every page shares the one mocked session and cart; a page left mounted would
+// go on following the line a later test sets.
+enableAutoUnmount(afterEach);
+
 let warnings: string[] = [];
 let warnSpy: ReturnType<typeof vi.spyOn>;
 
@@ -413,6 +429,7 @@ beforeEach(() => {
   session.notReplayed.value = false;
   session.notRestored.value = false;
   session.editing.value = null;
+  session.source.value = null;
   session.editNotice.value = null;
   session.status.value = 'idle';
   session.busy.value = false;
@@ -432,10 +449,13 @@ beforeEach(() => {
   ] as const) {
     session[verb].mockClear();
   }
-  cartStore.addConfiguredItem.mockClear();
-  cartStore.replaceConfiguredItem.mockClear();
-  cartStore.cartId = null;
-  cartStore.isOpen = false;
+  cart.addConfiguredItem.mockClear();
+  cart.replaceConfiguredItem.mockClear();
+  cart.cartId = null;
+  cart.isOpen = false;
+  cart.cart = null;
+  cart.pendingQuantities.clear();
+  cart.updatingItems.clear();
   route.value.query = {};
   router.replace.mockClear();
 
@@ -527,7 +547,7 @@ describe('ConfiguratorProduct session', () => {
   });
 
   it('reopens the line it was editing when the back-forward cache brings the page back', async () => {
-    cartStore.cartId = 'cart-1';
+    cart.cartId = 'cart-1';
     route.value.query = { cart: 'cart-1', line: 'item-1' };
     mountPage();
     await flushPromises();
@@ -1045,17 +1065,13 @@ describe('ConfiguratorProduct add to cart', () => {
   it("adds the committed record as the product's one SKU, at the committed quantity, and hands back the line", async () => {
     mountPage(makeProduct({ skus: [{ skuId: 1652 }] }));
     const line = { cartId: 'cart-1', itemId: 'item-1' };
-    cartStore.addConfiguredItem.mockResolvedValueOnce(line);
+    cart.addConfiguredItem.mockResolvedValueOnce(line);
 
     await expect(
       session.options.addLine({ ...COMMITTED, quantity: 3 }),
     ).resolves.toEqual(line);
 
-    expect(cartStore.addConfiguredItem).toHaveBeenCalledWith(
-      'committed-1',
-      1652,
-      3,
-    );
+    expect(cart.addConfiguredItem).toHaveBeenCalledWith('committed-1', 1652, 3);
   });
 
   it.each([
@@ -2435,7 +2451,7 @@ describe('ConfiguratorProduct editing a cart line', () => {
   }
 
   it("opens the line the query names in the buyer's cart, instead of a fresh session", async () => {
-    cartStore.cartId = 'cart-1';
+    cart.cartId = 'cart-1';
     route.value.query = { cart: 'cart-1', line: 'item-1' };
 
     mountPage();
@@ -2446,7 +2462,7 @@ describe('ConfiguratorProduct editing a cart line', () => {
   });
 
   it('starts an ordinary session, says the line is gone and drops the query, for a link to another cart', async () => {
-    cartStore.cartId = 'cart-9';
+    cart.cartId = 'cart-9';
     route.value.query = { cart: 'cart-1', line: 'item-1', keep: 'x' };
 
     const wrapper = mountPage();
@@ -2463,7 +2479,7 @@ describe('ConfiguratorProduct editing a cart line', () => {
   });
 
   it("starts editing when the query comes to name a line on a page already open, which is the drawer's link on the same product", async () => {
-    cartStore.cartId = 'cart-1';
+    cart.cartId = 'cart-1';
     mountPage();
     await flushPromises();
     activeWith(makeValidConfiguration());
@@ -2482,7 +2498,7 @@ describe('ConfiguratorProduct editing a cart line', () => {
   });
 
   it('waits for a request under way, such as the reopen after an add, before it opens the line', async () => {
-    cartStore.cartId = 'cart-1';
+    cart.cartId = 'cart-1';
     mountPage();
     await flushPromises();
     session.busy.value = true;
@@ -2497,7 +2513,7 @@ describe('ConfiguratorProduct editing a cart line', () => {
   });
 
   it('opens nothing again when the query names the line already being edited', async () => {
-    cartStore.cartId = 'cart-1';
+    cart.cartId = 'cart-1';
     route.value.query = { cart: 'cart-1', line: 'item-1' };
     mountPage();
     await flushPromises();
@@ -2511,7 +2527,7 @@ describe('ConfiguratorProduct editing a cart line', () => {
   });
 
   it("forgets a stale link's notice once the buyer adds", async () => {
-    cartStore.cartId = 'cart-9';
+    cart.cartId = 'cart-9';
     route.value.query = { cart: 'cart-1', line: 'item-1' };
     const wrapper = mountPage();
     await flushPromises();
@@ -2563,7 +2579,7 @@ describe('ConfiguratorProduct editing a cart line', () => {
     await expect(session.options.replaceLine(COMMITTED, LINE)).resolves.toEqual(
       LINE,
     );
-    expect(cartStore.replaceConfiguredItem).toHaveBeenCalledWith(
+    expect(cart.replaceConfiguredItem).toHaveBeenCalledWith(
       'committed-1',
       LINE,
     );
@@ -2582,7 +2598,7 @@ describe('ConfiguratorProduct editing a cart line', () => {
 
   it('cancels from the action, then opens the cart over the unchanged line and drops the query', async () => {
     route.value.query = { cart: 'cart-1', line: 'item-1' };
-    cartStore.cartId = 'cart-1';
+    cart.cartId = 'cart-1';
     const wrapper = mountPage();
     editingLine();
     await nextTick();
@@ -2595,7 +2611,7 @@ describe('ConfiguratorProduct editing a cart line', () => {
     await flushPromises();
 
     expect(session.cancelEdit).toHaveBeenCalledTimes(1);
-    expect(cartStore.isOpen).toBe(true);
+    expect(cart.isOpen).toBe(true);
     expect(router.replace).toHaveBeenCalledWith({ query: {} });
   });
 
@@ -2609,7 +2625,7 @@ describe('ConfiguratorProduct editing a cart line', () => {
     await flushPromises();
 
     expect(router.replace).toHaveBeenCalledWith({ query: {} });
-    expect(cartStore.isOpen).toBe(false);
+    expect(cart.isOpen).toBe(false);
   });
 
   it.each([
@@ -2742,7 +2758,7 @@ describe('ConfiguratorProduct replaying an order row', () => {
   });
 
   it('edits the cart line rather than replaying, when the query names both', async () => {
-    cartStore.cartId = 'cart-1';
+    cart.cartId = 'cart-1';
     route.value.query = {
       cart: 'cart-1',
       line: 'item-1',
@@ -2814,7 +2830,7 @@ describe('ConfiguratorProduct replaying an order row', () => {
     route.value.query = { order: ORDER_ID, row: '1', keep: 'x' };
     mountPage(makeProduct({ skus: [{ skuId: 1652 }] }));
     await flushPromises();
-    cartStore.addConfiguredItem.mockResolvedValueOnce({
+    cart.addConfiguredItem.mockResolvedValueOnce({
       cartId: 'cart-1',
       itemId: 'item-1',
     });
@@ -2828,7 +2844,7 @@ describe('ConfiguratorProduct replaying an order row', () => {
     route.value.query = { order: ORDER_ID, row: '1' };
     mountPage(makeProduct({ skus: [{ skuId: 1652 }] }));
     await flushPromises();
-    cartStore.addConfiguredItem.mockRejectedValueOnce(new Error('no'));
+    cart.addConfiguredItem.mockRejectedValueOnce(new Error('no'));
 
     router.replace.mockClear();
 
@@ -2884,5 +2900,270 @@ describe('ConfiguratorProduct replaying an order row', () => {
 
     expect(session.start).toHaveBeenCalledWith('1101');
     expect(router.replace).toHaveBeenCalledWith({ query: {} });
+  });
+});
+
+describe("ConfiguratorProduct following the line's quantity", () => {
+  const LINE = { cartId: 'cart-1', itemId: 'line-1' };
+
+  /** The document the page holds, opened from `LINE` at `quantity`. */
+  function heldAt(quantity: number, id = 'session-1'): Configuration {
+    return { ...makeValidConfiguration(), configurationId: id, quantity };
+  }
+
+  function lineAt(quantity: number): void {
+    cart.cart = {
+      items: [
+        { id: 'other-line', quantity: 7 },
+        { id: LINE.itemId, quantity },
+      ],
+    };
+  }
+
+  /** A page holding a session opened from `LINE`, both at one. */
+  async function holding(): Promise<ReturnType<typeof mountPage>> {
+    cart.cartId = LINE.cartId;
+    lineAt(1);
+    session.source.value = LINE;
+    const wrapper = mountPage();
+    activeWith(heldAt(1));
+    await nextTick();
+    session.applyChanges.mockClear();
+    return wrapper;
+  }
+
+  /** The calls one follow to `quantity` makes: one batch of one change. */
+  const followed = (quantity: number) => [[[{ type: 'quantity', quantity }]]];
+
+  it('sends the line’s new quantity to the session it holds while editing', async () => {
+    session.editing.value = LINE;
+    await holding();
+
+    lineAt(3);
+    await nextTick();
+
+    expect(session.applyChanges.mock.calls).toEqual(followed(3));
+  });
+
+  it('follows the line it carried on from after an add, with no line edited', async () => {
+    await holding();
+
+    lineAt(3);
+    await nextTick();
+
+    expect(session.applyChanges.mock.calls).toEqual(followed(3));
+  });
+
+  it('follows a session opened at another quantity than the line already has', async () => {
+    cart.cartId = LINE.cartId;
+    lineAt(3);
+    session.source.value = LINE;
+    mountPage();
+
+    activeWith(heldAt(1));
+    await nextTick();
+
+    expect(session.applyChanges.mock.calls).toEqual(followed(3));
+  });
+
+  it('sends nothing while the session is at the line’s quantity', async () => {
+    await holding();
+
+    lineAt(1);
+    await nextTick();
+
+    expect(session.applyChanges).not.toHaveBeenCalled();
+  });
+
+  it('follows nothing for a session no line is behind', async () => {
+    await holding();
+    session.source.value = null;
+    await nextTick();
+
+    lineAt(3);
+    await nextTick();
+
+    expect(session.applyChanges).not.toHaveBeenCalled();
+  });
+
+  it('follows only its own line, in its own cart', async () => {
+    await holding();
+
+    cart.cart = {
+      items: [
+        { id: 'other-line', quantity: 4 },
+        { id: LINE.itemId, quantity: 1 },
+      ],
+    };
+    await nextTick();
+    expect(session.applyChanges).not.toHaveBeenCalled();
+
+    cart.cartId = 'cart-9';
+    lineAt(3);
+    await nextTick();
+    expect(session.applyChanges).not.toHaveBeenCalled();
+  });
+
+  it('follows nothing while the session is not active', async () => {
+    await holding();
+    session.status.value = 'expired';
+    await nextTick();
+
+    lineAt(3);
+    await nextTick();
+
+    expect(session.applyChanges).not.toHaveBeenCalled();
+  });
+
+  it('waits for a request in flight, then follows once it has answered', async () => {
+    await holding();
+    session.busy.value = true;
+    await nextTick();
+
+    lineAt(3);
+    await nextTick();
+    expect(session.applyChanges).not.toHaveBeenCalled();
+
+    session.busy.value = false;
+    await nextTick();
+    expect(session.applyChanges.mock.calls).toEqual(followed(3));
+  });
+
+  it('sends a quantity once, even when the session does not land on it', async () => {
+    await holding();
+
+    lineAt(3);
+    await nextTick();
+    // The follow ran and answered without moving the session.
+    session.busy.value = true;
+    await nextTick();
+    session.busy.value = false;
+    session.error.value = { status: 502, message: 'bad gateway' };
+    await nextTick();
+
+    expect(session.applyChanges.mock.calls).toEqual(followed(3));
+  });
+
+  it('does not chase a quantity the provider answers differently', async () => {
+    await holding();
+
+    lineAt(3);
+    await nextTick();
+    // The provider rounded the quantity up.
+    session.configuration.value = heldAt(5);
+    await nextTick();
+
+    expect(session.applyChanges.mock.calls).toEqual(followed(3));
+  });
+
+  it('follows the next change of the line after one that did not land', async () => {
+    await holding();
+    lineAt(3);
+    await nextTick();
+
+    lineAt(4);
+    await nextTick();
+
+    expect(session.applyChanges.mock.calls).toEqual([
+      ...followed(3),
+      ...followed(4),
+    ]);
+  });
+
+  it('follows again in a new session', async () => {
+    await holding();
+    lineAt(3);
+    await nextTick();
+
+    activeWith(heldAt(1, 'session-2'));
+    await nextTick();
+
+    expect(session.applyChanges.mock.calls).toEqual([
+      ...followed(3),
+      ...followed(3),
+    ]);
+  });
+
+  it('reports a follow that failed above the form, as a failed change', async () => {
+    const wrapper = await holding();
+    lineAt(3);
+    await nextTick();
+
+    session.error.value = {
+      status: 422,
+      message: 'x',
+      code: 'VALIDATION_ERROR',
+    };
+    await nextTick();
+
+    expect(
+      wrapper.find('[data-testid="configurator-form-error"]').exists(),
+    ).toBe(true);
+    expect(
+      wrapper.find('[data-testid="section"]').attributes('data-refused'),
+    ).toBeFalsy();
+  });
+
+  it('refuses a press while the session is at another quantity than the line', async () => {
+    const wrapper = await holding();
+    // The follow is sent, but the session has not answered it.
+    lineAt(3);
+    await nextTick();
+
+    const button = wrapper.find('[data-testid="configurator-commit"]');
+    expect(button.attributes('aria-disabled')).toBe('true');
+    await button.trigger('click');
+
+    expect(session.commit).not.toHaveBeenCalled();
+  });
+
+  it('acts again once the session is at the line’s quantity', async () => {
+    const wrapper = await holding();
+    lineAt(3);
+    await nextTick();
+
+    session.configuration.value = heldAt(3);
+    await nextTick();
+    await wrapper.find('[data-testid="configurator-commit"]').trigger('click');
+
+    expect(session.commit).toHaveBeenCalledTimes(1);
+  });
+
+  describe('while the cart changes the line', () => {
+    for (const [what, pend] of [
+      ['a change settles', () => cart.pendingQuantities.set(LINE.itemId, 3)],
+      ['a change is on its way', () => cart.updatingItems.add(LINE.itemId)],
+    ] as const) {
+      it(`holds the action and dims the price while ${what}`, async () => {
+        const wrapper = await holding();
+
+        pend();
+        await nextTick();
+
+        const button = wrapper.find('[data-testid="configurator-commit"]');
+        expect(button.attributes('aria-disabled')).toBe('true');
+        expect(
+          wrapper.find('[data-testid="action"]').attributes('data-busy'),
+        ).toBe('true');
+        expect(
+          wrapper.find('[data-testid="panel"]').attributes('data-busy'),
+        ).toBe('true');
+        await button.trigger('click');
+        expect(session.commit).not.toHaveBeenCalled();
+      });
+    }
+
+    it('leaves the action alone while the cart changes another line', async () => {
+      const wrapper = await holding();
+
+      cart.updatingItems.add('other-line');
+      await nextTick();
+
+      expect(
+        wrapper
+          .find('[data-testid="configurator-commit"]')
+          .attributes('aria-disabled'),
+      ).toBe('false');
+    });
   });
 });

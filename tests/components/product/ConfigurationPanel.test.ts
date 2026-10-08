@@ -554,6 +554,63 @@ describe('ConfigurationPanel', () => {
       expect(rows[2]).toContain('SEK 1,300.00');
     });
 
+    describe('at a quantity above one', () => {
+      function atThree() {
+        const config = makeValidConfiguration();
+        config.quantity = 3;
+        return config;
+      }
+
+      const rowsIn = (wrapper: ReturnType<typeof mountPanel>, prefix: string) =>
+        wrapper
+          .findAll(`[data-testid="${prefix}-price-row"]`)
+          .map((row) => plainText(row.text()));
+
+      // The unit price is 3,200 net, 800 VAT and 4,000 with VAT.
+      function expectTotalsForThree(rows: string[]) {
+        expect(rows).toHaveLength(3);
+        expect(rows[0]).toContain('configurator.panel.quantity_suffix 3');
+        expect(rows[0]).toContain('SEK 9,600.00');
+        expect(rows[1]).toContain('configurator.panel.vat 25');
+        expect(rows[1]).toContain('SEK 2,400.00');
+        expect(rows[2]).toContain('SEK 12,000.00');
+      }
+
+      it('writes the totals for the quantity in the box', () => {
+        expectTotalsForThree(
+          rowsIn(
+            mountPanel({ configuration: atThree() }),
+            'configurator-panel',
+          ),
+        );
+      });
+
+      it('writes the totals for the quantity at the foot of the specification', () => {
+        expectTotalsForThree(
+          rowsIn(mountPanel({ configuration: atThree() }), 'configurator-spec'),
+        );
+      });
+
+      it('writes the totals for the quantity in the sheet', async () => {
+        const wrapper = mountPanel({ configuration: atThree() });
+        await wrapper
+          .find('[data-testid="configurator-panel-expand"]')
+          .trigger('click');
+        expectTotalsForThree(rowsIn(wrapper, 'configurator-sheet'));
+      });
+
+      it('keeps the price of each option per unit', () => {
+        const config = atThree();
+        const wrapper = mountPanel({ configuration: config });
+        const unchanged = mountPanel().find(
+          '[data-testid="configurator-panel-rows"]',
+        );
+        expect(
+          wrapper.find('[data-testid="configurator-panel-rows"]').text(),
+        ).toBe(unchanged.text());
+      });
+    });
+
     it('writes all three rows at zero for a price of zero, VAT without a rate', () => {
       const config = makeValidConfiguration();
       config.unitPrice = {
@@ -739,6 +796,23 @@ describe('ConfigurationPanel', () => {
       expect(lines[net + 1]).toBe('configurator.panel.vat 25: SEK 800.00');
       expect(lines[net + 2]).toBe('configurator.panel.inc_vat: SEK 4,000.00');
       expect(lines[net + 3]).toBe('configurator.panel.indicative');
+    });
+
+    it('copies the totals for the quantity under the quantity line', async () => {
+      const writeText = grantClipboard();
+      const config = makeValidConfiguration();
+      config.quantity = 3;
+
+      await copyText(mountPanel({ configuration: config }));
+
+      const lines = (writeText.mock.calls[0]?.[0] as string)
+        .split('\n')
+        .map(plainText);
+      expect(lines).toContain('configurator.panel.copy_quantity 3');
+      const net = lines.indexOf('configurator.panel.net_price: SEK 9,600.00');
+      expect(net).toBeGreaterThanOrEqual(0);
+      expect(lines[net + 1]).toBe('configurator.panel.vat 25: SEK 2,400.00');
+      expect(lines[net + 2]).toBe('configurator.panel.inc_vat: SEK 12,000.00');
     });
 
     // As the prototype's "Ytbehandling": the group is specified by its

@@ -186,6 +186,12 @@ export function useConfiguratorSession({
   const notRestored = ref(false);
   /** The cart line being edited, while the page edits one. */
   const editing = ref<CartLineRef | null>(null);
+  /**
+   * The cart line the held session was reopened from — the edited one, or the
+   * one just added — whose quantity the page follows. None for a session
+   * started, replayed or restored.
+   */
+  const source = ref<CartLineRef | null>(null);
   const editNotice = ref<ConfiguratorEditNotice | null>(null);
   const status = ref<ConfiguratorSessionStatus>('idle');
   const busy = ref(false);
@@ -256,6 +262,7 @@ export function useConfiguratorSession({
     leftId = null;
     pressed = null;
     configuration.value = null;
+    source.value = null;
     notReopened.value = false;
     notReplayed.value = false;
     notRestored.value = false;
@@ -331,8 +338,12 @@ export function useConfiguratorSession({
   /** What the last start asked for, which a failed reopen starts again. */
   let started: { productId: string; quantity: number } | null = null;
 
-  function hold(document: Configuration): void {
+  function hold(
+    document: Configuration,
+    line: CartLineRef | null = null,
+  ): void {
     configuration.value = document;
+    source.value = line;
     committed.value = null;
     status.value = 'active';
     lastContact = Date.now();
@@ -422,7 +433,7 @@ export function useConfiguratorSession({
     if (!result) return;
     if ('document' in result) {
       editNotice.value = null;
-      return hold(result.document);
+      return hold(result.document, line);
     }
     editNotice.value = result.notice;
     if (result.notice === 'line_gone') editing.value = null;
@@ -604,7 +615,7 @@ export function useConfiguratorSession({
           signal,
         }).catch(() => null),
       );
-      if (reopened) return hold(reopened);
+      if (reopened) return hold(reopened, line);
     }
     notReopened.value = true;
     if (started) await start(started.productId, started.quantity);
@@ -712,6 +723,7 @@ export function useConfiguratorSession({
     notReplayed,
     notRestored,
     editing,
+    source,
     editNotice,
     status,
     busy,

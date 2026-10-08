@@ -7,6 +7,11 @@ import type {
 } from '#shared/types/configurator';
 import type { PriceType } from '#shared/types/commerce';
 import {
+  exVatAmount,
+  incVatAmount,
+  vatAmount,
+} from '#shared/utils/configurator-price';
+import {
   isGroupUnmet,
   isVariableUnmet,
 } from '#shared/utils/configurator-requirement';
@@ -406,4 +411,24 @@ export function specificationText(input: SpecificationTextInput): string {
   }
 
   return lines.join('\n');
+}
+
+export interface PanelTotals {
+  net: number;
+  vat: number;
+  incVat: number;
+}
+
+/**
+ * The price rows for the whole quantity, as the cart line's total is built:
+ * each unit amount as sent, times the quantity, unrounded.
+ */
+export function panelTotals(config: Configuration | null): PanelTotals | null {
+  const unit = config?.unitPrice;
+  if (!config || !unit) return null;
+  return {
+    net: exVatAmount(unit) * config.quantity,
+    vat: vatAmount(unit) * config.quantity,
+    incVat: incVatAmount(unit) * config.quantity,
+  };
 }
