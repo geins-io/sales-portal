@@ -179,6 +179,8 @@ const orderItemRows = computed<PortalItemRow[]>(() =>
       ? replayHref(item.product?.canonicalUrl, index)
       : undefined,
     configuration: item?.configuration,
+    unitPrice: item?.unitPrice,
+    totalPrice: item?.totalPrice,
   })),
 );
 
@@ -328,9 +330,13 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                         </div>
                       </div>
                       <div v-if="item?.configuration" class="mt-2 pl-13">
-                        <LineConfigurationSummary
+                        <LineSpecification
                           :id="`order-item-configuration-${index}`"
-                          :summary="item.configuration.summary"
+                          :product-name="item.product?.name ?? ''"
+                          :quantity="item.quantity ?? 1"
+                          :configuration="item.configuration"
+                          :unit-price="item.unitPrice"
+                          :total-price="item.totalPrice"
                         />
                       </div>
                     </td>

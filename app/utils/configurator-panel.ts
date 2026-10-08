@@ -5,11 +5,16 @@ import type {
   ConfigurationSection,
   ConfigurationVariable,
 } from '#shared/types/configurator';
-import type { PriceType } from '#shared/types/commerce';
+import type {
+  LineConfigurationGroup,
+  LineConfigurationSection,
+  PriceType,
+} from '#shared/types/commerce';
 import {
   exVatAmount,
   incVatAmount,
   vatAmount,
+  vatRatePercent,
 } from '#shared/utils/configurator-price';
 import {
   isGroupUnmet,
@@ -17,6 +22,7 @@ import {
 } from '#shared/utils/configurator-requirement';
 import { offersNoneRow } from '~/utils/configurator-form';
 import {
+  byIndex,
   orderedSections,
   sectionMembers,
   shownMembers,
@@ -253,7 +259,7 @@ export interface SpecificationRow {
  * measurement and an unticked box are all the same absence to a reader.
  */
 function variableValue(
-  variable: ConfigurationVariable,
+  variable: Pick<ConfigurationVariable, 'value' | 'unit' | 'decimals'>,
 ): SpecificationValue | undefined {
   const { value } = variable;
   const unit = variable.unit ? { unit: variable.unit } : {};
@@ -348,6 +354,105 @@ function sectionRows(sections: ConfigurationSection[]): SpecificationRow[] {
  */
 export function specificationRows(config: Configuration): SpecificationRow[] {
   return sectionRows(config.sections);
+}
+
+function committedGroupRows(
+  group: LineConfigurationGroup,
+  section: string,
+): SpecificationRow[] {
+  const rows: SpecificationRow[] = group.options.length
+    ? [
+        {
+          id: `group:${group.id}`,
+          group: section,
+          label: group.name,
+          values: group.options.map((option) => ({
+            text: option.name,
+            ...(option.quantity === undefined
+              ? {}
+              : { quantity: option.quantity }),
+            ...(option.unitPrice ? { price: option.unitPrice } : {}),
+          })),
+        },
+      ]
+    : [];
+  for (const nested of byIndex(group.optionGroups, (g) => g.sortIndex)) {
+    rows.push(...committedGroupRows(nested, section));
+  }
+  return rows;
+}
+
+/**
+ * A committed line's choices as rows, grouped by section the way the
+ * specification of a live configuration is.
+ *
+ * The structure holds only what was chosen, so there is nothing to filter but
+ * a variable that holds nothing; a group without options cannot say "nothing
+ * chosen", because it carries no rule that offers it. Siblings are ordered by
+ * `sortIndex`, null last, a section's groups and variables merged as on the
+ * page.
+ */
+export function committedSpecificationRows(
+  sections: LineConfigurationSection[],
+): SpecificationRow[] {
+  const rows: SpecificationRow[] = [];
+
+  for (const section of byIndex(sections, (s) => s.sortIndex)) {
+    const members = byIndex(
+      [
+        ...section.optionGroups.map((group) => ({
+          sortIndex: group.sortIndex,
+          rows: () => committedGroupRows(group, section.name),
+        })),
+        ...section.variables.map((variable) => ({
+          sortIndex: variable.sortIndex,
+          rows: (): SpecificationRow[] => {
+            const value = variableValue(variable);
+            return value
+              ? [
+                  {
+                    id: `variable:${variable.id}`,
+                    group: section.name,
+                    label: variable.name,
+                    values: [value],
+                  },
+                ]
+              : [];
+          },
+        })),
+      ],
+      (member) => member.sortIndex,
+    );
+    for (const member of members) rows.push(...member.rows());
+    rows.push(...committedSpecificationRows(section.sections));
+  }
+
+  return rows;
+}
+
+export interface LineSpecificationTotals {
+  net: number;
+  vat: number;
+  incVat: number;
+  /** `null` where the unit price has nothing to divide by. */
+  ratePercent: number | null;
+}
+
+/**
+ * The price rows under a line's specification: the line's own total, as the
+ * cart and the order show it, and the rate of one unit, which is the row's own.
+ */
+export function lineSpecificationTotals(
+  unitPrice: PriceType | undefined,
+  totalPrice: PriceType | undefined,
+): LineSpecificationTotals | null {
+  if (!totalPrice) return null;
+  return {
+    net: exVatAmount(totalPrice),
+    vat: vatAmount(totalPrice),
+    incVat: incVatAmount(totalPrice),
+    ratePercent: vatRatePercent(unitPrice),
+  };
 }
 
 /** The rows by group, in the order the groups first appear. */

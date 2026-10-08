@@ -347,32 +347,28 @@ describe('CheckoutCartItems', () => {
       );
     });
 
-    it('shows its summary, collapsed, under the line', async () => {
-      const wrapper = mountItems([configuredItem()]);
+    it('offers its specification under the line, handed the line itself', () => {
+      const item = configuredItem();
+      const wrapper = mountItems([item]);
 
       const row = wrapper.find('[data-testid="checkout-cart-item"]');
-      const toggle = row.find('[data-testid="cart-item-configuration-toggle"]');
-      expect(toggle.text()).toBe('cart.show_configuration');
-      expect(toggle.attributes('aria-expanded')).toBe('false');
-
-      await toggle.trigger('click');
-
-      expect(
-        row
-          .findAll('[data-testid="cart-item-configuration-row"]')
-          .map((line) => [line.find('dt').text(), line.find('dd').text()]),
-      ).toEqual([
-        ['Machine weight (7-20)', '12 t'],
-        ['Adapter', 'S45'],
-      ]);
+      const show = row.findComponent({ name: 'LineSpecification' });
+      expect(show.exists()).toBe(true);
+      expect(show.props()).toEqual({
+        id: `checkout-cart-item-configuration-${item.id}`,
+        productName: item.product?.name ?? '',
+        quantity: item.quantity,
+        configuration: CONFIGURATION,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+      });
+      expect(row.find('[data-testid="line-specification-open"]').text()).toBe(
+        'cart.show_configuration',
+      );
     });
 
-    it("offers no way to edit the line, which is the cart's alone", async () => {
+    it("offers no way to edit the line, which is the cart's alone", () => {
       const wrapper = mountItems([configuredItem()]);
-
-      await wrapper
-        .find('[data-testid="cart-item-configuration-toggle"]')
-        .trigger('click');
 
       expect(wrapper.find('[data-testid="cart-item-edit"]').exists()).toBe(
         false,
@@ -380,15 +376,15 @@ describe('CheckoutCartItems', () => {
       expect(wrapper.text()).not.toContain('cart.edit_configuration');
     });
 
-    it('gives each line its own summary block', () => {
+    it('gives each line its own trigger', () => {
       const wrapper = mountItems([
         { ...configuredItem(), id: 'a' } as CartItemType,
         { ...configuredItem(), id: 'b' } as CartItemType,
       ]);
 
       const ids = wrapper
-        .findAll('[data-testid="cart-item-configuration"]')
-        .map((block) => block.attributes('id'));
+        .findAll('[data-testid="line-specification-open"]')
+        .map((button) => button.attributes('id'));
       expect(ids).toHaveLength(2);
       expect(new Set(ids).size).toBe(2);
     });
@@ -482,7 +478,7 @@ describe('CheckoutCartItems', () => {
       });
     });
 
-    it('offers the toggle on a line committed with the defaults only, and says so opened', async () => {
+    it('offers the specification on a line committed with the defaults only', () => {
       const wrapper = mountItems([
         configuredItem({ configurationId: 'committed-1', summary: [] }),
       ]);
@@ -490,13 +486,9 @@ describe('CheckoutCartItems', () => {
       expect(
         wrapper.find('[data-testid="checkout-cart-item-configured"]').exists(),
       ).toBe(true);
-      await wrapper
-        .find('[data-testid="cart-item-configuration-toggle"]')
-        .trigger('click');
-
       expect(
-        wrapper.find('[data-testid="cart-item-configuration-default"]').text(),
-      ).toBe('cart.default_configuration');
+        wrapper.find('[data-testid="line-specification-open"]').exists(),
+      ).toBe(true);
     });
 
     it('leaves a plain line as it was', () => {
@@ -506,7 +498,7 @@ describe('CheckoutCartItems', () => {
         wrapper.find('[data-testid="checkout-cart-item-configured"]').exists(),
       ).toBe(false);
       expect(
-        wrapper.find('[data-testid="cart-item-configuration-toggle"]').exists(),
+        wrapper.find('[data-testid="line-specification-open"]').exists(),
       ).toBe(false);
       expect(wrapper.text()).toContain('Art nr. ART-001');
     });

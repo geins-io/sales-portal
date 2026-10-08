@@ -122,7 +122,6 @@
     "configured_product": "Konfigurerad produkt",
     "skipped_configurable": "{count} produkt kräver konfiguration och lades inte i varukorgen | {count} produkter kräver konfiguration och lades inte i varukorgen",
     "show_configuration": "Visa konfiguration",
-    "hide_configuration": "Dölj konfiguration",
     "default_configuration": "Standardkonfiguration, inga tillval valda.",
     "edit_configuration": "Ändra konfiguration",
     "quantity_updating": "Uppdaterar…",

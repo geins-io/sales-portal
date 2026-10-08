@@ -461,6 +461,39 @@ describe('the cart service', () => {
       });
     });
 
+    it("carries a line's committed sections to the client", async () => {
+      const cart = cpqCart();
+      cart.items[0]!.configuration = {
+        ...cart.items[0]!.configuration!,
+        sections: [
+          {
+            id: 'machine',
+            name: 'Machine',
+            sortIndex: 2,
+            variables: [],
+            optionGroups: [],
+            sections: [],
+          },
+        ],
+      } as never;
+      oms.cart.get.mockResolvedValue(cart);
+
+      const read = await service.getCart('cart-1', EVENT);
+
+      expect(read?.items[0]?.configuration).toStrictEqual({
+        ...CONFIGURATION,
+        sections: [
+          {
+            name: 'Machine',
+            sortIndex: 2,
+            variables: [],
+            optionGroups: [],
+            sections: [],
+          },
+        ],
+      });
+    });
+
     it('answers what the SDK answered when it finds no cart', async () => {
       oms.cart.get.mockResolvedValue(undefined);
 

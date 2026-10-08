@@ -122,7 +122,6 @@
     "configured_product": "Konfiguriertes Produkt",
     "skipped_configurable": "{count} Produkt muss konfiguriert werden und wurde nicht in den Warenkorb gelegt | {count} Produkte müssen konfiguriert werden und wurden nicht in den Warenkorb gelegt",
     "show_configuration": "Konfiguration anzeigen",
-    "hide_configuration": "Konfiguration ausblenden",
     "default_configuration": "Standardkonfiguration, keine Optionen gewählt.",
     "edit_configuration": "Konfiguration ändern",
     "quantity_updating": "Wird aktualisiert…",

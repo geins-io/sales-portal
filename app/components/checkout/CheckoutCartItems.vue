@@ -143,9 +143,13 @@ function handleRemove(item: CartItemType) {
               {{ t('cart.quantity_change_failed') }}
             </p>
             <div v-if="item.configuration" class="mt-3">
-              <LineConfigurationSummary
+              <LineSpecification
                 :id="`checkout-cart-item-configuration-${item.id}`"
-                :summary="item.configuration.summary"
+                :product-name="item.product?.name ?? ''"
+                :quantity="item.quantity ?? 1"
+                :configuration="item.configuration"
+                :unit-price="item.unitPrice"
+                :total-price="item.totalPrice"
               />
             </div>
           </div>

@@ -9,9 +9,9 @@ import type {
 //
 // The document gives a section three sibling lists — variables, option groups
 // and child sections — and `sortIndex` orders their members against each
-// other, so the page shows the arrangement the merchant built. Five callers
+// other, so the page shows the arrangement the merchant built. Six callers
 // share this: the section page, the specification rows, the two walks behind
-// the banner, and the rail.
+// the banner, the rail, and a committed line's specification.
 //
 // The provider's index is the only order there is. Where it is absent the
 // merge order below is what remains, and that is deliberately the order the
@@ -45,7 +45,7 @@ function compareIndex(a: Index, b: Index): number {
  * makes a wrapper without one structurally acceptable, so a version that read
  * `node.sortIndex` compiled and sorted nothing.
  */
-function byIndex<T>(nodes: T[], indexOf: (node: T) => Index): T[] {
+export function byIndex<T>(nodes: T[], indexOf: (node: T) => Index): T[] {
   return [...nodes].sort((a, b) => compareIndex(indexOf(a), indexOf(b)));
 }
 

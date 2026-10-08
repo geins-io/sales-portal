@@ -7,36 +7,21 @@ import {
   Play,
   RotateCcw,
 } from 'lucide-vue-next';
-import { createReusableTemplate, useClipboard } from '@vueuse/core';
-import { formatPrice, type PriceType } from '#shared/types/commerce';
+import { useClipboard } from '@vueuse/core';
 import type { Configuration } from '#shared/types/configurator';
-import {
-  currencyCode,
-  exVatAmount,
-  vatRatePercent,
-} from '#shared/utils/configurator-price';
+import { currencyCode, vatRatePercent } from '#shared/utils/configurator-price';
 import type { ConfiguratorSessionStatus } from '~/composables/useConfiguratorSession';
 import { Button } from '~/components/ui/button';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '~/components/ui/sheet';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '~/components/ui/tooltip';
-import { optionPricePrefix } from '~/utils/configurator-form';
 import {
-  groupSpecificationRows,
   panelTotals,
   specificationRows,
   specificationText,
-  type SpecificationValue,
 } from '~/utils/configurator-panel';
 
 /**
@@ -73,21 +58,14 @@ const {
 const emit = defineEmits<{ restart: [] }>();
 
 const { t } = useI18n();
-const { formatLocale } = useFormatLocale();
 const { showPrice } = usePriceVisibility();
 
 const rows = computed(() =>
   configuration ? specificationRows(configuration) : [],
 );
-const grouped = computed(() => groupSpecificationRows(rows.value));
 
-function money(net: number): string {
-  return formatPrice(
-    net,
-    currencyCode(configuration?.unitPrice),
-    formatLocale.value,
-  );
-}
+const currency = computed(() => currencyCode(configuration?.unitPrice));
+const { money, valueText, priceText } = useSpecificationFormat(currency);
 
 /**
  * Net leads and VAT and the total support it, as the prototype. Every figure is
@@ -112,49 +90,6 @@ const supportingRows = computed(() => [
     amount: money(totals.value?.incVat ?? 0),
   },
 ]);
-
-/**
- * A number is written the way the field the buyer typed it in writes it, down
- * to the decimals the provider asked for: the specification is made to be
- * pasted into a mail, and two shapes of the same measurement is a question the
- * reader has to ask.
- */
-function numberText(value: number, decimals: number | undefined): string {
-  return new Intl.NumberFormat(formatLocale.value, {
-    minimumFractionDigits: decimals ?? 0,
-    maximumFractionDigits: decimals ?? 0,
-  }).format(value);
-}
-
-/** A value reads the same on screen and in the copied text. */
-function valueText(value: SpecificationValue): string {
-  const written = value.none
-    ? t('configurator.none_option')
-    : value.boolValue
-      ? t('configurator.yes')
-      : value.number !== undefined
-        ? numberText(value.number, value.decimals)
-        : (value.text ?? '');
-  const text = value.unit ? `${written} ${value.unit}` : written;
-  if (!value.quantity || value.quantity <= 1) return text;
-  return `${text} · ${t('configurator.panel.quantity_suffix', { count: value.quantity })}`;
-}
-
-/**
- * A price, or nothing. The rule is the option row's: a choice the provider
- * charges nothing for says nothing, rather than a column of zeroes.
- */
-function priceText(price: PriceType): string | null {
-  if (!showPrice.value) return null;
-  const net = exVatAmount(price);
-  const prefix = optionPricePrefix(net);
-  if (prefix === null) return null;
-  return `${prefix}${money(net)}`;
-}
-
-function valuePrice(value: SpecificationValue): string | null {
-  return value.price ? priceText(value.price) : null;
-}
 
 const asText = computed(() =>
   specificationText({
@@ -200,117 +135,10 @@ const copyLabel = computed(() =>
 
 const sheetOpen = ref(false);
 
-/**
- * The rows and the price, each written once and used at two sizes: the column
- * and the expanded sheet, as the prototype's two copies of the same markup.
- */
-const [DefineRows, ReuseRows] = createReusableTemplate<{ large: boolean }>();
-const [DefinePrice, ReusePrice] = createReusableTemplate<{
-  prefix: string;
-  size: 'summary' | 'foot' | 'sheet';
-}>();
-
-const netClass = {
-  summary: 'text-xl',
-  foot: 'text-base',
-  sheet: 'text-xl',
-} as const;
+const quantity = computed(() => configuration?.quantity ?? 1);
 </script>
 
 <template>
-  <DefineRows v-slot="{ large }">
-    <div
-      v-for="[group, groupRows] in grouped"
-      :key="group"
-      :class="large ? '' : 'mb-3 last:mb-0'"
-    >
-      <h4
-        :class="
-          large
-            ? 'bg-muted text-foreground px-6 py-2.5 text-sm font-medium'
-            : 'text-muted-foreground mb-1 text-[11px] font-medium tracking-wider uppercase'
-        "
-      >
-        {{ group }}
-      </h4>
-      <dl class="divide-border/60 divide-y" :class="large ? 'px-6 pb-2' : ''">
-        <div
-          v-for="row in groupRows"
-          :key="row.id"
-          :class="large ? 'space-y-1.5 py-3' : 'py-1.5'"
-        >
-          <dt
-            class="text-muted-foreground"
-            :class="large ? 'text-sm' : 'text-[11px]'"
-          >
-            {{ row.label }}
-          </dt>
-          <dd
-            v-for="(value, index) in row.values"
-            :key="index"
-            class="flex items-baseline justify-between gap-3"
-          >
-            <!-- Provider part names are long compounds that do not break on
-                 their own, and an unbreakable word would spill out of the
-                 column. -->
-            <span
-              class="leading-snug break-words hyphens-auto"
-              :class="large ? 'text-sm' : 'text-[13px]'"
-            >
-              {{ valueText(value) }}
-            </span>
-            <span
-              v-if="valuePrice(value)"
-              class="text-muted-foreground shrink-0 tabular-nums"
-              :class="large ? 'text-xs' : 'text-[11px]'"
-            >
-              {{ valuePrice(value) }}
-            </span>
-          </dd>
-        </div>
-      </dl>
-    </div>
-  </DefineRows>
-
-  <DefinePrice v-slot="{ prefix, size }">
-    <div
-      class="flex items-baseline justify-between gap-3"
-      :data-testid="`${prefix}-price-row`"
-    >
-      <span class="text-muted-foreground text-xs">
-        {{ t('configurator.panel.net_price') }}
-        <template v-if="configuration && configuration.quantity > 1">
-          ·
-          {{
-            t('configurator.panel.quantity_suffix', {
-              count: configuration.quantity,
-            })
-          }}
-        </template>
-      </span>
-      <span
-        class="font-semibold tabular-nums transition-opacity"
-        :class="[netClass[size], busy && size !== 'sheet' ? 'opacity-40' : '']"
-        :data-testid="`${prefix}-net`"
-      >
-        {{ price }}
-      </span>
-    </div>
-    <div
-      v-for="(row, index) in supportingRows"
-      :key="index"
-      class="text-muted-foreground flex justify-between gap-3"
-      :class="[
-        size === 'sheet' ? 'text-xs' : 'text-[11px]',
-        index === 0 ? 'mt-1' : '',
-      ]"
-      :data-testid="`${prefix}-price-row`"
-    >
-      <span>{{ row.label }}</span>
-      <span class="tabular-nums">{{ row.amount }}</span>
-    </div>
-  </DefinePrice>
-
   <!--
     An expired session is a state, not a failure: it says so and offers the way
     back, with no specification and no price left to report.
@@ -344,7 +172,14 @@ const netClass = {
         class="shrink-0 px-4 py-3"
         data-testid="configurator-panel-price"
       >
-        <ReusePrice prefix="configurator-panel" size="summary" />
+        <SpecificationPrice
+          prefix="configurator-panel"
+          size="summary"
+          :quantity="quantity"
+          :net="price"
+          :rows="supportingRows"
+          :dimmed="busy"
+        />
       </div>
     </template>
 
@@ -435,11 +270,11 @@ const netClass = {
         <!-- The value is the content and the price is an annotation, so the
              value leads and a price appears only where there is one. -->
         <div
-          v-if="grouped.length"
+          v-if="rows.length"
           class="min-h-0 flex-1 overflow-y-auto px-4 py-3"
           data-testid="configurator-panel-rows"
         >
-          <ReuseRows :large="false" />
+          <SpecificationRows :rows="rows" :large="false" :currency="currency" />
         </div>
 
         <div
@@ -447,34 +282,36 @@ const netClass = {
           class="border-border shrink-0 border-t px-4 py-3"
           data-testid="configurator-spec-price"
         >
-          <ReusePrice prefix="configurator-spec" size="foot" />
+          <SpecificationPrice
+            prefix="configurator-spec"
+            size="foot"
+            :quantity="quantity"
+            :net="price"
+            :rows="supportingRows"
+            :dimmed="busy"
+          />
         </div>
       </template>
     </section>
 
     <!-- The whole specification larger, from the right at the sign-in
          sheet's width. -->
-    <Sheet v-if="configuration" v-model:open="sheetOpen">
-      <SheetContent
-        side="right"
-        class="flex w-full flex-col gap-0 p-0 sm:max-w-md"
-        data-testid="configurator-spec-sheet"
-      >
-        <SheetHeader class="border-b px-6 py-4">
-          <SheetTitle class="text-2xl font-semibold tracking-tight">
-            {{ t('configurator.panel.title') }}
-          </SheetTitle>
-          <SheetDescription>{{ productName }}</SheetDescription>
-        </SheetHeader>
-
-        <div class="flex-1 overflow-y-auto">
-          <ReuseRows :large="true" />
-        </div>
-
-        <div v-if="showPrice" class="border-border border-t px-6 py-4">
-          <ReusePrice prefix="configurator-sheet" size="sheet" />
-        </div>
-      </SheetContent>
-    </Sheet>
+    <SpecificationSheet
+      v-if="configuration"
+      v-model:open="sheetOpen"
+      :product-name="productName"
+      test-id="configurator-spec-sheet"
+    >
+      <SpecificationRows :rows="rows" :large="true" :currency="currency" />
+      <template v-if="showPrice" #footer>
+        <SpecificationPrice
+          prefix="configurator-sheet"
+          size="sheet"
+          :quantity="quantity"
+          :net="price"
+          :rows="supportingRows"
+        />
+      </template>
+    </SpecificationSheet>
   </template>
 </template>

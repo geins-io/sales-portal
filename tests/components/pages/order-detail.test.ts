@@ -11,7 +11,7 @@ import type { AuthUser } from '@geins/types';
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { shallowMountComponent } from '../../utils/component';
 import OrderDetail from '../../../app/pages/portal/orders/[id].vue';
-import LineConfigurationSummary from '../../../app/components/cart/LineConfigurationSummary.vue';
+import LineSpecification from '../../../app/components/cart/LineSpecification.vue';
 import { useTenant } from '../../../app/composables/useTenant';
 import { useAuthStore } from '../../../app/stores/auth';
 import { mockIsCatalogMode } from '../../setup-components';
@@ -738,35 +738,44 @@ describe('OrderDetail', () => {
       });
     }
 
-    it('shows each row its own summary in the table, and none on a plain row', () => {
+    it('offers each row its own specification in the table, handed the row, and none on a plain row', () => {
       const wrapper = mountOrder();
 
       const rows = wrapper.findAll('[data-testid="order-item-row"]');
       expect(rows).toHaveLength(3);
-      /** The props of each summary block in a row. */
-      const summaryOf = (index: number): Record<string, unknown>[] =>
-        rows[index]!.findAllComponents(LineConfigurationSummary).map(
+      /** The props of each specification in a row. */
+      const specOf = (index: number): Record<string, unknown>[] =>
+        rows[index]!.findAllComponents(LineSpecification).map(
           (block: { props: () => Record<string, unknown> }) => block.props(),
         );
-      expect(summaryOf(0)).toEqual([]);
-      expect(summaryOf(1).map((props) => props.summary)).toEqual([SUMMARY]);
-      expect(summaryOf(2).map((props) => props.summary)).toEqual([
-        OTHER_SUMMARY,
+      expect(specOf(0)).toEqual([]);
+      expect(specOf(1)).toEqual([
+        {
+          id: 'order-item-configuration-1',
+          productName: 'Tiltrotator',
+          quantity: 1,
+          configuration: { summary: SUMMARY },
+          unitPrice: configuredOrder().order.cart.items[1]!.unitPrice,
+          totalPrice: configuredOrder().order.cart.items[1]!.totalPrice,
+        },
       ]);
-      expect(summaryOf(1)[0]!.id).not.toBe(summaryOf(2)[0]!.id);
+      expect(specOf(2).map((props) => props.configuration)).toEqual([
+        { summary: OTHER_SUMMARY },
+      ]);
+      expect(specOf(1)[0]!.id).not.toBe(specOf(2)[0]!.id);
     });
 
-    it('gives a row committed with the defaults only its summary block too', () => {
+    it('offers a row committed with the defaults only its specification too', () => {
       const row = mountOrder([]).findAll('[data-testid="order-item-row"]')[2]!;
 
       expect(
         row
-          .findAllComponents(LineConfigurationSummary)
+          .findAllComponents(LineSpecification)
           .map(
             (block: { props: () => Record<string, unknown> }) =>
-              block.props().summary,
+              block.props().configuration,
           ),
-      ).toEqual([[]]);
+      ).toEqual([{ summary: [] }]);
     });
 
     // Opening a summary makes the row taller; its other cells stay on the
@@ -867,19 +876,25 @@ describe('OrderDetail', () => {
       ]);
     });
 
-    it('hands the mobile sheet one row per order row, each with its own key and summary', () => {
+    it('hands the mobile sheet one row per order row, each with its own key, configuration and prices', () => {
       const wrapper = mountOrder();
+      const order = configuredOrder().order;
 
       const sheet = wrapper.findComponent({ name: 'PortalItemRowsSheet' });
       const items = sheet.props('items') as {
         key: string;
         configuration?: { summary: unknown };
+        unitPrice?: unknown;
+        totalPrice?: unknown;
       }[];
       expect(items.map((item) => item.configuration)).toEqual([
         undefined,
         { summary: SUMMARY },
         { summary: OTHER_SUMMARY },
       ]);
+      expect(items.map((item) => [item.unitPrice, item.totalPrice])).toEqual(
+        order.cart.items.map((item) => [item.unitPrice, item.totalPrice]),
+      );
       expect(new Set(items.map((item) => item.key)).size).toBe(3);
     });
   });

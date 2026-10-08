@@ -79,9 +79,7 @@ export function withOrderLineConfigurations(
       ...(configurable
         ? { product: { ...item.product, configurable: true as const } }
         : {}),
-      ...(line?.configuration
-        ? { configuration: { summary: line.configuration.summary } }
-        : {}),
+      ...(line?.configuration ? { configuration: line.configuration } : {}),
     };
   };
   // A cart or its rows the SDK answered null for stay null.
