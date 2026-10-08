@@ -52,8 +52,10 @@ export { e2eCredentials, hasE2ECredentials };
  *   tenant's settings) and than `fixture-missing` (which is about data).
  * - `mutation-gate`: `E2E_ALLOW_ORDERS_FOR` does not name the tenant this
  *   origin resolves to, so the run places no order. The only reason here that
- *   describes a *choice* not to assert; the other seven describe an assertion
+ *   describes a *choice* not to assert; the other eight describe an assertion
  *   that cannot be made.
+ * - `browser-engine`: the browser engine, not the app, decides the outcome,
+ *   and differently per platform, so no assertion holds on every runner.
  */
 export type ScopeReason =
   | 'no-credentials'
@@ -63,7 +65,8 @@ export type ScopeReason =
   | 'tenant-config'
   | 'remote-target'
   | 'feature-hidden'
-  | 'mutation-gate';
+  | 'mutation-gate'
+  | 'browser-engine';
 
 /**
  * Skip the current test — or, called at file/describe level, every test in

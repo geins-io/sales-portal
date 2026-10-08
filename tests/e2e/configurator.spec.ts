@@ -8,7 +8,6 @@ import {
   waitForHydration,
 } from './helpers';
 import { localeText } from './locale-text';
-import { PRODUCTION_BUILD } from './target';
 
 /**
  * Configurator E2E Tests
@@ -1287,13 +1286,13 @@ test.describe('Configurator leaving the page', () => {
     page,
     browserName,
   }) => {
-    // Safari does not deliver a keepalive request started on pagehide during a
-    // full load or a tab close of the production build (measured by hand
-    // 2026-10-08), so the session lives until it expires. The dev server's
-    // WebKit does deliver it.
-    test.fail(
-      browserName === 'webkit' && PRODUCTION_BUILD,
-      'WebKit drops requests sent on pagehide',
+    // Whether WebKit delivers a keepalive request started on pagehide during a
+    // full load is a race: macOS WebKit lost it 9 of 10 times, Linux WebKit
+    // won it 6 to 10 of 10 (2026-10-08). Real Safari lost it by hand.
+    outOfScope(
+      browserName === 'webkit',
+      'browser-engine',
+      'Safari drops a keepalive request started on pagehide during a full load, and WebKit differs by platform; the same leave is proven on chromium and Mobile Chrome',
     );
     const unavailable = await unavailableReason(page);
     outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
