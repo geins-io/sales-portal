@@ -241,6 +241,10 @@ export function useConfiguratorSession({
         status.value = 'expired';
       } else {
         error.value = failure;
+        // Every later call on a session priced in another currency is refused
+        // the same way, its release included, which would keep it active and
+        // stop a new start.
+        if (failure.code === 'CURRENCY_MISMATCH') close();
       }
       return undefined;
     } finally {

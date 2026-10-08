@@ -2,7 +2,12 @@ import { describe, it, expect } from 'vitest';
 import {
   addError,
   addFailureKey,
+  addRetryable,
   canCommit,
+  editOpenFailureKey,
+  editOpenRetryable,
+  restartsInMarket,
+  startFailureKey,
   replaceFailureKey,
   replaceRetryable,
   canRetryAdd,
@@ -166,6 +171,131 @@ describe('failureKey', () => {
 
   it('keeps the general copy when nothing failed', () => {
     expect(failureKey(null)).toBe('configurator.failed');
+  });
+});
+
+const NOT_AVAILABLE = {
+  status: 404,
+  message: 'x',
+  code: 'CONFIGURATOR_NOT_AVAILABLE',
+};
+const CURRENCY = { status: 409, message: 'x', code: 'CURRENCY_MISMATCH' };
+
+describe('startFailureKey', () => {
+  it('says the product cannot be configured when the account has no configurator', () => {
+    expect(startFailureKey(NOT_AVAILABLE)).toBe('configurator.not_available');
+  });
+
+  it('says the same for a product the configurator does not know', () => {
+    expect(
+      startFailureKey({ status: 404, message: 'x', code: 'NOT_FOUND' }),
+    ).toBe('configurator.not_available');
+  });
+
+  it('asks the buyer to resume in this market after a currency mismatch', () => {
+    expect(startFailureKey(CURRENCY)).toBe('configurator.currency_mismatch');
+  });
+
+  it('still asks a buyer without a company account to sign in', () => {
+    expect(startFailureKey({ status: 403, message: 'x' })).toBe(
+      'configurator.sign_in_required',
+    );
+  });
+
+  it.each([0, 409, 410, 422, 500, 502])(
+    'keeps the general copy for %i',
+    (status) => {
+      expect(startFailureKey({ status, message: 'x' })).toBe(
+        'configurator.failed',
+      );
+    },
+  );
+
+  it('keeps the general copy when nothing failed', () => {
+    expect(startFailureKey(null)).toBe('configurator.failed');
+  });
+});
+
+describe('editOpenFailureKey', () => {
+  it('says the product in the cart cannot be changed in this market', () => {
+    expect(editOpenFailureKey(CURRENCY)).toBe(
+      'configurator.edit.currency_mismatch',
+    );
+  });
+
+  it('says the product cannot be configured when the account has no configurator', () => {
+    expect(editOpenFailureKey(NOT_AVAILABLE)).toBe(
+      'configurator.not_available',
+    );
+  });
+
+  it.each([
+    ['an unknown configuration', { status: 404, code: 'NOT_FOUND' }],
+    ['a 409 of another kind', { status: 409, code: 'CONFLICT' }],
+    ['an upstream failure', { status: 502, code: 'EXTERNAL_API_ERROR' }],
+  ])('says the line could not be opened for %s', (_case, error) => {
+    expect(editOpenFailureKey({ message: 'x', ...error })).toBe(
+      'configurator.edit.open_failed',
+    );
+  });
+
+  it('says the line could not be opened when nothing failed', () => {
+    expect(editOpenFailureKey(null)).toBe('configurator.edit.open_failed');
+  });
+});
+
+describe('editOpenRetryable', () => {
+  it.each([
+    ['a currency mismatch', CURRENCY],
+    ['an account without a configurator', NOT_AVAILABLE],
+  ])(
+    'offers no second try after %s, which would answer the same',
+    (_case, error) => {
+      expect(editOpenRetryable(error)).toBe(false);
+    },
+  );
+
+  it.each([
+    [
+      'an unknown configuration',
+      { status: 404, message: 'x', code: 'NOT_FOUND' },
+    ],
+    ['an upstream failure', { status: 502, message: 'x' }],
+    ['no failure held', null],
+  ])('offers one after %s', (_case, error) => {
+    expect(editOpenRetryable(error)).toBe(true);
+  });
+});
+
+describe('addRetryable', () => {
+  it('offers no second add of a record priced in another currency', () => {
+    expect(addRetryable(CURRENCY)).toBe(false);
+  });
+
+  it.each([
+    ['a dropped line', { status: 409, message: 'x', code: 'CONFLICT' }],
+    ['an upstream failure', { status: 502, message: 'x' }],
+    ['no failure held', null],
+  ])('offers one after %s', (_case, error) => {
+    expect(addRetryable(error)).toBe(true);
+  });
+});
+
+describe('restartsInMarket', () => {
+  it('offers to resume in this market after a currency mismatch', () => {
+    expect(restartsInMarket({ error: CURRENCY, editing: false })).toBe(true);
+  });
+
+  it('does not while a cart line is edited: the line is in the other currency', () => {
+    expect(restartsInMarket({ error: CURRENCY, editing: true })).toBe(false);
+  });
+
+  it.each([
+    ['an account without a configurator', NOT_AVAILABLE],
+    ['a dropped line', { status: 409, message: 'x', code: 'CONFLICT' }],
+    ['no failure held', null],
+  ])('does not after %s', (_case, error) => {
+    expect(restartsInMarket({ error, editing: false })).toBe(false);
   });
 });
 
@@ -427,6 +557,10 @@ describe('addFailureKey', () => {
     ).toBe('configurator.add_failed');
   });
 
+  it('asks the buyer to resume in this market after a currency mismatch, before the 409 row', () => {
+    expect(addFailureKey(CURRENCY)).toBe('configurator.currency_mismatch');
+  });
+
   it('says the line was not added when the cart dropped it', () => {
     expect(addFailureKey({ status: 409, message: 'x' })).toBe(
       'configurator.add_not_added',
@@ -489,6 +623,10 @@ describe('replaceRetryable', () => {
   it('does with no failure held, which is a retry under way', () => {
     expect(replaceRetryable(null)).toBe(true);
   });
+
+  it('does not after a currency mismatch: the line is in the other currency', () => {
+    expect(replaceRetryable(CURRENCY)).toBe(false);
+  });
 });
 
 describe('replaceFailureKey', () => {
@@ -500,6 +638,12 @@ describe('replaceFailureKey', () => {
     expect(
       replaceFailureKey({ status: 404, message: 'x', code: 'CART_LINE_GONE' }),
     ).toBe('configurator.edit.line_gone');
+  });
+
+  it('says the line cannot be changed in this market after a currency mismatch', () => {
+    expect(replaceFailureKey(CURRENCY)).toBe(
+      'configurator.edit.currency_mismatch',
+    );
   });
 
   it.each([

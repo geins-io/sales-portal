@@ -354,6 +354,8 @@
     "not_restored": "Dina tidigare val kunde inte tas tillbaka. Du ser standardvalen.",
     "starting": "Laddar in produktkonfiguratorn",
     "failed": "Något gick fel. Ladda om sidan och försök igen.",
+    "not_available": "Den här produkten går inte att konfigurera just nu.",
+    "currency_mismatch": "Du har bytt marknad sedan du började. Välj Återuppta för att fortsätta med dina val till den här marknadens priser.",
     "change_refused_value": "Värdet godtogs inte. Prova ett annat värde.",
     "change_refused_option": "Valet godtogs inte. Prova ett annat val.",
     "sign_in_required": "Logga in med ett företagskonto för att konfigurera produkten.",
@@ -403,7 +405,8 @@
       "not_reopenable": "Konfigurationen kan inte öppnas igen. Gör om den från början – produkten i varukorgen är oförändrad tills du uppdaterar.",
       "line_gone": "Produkten finns inte längre i varukorgen.",
       "open_failed": "Produkten i varukorgen kunde inte öppnas just nu.",
-      "update_failed": "Produkten i varukorgen kunde inte uppdateras. Den har kvar sina tidigare val."
+      "update_failed": "Produkten i varukorgen kunde inte uppdateras. Den har kvar sina tidigare val.",
+      "currency_mismatch": "Produkten i varukorgen lades till på en annan marknad och kan inte ändras här. Den är oförändrad."
     }
   },
   "account": {

@@ -354,6 +354,8 @@
     "not_restored": "Aiempia valintojasi ei voitu palauttaa. Näet oletusvalinnat.",
     "starting": "Ladataan tuotekonfiguraattoria",
     "failed": "Jokin meni vikaan. Lataa sivu uudelleen ja yritä uudestaan.",
+    "not_available": "Tätä tuotetta ei voi konfiguroida juuri nyt.",
+    "currency_mismatch": "Olet vaihtanut markkina-aluetta aloittamisen jälkeen. Valitse Jatka, niin voit jatkaa valinnoillasi tämän markkina-alueen hinnoin.",
     "change_refused_value": "Arvoa ei hyväksytty. Kokeile toista arvoa.",
     "change_refused_option": "Valintaa ei hyväksytty. Kokeile toista valintaa.",
     "sign_in_required": "Kirjaudu sisään yritystilillä konfiguroidaksesi tuotteen.",
@@ -403,7 +405,8 @@
       "not_reopenable": "Kokoonpanoa ei voi avata uudelleen. Tee se alusta – ostoskorin tuote pysyy ennallaan, kunnes päivität.",
       "line_gone": "Tuotetta ei ole enää ostoskorissa.",
       "open_failed": "Ostoskorin tuotetta ei voitu avata juuri nyt.",
-      "update_failed": "Ostoskorin tuotetta ei voitu päivittää. Se säilyttää aiemmat valintansa."
+      "update_failed": "Ostoskorin tuotetta ei voitu päivittää. Se säilyttää aiemmat valintansa.",
+      "currency_mismatch": "Ostoskorin tuote lisättiin toisella markkina-alueella, eikä sitä voi muuttaa täällä. Se on ennallaan."
     }
   },
   "account": {

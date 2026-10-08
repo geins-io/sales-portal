@@ -707,6 +707,50 @@ describe('ConfiguratorProduct session', () => {
     expect(error.text()).not.toContain('configurator.failed');
   });
 
+  it.each([
+    ['an account without a configurator', 'CONFIGURATOR_NOT_AVAILABLE'],
+    ['a product the configurator does not know', 'NOT_FOUND'],
+  ])(
+    'says the product cannot be configured for %s, with no way to resume',
+    async (_case, code) => {
+      const wrapper = mountPage();
+      session.error.value = { status: 404, message: 'x', code };
+      await nextTick();
+
+      expect(
+        wrapper.find('[data-testid="configurator-error"]').text(),
+      ).toContain('configurator.not_available');
+      expect(wrapper.find('[data-testid="configurator-resume"]').exists()).toBe(
+        false,
+      );
+    },
+  );
+
+  it('resumes the held choices in this market after a currency mismatch', async () => {
+    const wrapper = mountPage();
+    session.configuration.value = makeValidConfiguration();
+    session.status.value = 'closed';
+    session.error.value = {
+      status: 409,
+      message: 'x',
+      code: 'CURRENCY_MISMATCH',
+    };
+    await nextTick();
+    session.start.mockClear();
+
+    expect(wrapper.find('[data-testid="configurator-error"]').text()).toContain(
+      'configurator.currency_mismatch',
+    );
+    const resume = wrapper.find('[data-testid="configurator-resume"]');
+    expect(resume.text()).toContain('configurator.panel.resume');
+    await resume.trigger('click');
+    await flushPromises();
+
+    expect(session.release).toHaveBeenCalledTimes(1);
+    expect(session.restore).toHaveBeenCalledWith('1101');
+    expect(session.start).not.toHaveBeenCalled();
+  });
+
   it('keeps the general copy for any other failure to start', async () => {
     const wrapper = mountPage();
     session.error.value = { status: 502, message: 'unreachable' };
@@ -1035,9 +1079,30 @@ describe('ConfiguratorProduct add to cart', () => {
       const retry = wrapper.find('[data-testid="add-retry"]');
       expect(retry.attributes('data-message')).toBe(key);
       expect(retry.attributes('data-can-retry')).toBe('true');
+      expect(retry.attributes('data-retryable')).toBe('true');
       expect(wrapper.find('[data-testid="committed"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="configurator-resume"]').exists()).toBe(
+        false,
+      );
     },
   );
+
+  it('offers to resume in this market, not to add again, when the add met a currency mismatch', async () => {
+    const wrapper = mountPage();
+    committedWith({
+      error: { status: 409, message: 'x', code: 'CURRENCY_MISMATCH' },
+    });
+    await nextTick();
+
+    const retry = wrapper.find('[data-testid="add-retry"]');
+    expect(retry.attributes('data-message')).toBe(
+      'configurator.currency_mismatch',
+    );
+    expect(retry.attributes('data-retryable')).toBe('false');
+    await wrapper.find('[data-testid="configurator-resume"]').trigger('click');
+    await flushPromises();
+    expect(session.restore).toHaveBeenCalledWith('1101');
+  });
 
   it('retries the add, and keeps the retry on screen while it runs', async () => {
     const wrapper = mountPage();
@@ -2503,6 +2568,29 @@ describe('ConfiguratorProduct editing a cart line', () => {
     expect(session.reopenLine).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    [409, 'CURRENCY_MISMATCH', 'configurator.edit.currency_mismatch'],
+    [404, 'CONFIGURATOR_NOT_AVAILABLE', 'configurator.not_available'],
+  ])(
+    'says why a %i %s reopen cannot work, with no retry and no resume',
+    async (status, code, key) => {
+      const wrapper = mountPage();
+      session.editing.value = LINE;
+      session.error.value = { status, message: 'x', code };
+      await nextTick();
+
+      expect(wrapper.find('[data-testid="configurator-error"]').text()).toBe(
+        key,
+      );
+      expect(
+        wrapper.find('[data-testid="configurator-edit-retry"]').exists(),
+      ).toBe(false);
+      expect(wrapper.find('[data-testid="configurator-resume"]').exists()).toBe(
+        false,
+      );
+    },
+  );
+
   it("opens the line's choices again, rather than a fresh session, when the session expired during the edit", async () => {
     const wrapper = mountPage();
     session.editing.value = LINE;
@@ -2537,6 +2625,7 @@ describe('ConfiguratorProduct editing a cart line', () => {
     [502, 'EXTERNAL_API_ERROR', 'configurator.edit.update_failed', true],
     [404, 'NOT_FOUND', 'configurator.edit.update_failed', false],
     [404, 'CART_LINE_GONE', 'configurator.edit.line_gone', false],
+    [409, 'CURRENCY_MISMATCH', 'configurator.edit.currency_mismatch', false],
   ])(
     'says what a %i %s swap did to the line, retryable: %s',
     async (status, code, key, retryable) => {

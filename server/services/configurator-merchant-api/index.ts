@@ -91,6 +91,24 @@ function knownFailure(code: string) {
         ErrorCode.CART_NOT_OWN,
         "The cart is another company's",
       );
+    case 'NotAvailable':
+      return createAppError(
+        ErrorCode.CONFIGURATOR_NOT_AVAILABLE,
+        'The account has no configurator',
+      );
+    // The session's currency is fixed at its start; a market in another one
+    // is refused on every later call, the cart's included.
+    case 'ConfigurationCurrencyMismatch':
+      return createAppError(
+        ErrorCode.CURRENCY_MISMATCH,
+        'The configuration is priced in another currency',
+      );
+    case 'ProductNotFound':
+    case 'InvalidProductReference':
+      return createAppError(
+        ErrorCode.NOT_FOUND,
+        'The product is not known to the configurator',
+      );
     default:
       return undefined;
   }

@@ -24,6 +24,10 @@ export enum ErrorCode {
   CART_NOT_OWN = 'CART_NOT_OWN',
   /** The cart is read only with the buyer signed in. */
   CART_LOGIN_REQUIRED = 'CART_LOGIN_REQUIRED',
+  /** The account has no configurator (CPQ) behind it. */
+  CONFIGURATOR_NOT_AVAILABLE = 'CONFIGURATOR_NOT_AVAILABLE',
+  /** A configuration priced in another currency than the buyer's market. */
+  CURRENCY_MISMATCH = 'CURRENCY_MISMATCH',
   TENANT_NOT_FOUND = 'TENANT_NOT_FOUND',
   TENANT_INACTIVE = 'TENANT_INACTIVE',
 
@@ -58,6 +62,10 @@ const ERROR_STATUS_CODES: Record<ErrorCode, number> = {
   [ErrorCode.CART_NOT_OWN]: 403,
   // Not UNAUTHORIZED: the client keeps the cart id for this code alone.
   [ErrorCode.CART_LOGIN_REQUIRED]: 401,
+  // As the configurator flag turned off: setup, not an outage.
+  [ErrorCode.CONFIGURATOR_NOT_AVAILABLE]: 404,
+  // Not 422 or 410, which the page reads as a refused change or an expiry.
+  [ErrorCode.CURRENCY_MISMATCH]: 409,
   [ErrorCode.TENANT_NOT_FOUND]: 404,
   [ErrorCode.TENANT_INACTIVE]: 403,
   [ErrorCode.INTERNAL_ERROR]: 500,
@@ -85,6 +93,8 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.CART_LINE_GONE]: 'Cart line not found',
   [ErrorCode.CART_NOT_OWN]: 'Cart belongs to another company',
   [ErrorCode.CART_LOGIN_REQUIRED]: 'Sign in to read this cart',
+  [ErrorCode.CONFIGURATOR_NOT_AVAILABLE]: 'The configurator is not available',
+  [ErrorCode.CURRENCY_MISMATCH]: 'Priced in another currency',
   [ErrorCode.TENANT_NOT_FOUND]: 'Tenant not found',
   [ErrorCode.TENANT_INACTIVE]: 'Tenant is inactive',
   [ErrorCode.INTERNAL_ERROR]: 'Internal server error',
