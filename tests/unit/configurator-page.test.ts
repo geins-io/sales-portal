@@ -154,6 +154,16 @@ describe('canCommit', () => {
       false,
     );
   });
+
+  it('refuses when the stock is all in the cart or there is none', () => {
+    for (const stockBlock of ['max_in_cart', 'out_of_stock'] as const) {
+      expect(canCommit({ ...state(), busy: false, stockBlock })).toBe(false);
+    }
+  });
+
+  it('allows a commit while stock is left', () => {
+    expect(canCommit({ ...state(), busy: false, stockBlock: null })).toBe(true);
+  });
 });
 
 describe('canPress', () => {
@@ -197,6 +207,18 @@ describe('canPress', () => {
     expect(canPress({ ...state({ configuration: null }), busy: false })).toBe(
       false,
     );
+  });
+
+  // A press held for a batch would add past the stock once the batch answers.
+  it('drops a press when the stock is all in the cart or there is none, in flight too', () => {
+    for (const stockBlock of ['max_in_cart', 'out_of_stock'] as const) {
+      expect(canPress({ ...state(), busy: false, stockBlock })).toBe(false);
+      expect(canPress({ ...state(), busy: true, stockBlock })).toBe(false);
+    }
+  });
+
+  it('passes a press on while stock is left', () => {
+    expect(canPress({ ...state(), busy: false, stockBlock: null })).toBe(true);
   });
 });
 

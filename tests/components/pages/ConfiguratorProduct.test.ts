@@ -123,7 +123,9 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
 const cartStore = vi.hoisted(() => ({
   cartId: null as string | null,
   isOpen: false,
-  cart: null as { items: { id: string; quantity: number }[] } | null,
+  cart: null as {
+    items: { id: string; quantity: number; skuId?: number }[];
+  } | null,
   pendingQuantities: new Map<string, number>(),
   updatingItems: new Set<string>(),
   addConfiguredItem: vi.fn(
@@ -347,13 +349,21 @@ const stubs = {
   },
   ConfigurationAction: {
     template: `<div data-testid="action" :data-incomplete="incomplete" :data-busy="String(busy)"
-      :data-error="error ?? ''" :data-editing="String(editing)">
+      :data-error="error ?? ''" :data-editing="String(editing)"
+      :data-stock-block="stockBlock ?? ''">
       <button data-testid="configurator-commit"
         :aria-disabled="String(!canCommit)" @click="$emit('submit')"></button>
       <button data-testid="action-revert" @click="$emit('revert')"></button>
       <button data-testid="action-cancel" @click="$emit('cancel')"></button>
     </div>`,
-    props: ['canCommit', 'busy', 'incomplete', 'error', 'editing'],
+    props: [
+      'canCommit',
+      'busy',
+      'incomplete',
+      'error',
+      'editing',
+      'stockBlock',
+    ],
     emits: ['submit', 'revert', 'cancel'],
   },
   ConfiguratorAddRetry: {
@@ -3164,6 +3174,152 @@ describe("ConfiguratorProduct following the line's quantity", () => {
           .find('[data-testid="configurator-commit"]')
           .attributes('aria-disabled'),
       ).toBe('false');
+    });
+  });
+});
+
+describe('ConfiguratorProduct stock', () => {
+  const SKU = 1788;
+  const LINE = { cartId: 'cart-1', itemId: 'line-1' };
+
+  function withStock(
+    stock: Partial<{
+      totalStock: number;
+      oversellable: number;
+      static: number;
+    }>,
+  ): DetailProduct {
+    return makeProduct({
+      skus: [
+        {
+          skuId: SKU,
+          stock: {
+            inStock: 0,
+            oversellable: 0,
+            totalStock: 1,
+            static: 0,
+            ...stock,
+          },
+        },
+      ],
+    });
+  }
+
+  function inCart(
+    ...items: { id: string; quantity: number; skuId?: number }[]
+  ) {
+    cart.cartId = LINE.cartId;
+    cart.cart = { items };
+  }
+
+  async function pageWith(product: DetailProduct) {
+    const wrapper = mountPage(product);
+    activeWith(makeValidConfiguration());
+    await nextTick();
+    return wrapper;
+  }
+
+  const action = (wrapper: ReturnType<typeof mountPage>) =>
+    wrapper.find('[data-testid="action"]');
+  const press = (wrapper: ReturnType<typeof mountPage>) =>
+    wrapper.find('[data-testid="configurator-commit"]').trigger('click');
+
+  // The page carries on from the line it just added; that line counts.
+  it('shuts the action when the stock of one is the configured line just added', async () => {
+    inCart({ id: LINE.itemId, quantity: 1, skuId: SKU });
+    session.source.value = LINE;
+    const wrapper = await pageWith(withStock({ totalStock: 1 }));
+
+    expect(action(wrapper).attributes('data-stock-block')).toBe('max_in_cart');
+    expect(
+      wrapper
+        .find('[data-testid="configurator-commit"]')
+        .attributes('aria-disabled'),
+    ).toBe('true');
+    await press(wrapper);
+    expect(session.commit).not.toHaveBeenCalled();
+  });
+
+  it('counts every line of the SKU, configured or not, and no other SKU', async () => {
+    inCart(
+      { id: 'plain', quantity: 2, skuId: SKU },
+      { id: LINE.itemId, quantity: 1, skuId: SKU },
+      { id: 'other', quantity: 9, skuId: 1474 },
+    );
+    const wrapper = await pageWith(withStock({ totalStock: 3 }));
+
+    expect(action(wrapper).attributes('data-stock-block')).toBe('max_in_cart');
+  });
+
+  it('drops a press made during a batch once the stock is in the cart', async () => {
+    inCart({ id: LINE.itemId, quantity: 1, skuId: SKU });
+    const wrapper = await pageWith(withStock({ totalStock: 1 }));
+    session.busy.value = true;
+    await nextTick();
+
+    await press(wrapper);
+    expect(session.commit).not.toHaveBeenCalled();
+  });
+
+  it('changes nothing while stock is left', async () => {
+    inCart({ id: LINE.itemId, quantity: 1, skuId: SKU });
+    const wrapper = await pageWith(withStock({ totalStock: 2 }));
+
+    expect(action(wrapper).attributes('data-stock-block')).toBe('');
+    await press(wrapper);
+    expect(session.commit).toHaveBeenCalledTimes(1);
+  });
+
+  it('never limits oversellable stock', async () => {
+    inCart({ id: LINE.itemId, quantity: 1, skuId: SKU });
+    const wrapper = await pageWith(
+      withStock({ totalStock: 1, oversellable: 10 }),
+    );
+
+    expect(action(wrapper).attributes('data-stock-block')).toBe('');
+    await press(wrapper);
+    expect(session.commit).toHaveBeenCalledTimes(1);
+  });
+
+  it('never limits static stock', async () => {
+    inCart({ id: LINE.itemId, quantity: 1, skuId: SKU });
+    const wrapper = await pageWith(withStock({ totalStock: 1, static: 1 }));
+
+    expect(action(wrapper).attributes('data-stock-block')).toBe('');
+  });
+
+  it('says out of stock when there is none and the cart holds none', async () => {
+    const wrapper = await pageWith(withStock({ totalStock: 0 }));
+
+    expect(action(wrapper).attributes('data-stock-block')).toBe('out_of_stock');
+    await press(wrapper);
+    expect(session.commit).not.toHaveBeenCalled();
+  });
+
+  describe('editing a line', () => {
+    it('is not shut by the line it updates', async () => {
+      inCart({ id: LINE.itemId, quantity: 1, skuId: SKU });
+      session.source.value = LINE;
+      session.editing.value = LINE;
+      const wrapper = await pageWith(withStock({ totalStock: 1 }));
+
+      expect(action(wrapper).attributes('data-stock-block')).toBe('');
+      await press(wrapper);
+      expect(session.commit).toHaveBeenCalledTimes(1);
+    });
+
+    it('is shut when the other lines of the SKU hold the stock', async () => {
+      inCart(
+        { id: 'plain', quantity: 1, skuId: SKU },
+        { id: LINE.itemId, quantity: 1, skuId: SKU },
+      );
+      session.source.value = LINE;
+      session.editing.value = LINE;
+      const wrapper = await pageWith(withStock({ totalStock: 1 }));
+
+      expect(action(wrapper).attributes('data-stock-block')).toBe(
+        'max_in_cart',
+      );
     });
   });
 });

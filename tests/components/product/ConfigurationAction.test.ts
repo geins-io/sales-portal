@@ -146,6 +146,46 @@ describe('ConfigurationAction', () => {
     ).toBe(false);
   });
 
+  describe('stock', () => {
+    // As the ordinary product page: the label and the note under it.
+    it('says the whole stock is in the cart, and why, whatever else it would say', () => {
+      for (const props of [{}, { incomplete: true }, { editing: true }]) {
+        const wrapper = mountAction({
+          canCommit: false,
+          stockBlock: 'max_in_cart',
+          ...props,
+        });
+        const button = wrapper.find('[data-testid="configurator-commit"]');
+        expect(button.text()).toBe('product.max_in_cart');
+        expect(button.attributes('aria-disabled')).toBe('true');
+        expect(
+          wrapper.find('[data-testid="configurator-max-quantity-info"]').text(),
+        ).toBe('product.max_quantity_info');
+      }
+    });
+
+    it('says the product is out of stock, with no note', () => {
+      const wrapper = mountAction({
+        canCommit: false,
+        stockBlock: 'out_of_stock',
+      });
+      expect(wrapper.find('[data-testid="configurator-commit"]').text()).toBe(
+        'product.out_of_stock',
+      );
+      expect(
+        wrapper.find('[data-testid="configurator-max-quantity-info"]').exists(),
+      ).toBe(false);
+    });
+
+    it('shows no note while stock is left', () => {
+      expect(
+        mountAction({ stockBlock: null })
+          .find('[data-testid="configurator-max-quantity-info"]')
+          .exists(),
+      ).toBe(false);
+    });
+  });
+
   it('prompts to sign in when priceVisibility requires authentication and the user is anonymous', () => {
     setFeatures({
       priceVisibility: { enabled: true, access: 'authenticated' },

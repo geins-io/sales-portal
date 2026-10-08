@@ -2,6 +2,7 @@
 import { AlertCircle, LogIn, Loader2, ShoppingCart } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import { useAuthStore } from '~/stores/auth';
+import type { StockBlock } from '~/utils/stock-in-cart';
 
 /**
  * What the buyer does with the configuration: sign in to see what it costs, or
@@ -15,6 +16,7 @@ const {
   incomplete,
   error = null,
   editing = false,
+  stockBlock = null,
 } = defineProps<{
   canCommit: boolean;
   busy: boolean;
@@ -24,6 +26,8 @@ const {
   error?: string | null;
   /** A configured cart line is being edited: the action updates it. */
   editing?: boolean;
+  /** The stock stops the action, as on the ordinary product page. */
+  stockBlock?: StockBlock | null;
 }>();
 
 const emit = defineEmits<{ submit: []; revert: []; cancel: [] }>();
@@ -69,14 +73,25 @@ const auth = useAuthStore();
       />
       {{
         t(
-          incomplete
-            ? 'configurator.commit_incomplete'
-            : editing
-              ? 'configurator.edit.update'
-              : 'product.add_to_cart',
+          stockBlock === 'out_of_stock'
+            ? 'product.out_of_stock'
+            : stockBlock === 'max_in_cart'
+              ? 'product.max_in_cart'
+              : incomplete
+                ? 'configurator.commit_incomplete'
+                : editing
+                  ? 'configurator.edit.update'
+                  : 'product.add_to_cart',
         )
       }}
     </Button>
+    <p
+      v-if="stockBlock === 'max_in_cart'"
+      class="text-muted-foreground mt-2 text-xs"
+      data-testid="configurator-max-quantity-info"
+    >
+      {{ t('product.max_quantity_info') }}
+    </p>
 
     <div v-if="editing" class="mt-2 flex gap-2">
       <Button

@@ -22,6 +22,7 @@ import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import type { BlockingItem } from '~/utils/configurator-panel';
+import { quantityInCart, stockBlock } from '~/utils/stock-in-cart';
 import { useCartStore } from '~/stores/cart';
 import {
   addError,
@@ -268,6 +269,17 @@ const {
   onReturn: open,
 });
 
+/**
+ * The stock rule of the ordinary product page, over every line of the SKU. A
+ * line being edited is replaced rather than added to, so it does not count.
+ */
+const stock = computed(() =>
+  stockBlock(
+    product.skus?.find((sku) => sku.skuId === skuId.value)?.stock,
+    quantityInCart(cart.cart?.items, skuId.value, editing.value?.itemId),
+  ),
+);
+
 /** Which verb failed last; see `refusedChange`. */
 const lastAction = ref<ConfiguratorAction>('start');
 
@@ -384,6 +396,7 @@ const commitEnabled = computed(() =>
     configuration: configuration.value,
     busy: busy.value,
     skuId: skuId.value,
+    stockBlock: stock.value,
     lineQuantity: lineQuantity.value,
     linePending: linePending.value,
   }),
@@ -640,6 +653,7 @@ function onSubmit(): void {
       configuration: configuration.value,
       busy: busy.value,
       skuId: skuId.value,
+      stockBlock: stock.value,
       lineQuantity: lineQuantity.value,
       linePending: linePending.value,
     })
@@ -1253,6 +1267,7 @@ function onRetryOpen(): void {
                     :incomplete="configuration?.isValid === false"
                     :error="actionError"
                     :editing="!!editing"
+                    :stock-block="stock"
                     @submit="onSubmit"
                     @revert="onRevert"
                     @cancel="onCancel"

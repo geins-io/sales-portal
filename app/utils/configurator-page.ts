@@ -7,6 +7,7 @@ import type {
   ConfiguratorSessionError,
   ConfiguratorSessionStatus,
 } from '~/composables/useConfiguratorSession';
+import type { StockBlock } from '~/utils/stock-in-cart';
 
 // ---------------------------------------------------------------------------
 // What the configurator page shows, and what the buyer may do.
@@ -87,6 +88,8 @@ export function canCommit(
       busy: boolean;
       /** What the line is added as; a commit with nothing to add would strand it. */
       skuId?: number | null;
+      /** Past the stock, the cart replaces a configured line of the SKU instead. */
+      stockBlock?: StockBlock | null;
     },
 ): boolean {
   return (
@@ -94,6 +97,7 @@ export function canCommit(
     state.configuration?.isValid === true &&
     !state.busy &&
     state.skuId !== null &&
+    !state.stockBlock &&
     atLine(state.configuration, state)
   );
 }
@@ -108,11 +112,13 @@ export function canPress(
     SourceLineState & {
       busy: boolean;
       skuId?: number | null;
+      stockBlock?: StockBlock | null;
     },
 ): boolean {
   return (
     state.status === 'active' &&
     state.skuId !== null &&
+    !state.stockBlock &&
     (state.busy || state.configuration?.isValid === true) &&
     atLine(state.configuration, state)
   );
