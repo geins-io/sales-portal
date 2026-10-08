@@ -1,4 +1,11 @@
-import { useIdle, useIntervalFn, type WindowEventName } from '@vueuse/core';
+import {
+  defaultDocument,
+  useEventListener,
+  useIdle,
+  useIntervalFn,
+  watchThrottled,
+  type WindowEventName,
+} from '@vueuse/core';
 import { onScopeDispose, ref } from 'vue';
 import type {
   CommittedConfiguration,
@@ -50,6 +57,12 @@ const ACTIVITY_EVENTS: WindowEventName[] = [
 
 /** How often the page asks whether a renew is due; asking sends nothing. */
 const RENEW_CHECK_MS = 30_000;
+
+/**
+ * How often the buyer's activity asks it, between those checks. A renew that
+ * fails leaves it due, so without this a scroll would send one per answer.
+ */
+const ACTIVITY_CHECK_MS = 5_000;
 
 export interface ConfiguratorSessionError {
   status: number;
@@ -177,6 +190,14 @@ export function useConfiguratorSession({
   /** When the session last answered with a new `expiresAt`. */
   let lastContact = 0;
   useIntervalFn(() => void renewQuietly(), RENEW_CHECK_MS);
+  watchThrottled(lastActive, () => void renewQuietly(), {
+    throttle: ACTIVITY_CHECK_MS,
+  });
+  // A background tab runs its timers about once a minute. Coming back asks at
+  // once, without counting as activity.
+  useEventListener(defaultDocument, 'visibilitychange', () => {
+    if (defaultDocument?.visibilityState === 'visible') void renewQuietly();
+  });
 
   let inFlight: AbortController | null = null;
   let renewing: AbortController | null = null;
@@ -365,10 +386,13 @@ export function useConfiguratorSession({
 
   /**
    * Renews the session when `renewDue` says so. Asked every `RENEW_CHECK_MS`
-   * whatever the state; a session that is not live answers no. Outside `run`,
-   * so it never locks the form or drops a buyer's change, and never reports a
-   * failure: a session that is gone shows as expired, anything else is tried
-   * again on the next check. A batch in flight moves `expiresAt` itself.
+   * whatever the state, on the buyer's activity and when the tab comes back; a
+   * session that is not live answers no. Past expiry it asks the server rather
+   * than trust this clock, and only the answer shows the session as expired.
+   * Outside `run`, so it never locks the form or drops a buyer's change, and
+   * never reports a failure: a session that is gone shows as expired, anything
+   * else is tried again on the next check. A batch in flight moves `expiresAt`
+   * itself.
    */
   async function renewQuietly(): Promise<void> {
     const id = liveId();
@@ -432,6 +456,7 @@ export function useConfiguratorSession({
       ),
     );
     if (!result) return;
+    notReplayed.value = false;
     notRestored.value = !result.replayed;
     hold(result.configuration);
   }

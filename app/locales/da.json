@@ -378,7 +378,7 @@
     },
     "panel": {
       "expired": "Konfigurationssessionen er udløbet.",
-      "start_over": "Start forfra",
+      "resume": "Genoptag",
       "title": "Specifikation",
       "net_price": "Nettopris",
       "vat": "Moms ({rate}%)",
@@ -392,15 +392,16 @@
       "copy_quantity": "Antal: {count} stk."
     },
     "edit": {
-      "marker": "Redigerer en linje i kurven",
+      "marker": "Redigerer et produkt i kurven",
       "update": "Opdater i kurven",
       "revert": "Fortryd ændringer",
       "cancel": "Annuller redigering",
-      "expired": "Sessionen er udløbet. Linjen i kurven er uændret.",
-      "not_reopenable": "Konfigurationen kan ikke åbnes igen. Konfigurer den forfra – linjen i kurven er uændret, indtil du opdaterer.",
-      "line_gone": "Linjen findes ikke længere i kurven.",
-      "open_failed": "Linjen kunne ikke åbnes lige nu.",
-      "update_failed": "Linjen kunne ikke opdateres. Linjen i kurven beholder sine tidligere valg."
+      "expired": "Tiden for ændringen er udløbet. Produktet i kurven er uændret.",
+      "start_over": "Start forfra",
+      "not_reopenable": "Konfigurationen kan ikke åbnes igen. Konfigurer den forfra – produktet i kurven er uændret, indtil du opdaterer.",
+      "line_gone": "Produktet findes ikke længere i kurven.",
+      "open_failed": "Produktet i kurven kunne ikke åbnes lige nu.",
+      "update_failed": "Produktet i kurven kunne ikke opdateres. Det beholder sine tidligere valg."
     }
   },
   "account": {

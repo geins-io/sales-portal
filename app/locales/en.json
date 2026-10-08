@@ -378,7 +378,7 @@
     },
     "panel": {
       "expired": "The configuration session has expired.",
-      "start_over": "Start over",
+      "resume": "Resume",
       "title": "Specification",
       "net_price": "Net price",
       "vat": "VAT ({rate}%)",
@@ -392,15 +392,16 @@
       "copy_quantity": "Quantity: {count} pcs"
     },
     "edit": {
-      "marker": "Editing a line in the cart",
+      "marker": "Editing a product in the cart",
       "update": "Update in cart",
       "revert": "Undo changes",
       "cancel": "Cancel editing",
-      "expired": "The session has expired. The line in the cart is unchanged.",
-      "not_reopenable": "The configuration cannot be opened again. Configure it from the start – the line in the cart stays as it is until you update it.",
-      "line_gone": "The line is no longer in the cart.",
-      "open_failed": "The line could not be opened right now.",
-      "update_failed": "The line could not be updated. The line in the cart keeps its previous choices."
+      "expired": "The time for your change has run out. The product in the cart is unchanged.",
+      "start_over": "Start over",
+      "not_reopenable": "The configuration cannot be opened again. Configure it from the start – the product in the cart stays as it is until you update it.",
+      "line_gone": "The product is no longer in the cart.",
+      "open_failed": "The product in the cart could not be opened right now.",
+      "update_failed": "The product in the cart could not be updated. It keeps its previous choices."
     }
   },
   "account": {

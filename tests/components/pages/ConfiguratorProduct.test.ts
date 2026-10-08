@@ -2668,7 +2668,7 @@ describe('ConfiguratorProduct replaying an order row', () => {
     expect(router.replace).not.toHaveBeenCalled();
   });
 
-  it('replays the order row again, rather than the defaults, when the session expired', async () => {
+  it("brings the expired session's choices back, as on the product page, rather than replaying the order again", async () => {
     route.value.query = { order: ORDER_ID, row: '1' };
     const wrapper = mountPage();
     await flushPromises();
@@ -2681,8 +2681,26 @@ describe('ConfiguratorProduct replaying an order row', () => {
     await flushPromises();
 
     expect(session.release).toHaveBeenCalledTimes(1);
-    expect(session.replay).toHaveBeenCalledWith('1101', ROW);
+    expect(session.restore).toHaveBeenCalledWith('1101');
+    expect(session.replay).not.toHaveBeenCalled();
     expect(session.start).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('replays the order row again when the session expired before it held a document', async () => {
+    route.value.query = { order: ORDER_ID, row: '1' };
+    const wrapper = mountPage();
+    await flushPromises();
+    session.configuration.value = null;
+    session.status.value = 'expired';
+    await nextTick();
+    session.replay.mockClear();
+
+    await wrapper.find('[data-testid="panel-restart"]').trigger('click');
+    await flushPromises();
+
+    expect(session.replay).toHaveBeenCalledWith('1101', ROW);
+    expect(session.restore).not.toHaveBeenCalled();
   });
 
   it('starts from the defaults from the reset button and drops the query', async () => {

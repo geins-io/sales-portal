@@ -207,7 +207,9 @@ export const RENEW_LEAD_MS = 5 * 60_000;
  * Whether to renew the session now: it runs out within `RENEW_LEAD_MS`, and
  * the buyer has done something on the page since the session last answered.
  * An idle page lets its session run out; a change batch moves `expiresAt` on
- * its own, so activity before its answer does not count.
+ * its own, so activity before its answer does not count. Once `expiresAt` has
+ * passed on this clock, it is due whatever the activity: this clock can be off
+ * the server's, so the renew's answer says whether the session is gone.
  */
 export function renewDue({
   expiresAt,
@@ -221,7 +223,8 @@ export function renewDue({
   lastContact: number;
 }): boolean {
   const left = Date.parse(expiresAt) - now;
-  return left > 0 && left <= RENEW_LEAD_MS && lastActive > lastContact;
+  if (left <= 0) return true;
+  return left <= RENEW_LEAD_MS && lastActive > lastContact;
 }
 
 /** `lg:top-48`, where the box sticks, and Tailwind's `lg` breakpoint. */

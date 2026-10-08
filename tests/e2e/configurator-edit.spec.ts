@@ -6,6 +6,7 @@ import {
   signedInState,
   waitForHydration,
 } from './helpers';
+import { localeText } from './locale-text';
 
 /**
  * Editing a configured cart line, end to end on a real CPQ backend.
@@ -339,6 +340,12 @@ test.describe('Editing a configured cart line', () => {
 
       const expired = page.getByTestId('configurator-panel-expired');
       await expect(expired).toBeVisible();
+      await expect(expired).toContainText(
+        await localeText(page, 'configurator.edit.expired'),
+      );
+      await expect(expired.getByRole('button')).toHaveText(
+        await localeText(page, 'configurator.edit.start_over'),
+      );
       const again = reopenResponse(page);
       await expired.getByRole('button').click();
       expect((await again).status()).toBe(200);

@@ -4,6 +4,7 @@ import type {
   ConfigurationChoices,
   ConfigurationOptionGroup,
   ConfigurationSection,
+  ConfigurationVariable,
   CreateConfigurationInput,
   RestoreConfigurationInput,
 } from '#shared/types/configurator';
@@ -25,7 +26,7 @@ import type { ConfiguratorBackend, ConfiguratorContext } from './configurator';
 
 export interface ReplayedConfiguration {
   configuration: Configuration;
-  /** False when the session is on the defaults rather than the order's choices. */
+  /** False when the session is on the defaults, because a choice did not land. */
   replayed: boolean;
 }
 
@@ -125,9 +126,52 @@ export function replayChanges(
 }
 
 /**
- * A new session for the product, holding the choices when they fit. The
- * choices are read while the session is created. Only a failed create fails
- * the replay: anything after it leaves the buyer on the defaults, told so.
+ * Whether every choice is in the document: each variable at its value, each
+ * option selected. What the provider sets itself counts too: a choice it
+ * computes to another value now is not the choice that was made.
+ */
+export function landed(
+  choices: ConfigurationChoices,
+  document: Configuration,
+): boolean {
+  const { variables, options } = valuesOf(document);
+  return (
+    choices.variables.every(
+      ({ id, value }) => variables.has(id) && variables.get(id) === value,
+    ) && choices.options.every((option) => options.get(optionKey(option)))
+  );
+}
+
+/** Every variable's value by id; every option's `selected` by key. */
+function valuesOf(document: Configuration) {
+  const variables = new Map<string, ConfigurationVariable['value']>();
+  const options = new Map<string, boolean>();
+  const visitGroups = (groups: ConfigurationOptionGroup[]): void => {
+    for (const group of groups) {
+      for (const option of group.options) {
+        options.set(optionKey(option), option.selected);
+      }
+      visitGroups(group.optionGroups);
+    }
+  };
+  const visitSections = (sections: ConfigurationSection[]): void => {
+    for (const section of sections) {
+      for (const variable of section.variables) {
+        variables.set(variable.id, variable.value);
+      }
+      visitGroups(section.optionGroups);
+      visitSections(section.sections);
+    }
+  };
+  visitSections(document.sections);
+  return { variables, options };
+}
+
+/**
+ * A new session for the product, holding the choices when every one of them
+ * lands, and on the defaults otherwise: part of the choices back is not the
+ * configuration the buyer made. The choices are read while the session is
+ * created. Only a failed create fails the replay.
  */
 async function replayChoices(
   backend: ConfiguratorBackend,
@@ -144,31 +188,20 @@ async function replayChoices(
   if (!choices) return defaults;
   const changes = replayChanges(choices, created);
   if (!changes) return defaults;
-  if (changes.length === 0) return { configuration: created, replayed: true };
-
-  try {
-    return {
-      configuration: await backend.applyChanges(
-        created.configurationId,
-        changes,
-        ctx,
-      ),
-      replayed: true,
-    };
-  } catch {
-    // A refused batch fails whole; a timed-out one may not have. What the
-    // session holds now is the provider's to say.
-    try {
-      return {
-        configuration: await backend.get(created.configurationId, ctx),
-        replayed: false,
-      };
-    } catch (cause) {
-      // The page never learns this session's id, so nothing else would release it.
-      await backend.release(created.configurationId, ctx).catch(() => {});
-      throw cause;
-    }
+  if (changes.length === 0) {
+    return { configuration: created, replayed: landed(choices, created) };
   }
+
+  const applied = await backend
+    .applyChanges(created.configurationId, changes, ctx)
+    .catch(() => null);
+  if (applied && landed(choices, applied)) {
+    return { configuration: applied, replayed: true };
+  }
+  // A refused batch fails whole, a timed-out one may not have, and an accepted
+  // one can leave a pick unselected: the session is not the defaults either way.
+  await backend.release(created.configurationId, ctx).catch(() => {});
+  return { configuration: await backend.create(input, ctx), replayed: false };
 }
 
 /** A new session of one for the product, holding the order row's choices. */

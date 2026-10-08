@@ -378,7 +378,7 @@
     },
     "panel": {
       "expired": "Kokoonpanoistunto on vanhentunut.",
-      "start_over": "Aloita alusta",
+      "resume": "Jatka",
       "title": "Erittely",
       "net_price": "Nettohinta",
       "vat": "ALV ({rate}%)",
@@ -392,15 +392,16 @@
       "copy_quantity": "Määrä: {count} kpl"
     },
     "edit": {
-      "marker": "Muokkaat ostoskorin riviä",
+      "marker": "Muokkaat ostoskorin tuotetta",
       "update": "Päivitä ostoskoriin",
       "revert": "Kumoa muutokset",
       "cancel": "Peruuta muokkaus",
-      "expired": "Istunto on vanhentunut. Ostoskorin rivi on ennallaan.",
-      "not_reopenable": "Kokoonpanoa ei voi avata uudelleen. Tee se alusta – ostoskorin rivi pysyy ennallaan, kunnes päivität.",
-      "line_gone": "Riviä ei ole enää ostoskorissa.",
-      "open_failed": "Riviä ei voitu avata juuri nyt.",
-      "update_failed": "Riviä ei voitu päivittää. Ostoskorin rivi säilyttää aiemmat valintansa."
+      "expired": "Muutoksen aika on umpeutunut. Ostoskorin tuote on ennallaan.",
+      "start_over": "Aloita alusta",
+      "not_reopenable": "Kokoonpanoa ei voi avata uudelleen. Tee se alusta – ostoskorin tuote pysyy ennallaan, kunnes päivität.",
+      "line_gone": "Tuotetta ei ole enää ostoskorissa.",
+      "open_failed": "Ostoskorin tuotetta ei voitu avata juuri nyt.",
+      "update_failed": "Ostoskorin tuotetta ei voitu päivittää. Se säilyttää aiemmat valintansa."
     }
   },
   "account": {

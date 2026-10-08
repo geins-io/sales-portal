@@ -378,7 +378,7 @@
     },
     "panel": {
       "expired": "Konfigurationssessionen har gått ut.",
-      "start_over": "Börja om",
+      "resume": "Återuppta",
       "title": "Specifikation",
       "net_price": "Nettopris",
       "vat": "Moms ({rate}%)",
@@ -392,15 +392,16 @@
       "copy_quantity": "Antal: {count} st"
     },
     "edit": {
-      "marker": "Redigerar en rad i varukorgen",
+      "marker": "Redigerar en produkt i varukorgen",
       "update": "Uppdatera i varukorgen",
       "revert": "Ångra ändringar",
       "cancel": "Avbryt redigering",
-      "expired": "Sessionen har gått ut. Raden i varukorgen är oförändrad.",
-      "not_reopenable": "Konfigurationen kan inte öppnas igen. Gör om den från början – raden i varukorgen är oförändrad tills du uppdaterar.",
-      "line_gone": "Raden finns inte längre i varukorgen.",
-      "open_failed": "Raden kunde inte öppnas just nu.",
-      "update_failed": "Raden kunde inte uppdateras. Raden i varukorgen har kvar sina tidigare val."
+      "expired": "Tiden för ändringen har gått ut. Produkten i varukorgen är oförändrad.",
+      "start_over": "Börja om",
+      "not_reopenable": "Konfigurationen kan inte öppnas igen. Gör om den från början – produkten i varukorgen är oförändrad tills du uppdaterar.",
+      "line_gone": "Produkten finns inte längre i varukorgen.",
+      "open_failed": "Produkten i varukorgen kunde inte öppnas just nu.",
+      "update_failed": "Produkten i varukorgen kunde inte uppdateras. Den har kvar sina tidigare val."
     }
   },
   "account": {
