@@ -360,7 +360,6 @@
     "sign_in_required": "Melden Sie sich mit einem Firmenkonto an, um das Produkt zu konfigurieren.",
     "configurable_product": "Konfigurierbares Produkt",
     "sign_in_as_business_customer": "Melden Sie sich als Geschäftskunde an, um das Produkt zu konfigurieren.",
-    "sign_in_to_order": "Anmelden, um zu bestellen",
     "configure_product": "Produkt konfigurieren",
     "price_on_configuration": "Preis wird bei der Konfiguration berechnet",
     "product_configuration": "Produktkonfiguration",
@@ -371,7 +370,7 @@
     "next": "Weiter",
     "section_position": "Abschnitt {current} von {total}",
     "choose_subsection": "Wählen Sie einen Unterabschnitt, um fortzufahren.",
-    "page_note": "Dies ist ein konfigurierbares Produkt. Stellen Sie Ihre Variante unten unter {tab} zusammen — Preis und Gültigkeit werden laufend berechnet.",
+    "page_note": "Dies ist ein konfigurierbares Produkt. Stellen Sie Ihre Variante unten unter {tab} zusammen.",
     "severity": {
       "error": "Fehler",
       "warning": "Warnung",

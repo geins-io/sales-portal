@@ -360,7 +360,6 @@
     "sign_in_required": "Kirjaudu sisään yritystilillä konfiguroidaksesi tuotteen.",
     "configurable_product": "Konfiguroitava tuote",
     "sign_in_as_business_customer": "Kirjaudu sisään yritysasiakkaana konfiguroidaksesi tuotteen.",
-    "sign_in_to_order": "Kirjaudu sisään tilataksesi",
     "configure_product": "Määritä tuote",
     "price_on_configuration": "Hinta lasketaan konfiguroinnin yhteydessä",
     "product_configuration": "Tuotemääritys",
@@ -371,7 +370,7 @@
     "next": "Seuraava",
     "section_position": "Osio {current}/{total}",
     "choose_subsection": "Valitse aliosio jatkaaksesi.",
-    "page_note": "Tämä on määritettävä tuote. Rakenna oma versiosi alla kohdassa {tab} — hinta ja voimassaolo lasketaan jatkuvasti.",
+    "page_note": "Tämä on määritettävä tuote. Rakenna oma versiosi alla kohdassa {tab}.",
     "severity": {
       "error": "Virhe",
       "warning": "Varoitus",

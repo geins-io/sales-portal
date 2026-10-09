@@ -205,11 +205,10 @@ test.describe('Configurator', () => {
     outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
 
     await openConfigurator(page);
-    // The guest's sign-in box and greyed button are not on a buyer's page.
+    // The guest's sign-in box is not on a buyer's page.
     await expect(page.getByTestId('pdp-sign-in-to-configure-box')).toHaveCount(
       0,
     );
-    await expect(page.getByTestId('pdp-sign-in-to-order')).toHaveCount(0);
 
     // A fresh document is invalid on the colour group alone; every other
     // required group arrives preselected.
@@ -1198,7 +1197,7 @@ test.describe('a guest on a configurable product', () => {
     );
   });
 
-  test('is asked to sign in in a box, and gets no price and only a greyed buy button', async ({
+  test('is asked to sign in in a box, and gets no price and no buy button', async ({
     page,
   }) => {
     const adds: string[] = [];
@@ -1216,17 +1215,11 @@ test.describe('a guest on a configurable product', () => {
     await expect(page.getByTestId('add-to-cart-button')).toHaveCount(0);
     await expect(page.getByTestId('pdp-price')).toHaveCount(0);
 
-    const order = page.getByTestId('pdp-sign-in-to-order');
-    await expect(order).toBeVisible();
-    await expect(order).toBeDisabled();
-    await order.click({ force: true });
-    await expect(page.getByTestId('auth-sheet')).not.toBeVisible();
-    expect(adds).toEqual([]);
-
     const box = page.getByTestId('pdp-sign-in-to-configure-box');
     await expect(box).toBeVisible();
     await box.getByTestId('pdp-sign-in-to-configure').click();
     await expect(page.getByTestId('auth-sheet')).toBeVisible();
+    expect(adds).toEqual([]);
   });
 });
 

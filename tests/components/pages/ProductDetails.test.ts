@@ -1425,40 +1425,12 @@ describe('ProductDetails', () => {
       ).toHaveLength(1);
     });
 
-    it('shows a greyed buy button first in the aside, above the info card', async () => {
+    it('holds only the info card in the aside, with no buy button above it', async () => {
       const wrapper = await mountGuest(true);
 
       const children = Array.from(wrapper.get('aside').element.children);
-      expect(children[0]?.getAttribute('data-testid')).toBe(
-        'pdp-sign-in-to-order',
-      );
-      expect(children[1]?.getAttribute('data-testid')).toBe('pdp-info-card');
-      expect(children).toHaveLength(2);
-
-      const button = wrapper.get('[data-testid="pdp-sign-in-to-order"]');
-      expect(button.element.tagName).toBe('BUTTON');
-      expect(button.attributes('disabled')).toBeDefined();
-      expect(button.classes()).toContain('bg-secondary');
-      expect(button.text()).toBe('configurator.sign_in_to_order');
-    });
-
-    it('sends no add and opens nothing from the greyed button, by click or Enter', async () => {
-      const wrapper = await mountGuest(true);
-      mockAddItem.mockClear();
-
-      // Dispatched on the element itself: test-utils' trigger skips a
-      // disabled element, which would prove nothing about the handlers.
-      const button = wrapper.get(
-        '[data-testid="pdp-sign-in-to-order"]',
-      ).element;
-      button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      button.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
-      );
-      await flushPromises();
-
-      expect(mockAddItem).not.toHaveBeenCalled();
-      expect(mockOpenSheet).not.toHaveBeenCalled();
+      expect(children).toHaveLength(1);
+      expect(children[0]?.getAttribute('data-testid')).toBe('pdp-info-card');
     });
 
     it('is the ordinary page without the flag', async () => {
@@ -1484,9 +1456,6 @@ describe('ProductDetails', () => {
       ).toBe(false);
       expect(
         wrapper.find('[data-testid="pdp-sign-in-to-configure-box"]').exists(),
-      ).toBe(false);
-      expect(
-        wrapper.find('[data-testid="pdp-sign-in-to-order"]').exists(),
       ).toBe(false);
     });
   });
