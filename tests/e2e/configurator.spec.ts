@@ -53,7 +53,7 @@ const OTHER_COLOUR = 'ral-9006';
 outOfScope(
   !hasE2ECredentials(),
   'no-credentials',
-  'the configurator is gated on an access rule that defaults to authenticated (set E2E_USERNAME / E2E_PASSWORD in .env)',
+  'the configurator needs a signed-in buyer (set E2E_USERNAME / E2E_PASSWORD in .env)',
 );
 
 // Preflight L4 signs in once and writes the session; a per-test login would
@@ -66,7 +66,7 @@ test.use({ storageState: signedInState });
  * Two questions in a fixed order, because they are answered by different
  * gates. `configurable` on the product asks the backend seam alone, so it says
  * whether an implementation is behind the configurator at all. The feature
- * flag and its access rule live in `requireConfigurator`, which answers before
+ * flag and the signed-in check live in `requireConfigurator`, which answers before
  * the body is read — so an empty POST reaches the gate and nothing else, and
  * no session is created to probe it. Asking them the other way round would
  * read a backend that is off as a feature that is off.
@@ -81,7 +81,7 @@ async function unavailableReason(
 
   const gate = await page.request.post('/api/configurations', { data: {} });
   if (gate.status() === 404) {
-    return 'the configurator feature is off for this tenant, or its access rule refuses the e2e user';
+    return 'the configurator feature is off for this tenant, or the e2e user is not signed in';
   }
 
   return null;
