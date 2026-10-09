@@ -289,7 +289,8 @@ export function lifecycleCases(spec: {
       expect(getConfiguratorBackend).not.toHaveBeenCalled();
     });
 
-    it("answers 404 for an anonymous request even when configurator access is 'all'", async () => {
+    it("answers 404 for an anonymous request even with a stored access 'all'", async () => {
+      // An older stored config may still carry `access`; the point is that it is ignored.
       configuratorFeature({ enabled: true, access: 'all' });
       const event = spec.event({ authenticated: false });
 

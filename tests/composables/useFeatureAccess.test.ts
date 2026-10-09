@@ -92,7 +92,8 @@ describe('useFeatureAccess', () => {
       expect(pageTypeOf({ configurable: true })).toBe('configurable');
     });
 
-    it("asks a guest to sign in, whatever the configurator's access rule says", () => {
+    it('asks a guest to sign in, whatever a stored access rule says', () => {
+      // An older stored config may still carry `access`; the point is that it is ignored.
       mockFeatures.value = { configurator: { enabled: true, access: 'all' } };
       const { canConfigure, pageTypeOf } = useFeatureAccess();
       expect(canConfigure()).toBe(false);

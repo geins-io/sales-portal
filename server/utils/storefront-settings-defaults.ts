@@ -54,7 +54,8 @@ const COLOR_DEFAULTS: Record<keyof typeof HEX_DEFAULTS, string> =
  *     and `configurator`. The merchant opts in via Studio; the API then
  *     writes the explicit `true`/`false`. When the key is absent we treat
  *     the merchant as not yet opted in and keep the feature off.
- *     `configurator` differs in one way worth knowing: its toggle is
+ *     `configurator` differs in two ways worth knowing: it has no access
+ *     rule (configuring always needs a signed-in buyer), and its toggle is
  *     defined per channel, so a channel whose schema has no such field
  *     can never turn it on and stays on this default.
  *
@@ -69,10 +70,7 @@ export const STOREFRONT_SETTINGS_DEFAULTS = {
     applyForAccount: { enabled: true } as FeatureConfig,
     cart: { enabled: true } as FeatureConfig,
     checkout: { enabled: true } as FeatureConfig,
-    configurator: {
-      enabled: false,
-      access: 'authenticated',
-    } as FeatureConfig,
+    configurator: { enabled: false } as FeatureConfig,
     lists: { enabled: true } as FeatureConfig,
     newsletterSignup: { enabled: true } as FeatureConfig,
     orderHistory: { enabled: true } as FeatureConfig,

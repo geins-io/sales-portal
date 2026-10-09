@@ -123,7 +123,8 @@ describe('server feature-access', () => {
       expect(mockFeatures).toHaveBeenCalledWith(mockEvent);
     });
 
-    it("refuses a guest, even with the configurator's access rule open to all", async () => {
+    it('refuses a guest, even with a stored access rule open to all', async () => {
+      // An older stored config may still carry `access`; the point is that it is ignored.
       mockFeatures.mockResolvedValue({
         configurator: { enabled: true, access: 'all' },
       });

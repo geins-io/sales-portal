@@ -46,7 +46,8 @@ describe('resolveProductPageType', () => {
     },
   );
 
-  it("does not read the configurator's access rule", () => {
+  it('does not read a stored access rule on the configurator', () => {
+    // An older stored config may still carry `access`; the point is that it is ignored.
     const openToAll = { enabled: true, access: 'all' as const };
     const signedInOnly = { enabled: true, access: 'authenticated' as const };
     expect(
