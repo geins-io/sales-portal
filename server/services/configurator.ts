@@ -17,6 +17,7 @@ import { readConfiguratorBackendValue } from './configurator-config';
 import { fixtureConfiguratorBackend } from './configurator-fixture';
 import { merchantApiConfiguratorBackend } from './configurator-merchant-api';
 import { withoutRestatedRequirements } from './configurator-messages';
+import { getFeatures } from './tenant-config';
 
 // ---------------------------------------------------------------------------
 // The seam between the portal and whatever produces a configuration.
@@ -301,6 +302,24 @@ export function configurableCheck(
   const backend = getConfiguratorBackend(event);
   const ctx = buildConfiguratorContext(event);
   return (product) => backend.isConfigurable(product, ctx);
+}
+
+/**
+ * Whether any product on this request can come out configurable: the backend
+ * is not `off` and the tenant has the feature on. Signed in or not, since a
+ * guest's card needs the flag to withhold the add. Asked before a lookup that
+ * only the flag needs, so other tenants never pay for it.
+ */
+export async function mayHaveConfigurableProducts(
+  event: H3Event,
+): Promise<boolean> {
+  if (
+    resolveConfiguratorBackendName(readConfiguratorBackendValue(event)) ===
+    'off'
+  ) {
+    return false;
+  }
+  return (await getFeatures(event))?.configurator?.enabled === true;
 }
 
 /**

@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { getProductsByIds } from '../../services/products';
 
+// `type` is selected for the related route's configurable flag and goes no
+// further than the server.
+type ProductsByIds = { products: { type?: string | null }[] };
+
 // Product IDs are forwarded to GraphQL as the `productIds` filter (variables,
 // not string-concatenated). The 600 ceiling matches Geins's own filter cap, so
 // even the largest variant groups resolve in a single request.
@@ -36,10 +40,14 @@ export default defineEventHandler(async (event) => {
 
   return withErrorHandling(
     async () => {
-      return await getProductsByIds(
+      const result = (await getProductsByIds(
         { productIds: ids, userToken: auth?.authToken },
         event,
-      );
+      )) as ProductsByIds;
+      return {
+        ...result,
+        products: result.products.map(({ type: _type, ...rest }) => rest),
+      };
     },
     { operation: 'products.by-ids' },
   );

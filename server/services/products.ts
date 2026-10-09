@@ -57,7 +57,8 @@ export async function getProductsByAliases(
  * out of normal product listings. Used to hydrate the PDP variant sheet, where a
  * product can have dozens of siblings, far more than a per-alias fan-out can
  * carry without timing out or blowing the request size. Returns the slim
- * `productsByIds` payload (name + articleNumber + price, no nested variantGroup).
+ * `productsByIds` payload (name + articleNumber + price + type, no nested
+ * variantGroup).
  */
 export async function getProductsByIds(
   args: { productIds: number[]; userToken?: string },

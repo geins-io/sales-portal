@@ -6,6 +6,7 @@ import {
   configurableCheck,
   getConfiguratorBackend,
   isConfigurableProduct,
+  mayHaveConfigurableProducts,
   resolveConfiguratorBackendName,
   type ConfiguratorBackend,
   type ConfiguratorContext,
@@ -626,5 +627,58 @@ describe('withConfigurableFlags', () => {
   it('resolves the backend once for the whole list', () => {
     flag('fixture', [seed, monitorTyped, ordinary]);
     expect(mockReadBackendValue).toHaveBeenCalledOnce();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A list whose query cannot carry `type` needs a second lookup to be flagged;
+// this decides whether that lookup is worth making at all.
+// ---------------------------------------------------------------------------
+
+describe('mayHaveConfigurableProducts', () => {
+  function ask(value: unknown, configurator?: { enabled: boolean }) {
+    mockReadBackendValue.mockReturnValue(value);
+    const event = {
+      context: {
+        tenant: {
+          hostname: 'tenant.example.com',
+          config: { features: configurator ? { configurator } : {} },
+        },
+      },
+    } as unknown as Parameters<typeof mayHaveConfigurableProducts>[0];
+    return mayHaveConfigurableProducts(event);
+  }
+
+  it.each(['fixture', 'merchant-api', 'composite'])(
+    'says yes on the %s backend with the feature on',
+    async (backend) => {
+      expect(await ask(backend, { enabled: true })).toBe(true);
+    },
+  );
+
+  it('says no on the off backend, feature or not', async () => {
+    expect(await ask('off', { enabled: true })).toBe(false);
+    expect(await ask(undefined, { enabled: true })).toBe(false);
+  });
+
+  it('says no with the feature switched off', async () => {
+    expect(await ask('composite', { enabled: false })).toBe(false);
+  });
+
+  it('says no on a tenant that never configured the feature', async () => {
+    expect(await ask('composite')).toBe(false);
+  });
+
+  it('says no where the request carries no tenant config', async () => {
+    mockReadBackendValue.mockReturnValue('composite');
+    const event = { context: {} } as unknown as Parameters<
+      typeof mayHaveConfigurableProducts
+    >[0];
+    expect(await mayHaveConfigurableProducts(event)).toBe(false);
+  });
+
+  it('says yes to a guest: the card needs the flag to withhold the add', async () => {
+    mockGetAuthCookies.mockReturnValue({});
+    expect(await ask('merchant-api', { enabled: true })).toBe(true);
   });
 });

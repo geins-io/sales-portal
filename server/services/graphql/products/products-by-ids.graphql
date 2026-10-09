@@ -18,6 +18,7 @@ query productsByIds(
       canonicalUrl
       name
       articleNumber
+      type
       unitPrice {
         sellingPriceIncVatFormatted
         sellingPriceExVatFormatted
