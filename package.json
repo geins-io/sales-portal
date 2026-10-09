@@ -75,7 +75,7 @@
     "sanitize-html": "^2.18.0",
     "shadcn-nuxt": "2.4.0",
     "tailwind-merge": "^3.4.0",
-    "vue": "3.5.28",
+    "vue": "3.5.43",
     "vue-router": "^4.6.3",
     "zod": "^4.3.5"
   },
@@ -120,15 +120,15 @@
   },
   "pnpm": {
     "overrides": {
-      "vue": "3.5.28",
-      "@vue/runtime-core": "3.5.28",
-      "@vue/runtime-dom": "3.5.28",
-      "@vue/server-renderer": "3.5.28",
-      "@vue/compiler-core": "3.5.28",
-      "@vue/compiler-dom": "3.5.28",
-      "@vue/compiler-sfc": "3.5.28",
-      "@vue/reactivity": "3.5.28",
-      "@vue/shared": "3.5.28"
+      "vue": "3.5.43",
+      "@vue/runtime-core": "3.5.43",
+      "@vue/runtime-dom": "3.5.43",
+      "@vue/server-renderer": "3.5.43",
+      "@vue/compiler-core": "3.5.43",
+      "@vue/compiler-dom": "3.5.43",
+      "@vue/compiler-sfc": "3.5.43",
+      "@vue/reactivity": "3.5.43",
+      "@vue/shared": "3.5.43"
     }
   },
   "engines": {
