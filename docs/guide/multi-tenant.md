@@ -40,6 +40,8 @@ negative cache, then KV storage, then the merchant API — the full order is in
 [Architecture](/architecture#request-flow). A cache hit is re-checked against the config's own
 hostname list, so a stale alias mapping heals itself. A hostname the merchant API does not know
 does not resolve, and the tenant plugin answers 404 — see [Local Development](#local-development).
+Neither does a hostname the merchant API answers for with a tenant that does not list it as its
+`defaultHostName` or in `additionalHostNames`: the API matches the query as a substring.
 
 The resolved config is written to `event.context.tenant.config` once per request. Downstream
 plugins, services and routes read it from context instead of resolving again.
@@ -255,7 +257,7 @@ warn and always show; resolved ones log at debug, which `nuxt dev` prints only w
 
 | What you see                                         | `outcome=`          | Cause                                                                                                                                                                                                                                  |
 | ---------------------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 404, "Store not yet available"                       | `unknown-tenant`    | The merchant API does not know the hostname, or knows it and the tenant is switched off — the `api=` field then ends `(inactive)`.                                                                                                     |
+| 404, "Store not yet available"                       | `unknown-tenant`    | The merchant API does not know the hostname, or knows it and the tenant is switched off — the `api=` field then ends `(inactive)` — or answered with a tenant that does not register it: `(not registered; tenant answers for …)`.     |
 | The same 404                                         | `invalid-config`    | The merchant API answered 200 but the payload was unreadable or rejected by the schema — indistinguishable from the row above without the line.                                                                                        |
 | A 404 that persists after you fixed the registration | `negative-cache`    | A failed lookup from up to five minutes ago, replayed — the line names what it repeats and its age, `(unknown-tenant, 12s ago)`. Restart the server or wait it out.                                                                    |
 | 503, "temporarily unavailable"                       | `transport-failure` | The merchant API gave no answer: connection refused, DNS, timeout, or a non-404 status; never negative-cached, so the next request asks again. The 503 page shows no resolution line — read the server log, and see Environment above. |

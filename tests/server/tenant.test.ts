@@ -2142,6 +2142,33 @@ describe('Tenant utilities', () => {
       expect(setItemSpy).not.toHaveBeenCalled();
       expect(removeItemSpy).not.toHaveBeenCalled();
     });
+
+    it('returns null when neither payload registers the hostname (substring match)', async () => {
+      const fetchSpy = vi.fn(async () => okResponse(rawApiPayload()));
+      globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+      // The merchant API answered alpha.example's settings for `ha.example`.
+      const result = await resolvePreviewTenant('ha.example');
+      expect(result).toBeNull();
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('drops a payload that does not register the hostname and keeps the one that does', async () => {
+      const live = rawApiPayload({ brandingName: 'Live Brand' });
+      const preview = rawApiPayload({ brandingName: 'Other Brand' });
+      (preview.geinsSettings as Record<string, unknown>).defaultHostName =
+        'other.example';
+      const fetchSpy = vi.fn(async (url: string) =>
+        url.includes('previewKey=preview')
+          ? okResponse(preview)
+          : okResponse(live),
+      );
+      globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+      const result = await resolvePreviewTenant('alpha.example');
+      expect(result?.branding.name).toBe('Live Brand');
+      expect(result?.hostname).toBe('alpha.example');
+    });
   });
 
   describe('mergeDeep', () => {

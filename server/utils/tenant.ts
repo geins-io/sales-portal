@@ -278,6 +278,33 @@ export function collectAllHostnames(config: TenantConfig): Set<string> {
   return hostnames;
 }
 
+/** Lowercased, one trailing dot dropped: `Shop.Example.` and `shop.example` name one host. */
+function canonicalHostname(hostname: string): string {
+  const lower = hostname.toLowerCase();
+  return lower.endsWith('.') ? lower.slice(0, -1) : lower;
+}
+
+/**
+ * Whether a merchant-API payload, as `adaptMerchantApiResponse` shapes it,
+ * registers `hostname` as its `hostname` or one of its `aliases`.
+ *
+ * The merchant API matches the `hostname` query as a substring, so a 200 can
+ * carry another tenant: `de.example.com` can come back with the settings of
+ * `shade.example.com`. Only a name the payload itself lists resolves. The
+ * legacy `appSettings.hostname` counts, since the adapter falls back to it
+ * as `hostname` when Geins carries no `defaultHostName`.
+ */
+export function claimsHostname(
+  candidate: Record<string, unknown>,
+  hostname: string,
+): boolean {
+  const wanted = canonicalHostname(hostname);
+  const aliases = Array.isArray(candidate.aliases) ? candidate.aliases : [];
+  return [candidate.hostname, ...aliases].some(
+    (name) => typeof name === 'string' && canonicalHostname(name) === wanted,
+  );
+}
+
 /**
  * Writes hostname → storefront key mappings for all hostnames in the config.
  *
@@ -980,6 +1007,25 @@ export async function fetchTenantConfig(
   }
 
   const candidate = adaptMerchantApiResponse(raw);
+  // Before the parse, so a refused hostname costs no salvage work. The trace
+  // names the other tenant's hostname; it reaches a response only through
+  // `reportTenantResolution`, which does nothing in a production build.
+  if (!claimsHostname(candidate, hostname)) {
+    const answeredFor = String(candidate.hostname);
+    logger.warn(
+      `[tenant] Hostname not registered: "${hostname}" was answered with the settings of "${answeredFor}"`,
+      { hostname, answeredFor },
+    );
+    if (trace) {
+      trace.api = {
+        url,
+        result: `${response.status} (not registered; tenant answers for ${answeredFor})`,
+      };
+      trace.outcome = 'unknown-tenant';
+    }
+    return null;
+  }
+
   const settings = parseStoreSettingsResilient(candidate, hostname);
   if (!settings) {
     // parseStoreSettingsResilient has already logged why.
@@ -1023,7 +1069,10 @@ export async function resolvePreviewTenant(
     if (!response.ok) return null;
     try {
       const raw = (await response.json()) as Record<string, unknown>;
-      return adaptMerchantApiResponse(raw);
+      const adapted = adaptMerchantApiResponse(raw);
+      // Same check as `fetchTenantConfig`: `?preview=1` is a query flag any
+      // client can send, so this path sees every hostname the live one does.
+      return claimsHostname(adapted, hostname) ? adapted : null;
     } catch {
       return null;
     }
