@@ -835,6 +835,36 @@ describe('Tenant utilities', () => {
       expect(built.branding.logoUrl).toBe('https://example.com/logo.png');
     });
 
+    it('resolves a bare configurator: true from the merchant to { enabled: true } alone', () => {
+      const settings = parseStoreSettingsResilient(
+        { ...minimalSettings(), features: { configurator: true } },
+        'tenant-defaults.litium.store',
+      );
+      expect(settings).not.toBeNull();
+      const built = buildTenantConfig(settings as StoreSettings);
+      expect(built.features.configurator).toEqual({ enabled: true });
+    });
+
+    it('defaults an absent configurator to { enabled: false } alone', () => {
+      const built = buildTenantConfig(minimalSettings());
+      expect(built.features.configurator).toEqual({ enabled: false });
+    });
+
+    it('still resolves a stored configurator { enabled: true, access } as enabled', () => {
+      const settings = parseStoreSettingsResilient(
+        {
+          ...minimalSettings(),
+          features: {
+            configurator: { enabled: true, access: 'authenticated' },
+          },
+        },
+        'tenant-defaults.litium.store',
+      );
+      expect(settings).not.toBeNull();
+      const built = buildTenantConfig(settings as StoreSettings);
+      expect(built.features.configurator?.enabled).toBe(true);
+    });
+
     it('fills branding.name from geinsSettings.accountName when name is empty', () => {
       const settings = minimalSettings();
       settings.branding = { name: '', watermark: 'full' };

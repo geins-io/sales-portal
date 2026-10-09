@@ -40,10 +40,9 @@ describe('storefront-settings-defaults', () => {
       });
     });
 
-    it('defaults configurator to enabled:false with access:authenticated', () => {
+    it('defaults configurator to enabled:false with no access rule', () => {
       expect(STOREFRONT_SETTINGS_DEFAULTS.features.configurator).toEqual({
         enabled: false,
-        access: 'authenticated',
       });
     });
 
@@ -161,6 +160,14 @@ describe('storefront-settings-defaults', () => {
         } as StoreSettings['branding'],
       });
       expect(merged.branding.logoUrl).toBe('');
+    });
+
+    it('explicit null is honored over an object default', () => {
+      // Pins the null check in mergeDefaults: without it Object.keys(null) throws.
+      const merged = mergeStorefrontSettings({
+        theme: { typography: null } as StoreSettings['theme'],
+      });
+      expect(merged.theme.typography).toBeNull();
     });
 
     it('explicit false is honored over a default with enabled:false', () => {
