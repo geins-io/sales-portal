@@ -10,6 +10,7 @@ import {
   clearNegativeCache,
   describeTransportError,
   formatTenantResolution,
+  claimsHostname,
 } from '../../server/utils/tenant';
 import type { TenantResolutionTrace } from '../../server/utils/tenant';
 import type { TenantConfig } from '#shared/types/tenant-config';
@@ -419,6 +420,30 @@ describe.sequential('resolveTenant resolution log', () => {
     expect(mockLoggerDebug).not.toHaveBeenCalled();
     expect(event.context.tenantResolution).toBeUndefined();
   });
+
+  it('production build: a refused hostname leaves the other tenant on the server log only', async () => {
+    mockIsDevMode.mockReturnValue(false);
+    const host = 'prod-de.example.com';
+    stubFetch(async () =>
+      httpResponse(200, rawApiPayload('shade', 'shade.example.com')),
+    );
+    const event = makeEvent();
+
+    const result = await resolveTenantOutcome(
+      host,
+      event as unknown as Parameters<typeof resolveTenantOutcome>[1],
+    );
+    clearNegativeCache(host);
+
+    expect(result).toEqual({ config: null, outcome: 'unknown-tenant' });
+    // The resolution line is what the 404 page shows; it must not exist.
+    expect(event.context.tenantResolution).toBeUndefined();
+    expect(warnLinesFor(host)).toEqual([]);
+    expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
+    expect(mockLoggerWarn.mock.calls[0]![0]).toContain(
+      'Hostname not registered',
+    );
+  });
 });
 
 // Sequential for the same reason as above; these swap the KV stub as well.
@@ -554,6 +579,36 @@ describe.sequential('resolveTenantOutcome KV paths', () => {
     );
   });
 
+  it('a hostname the merchant API matched by substring: unknown-tenant, negative-cached, nothing written to KV', async () => {
+    // The merchant API matches `hostname` with `contains`, so a word that
+    // occurs in a registered name comes back with that tenant's settings.
+    const host = 'de.example.com';
+    const storage = memoryStorage();
+    const fetchSpy = stubFetch(async () =>
+      httpResponse(200, rawApiPayload('shade', 'shade.example.com')),
+    );
+
+    const first = await resolveTenantOutcome(host);
+    const second = await resolveTenantOutcome(host);
+    clearNegativeCache(host);
+
+    expect(first).toEqual({ config: null, outcome: 'unknown-tenant' });
+    expect(second.outcome).toBe('negative-cache');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(storage.setItem).not.toHaveBeenCalled();
+    expect(storage.store.size).toBe(0);
+    expect(warnLinesFor(host)[0]).toBe(
+      `[tenant] resolve host=${host} kv=miss api=GET ${API_URL}?hostname=${host} → 200 (not registered; tenant answers for shade.example.com) outcome=unknown-tenant`,
+    );
+    const messages = mockLoggerWarn.mock.calls.map(([msg]) => msg as string);
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      `[tenant] Hostname not registered: "${host}" was answered with the settings of "shade.example.com"`,
+      { hostname: host, answeredFor: 'shade.example.com' },
+    );
+    // Refused before the parse: no salvage work for another tenant's payload.
+    expect(messages.some((msg) => msg.includes('Schema salvaged'))).toBe(false);
+  });
+
   it('unreadable body: invalid-config, negative-cached, nothing written to KV', async () => {
     const host = 'garbled.example';
     const storage = memoryStorage();
@@ -579,8 +634,9 @@ describe.sequential('resolveTenantOutcome KV paths', () => {
     const host = 'malformed.example';
     const storage = memoryStorage();
     // No tenantId anywhere: a fatal path for parseStoreSettingsResilient.
+    // The hostname is there so the payload gets past the registration check.
     const fetchSpy = stubFetch(async () =>
-      httpResponse(200, { appSettings: { mode: 'commerce' } }),
+      httpResponse(200, { appSettings: { mode: 'commerce', hostname: host } }),
     );
 
     const first = await resolveTenantOutcome(host);
@@ -709,6 +765,102 @@ describe.sequential('fetchTenantConfig', () => {
     const config = await fetchTenantConfig(host);
 
     expect(config?.tenantId).toBe('quiet');
+  });
+
+  it('a payload for another hostname: null and unknown-tenant, also without a trace', async () => {
+    const host = 'new.example.com';
+    stubFetch(async () =>
+      httpResponse(200, rawApiPayload('examplenew', 'examplenew.example.com')),
+    );
+    const t = trace(host);
+
+    await expect(fetchTenantConfig(host, undefined, t)).resolves.toBeNull();
+    await expect(fetchTenantConfig(host)).resolves.toBeNull();
+    expect(t).toMatchObject({
+      outcome: 'unknown-tenant',
+      api: {
+        url: `${API_URL}?hostname=${host}`,
+        result:
+          '200 (not registered; tenant answers for examplenew.example.com)',
+      },
+    });
+  });
+
+  it('resolves on a name in additionalHostNames', async () => {
+    const host = 'shop.alias.example';
+    stubFetch(async () =>
+      httpResponse(
+        200,
+        rawApiPayload('aliased', 'primary.alias.example', {
+          additionalHostNames: ['other.alias.example', host],
+        }),
+      ),
+    );
+    const t = trace(host);
+
+    const config = await fetchTenantConfig(host, undefined, t);
+
+    expect(config?.tenantId).toBe('aliased');
+    expect(t.outcome).toBe('resolved');
+  });
+
+  it('resolves on the legacy appSettings.hostname when Geins carries no defaultHostName', async () => {
+    const host = 'legacy.example';
+    const payload = rawApiPayload('legacy', '');
+    payload.appSettings = { ...payload.appSettings, hostname: host } as never;
+    stubFetch(async () => httpResponse(200, payload));
+
+    const config = await fetchTenantConfig(host);
+
+    expect(config?.tenantId).toBe('legacy');
+    expect(config?.hostname).toBe(host);
+  });
+
+  it('does not resolve on the legacy appSettings.aliases', async () => {
+    const host = 'old-alias.example';
+    const payload = rawApiPayload('legacy-alias', 'current.example');
+    payload.appSettings = { ...payload.appSettings, aliases: [host] } as never;
+    stubFetch(async () => httpResponse(200, payload));
+
+    await expect(fetchTenantConfig(host)).resolves.toBeNull();
+  });
+
+  it('ignores case and a trailing dot on either side', async () => {
+    stubFetch(async () =>
+      httpResponse(
+        200,
+        rawApiPayload('cased', 'Shop.Example.', {
+          additionalHostNames: ['WWW.SHOP.EXAMPLE'],
+        }),
+      ),
+    );
+
+    for (const host of ['shop.example', 'SHOP.example.', 'www.shop.example.']) {
+      await expect(fetchTenantConfig(host)).resolves.not.toBeNull();
+    }
+  });
+});
+
+describe('claimsHostname', () => {
+  it('matches the hostname or an alias, ignoring case and one trailing dot', () => {
+    const candidate = { hostname: 'shop.example', aliases: ['b.example'] };
+    expect(claimsHostname(candidate, 'shop.example')).toBe(true);
+    expect(claimsHostname(candidate, 'B.Example.')).toBe(true);
+  });
+
+  it('does not match a substring, a superstring or a second trailing dot', () => {
+    const candidate = { hostname: 'shade.example.com', aliases: [] };
+    expect(claimsHostname(candidate, 'de.example.com')).toBe(false);
+    expect(claimsHostname(candidate, 'xshade.example.com')).toBe(false);
+    expect(claimsHostname(candidate, 'shade.example.com..')).toBe(false);
+    expect(claimsHostname(candidate, 'hade.example.com.')).toBe(false);
+  });
+
+  it('skips names that are not strings and tolerates missing aliases', () => {
+    expect(claimsHostname({ hostname: 42, aliases: [null] }, '42')).toBe(false);
+    expect(claimsHostname({ hostname: undefined }, 'undefined')).toBe(false);
+    expect(claimsHostname({ hostname: 'a.example' }, 'a.example')).toBe(true);
+    expect(claimsHostname({ aliases: 'a.example' }, 'a.example')).toBe(false);
   });
 });
 
