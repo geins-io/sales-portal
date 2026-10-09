@@ -360,7 +360,6 @@
     "sign_in_required": "Sign in with a company account to configure this product.",
     "configurable_product": "Configurable product",
     "sign_in_as_business_customer": "Sign in as a business customer to configure this product.",
-    "sign_in_to_order": "Sign in to order",
     "configure_product": "Configure product",
     "price_on_configuration": "Price calculated on configuration",
     "product_configuration": "Product configuration",
@@ -371,7 +370,7 @@
     "next": "Next",
     "section_position": "Section {current} of {total}",
     "choose_subsection": "Choose a subsection to continue.",
-    "page_note": "This is a configurable product. Build your variant under {tab} below — price and validity are calculated as you go.",
+    "page_note": "This is a configurable product. Build your variant under {tab} below.",
     "severity": {
       "error": "Error",
       "warning": "Warning",

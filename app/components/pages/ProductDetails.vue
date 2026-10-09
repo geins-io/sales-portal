@@ -605,19 +605,6 @@ useProductSeo({
         </template>
 
         <template #aside>
-          <!-- Disabled, with no handler: a guest never adds a configurable
-               product. Sign-in is reached from the box. -->
-          <Button
-            v-if="signInToConfigure"
-            variant="secondary"
-            class="w-full gap-2"
-            disabled
-            data-testid="pdp-sign-in-to-order"
-          >
-            <ShoppingCart class="size-4" />
-            {{ $t('configurator.sign_in_to_order') }}
-          </Button>
-
           <!-- Quantity + Add to cart + Wishlist -->
           <template v-if="canPurchase && !signInToConfigure">
             <OutOfStockBlock v-if="isOutOfStock" />

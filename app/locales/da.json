@@ -360,7 +360,6 @@
     "sign_in_required": "Log ind med en virksomhedskonto for at konfigurere produktet.",
     "configurable_product": "Konfigurerbart produkt",
     "sign_in_as_business_customer": "Log ind som erhvervskunde for at konfigurere produktet.",
-    "sign_in_to_order": "Log ind for at bestille",
     "configure_product": "Konfigurer produkt",
     "price_on_configuration": "Pris beregnes ved konfiguration",
     "product_configuration": "Produktkonfiguration",
@@ -371,7 +370,7 @@
     "next": "Næste",
     "section_position": "Sektion {current} af {total}",
     "choose_subsection": "Vælg en undersektion for at fortsætte.",
-    "page_note": "Dette er et konfiguratorprodukt. Byg din variant under {tab} nedenfor — pris og gyldighed beregnes løbende.",
+    "page_note": "Dette er et konfiguratorprodukt. Byg din variant under {tab} nedenfor.",
     "severity": {
       "error": "Fejl",
       "warning": "Advarsel",

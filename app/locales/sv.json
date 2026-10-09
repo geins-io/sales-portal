@@ -360,7 +360,6 @@
     "sign_in_required": "Logga in med ett företagskonto för att konfigurera produkten.",
     "configurable_product": "Konfigurerbar produkt",
     "sign_in_as_business_customer": "Logga in som företagskund för att konfigurera produkten.",
-    "sign_in_to_order": "Logga in för att beställa",
     "configure_product": "Konfigurera produkt",
     "price_on_configuration": "Pris beräknas vid konfiguration",
     "product_configuration": "Produktkonfiguration",
@@ -371,7 +370,7 @@
     "next": "Nästa",
     "section_position": "Sektion {current} av {total}",
     "choose_subsection": "Välj en undersektion för att fortsätta.",
-    "page_note": "Detta är en konfiguratorprodukt. Bygg din variant under {tab} nedan — pris och giltighet räknas fram löpande.",
+    "page_note": "Detta är en konfiguratorprodukt. Bygg din variant under {tab} nedan.",
     "severity": {
       "error": "Fel",
       "warning": "Varning",
