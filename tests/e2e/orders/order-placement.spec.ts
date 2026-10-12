@@ -7,6 +7,7 @@ import {
   noteOutOfScope,
   outOfScope,
   readPrice,
+  setVatDisplay,
   waitForHydration,
   signedInState,
   type ApiCart,
@@ -256,15 +257,14 @@ async function expectCheckoutMatchesCart(
   cart: ApiCart,
   configured: ConfiguredLine | null,
 ) {
-  // Checkout is pinned to inc-VAT: it reads `sellingPriceIncVatFormatted` and
-  // passes `show-vat="true"` to every price, with no `useVatDisplay` in it. So
-  // the inc-VAT side of the cart is what must reach this screen.
+  // The test runs on the ex-VAT side (set at its start), so that is the side
+  // of the cart that must reach this screen.
   expect(
     await readPrice(page.locator('[data-testid="checkout-summary-subtotal"]')),
-  ).toBeCloseTo(cart.subTotalIncVat, 2);
+  ).toBeCloseTo(cart.subTotalExVat, 2);
   expect(
     await readPrice(page.locator('[data-testid="checkout-summary-total"]')),
-  ).toBeCloseTo(cart.totalIncVat, 2);
+  ).toBeCloseTo(cart.totalExVat, 2);
   expect(
     await readPrice(page.locator('[data-testid="checkout-summary-tax"]')),
   ).toBeCloseTo(cart.vat, 2);
@@ -280,7 +280,7 @@ async function expectCheckoutMatchesCart(
       item.locator('[data-testid="checkout-line-total"]'),
     );
     expect(lineTotal, `${where}: line total`).toBeCloseTo(
-      line.totalPriceIncVat,
+      line.totalPriceExVat,
       2,
     );
     if (line.skuId === configured?.skuId) {
@@ -289,7 +289,7 @@ async function expectCheckoutMatchesCart(
         `${where}: a configured line shows no unit price`,
       ).toHaveCount(0);
       expect(lineTotal, `${where}: not quantity x unit price`).toBeCloseTo(
-        line.unitPriceIncVat * line.quantity,
+        line.unitPriceExVat * line.quantity,
         2,
       );
       continue;
@@ -298,7 +298,7 @@ async function expectCheckoutMatchesCart(
       item.locator('[data-testid="checkout-unit-price"]'),
     );
     expect(unitPrice, `${where}: unit price`).toBeCloseTo(
-      line.unitPriceIncVat,
+      line.unitPriceExVat,
       2,
     );
     expect(lineTotal, `${where}: not quantity x unit price`).toBeCloseTo(
@@ -322,6 +322,8 @@ test('a placed order carries the cart it was built from all the way to the porta
 
   // ---------- 1. A cart with known products and quantities ----------
 
+  // Every screen below is read on this side.
+  await setVatDisplay(page, 'ex');
   const product = await discoverPurchasableProduct(page);
   await addToCart(page, product.alias, QUANTITY);
   const cartId = (await page.context().cookies()).find(
@@ -529,7 +531,7 @@ test('a placed order carries the cart it was built from all the way to the porta
 
   expect(
     await readPrice(row.locator('[data-testid="order-total"]')),
-  ).toBeCloseTo(order.totalIncVat, 2);
+  ).toBeCloseTo(order.totalExVat, 2);
 
   // ---------- 8. The detail page, against its own API ----------
 
@@ -556,11 +558,11 @@ test('a placed order carries the cart it was built from all the way to the porta
       );
       expect(screen.quantity, `${where}: wrong quantity`).toBe(line.quantity);
       expect(screen.unitPrice, `${where}: wrong unit price`).toBeCloseTo(
-        line.unitPriceIncVat,
+        line.unitPriceExVat,
         2,
       );
       expect(screen.totalPrice, `${where}: wrong line total`).toBeCloseTo(
-        line.totalPriceIncVat,
+        line.totalPriceExVat,
         2,
       );
       // The multiplication itself, on both sides.
@@ -569,28 +571,27 @@ test('a placed order carries the cart it was built from all the way to the porta
         `${where}: the rendered total is not quantity x unit price`,
       ).toBeCloseTo(screen.unitPrice * screen.quantity, 2);
       expect(
-        line.totalPriceIncVat,
+        line.totalPriceExVat,
         `${where}: the API's own total is not quantity x unit price`,
-      ).toBeCloseTo(line.unitPriceIncVat * line.quantity, 2);
+      ).toBeCloseTo(line.unitPriceExVat * line.quantity, 2);
     }
 
     expect(
       await readPrice(page.locator('[data-testid="order-summary-subtotal"]')),
-    ).toBeCloseTo(order.subTotalIncVat, 2);
+    ).toBeCloseTo(order.subTotalExVat, 2);
     expect(
       await readPrice(page.locator('[data-testid="order-summary-tax"]')),
     ).toBeCloseTo(order.vat, 2);
     expect(
       await readPrice(page.locator('[data-testid="order-summary-total"]')),
-    ).toBeCloseTo(order.totalIncVat, 2);
+    ).toBeCloseTo(order.totalExVat, 2);
   });
 
   // ---------- 9. The two API views against each other ----------
 
   await test.step('the order carries the same lines and amounts as the cart', async () => {
-    // Where product identity is proved. The cart renders ex-VAT by default and
-    // the order detail is inc-VAT throughout, so the rendered numbers of the
-    // two screens are not comparable — but their APIs are.
+    // Where product identity is proved, on the APIs rather than the screens:
+    // the screens above were each held to their own API already.
     expect(order.items.length).toBe(cart.items.length);
 
     // Paired on skuId rather than on position: nothing promises the order's

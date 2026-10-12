@@ -7,7 +7,12 @@ import {
   type PlaywrightWorkerArgs,
 } from '@playwright/test';
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
-import { e2eCredentials, hasE2ECredentials, PRODUCTION_BUILD } from './target';
+import {
+  BASE_URL,
+  e2eCredentials,
+  hasE2ECredentials,
+  PRODUCTION_BUILD,
+} from './target';
 
 export { e2eCredentials, hasE2ECredentials };
 
@@ -756,10 +761,27 @@ export async function addToCart(
   );
 }
 
+/** The buyer's VAT choice, as the `vat_display` cookie carries it. */
+export type VatSide = 'inc' | 'ex';
+
+/**
+ * Sets the buyer's VAT choice for the pages this test opens next.
+ *
+ * The choice is a cookie read during render, so it is set before navigating
+ * rather than clicked. Explicit even where it repeats the stored session's
+ * `ex`: an assertion on one side must not rest on what the session happens to
+ * carry.
+ */
+export async function setVatDisplay(page: Page, side: VatSide) {
+  await page
+    .context()
+    .addCookies([{ name: 'vat_display', value: side, url: BASE_URL }]);
+}
+
 /**
  * One cart line, in the numbers the cart APIs computed for it. Both VAT sides:
- * the cart surfaces follow the buyer's `vat_display` preference, the checkout
- * is pinned to inc-VAT, and each must be compared against its own side.
+ * every surface follows the buyer's `vat_display` preference, so a rendered
+ * amount is compared against the side the test chose.
  */
 export interface ApiCartLine {
   /** Identifies the line against an order's, which is where the two are paired. */
@@ -786,7 +808,10 @@ export interface ApiCart {
    * to compare against, and the surfaces render a fallback instead.
    */
   shippingFeeFormatted: string;
+  /** The same fee ex VAT, `''` in the same case. */
+  shippingFeeExVatFormatted: string;
   discountIncVat: number;
+  discountExVat: number;
   items: ApiCartLine[];
 }
 
@@ -823,7 +848,9 @@ export async function fetchCart(page: Page): Promise<ApiCart> {
     totalIncVat: summary?.total?.sellingPriceIncVat,
     vat: summary?.total?.vat,
     shippingFeeFormatted: summary?.shipping?.feeIncVatFormatted ?? '',
+    shippingFeeExVatFormatted: summary?.shipping?.feeExVatFormatted ?? '',
     discountIncVat: summary?.fixedAmountDiscountIncVat,
+    discountExVat: summary?.fixedAmountDiscountExVat,
     items: (body?.items ?? []).map(
       (item: {
         skuId?: number;
@@ -847,16 +874,26 @@ export async function fetchCart(page: Page): Promise<ApiCart> {
   };
 
   for (const [field, value] of Object.entries(cart)) {
-    if (field === 'shippingFeeFormatted' || field === 'items') continue;
+    if (
+      field === 'shippingFeeFormatted' ||
+      field === 'shippingFeeExVatFormatted' ||
+      field === 'items'
+    )
+      continue;
     expect(
       Number.isFinite(value),
       `cart summary ${field} is not a number: ${JSON.stringify(value)}`,
     ).toBe(true);
   }
-  expect(
-    typeof cart.shippingFeeFormatted,
-    'the shipping fee arrived as something other than a string',
-  ).toBe('string');
+  for (const fee of [
+    cart.shippingFeeFormatted,
+    cart.shippingFeeExVatFormatted,
+  ]) {
+    expect(
+      typeof fee,
+      'the shipping fee arrived as something other than a string',
+    ).toBe('string');
+  }
   expect(cart.items.length, '/api/cart reports no lines').toBeGreaterThan(0);
   for (const [index, line] of cart.items.entries()) {
     for (const [field, value] of Object.entries(line)) {
@@ -886,20 +923,21 @@ export interface ApiOrderLine {
   quantity: number;
   unitPriceIncVat: number;
   totalPriceIncVat: number;
+  unitPriceExVat: number;
+  totalPriceExVat: number;
 }
 
 /**
- * One order as the orders API reports it, inc-VAT throughout.
+ * One order as the orders API reports it, both VAT sides.
  *
- * Inc-VAT because that is the only mode the portal's order surfaces render:
- * the list shows `sellingPriceIncVatFormatted` and every value on the detail
- * page is an inc-VAT or VAT string, with no ex-VAT cell anywhere. `totalExVat`
- * is carried so the three can be checked against each other on the API side,
- * which is the only place ex-VAT exists.
+ * The portal's order surfaces follow the buyer's VAT choice, so a rendered
+ * amount is compared against the side the test chose. VAT itself is one
+ * number in both modes.
  */
 export interface ApiOrder {
   publicId: string;
   subTotalIncVat: number;
+  subTotalExVat: number;
   totalIncVat: number;
   totalExVat: number;
   vat: number;
@@ -910,8 +948,11 @@ export interface ApiOrder {
    * the surface renders the empty string.
    */
   shippingFeeFormatted: string;
+  /** The same fee ex VAT, `''` in the same case. */
+  shippingFeeExVatFormatted: string;
   /** The order-level total, alongside the cart summary's. Both are sent today. */
   orderTotalIncVat: number | undefined;
+  orderTotalExVat: number | undefined;
   items: ApiOrderLine[];
 }
 
@@ -931,30 +972,39 @@ export async function fetchOrder(
   const result: ApiOrder = {
     publicId,
     subTotalIncVat: summary?.subTotal?.sellingPriceIncVat,
+    subTotalExVat: summary?.subTotal?.sellingPriceExVat,
     totalIncVat: summary?.total?.sellingPriceIncVat,
     totalExVat: summary?.total?.sellingPriceExVat,
     vat: summary?.total?.vat,
     shippingFeeFormatted: summary?.shipping?.feeIncVatFormatted ?? '',
+    shippingFeeExVatFormatted: summary?.shipping?.feeExVatFormatted ?? '',
     orderTotalIncVat: order?.orderTotal?.sellingPriceIncVat,
+    orderTotalExVat: order?.orderTotal?.sellingPriceExVat,
     items: (order?.cart?.items ?? []).map(
       (item: {
         skuId?: number;
         product?: { articleNumber?: string };
         quantity?: number;
-        unitPrice?: { sellingPriceIncVat?: number };
-        totalPrice?: { sellingPriceIncVat?: number };
+        unitPrice?: { sellingPriceIncVat?: number; sellingPriceExVat?: number };
+        totalPrice?: {
+          sellingPriceIncVat?: number;
+          sellingPriceExVat?: number;
+        };
       }) => ({
         skuId: item.skuId,
         articleNumber: item.product?.articleNumber,
         quantity: item.quantity,
         unitPriceIncVat: item.unitPrice?.sellingPriceIncVat,
         totalPriceIncVat: item.totalPrice?.sellingPriceIncVat,
+        unitPriceExVat: item.unitPrice?.sellingPriceExVat,
+        totalPriceExVat: item.totalPrice?.sellingPriceExVat,
       }),
     ),
   };
 
   for (const field of [
     'subTotalIncVat',
+    'subTotalExVat',
     'totalIncVat',
     'totalExVat',
     'vat',
@@ -964,10 +1014,15 @@ export async function fetchOrder(
       `order ${publicId} summary ${field} is not a number: ${JSON.stringify(result[field])}`,
     ).toBe(true);
   }
-  expect(
-    typeof result.shippingFeeFormatted,
-    `order ${publicId} shipping fee arrived as something other than a string`,
-  ).toBe('string');
+  for (const fee of [
+    result.shippingFeeFormatted,
+    result.shippingFeeExVatFormatted,
+  ]) {
+    expect(
+      typeof fee,
+      `order ${publicId} shipping fee arrived as something other than a string`,
+    ).toBe('string');
+  }
   expect(
     result.items.length,
     `order ${publicId} reports no lines`,
@@ -1002,7 +1057,7 @@ const ORDERS_READ_IN_FULL = 12;
  * The oldest {@link ORDERS_READ_IN_FULL} orders the account owns, each read in
  * full.
  *
- * The list endpoint carries only the inc-VAT total and no lines, so choosing
+ * The list endpoint carries only the totals and no lines, so choosing
  * an order by what it contains means reading each one. It is deliberately not
  * memoised: an order placed during the run would make a cached list describe
  * a different account than the one on screen.
@@ -1200,12 +1255,11 @@ export interface ApiQuoteLine {
 }
 
 /**
- * One quotation as `/api/quotes/<id>` reports it.
+ * One quotation as `/api/quotes/<id>` reports it, on one VAT side.
  *
- * Inc-VAT throughout, and there is no ex-VAT number anywhere on this path:
- * every amount maps from `sellingPriceIncVat`. `tax` is the subtotal's VAT
- * rather than a component of the total, so subtotal + tax + shipping is not
- * the total and must never be asserted as one.
+ * Every amount is the side asked for except `tax`, which is one number in both
+ * modes. `tax` is the subtotal's VAT rather than a component of the total, so
+ * subtotal + tax + shipping is not the total and must never be asserted as one.
  */
 export interface ApiQuote {
   id: string;
@@ -1224,26 +1278,33 @@ export interface ApiQuoteListItem {
 }
 
 /** One quotation, read through the endpoint the detail page fetches. */
-export async function fetchQuote(page: Page, id: string): Promise<ApiQuote> {
+export async function fetchQuote(
+  page: Page,
+  id: string,
+  side: VatSide,
+): Promise<ApiQuote> {
   const response = await page.request.get(`/api/quotes/${id}`);
   expect(response.ok(), `/api/quotes/${id} did not answer 200`).toBe(true);
 
   const quote = (await response.json())?.quote;
+  const inc = side === 'inc';
   const result: ApiQuote = {
     id,
-    subtotal: quote?.subtotal,
+    subtotal: inc ? quote?.subtotal : quote?.subtotalExVat,
     tax: quote?.tax,
-    shipping: quote?.shipping,
-    total: quote?.total,
+    shipping: inc ? quote?.shipping : quote?.shippingExVat,
+    total: inc ? quote?.total : quote?.totalExVat,
     items: (quote?.lineItems ?? []).map(
       (item: {
         quantity?: number;
         unitPrice?: number;
         totalPrice?: number;
+        unitPriceExVat?: number;
+        totalPriceExVat?: number;
       }) => ({
         quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        totalPrice: item.totalPrice,
+        unitPrice: inc ? item.unitPrice : item.unitPriceExVat,
+        totalPrice: inc ? item.totalPrice : item.totalPriceExVat,
       }),
     ),
   };
@@ -1275,12 +1336,23 @@ export async function fetchQuote(page: Page, id: string): Promise<ApiQuote> {
  * them. The list carries a total per quotation but no lines, so it is the
  * side to compare a list row against — the detail comes from `fetchQuote`.
  */
-export async function fetchQuoteList(page: Page): Promise<ApiQuoteListItem[]> {
+export async function fetchQuoteList(
+  page: Page,
+  side: VatSide,
+): Promise<ApiQuoteListItem[]> {
   const response = await page.request.get('/api/quotes');
   expect(response.ok(), '/api/quotes did not answer 200').toBe(true);
 
-  const quotes: { id?: string; total?: number; itemCount?: number }[] =
-    (await response.json())?.quotes ?? [];
+  const listed: {
+    id?: string;
+    total?: number;
+    totalExVat?: number;
+    itemCount?: number;
+  }[] = (await response.json())?.quotes ?? [];
+  const quotes = listed.map((quote) => ({
+    ...quote,
+    total: side === 'inc' ? quote.total : quote.totalExVat,
+  }));
   expect(
     quotes.length,
     'the test account can read no quotations, so there is nothing to compare against',
@@ -1310,11 +1382,14 @@ export async function fetchQuoteList(page: Page): Promise<ApiQuoteListItem[]> {
  * time to time, so a quotation is chosen by what it contains — the line whose
  * unit price needs more than two decimals, the one with a quantity above one.
  */
-export async function fetchQuotes(page: Page): Promise<ApiQuote[]> {
-  const list = await fetchQuoteList(page);
+export async function fetchQuotes(
+  page: Page,
+  side: VatSide,
+): Promise<ApiQuote[]> {
+  const list = await fetchQuoteList(page, side);
   const quotes: ApiQuote[] = [];
   for (const item of list) {
-    quotes.push(await fetchQuote(page, item.id));
+    quotes.push(await fetchQuote(page, item.id, side));
   }
   return quotes;
 }

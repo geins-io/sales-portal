@@ -13,6 +13,7 @@ import {
   isConfigurable,
   parsePrice,
   readPrice,
+  setVatDisplay,
   signedInState,
   type ApiOrder,
   type ApiQuote,
@@ -366,91 +367,104 @@ test.describe('Portal Order Values', () => {
     return lines;
   }
 
-  test('the list, the detail page and the API agree on an order total', async ({
-    page,
-  }) => {
-    await openOrdersList(page);
+  for (const side of ['ex', 'inc'] as const) {
+    test(`the list, the detail page and the API agree on an order total, ${side} VAT`, async ({
+      page,
+    }) => {
+      await setVatDisplay(page, side);
+      await openOrdersList(page);
 
-    // Both list shapes are in the DOM at once and CSS decides which one shows.
-    const row = page.locator('[data-testid="order-row"]:visible').first();
-    await expect(row).toBeVisible({ timeout: PAGE_TIMEOUT });
+      // Both list shapes are in the DOM at once and CSS decides which one shows.
+      const row = page.locator('[data-testid="order-row"]:visible').first();
+      await expect(row).toBeVisible({ timeout: PAGE_TIMEOUT });
 
-    // Desktop puts the link in a cell of the row, mobile makes the row itself
-    // the link. Its href is what pairs the amount in this row with the order
-    // the detail endpoint answers for: that endpoint keys on `publicId`, not
-    // on the numeric id the row displays.
-    const innerLink = row.locator('a[href*="/portal/orders/"]');
-    const href = (await innerLink.count())
-      ? await innerLink.first().getAttribute('href')
-      : await row.getAttribute('href');
-    const publicId = href?.split('/').filter(Boolean).pop();
-    expect(publicId, `no order id in the row's link: ${href}`).toBeTruthy();
+      // Desktop puts the link in a cell of the row, mobile makes the row itself
+      // the link. Its href is what pairs the amount in this row with the order
+      // the detail endpoint answers for: that endpoint keys on `publicId`, not
+      // on the numeric id the row displays.
+      const innerLink = row.locator('a[href*="/portal/orders/"]');
+      const href = (await innerLink.count())
+        ? await innerLink.first().getAttribute('href')
+        : await row.getAttribute('href');
+      const publicId = href?.split('/').filter(Boolean).pop();
+      expect(publicId, `no order id in the row's link: ${href}`).toBeTruthy();
 
-    const listTotal = await readPrice(
-      row.locator('[data-testid="order-total"]'),
-    );
-
-    const api = await fetchOrder(page, publicId!);
-    expect(listTotal).toBeCloseTo(api.totalIncVat, 2);
-
-    await openOrderDetail(page, api.publicId);
-
-    expect(
-      await readPrice(page.locator('[data-testid="order-summary-total"]')),
-    ).toBeCloseTo(api.totalIncVat, 2);
-
-    // Two fields for one amount, both sent today. A page that reads either
-    // must land on the same number.
-    if (api.orderTotalIncVat !== undefined) {
-      expect(api.orderTotalIncVat).toBeCloseTo(api.totalIncVat, 2);
-    }
-
-    // Ex-VAT reaches no cell on this page — subtotal, tax and total are all
-    // inc-VAT strings — so the three amounts are held to each other where
-    // ex-VAT exists at all, in the API's own numbers.
-    expect(api.totalIncVat - api.totalExVat).toBeCloseTo(api.vat, 2);
-    expect(
-      await readPrice(page.locator('[data-testid="order-summary-tax"]')),
-    ).toBeCloseTo(api.vat, 2);
-
-    // Subtotal equals total on every order the account owns, because none
-    // carries a shipping fee. The assertion holds the subtotal to the API,
-    // but on this data it cannot tell the two cells apart: a passing run is
-    // not evidence that the subtotal cell reads the subtotal.
-    expect(
-      await readPrice(page.locator('[data-testid="order-summary-subtotal"]')),
-    ).toBeCloseTo(api.subTotalIncVat, 2);
-
-    // No order has a priced shipping option, so the API sends an empty fee
-    // string. Asserting the rendered fallback would assert the active locale;
-    // the absence of a number is the assertion.
-    const shipping = page.locator('[data-testid="order-summary-shipping"]');
-    if (api.shippingFeeFormatted === '') {
-      const text = (await shipping.innerText()).trim();
-      expect(
-        /\d/.test(text),
-        `the API sent no shipping fee, so the cell must not show a number: ${JSON.stringify(text)}`,
-      ).toBe(false);
-    } else {
-      expect(await readPrice(shipping)).toBeCloseTo(
-        parsePrice(api.shippingFeeFormatted),
-        2,
+      const listTotal = await readPrice(
+        row.locator('[data-testid="order-total"]'),
       );
-    }
 
-    // The desktop table repeats the total in its footer: two renderings of one
-    // number on one page, which must not drift apart.
-    const footerTotal = page.locator(
-      '[data-testid="order-items-footer-total"]',
-    );
-    if (await footerTotal.isVisible().catch(() => false)) {
-      expect(await readPrice(footerTotal)).toBeCloseTo(api.totalIncVat, 2);
-    }
-  });
+      const api = await fetchOrder(page, publicId!);
+      const inc = side === 'inc';
+      const total = inc ? api.totalIncVat : api.totalExVat;
+      const otherTotal = inc ? api.totalExVat : api.totalIncVat;
+      expect(listTotal).toBeCloseTo(total, 2);
+      if (api.vat > 0) expect(listTotal).not.toBeCloseTo(otherTotal, 2);
 
+      await openOrderDetail(page, api.publicId);
+
+      expect(
+        await readPrice(page.locator('[data-testid="order-summary-total"]')),
+      ).toBeCloseTo(total, 2);
+
+      // Two fields for one amount, both sent today. A page that reads either
+      // must land on the same number.
+      const orderTotal = inc ? api.orderTotalIncVat : api.orderTotalExVat;
+      if (orderTotal !== undefined) {
+        expect(orderTotal).toBeCloseTo(total, 2);
+      }
+
+      // VAT is one number in both modes, and it is what separates the two
+      // totals in the API's own numbers.
+      expect(api.totalIncVat - api.totalExVat).toBeCloseTo(api.vat, 2);
+      expect(
+        await readPrice(page.locator('[data-testid="order-summary-tax"]')),
+      ).toBeCloseTo(api.vat, 2);
+
+      // Subtotal equals total on every order the account owns, because none
+      // carries a shipping fee. The assertion holds the subtotal to the API,
+      // but on this data it cannot tell the two cells apart: a passing run is
+      // not evidence that the subtotal cell reads the subtotal.
+      expect(
+        await readPrice(page.locator('[data-testid="order-summary-subtotal"]')),
+      ).toBeCloseTo(inc ? api.subTotalIncVat : api.subTotalExVat, 2);
+
+      // No order has a priced shipping option, so the API sends an empty fee
+      // string. Asserting the rendered fallback would assert the active locale;
+      // the absence of a number is the assertion.
+      const shipping = page.locator('[data-testid="order-summary-shipping"]');
+      const shippingFee = inc
+        ? api.shippingFeeFormatted
+        : api.shippingFeeExVatFormatted;
+      if (shippingFee === '') {
+        const text = (await shipping.innerText()).trim();
+        expect(
+          /\d/.test(text),
+          `the API sent no shipping fee, so the cell must not show a number: ${JSON.stringify(text)}`,
+        ).toBe(false);
+      } else {
+        expect(await readPrice(shipping)).toBeCloseTo(
+          parsePrice(shippingFee),
+          2,
+        );
+      }
+
+      // The desktop table repeats the total in its footer: two renderings of one
+      // number on one page, which must not drift apart.
+      const footerTotal = page.locator(
+        '[data-testid="order-items-footer-total"]',
+      );
+      if (await footerTotal.isVisible().catch(() => false)) {
+        expect(await readPrice(footerTotal)).toBeCloseTo(total, 2);
+      }
+    });
+  }
+
+  // The two rounding tests below read the inc side: the account's orders were
+  // seeded so that the inc amounts need rounding.
   test('the line totals add up to the total the order shows', async ({
     page,
   }) => {
+    await setVatDisplay(page, 'inc');
     const orders = await fetchOrders(page);
     const unrounded = withUnroundedAmounts(orders);
     expect(
@@ -485,6 +499,7 @@ test.describe('Portal Order Values', () => {
   test('a line with a quantity above one shows quantity x unit price as its total', async ({
     page,
   }) => {
+    await setVatDisplay(page, 'inc');
     const orders = await fetchOrders(page);
     const api = withMostMultiQuantityLines(orders);
     expect(
@@ -793,7 +808,9 @@ test.describe('Portal Quotation Values', () => {
    * so its absence fails rather than passes quietly.
    */
   async function unroundedQuote(page: Page): Promise<ApiQuote> {
-    const quotes = await fetchQuotes(page);
+    // The inc side: that is where the account's quotations were priced in
+    // more than two decimals, so the tests using this set that side too.
+    const quotes = await fetchQuotes(page, 'inc');
     const quote = quotes.find((candidate) =>
       candidate.items.some((line) => isUnrounded(line.unitPrice)),
     );
@@ -888,81 +905,96 @@ test.describe('Portal Quotation Values', () => {
     return lines;
   }
 
-  test('the list, the detail page and the API agree on a quotation total', async ({
-    page,
-  }) => {
-    await openQuotationsList(page);
+  for (const side of ['ex', 'inc'] as const) {
+    test(`the list, the detail page and the API agree on a quotation total, ${side} VAT`, async ({
+      page,
+    }) => {
+      await setVatDisplay(page, side);
+      await openQuotationsList(page);
 
-    // Both list shapes are in the DOM at once and CSS decides which one shows.
-    const row = page.locator('[data-testid="quotation-row"]:visible').first();
-    await expect(row).toBeVisible({ timeout: PAGE_TIMEOUT });
+      // Both list shapes are in the DOM at once and CSS decides which one shows.
+      const row = page.locator('[data-testid="quotation-row"]:visible').first();
+      await expect(row).toBeVisible({ timeout: PAGE_TIMEOUT });
 
-    // Desktop puts the view link in a cell of the row, mobile makes the card
-    // itself the link. Its href carries the id both endpoints key on, which is
-    // the only thing pairing this row's amount with a quotation.
-    const innerLink = row.locator('a[href*="/portal/quotations/"]');
-    const href = (await innerLink.count())
-      ? await innerLink.first().getAttribute('href')
-      : await row.getAttribute('href');
-    const id = href?.split('/').filter(Boolean).pop();
-    expect(id, `no quotation id in the row's link: ${href}`).toBeTruthy();
+      // Desktop puts the view link in a cell of the row, mobile makes the card
+      // itself the link. Its href carries the id both endpoints key on, which is
+      // the only thing pairing this row's amount with a quotation.
+      const innerLink = row.locator('a[href*="/portal/quotations/"]');
+      const href = (await innerLink.count())
+        ? await innerLink.first().getAttribute('href')
+        : await row.getAttribute('href');
+      const id = href?.split('/').filter(Boolean).pop();
+      expect(id, `no quotation id in the row's link: ${href}`).toBeTruthy();
 
-    const listTotal = await readPrice(
-      row.locator('[data-testid="quotation-total"]'),
-    );
-
-    const listed = (await fetchQuoteList(page)).find(
-      (quote) => quote.id === id,
-    );
-    expect(
-      listed,
-      `the list endpoint does not report the quotation the row links to: ${id}`,
-    ).toBeDefined();
-    expectRendered(listTotal, listed!.total, 'the list total');
-
-    const api = await fetchQuote(page, id!);
-    // Both endpoints computed this amount; the strings they format it into
-    // differ in decimals, the numbers must not.
-    expect(listed!.total).toBeCloseTo(api.total, 2);
-
-    await openQuotationDetail(page, api.id);
-
-    expectRendered(
-      await readPrice(page.locator('[data-testid="quote-summary-total"]')),
-      api.total,
-      'the detail total',
-    );
-    expectRendered(
-      await readPrice(page.locator('[data-testid="quote-summary-subtotal"]')),
-      api.subtotal,
-      'the subtotal',
-    );
-    // `tax` maps from the subtotal's VAT while subtotal and total are both
-    // inc-VAT, so subtotal + tax + shipping is not the total on this page.
-    // Each amount is held to the API on its own; an identity between them
-    // would fail a correct page.
-    expectRendered(
-      await readPrice(page.locator('[data-testid="quote-summary-tax"]')),
-      api.tax,
-      'the tax',
-    );
-
-    // The row renders only for a priced shipping option, so a quotation
-    // without one must show no fee at all rather than a zero.
-    if (api.shipping > 0) {
-      expectRendered(
-        await readPrice(page.locator('[data-testid="quote-summary-shipping"]')),
-        api.shipping,
-        'the shipping fee',
+      const listTotal = await readPrice(
+        row.locator('[data-testid="quotation-total"]'),
       );
-    } else {
-      await expect(page.locator('[data-testid="shipping-row"]')).toHaveCount(0);
-    }
-  });
+
+      const listed = (await fetchQuoteList(page, side)).find(
+        (quote) => quote.id === id,
+      );
+      expect(
+        listed,
+        `the list endpoint does not report the quotation the row links to: ${id}`,
+      ).toBeDefined();
+      expectRendered(listTotal, listed!.total, 'the list total');
+
+      const api = await fetchQuote(page, id!, side);
+      const other = await fetchQuote(page, id!, side === 'inc' ? 'ex' : 'inc');
+      if (api.tax > 0) {
+        expect(
+          Math.abs(listTotal - other.total),
+          'the list shows the other VAT side',
+        ).toBeGreaterThan(ROUNDING + SLACK);
+      }
+      // Both endpoints computed this amount; the strings they format it into
+      // differ in decimals, the numbers must not.
+      expect(listed!.total).toBeCloseTo(api.total, 2);
+
+      await openQuotationDetail(page, api.id);
+
+      expectRendered(
+        await readPrice(page.locator('[data-testid="quote-summary-total"]')),
+        api.total,
+        'the detail total',
+      );
+      expectRendered(
+        await readPrice(page.locator('[data-testid="quote-summary-subtotal"]')),
+        api.subtotal,
+        'the subtotal',
+      );
+      // `tax` maps from the subtotal's VAT and is one number in both modes, so
+      // subtotal + tax + shipping is not the total on this page.
+      // Each amount is held to the API on its own; an identity between them
+      // would fail a correct page.
+      expectRendered(
+        await readPrice(page.locator('[data-testid="quote-summary-tax"]')),
+        api.tax,
+        'the tax',
+      );
+
+      // The row renders only for a priced shipping option, so a quotation
+      // without one must show no fee at all rather than a zero.
+      if (api.shipping > 0) {
+        expectRendered(
+          await readPrice(
+            page.locator('[data-testid="quote-summary-shipping"]'),
+          ),
+          api.shipping,
+          'the shipping fee',
+        );
+      } else {
+        await expect(page.locator('[data-testid="shipping-row"]')).toHaveCount(
+          0,
+        );
+      }
+    });
+  }
 
   test('the quotation lines add up to the subtotal it shows', async ({
     page,
   }) => {
+    await setVatDisplay(page, 'inc');
     const api = await unroundedQuote(page);
 
     const apiSum = api.items.reduce((sum, line) => sum + line.totalPrice, 0);
@@ -985,6 +1017,7 @@ test.describe('Portal Quotation Values', () => {
   test('a line priced in more than two decimals still multiplies out', async ({
     page,
   }) => {
+    await setVatDisplay(page, 'inc');
     const api = await unroundedQuote(page);
     expect(
       api.items.filter((line) => line.quantity > 1).length,
