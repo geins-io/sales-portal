@@ -18,7 +18,6 @@ vi.mock('vue-i18n', () => ({
 // The page's own access gate. The shared mock is permissive, so the denied
 // branch needs a mock this file controls.
 const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
-const mockConfiguratorOn = ref(true);
 vi.mock('../../../app/composables/useFeatureAccess', async () => {
   const { resolveProductPageType } =
     await import('../../../app/utils/product-page-type');
@@ -27,11 +26,7 @@ vi.mock('../../../app/composables/useFeatureAccess', async () => {
       canAccess: mockCanAccess,
       // The portal is signed in, so only the tenant's switch varies here.
       pageTypeOf: (product: { configurable?: boolean }) =>
-        resolveProductPageType(
-          product,
-          { enabled: mockConfiguratorOn.value },
-          { authenticated: true },
-        ),
+        resolveProductPageType(product, { authenticated: true }),
     }),
   };
 });
@@ -403,7 +398,6 @@ describe('Saved list detail with a configurable product', () => {
 
   afterEach(() => {
     mockFetchProducts.splice(mockFetchProducts.indexOf(BOOKCASE), 1);
-    mockConfiguratorOn.value = true;
   });
 
   function row(wrapper: ReturnType<typeof mountPage>, index: number) {
@@ -499,33 +493,5 @@ describe('Saved list detail with a configurable product', () => {
     ]);
     // The note is the cart's, not the list page's.
     expect(wrapper.text()).not.toContain('skipped_configurable');
-  });
-
-  it('treats a configurable product as ordinary when the configurator is off', async () => {
-    mockConfiguratorOn.value = false;
-    const wrapper = mountPage();
-    const bookcase = row(wrapper, 2);
-
-    expect(
-      bookcase.find('[data-testid="list-item-add-to-cart"]').exists(),
-    ).toBe(true);
-    expect(
-      bookcase.find('[data-testid="list-item-configure-link"]').exists(),
-    ).toBe(false);
-    expect(bookcase.text()).toContain('9 990 kr');
-
-    await wrapper.find('[data-testid="add-all-to-cart-btn"]').trigger('click');
-    await nextTick();
-
-    expect(mockCartStore.addItems.mock.calls).toEqual([
-      [
-        [
-          { skuId: 11, quantity: 1 },
-          { skuId: 22, quantity: 1 },
-          { skuId: 33, quantity: 1 },
-        ],
-        0,
-      ],
-    ]);
   });
 });

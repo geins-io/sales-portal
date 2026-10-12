@@ -116,27 +116,27 @@ describe('server feature-access', () => {
   });
 
   describe('canConfigureServer', () => {
-    it('lets a signed-in request configure when the configurator is on', async () => {
-      mockFeatures.mockResolvedValue({ configurator: { enabled: true } });
+    it('lets a signed-in request configure without reading the features', async () => {
       sessionToken.mockReturnValue('a-user-token');
       expect(await canConfigureServer(mockEvent)).toBe(true);
-      expect(mockFeatures).toHaveBeenCalledWith(mockEvent);
+      expect(mockFeatures).not.toHaveBeenCalled();
     });
 
-    it('refuses a guest, even with a stored access rule open to all', async () => {
-      // An older stored config may still carry `access`; the point is that it is ignored.
-      mockFeatures.mockResolvedValue({
-        configurator: { enabled: true, access: 'all' },
-      });
+    it('refuses a guest', async () => {
+      sessionToken.mockReturnValue(undefined);
       expect(await canConfigureServer(mockEvent)).toBe(false);
     });
 
-    it('refuses a signed-in request when the configurator is off or absent', async () => {
-      sessionToken.mockReturnValue('a-user-token');
-      mockFeatures.mockResolvedValue({ configurator: { enabled: false } });
-      expect(await canConfigureServer(mockEvent)).toBe(false);
-      mockFeatures.mockResolvedValue(null);
-      expect(await canConfigureServer(mockEvent)).toBe(false);
-    });
+    it.each([
+      ['{ enabled: false }', { configurator: { enabled: false } }],
+      ['a bare false', { configurator: false }],
+    ])(
+      'lets a signed-in request through with a stored %s',
+      async (_label, features) => {
+        mockFeatures.mockResolvedValue(features);
+        sessionToken.mockReturnValue('a-user-token');
+        expect(await canConfigureServer(mockEvent)).toBe(true);
+      },
+    );
   });
 });

@@ -150,7 +150,6 @@ const HEADER_ACTIONS =
 const SERVER_CHECKOUT = 'tests/unit/api/checkout.test.ts';
 const SERVER_CART = 'tests/server/api/cart.test.ts';
 const SERVER_REGISTER = 'tests/server/api/auth-register.test.ts';
-const CONFIGURATOR_ROUTES = 'tests/unit/server/api/configurations/harness.ts';
 const AUTH_CARD = 'tests/components/auth/AuthCard.test.ts';
 const AUTH_SHEET = 'tests/components/auth/AuthSheet.test.ts';
 const BRAND_LOGO_FALLBACK = 'tests/components/BrandLogoFallback.test.ts';
@@ -1859,51 +1858,6 @@ export const CONFIG_COVERAGE_MAP = {
       'Seeded and present in the live config, read by nothing. The checkout ' +
         'page gates on orderPlacement instead.',
     ),
-    configurator: namedFeature({
-      consumer: 'server/utils/configurator-route.ts:30',
-      cells: {
-        enabledTrue: [
-          {
-            spec: CONFIGURATOR_ROUTES,
-            title:
-              'lets a signed-in request through when configurator is enabled',
-            kind: 'consumer',
-            drives: 'field',
-          },
-          {
-            spec: CONFIGURATOR_ROUTES,
-            title:
-              'answers 404 for an anonymous request when configurator is enabled',
-            kind: 'consumer',
-            drives: 'field',
-          },
-        ],
-        enabledFalse: [
-          {
-            spec: CONFIGURATOR_ROUTES,
-            title:
-              'answers 404 when configurator is off, before the body is read',
-            kind: 'consumer',
-            drives: 'field',
-          },
-        ],
-      },
-      access: accessNeverRead(
-        'Every consumer asks canConfigure, which reads `.enabled` and the ' +
-          "buyer's sign-in and never looks at `.access`: configuring always " +
-          'needs a signed-in buyer, so an access rule on it changes nothing.',
-      ),
-      note:
-        'The first consumer in this map that is server code rather than a ' +
-        'component: the gate is a route util every configuration route calls ' +
-        'before it reads a body. The cases are declared once, in the harness ' +
-        'the route specs share, which is why every reference points at that ' +
-        'one file. The harness mocks the backend and the features lookup and ' +
-        'runs the real canConfigureServer over the configured value, so each ' +
-        'case drives the field. The merchant toggle is per channel in the ' +
-        'storefront-settings schema, so a channel without the field sits on ' +
-        'the seeded default and the routes answer 404.',
-    }),
     lists: namedFeature({
       consumer: 'app/components/portal/PortalShell.vue:116',
       cells: middlewareCells('lists'),

@@ -69,10 +69,6 @@ vi.mock('../../../../../server/services/configurator', () => ({
   buildConfiguratorRequestContext: async () => CTX,
 }));
 
-vi.mock('../../../../../server/services/tenant-config', () => ({
-  getFeatures: async () => ({ configurator: { enabled: true } }),
-}));
-
 // ---------------------------------------------------------------------------
 // Nitro auto-imports
 //

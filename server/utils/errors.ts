@@ -62,7 +62,7 @@ const ERROR_STATUS_CODES: Record<ErrorCode, number> = {
   [ErrorCode.CART_NOT_OWN]: 403,
   // Not UNAUTHORIZED: the client keeps the cart id for this code alone.
   [ErrorCode.CART_LOGIN_REQUIRED]: 401,
-  // As the configurator flag turned off: setup, not an outage.
+  // An account without CPQ: setup, not an outage.
   [ErrorCode.CONFIGURATOR_NOT_AVAILABLE]: 404,
   // Not 422 or 410, which the page reads as a refused change or an expiry.
   [ErrorCode.CURRENCY_MISMATCH]: 409,

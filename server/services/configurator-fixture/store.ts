@@ -27,8 +27,6 @@ export interface SessionStore {
   put(hostname: string, id: string, session: StoredSession): void;
   /** The live session, or the 404/410 the caller should answer with. */
   require(hostname: string, id: string): StoredSession;
-  /** Whether `require` would answer anything but 404 for this id. */
-  has(hostname: string, id: string): boolean;
 }
 
 export function createSessionStore(
@@ -62,10 +60,6 @@ export function createSessionStore(
         throw createAppError(ErrorCode.GONE, 'The configuration has expired');
       }
       return session;
-    },
-    has(hostname, id) {
-      const session = sessions.get(key(hostname, id));
-      return session !== undefined && !forgotten(session);
     },
   };
 }

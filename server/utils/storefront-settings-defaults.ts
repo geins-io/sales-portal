@@ -50,14 +50,10 @@ const COLOR_DEFAULTS: Record<keyof typeof HEX_DEFAULTS, string> =
  * Feature-flag default policy (read this before adding a new feature):
  *
  *   - Flags Studio exposes a toggle for default to `enabled: false`.
- *     Today this is `priceVisibility`, `orderPlacement`, `stockStatus`
- *     and `configurator`. The merchant opts in via Studio; the API then
+ *     Today this is `priceVisibility`, `orderPlacement` and
+ *     `stockStatus`. The merchant opts in via Studio; the API then
  *     writes the explicit `true`/`false`. When the key is absent we treat
  *     the merchant as not yet opted in and keep the feature off.
- *     `configurator` differs in two ways worth knowing: it has no access
- *     rule (configuring always needs a signed-in buyer), and its toggle is
- *     defined per channel, so a channel whose schema has no such field
- *     can never turn it on and stays on this default.
  *
  *   - All other flags default to `enabled: true` because Studio has no
  *     toggle for them and they are required for storefront baseline
@@ -70,7 +66,6 @@ export const STOREFRONT_SETTINGS_DEFAULTS = {
     applyForAccount: { enabled: true } as FeatureConfig,
     cart: { enabled: true } as FeatureConfig,
     checkout: { enabled: true } as FeatureConfig,
-    configurator: { enabled: false } as FeatureConfig,
     lists: { enabled: true } as FeatureConfig,
     newsletterSignup: { enabled: true } as FeatureConfig,
     orderHistory: { enabled: true } as FeatureConfig,

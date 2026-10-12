@@ -6,9 +6,7 @@ import {
   configurableCheck,
   getConfiguratorBackend,
   isConfigurableProduct,
-  mayHaveConfigurableProducts,
   resolveConfiguratorBackendName,
-  type ConfiguratorBackend,
   type ConfiguratorContext,
   withConfigurableFlags,
 } from '../../../../server/services/configurator';
@@ -72,36 +70,6 @@ function withBackend(value: unknown) {
   return getConfiguratorBackend(EVENT);
 }
 
-/** Every method of the interface, as a thunk, so one loop can check them all. */
-function allCalls(
-  backend: ConfiguratorBackend,
-): [string, () => Promise<unknown>][] {
-  return [
-    ['create', () => backend.create({ productId: 'p1', quantity: 1 }, CTX)],
-    ['get', () => backend.get('c1', CTX)],
-    [
-      'applyChanges',
-      () =>
-        backend.applyChanges('c1', [{ type: 'quantity', quantity: 2 }], CTX),
-    ],
-    ['renew', () => backend.renew('c1', CTX)],
-    ['release', () => backend.release('c1', CTX)],
-    ['commit', () => backend.commit('c1', CTX)],
-    [
-      'addToCart',
-      () =>
-        backend.addToCart(
-          'cart-1',
-          { committedConfigurationId: 'c1', skuId: 1, quantity: 1 },
-          CTX,
-        ),
-    ],
-    ['reopen', () => backend.reopen('cart-1', 'item-1', CTX)],
-    ['replaceLine', () => backend.replaceLine('cart-1', 'item-1', 'c1', CTX)],
-    ['orderLineChoices', () => backend.orderLineChoices('order-1', 0, CTX)],
-  ];
-}
-
 async function statusOf(
   call: () => Promise<unknown>,
 ): Promise<number | undefined> {
@@ -117,36 +85,41 @@ async function statusOf(
 // The parser
 //
 // A GitHub variable that does not exist arrives as an empty string, and an
-// empty NUXT_* value overrides the Nuxt default. Anything but the two known
-// names is therefore `off`.
+// empty NUXT_* value overrides the Nuxt default. So missing and empty both
+// mean the ordinary backend, and only a non-empty value that names no backend
+// is a mistake, which fails rather than quietly picking one.
 // ---------------------------------------------------------------------------
 
 describe('resolveConfiguratorBackendName', () => {
   it('accepts the implemented names', () => {
     expect(resolveConfiguratorBackendName('fixture')).toBe('fixture');
     expect(resolveConfiguratorBackendName('merchant-api')).toBe('merchant-api');
-    expect(resolveConfiguratorBackendName('composite')).toBe('composite');
-  });
-
-  it('reads the retired sdk name as off', () => {
-    expect(resolveConfiguratorBackendName('sdk')).toBe('off');
-  });
-
-  it('reads off as off', () => {
-    expect(resolveConfiguratorBackendName('off')).toBe('off');
   });
 
   it.each([
     ['an empty string', ''],
-    ['an unknown value', 'nonsense'],
     ['undefined', undefined],
+  ])('reads %s as merchant-api', (_label, value) => {
+    expect(resolveConfiguratorBackendName(value)).toBe('merchant-api');
+  });
+
+  it.each([
+    ['the retired off', 'off'],
+    ['the retired sdk', 'sdk'],
+    ['the retired composite', 'composite'],
+    ['an unknown value', 'nonsense'],
     ['null', null],
     ['a non-string', 42],
     ['the wrong case', 'Fixture'],
     ['a padded value', ' fixture '],
-  ])('reads %s as off', (_label, value) => {
-    expect(resolveConfiguratorBackendName(value)).toBe('off');
-  });
+  ])(
+    'throws on %s, naming the value and the accepted ones',
+    (_label, value) => {
+      expect(() => resolveConfiguratorBackendName(value)).toThrow(
+        `Unknown CONFIGURATOR_BACKEND ${JSON.stringify(value)}; expected fixture or merchant-api, or nothing for merchant-api`,
+      );
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -154,35 +127,29 @@ describe('resolveConfiguratorBackendName', () => {
 // ---------------------------------------------------------------------------
 
 describe('getConfiguratorBackend', () => {
-  describe.each([
-    ['off', 'off'],
+  it.each([
     ['an empty string', ''],
-    ['an unknown value', 'nonsense'],
-  ])('with the key set to %s', (_label, value) => {
-    it('answers 404 from every method', async () => {
-      const backend = withBackend(value);
-      for (const [name, call] of allCalls(backend)) {
-        expect(await statusOf(call), name).toBe(404);
-      }
-    });
+    ['an absent key', undefined],
+  ])('is the merchant-api backend with %s', async (_label, value) => {
+    // The merchant-api backend's mark: without a target in the context it
+    // answers 500, where the fixture would answer a configuration.
+    const backend = withBackend(value);
+    expect(
+      await statusOf(() =>
+        backend.create({ productId: '1359', quantity: 1 }, CTX),
+      ),
+    ).toBe(500);
+    expect(
+      backend.isConfigurable({ productId: '1', type: 'configurable' }, CTX),
+    ).toBe(true);
   });
 
-  it('answers 404 from every method when the key is absent', async () => {
-    const backend = withBackend(undefined);
-    for (const [name, call] of allCalls(backend)) {
-      expect(await statusOf(call), name).toBe(404);
-    }
-  });
-
-  it('answers 404 from every method with the retired key sdk', async () => {
-    const backend = withBackend('sdk');
-    for (const [name, call] of allCalls(backend)) {
-      expect(await statusOf(call), name).toBe(404);
-    }
+  it('throws on a value that names no backend', () => {
+    expect(() => withBackend('off')).toThrow('Unknown CONFIGURATOR_BACKEND');
   });
 
   it.each([
-    ['off', 'off'],
+    ['merchant-api', 'merchant-api'],
     ['an absent key', undefined],
   ])('has no cart line read on %s', (_label, value) => {
     expect(withBackend(value).cartLineConfigurations).toBeUndefined();
@@ -204,25 +171,18 @@ describe('getConfiguratorBackend', () => {
     },
   );
 
-  it.each([
-    ['off', 'off'],
-    ['an absent key', undefined],
-    ['fixture', 'fixture'],
-  ])(
-    'answers no configured order rows on %s, without a request',
-    async (_label, value) => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+  it('answers no configured order rows on the fixture, without a request', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
 
-      const lines = await withBackend(value).orderLineConfigurations(
-        'order-1',
-        CTX,
-      );
+    const lines = await withBackend('fixture').orderLineConfigurations(
+      'order-1',
+      CTX,
+    );
 
-      expect(lines.size).toBe(0);
-      expect(fetchSpy).not.toHaveBeenCalled();
-      fetchSpy.mockRestore();
-    },
-  );
+    expect(lines.size).toBe(0);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
 
   it('answers no order-row choices on the fixture, whose orders carry none, without a request', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
@@ -234,20 +194,17 @@ describe('getConfiguratorBackend', () => {
     fetchSpy.mockRestore();
   });
 
-  it.each(['merchant-api', 'composite'])(
-    'answers 500 on %s when the context carries no merchant-api target',
-    async (value) => {
-      // Only the product route builds the narrow context, and it never
-      // creates; reaching the real backend without a target is a wiring bug.
-      const backend = withBackend(value);
-      expect(
-        await statusOf(() =>
-          backend.create({ productId: '1359', quantity: 1 }, CTX),
-        ),
-      ).toBe(500);
-      expect(await statusOf(() => backend.get('c1', CTX))).toBe(500);
-    },
-  );
+  it('answers 500 on merchant-api when the context carries no merchant-api target', async () => {
+    // Only the product route builds the narrow context, and it never
+    // creates; reaching the real backend without a target is a wiring bug.
+    const backend = withBackend('merchant-api');
+    expect(
+      await statusOf(() =>
+        backend.create({ productId: '1359', quantity: 1 }, CTX),
+      ),
+    ).toBe(500);
+    expect(await statusOf(() => backend.get('c1', CTX))).toBe(500);
+  });
 
   describe('with the key set to fixture', () => {
     it('returns a configuration for the requested product', async () => {
@@ -439,30 +396,12 @@ describe('isConfigurableProduct', () => {
     );
   });
 
-  it('says yes on the composite backend for a seed and for the configurable type', () => {
-    expect(
-      answerWith('composite', ARBETSBORD_PRO_GEINS_ID, ORDINARY_TYPE),
-    ).toBe(true);
-    expect(answerWith('composite', '1359', CONFIGURABLE_TYPE)).toBe(true);
-    expect(answerWith('composite', '1359', ORDINARY_TYPE)).toBe(false);
+  it('answers by the type alone with the key absent, as merchant-api', () => {
+    expect(answerWith(undefined, '1359', CONFIGURABLE_TYPE)).toBe(true);
+    expect(answerWith(undefined, ARBETSBORD_PRO_GEINS_ID, ORDINARY_TYPE)).toBe(
+      false,
+    );
   });
-
-  it.each([
-    ['off', 'off'],
-    ['sdk', 'sdk'],
-    ['an unknown value', 'nonsense'],
-    ['the key absent', undefined],
-  ])(
-    'says no with the backend %s, even for a configurable type',
-    (_label, value) => {
-      // Production runs `off`: a Monitor-typed product must not be sent to a
-      // configurator page that would fail at create.
-      expect(answerWith(value, '1359', CONFIGURABLE_TYPE)).toBe(false);
-      expect(answerWith(value, ARBETSBORD_PRO_GEINS_ID, ORDINARY_TYPE)).toBe(
-        false,
-      );
-    },
-  );
 
   it('passes the product through to the backend unchanged', () => {
     mockReadBackendValue.mockReturnValue('fixture');
@@ -475,12 +414,6 @@ describe('isConfigurableProduct', () => {
       hostname: 'tenant.example.com',
     });
     spy.mockRestore();
-  });
-
-  it('answers rather than throws on a backend that rejects every verb', () => {
-    expect(() =>
-      answerWith('off', ARBETSBORD_PRO_GEINS_ID, ORDINARY_TYPE),
-    ).not.toThrow();
   });
 
   it('builds the context from the event, tenant or no tenant', () => {
@@ -591,20 +524,10 @@ describe('withConfigurableFlags', () => {
     ]);
   });
 
-  it('flags both kinds on the composite backend', () => {
-    expect(
-      flag('composite', [seed, monitorTyped, ordinary]).map(
-        (p) => p?.configurable,
-      ),
-    ).toEqual([true, true, undefined]);
-  });
-
-  it('flags nothing when the backend is off, even a configurable type', () => {
-    // Production runs `off`: a card must not send the buyer to a
-    // configurator page that would fail at create.
-    expect(flag('off', [seed, monitorTyped])).toEqual([
+  it('flags by type alone with the key absent, as merchant-api', () => {
+    expect(flag(undefined, [seed, monitorTyped])).toEqual([
       { productId: seed.productId, alias: 'arbetsbord-pro' },
-      { productId: 1359, alias: 'machine' },
+      { productId: 1359, alias: 'machine', configurable: true },
     ]);
   });
 
@@ -627,58 +550,5 @@ describe('withConfigurableFlags', () => {
   it('resolves the backend once for the whole list', () => {
     flag('fixture', [seed, monitorTyped, ordinary]);
     expect(mockReadBackendValue).toHaveBeenCalledOnce();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// A list whose query cannot carry `type` needs a second lookup to be flagged;
-// this decides whether that lookup is worth making at all.
-// ---------------------------------------------------------------------------
-
-describe('mayHaveConfigurableProducts', () => {
-  function ask(value: unknown, configurator?: { enabled: boolean }) {
-    mockReadBackendValue.mockReturnValue(value);
-    const event = {
-      context: {
-        tenant: {
-          hostname: 'tenant.example.com',
-          config: { features: configurator ? { configurator } : {} },
-        },
-      },
-    } as unknown as Parameters<typeof mayHaveConfigurableProducts>[0];
-    return mayHaveConfigurableProducts(event);
-  }
-
-  it.each(['fixture', 'merchant-api', 'composite'])(
-    'says yes on the %s backend with the feature on',
-    async (backend) => {
-      expect(await ask(backend, { enabled: true })).toBe(true);
-    },
-  );
-
-  it('says no on the off backend, feature or not', async () => {
-    expect(await ask('off', { enabled: true })).toBe(false);
-    expect(await ask(undefined, { enabled: true })).toBe(false);
-  });
-
-  it('says no with the feature switched off', async () => {
-    expect(await ask('composite', { enabled: false })).toBe(false);
-  });
-
-  it('says no on a tenant that never configured the feature', async () => {
-    expect(await ask('composite')).toBe(false);
-  });
-
-  it('says no where the request carries no tenant config', async () => {
-    mockReadBackendValue.mockReturnValue('composite');
-    const event = { context: {} } as unknown as Parameters<
-      typeof mayHaveConfigurableProducts
-    >[0];
-    expect(await mayHaveConfigurableProducts(event)).toBe(false);
-  });
-
-  it('says yes to a guest: the card needs the flag to withhold the add', async () => {
-    mockGetAuthCookies.mockReturnValue({});
-    expect(await ask('merchant-api', { enabled: true })).toBe(true);
   });
 });

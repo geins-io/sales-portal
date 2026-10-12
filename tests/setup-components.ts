@@ -277,7 +277,7 @@ vi.mock('../app/composables/useTenant', () => {
 // `features` fixture reaches the component through the real useFeatureAccess
 // and canAccessFeature, which is what lets the coverage map hang
 // `drives: 'field'` on the test.
-// The configurator answers as for a signed-in buyer with it switched on.
+// The configurator answers as for a signed-in buyer.
 vi.mock('../app/composables/useFeatureAccess', async () => {
   const { resolveProductPageType } =
     await import('../app/utils/product-page-type');
@@ -286,11 +286,7 @@ vi.mock('../app/composables/useFeatureAccess', async () => {
       canAccess: (_featureName: string) => true,
       canConfigure: () => true,
       pageTypeOf: (product: { configurable?: boolean } | null | undefined) =>
-        resolveProductPageType(
-          product,
-          { enabled: true },
-          { authenticated: true },
-        ),
+        resolveProductPageType(product, { authenticated: true }),
     }),
   };
 });

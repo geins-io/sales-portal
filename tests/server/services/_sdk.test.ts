@@ -326,18 +326,15 @@ describe('server/services/_sdk', () => {
       );
     });
 
-    it.each([undefined, '', 'off', 'fixture', 'sdk'])(
-      'resolves no endpoint for backend %j, even with a URL set',
-      (backend) => {
-        mockBackendValue.mockReturnValue(backend);
-        mockMerchantApiUrl.mockReturnValue(CPQ_API_URL);
+    it('resolves no endpoint on the fixture backend, even with a URL set', () => {
+      mockBackendValue.mockReturnValue('fixture');
+      mockMerchantApiUrl.mockReturnValue(CPQ_API_URL);
 
-        expect(resolveSdkApiUrl(createEvent('test.com'))).toBeUndefined();
-      },
-    );
+      expect(resolveSdkApiUrl(createEvent('test.com'))).toBeUndefined();
+    });
 
-    it.each(['merchant-api', 'composite'])(
-      'resolves the configurator URL for backend %s',
+    it.each([undefined, '', 'merchant-api'])(
+      'resolves the configurator URL for backend %j',
       (backend) => {
         mockBackendValue.mockReturnValue(backend);
         mockMerchantApiUrl.mockReturnValue(CPQ_API_URL);
@@ -346,15 +343,15 @@ describe('server/services/_sdk', () => {
       },
     );
 
-    it('resolves no endpoint on a CPQ backend with an empty URL', () => {
-      mockBackendValue.mockReturnValue('composite');
+    it('resolves no endpoint on the merchant-api backend with an empty URL', () => {
+      mockBackendValue.mockReturnValue('merchant-api');
       mockMerchantApiUrl.mockReturnValue('');
 
       expect(resolveSdkApiUrl(createEvent('test.com'))).toBeUndefined();
     });
 
-    it('builds the tenant SDK on the configurator URL on a CPQ backend', async () => {
-      mockBackendValue.mockReturnValue('composite');
+    it('builds the tenant SDK on the configurator URL on the merchant-api backend', async () => {
+      mockBackendValue.mockReturnValue('merchant-api');
       mockMerchantApiUrl.mockReturnValue(CPQ_API_URL);
       mockResolveTenant.mockResolvedValue({
         tenantId: 'test-tenant',
@@ -369,8 +366,8 @@ describe('server/services/_sdk', () => {
       );
     });
 
-    it('builds the tenant SDK without apiUrl when the configurator is off', async () => {
-      mockBackendValue.mockReturnValue('off');
+    it('builds the tenant SDK without apiUrl on the fixture backend', async () => {
+      mockBackendValue.mockReturnValue('fixture');
       mockMerchantApiUrl.mockReturnValue(CPQ_API_URL);
       mockResolveTenant.mockResolvedValue({
         tenantId: 'test-tenant',
@@ -391,7 +388,7 @@ describe('server/services/_sdk', () => {
       });
 
       const onDefault = await getTenantSDK(createEvent('test.com'));
-      mockBackendValue.mockReturnValue('composite');
+      mockBackendValue.mockReturnValue('merchant-api');
       mockMerchantApiUrl.mockReturnValue(CPQ_API_URL);
       const onCpq = await getTenantSDK(createEvent('test.com'));
       const onCpqAgain = await getTenantSDK(createEvent('test.com'));

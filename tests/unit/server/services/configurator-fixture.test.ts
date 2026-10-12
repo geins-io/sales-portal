@@ -952,50 +952,6 @@ describe('release', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Ownership
-//
-// The composite backend asks this before it routes a call that carries only an
-// id. Every id the fixture would answer 410 for is still its own, so an expired
-// fixture session is not handed to the real backend as an unknown id.
-// ---------------------------------------------------------------------------
-
-describe('owns', () => {
-  it('owns a live session', async () => {
-    const config = await start();
-    expect(backend.owns(config.configurationId, CTX)).toBe(true);
-  });
-
-  it('still owns an expired session', async () => {
-    const config = await start();
-    advance(SESSION_MINUTES + 1);
-    expect(backend.owns(config.configurationId, CTX)).toBe(true);
-  });
-
-  it('still owns a departed session inside the retention window', async () => {
-    const config = await start();
-    await backend.release(config.configurationId, CTX);
-    advance(DEPARTED_RETENTION_HOURS * 60 - 1);
-    expect(backend.owns(config.configurationId, CTX)).toBe(true);
-  });
-
-  it('lets a departed session go once the retention window passes', async () => {
-    const config = await start();
-    await backend.release(config.configurationId, CTX);
-    advance(DEPARTED_RETENTION_HOURS * 60);
-    expect(backend.owns(config.configurationId, CTX)).toBe(false);
-  });
-
-  it('does not own an id it never handed out', () => {
-    expect(backend.owns('no-such-id', CTX)).toBe(false);
-  });
-
-  it("does not own another tenant's session", async () => {
-    const config = await start();
-    expect(backend.owns(config.configurationId, OTHER_TENANT)).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Commit
 // ---------------------------------------------------------------------------
 

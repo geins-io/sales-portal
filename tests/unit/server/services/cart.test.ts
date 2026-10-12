@@ -575,7 +575,7 @@ describe('the cart service', () => {
         expect(changeConfiguredQuantity).not.toHaveBeenCalled();
       });
 
-      it('changes a line with a plain update, reading nothing, at quantity 0 or without the configurator', async () => {
+      it('changes a line with a plain update, reading nothing, at quantity 0 or for a guest', async () => {
         await update('item-1', 0);
         canConfigureServer.mockResolvedValue(false);
         await update('item-1', 4);
@@ -694,7 +694,7 @@ describe('the cart service', () => {
     }
 
     it.each([
-      ['without the configurator', FIXTURE, false],
+      ['for a guest', FIXTURE, false],
       ['on the merchant-api backend', MERCHANT_API, true],
     ] as const)(
       'answers it exactly as before, %s',

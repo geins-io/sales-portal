@@ -1,9 +1,6 @@
 import type { H3Event } from 'h3';
 import { ProductAliasSchema } from '../../../schemas/api-input';
-import {
-  mayHaveConfigurableProducts,
-  withConfigurableFlags,
-} from '../../../services/configurator';
+import { withConfigurableFlags } from '../../../services/configurator';
 import {
   getProductsByIds,
   getRelatedProducts,
@@ -57,12 +54,7 @@ export default defineEventHandler(async (event) => {
 
       const rows = (related as RelatedRow[]).map(withProductId);
       const productIds = rows.flatMap((row) => row.productId ?? []);
-      if (
-        productIds.length === 0 ||
-        !(await mayHaveConfigurableProducts(event))
-      ) {
-        return rows;
-      }
+      if (productIds.length === 0) return rows;
 
       const types = await productTypes(productIds, auth?.authToken, event);
       if (!types) return rows;

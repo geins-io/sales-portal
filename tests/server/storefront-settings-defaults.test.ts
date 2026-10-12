@@ -40,10 +40,10 @@ describe('storefront-settings-defaults', () => {
       });
     });
 
-    it('defaults configurator to enabled:false with no access rule', () => {
-      expect(STOREFRONT_SETTINGS_DEFAULTS.features.configurator).toEqual({
-        enabled: false,
-      });
+    it('carries no configurator default: the product type decides', () => {
+      expect(STOREFRONT_SETTINGS_DEFAULTS.features).not.toHaveProperty(
+        'configurator',
+      );
     });
 
     it('defaults baseline storefront flags (cart, checkout, lists, wishlist, etc.) to enabled:true', () => {

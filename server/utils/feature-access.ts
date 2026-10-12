@@ -20,10 +20,7 @@ export async function canAccessFeatureServer(
 
 /** Whether this request may configure products: see `canConfigure`. */
 export async function canConfigureServer(event: H3Event): Promise<boolean> {
-  const features = await getFeatures(event);
-  return canConfigure(features?.configurator, {
-    authenticated: !!getSessionToken(event),
-  });
+  return canConfigure({ authenticated: !!getSessionToken(event) });
 }
 
 /**

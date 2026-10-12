@@ -13,10 +13,9 @@ export type ProductPageType =
   | 'sign-in-to-configure';
 
 /**
- * A configurable product needs the configurator switched on for the tenant;
- * without it the product is an ordinary one. With it, a signed-in buyer gets
- * the configurator and a guest is asked to sign in — never a plain add, which
- * would land a line without a configuration at catalogue price.
+ * A signed-in buyer gets the configurator for a configurable product and a
+ * guest is asked to sign in — never a plain add, which would land a line
+ * without a configuration at catalogue price.
  *
  * The flag is compared to `true` rather than read for truthiness: it is
  * derived server-side and typed `boolean | undefined`, so anything else that
@@ -24,13 +23,8 @@ export type ProductPageType =
  */
 export function resolveProductPageType(
   product: { configurable?: boolean } | null | undefined,
-  configurator: { enabled: boolean } | undefined,
   user: UserContext,
 ): ProductPageType {
-  if (product?.configurable !== true || configurator?.enabled !== true) {
-    return 'ordinary';
-  }
-  return canConfigure(configurator, user)
-    ? 'configurable'
-    : 'sign-in-to-configure';
+  if (product?.configurable !== true) return 'ordinary';
+  return canConfigure(user) ? 'configurable' : 'sign-in-to-configure';
 }

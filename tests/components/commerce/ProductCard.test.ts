@@ -31,7 +31,6 @@ function setFeatures(features: PublicTenantConfig['features']) {
 }
 
 const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
-const mockConfiguratorOn = ref(true);
 
 // The page type runs for real over the tenant's switch and the buyer's
 // sign-in, so a guest case here is the rule production evaluates.
@@ -39,11 +38,9 @@ vi.mock('../../../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({
     canAccess: mockCanAccess,
     pageTypeOf: (product: { configurable?: boolean }) =>
-      resolveProductPageType(
-        product,
-        { enabled: mockConfiguratorOn.value },
-        { authenticated: mockIsAuthenticated.value },
-      ),
+      resolveProductPageType(product, {
+        authenticated: mockIsAuthenticated.value,
+      }),
   }),
 }));
 
@@ -507,7 +504,6 @@ describe('ProductCard', () => {
   describe('configurable product', () => {
     afterEach(() => {
       mockCanAccess.mockReset().mockReturnValue(true);
-      mockConfiguratorOn.value = true;
       mockIsAuthenticated.value = true;
     });
 
@@ -541,21 +537,6 @@ describe('ProductCard', () => {
         ).toBe(false);
       },
     );
-
-    it('is an ordinary card when the configurator is off', () => {
-      mockConfiguratorOn.value = false;
-      const wrapper = mountComponent(ProductCard, {
-        props: { product: configurable() },
-        global: { stubs },
-      });
-      expect(
-        wrapper.find('[data-testid="configure-product-link"]').exists(),
-      ).toBe(false);
-      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
-        true,
-      );
-      expect(wrapper.find('.price-display').exists()).toBe(true);
-    });
 
     // Configuring needs sign-in, and a plain add would be a bare line at
     // catalogue price; the card stays a link to the product page.

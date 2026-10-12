@@ -10,6 +10,7 @@ import type {
 import type { H3Event } from 'h3';
 import { LRUCache } from 'lru-cache';
 import { storefrontCacheKey, storefrontKey } from '../utils/tenant';
+import { resolveConfiguratorBackendName } from './configurator-backend-name';
 import {
   readConfiguratorBackendValue,
   readConfiguratorMerchantApiUrl,
@@ -65,15 +66,15 @@ export function clearSdkCache(storefrontKey: string): void {
 }
 
 /**
- * The merchant-api GraphQL URL the SDK talks to. On a CPQ backend
- * (`merchant-api` or `composite`) it is the configurator's URL, because the
- * ordinary endpoint drops a configured line's configuration on every cart
- * write. Otherwise undefined, and the SDK keeps its default. The backend is
- * matched strictly, as `resolveConfiguratorBackendName` does.
+ * The merchant-api GraphQL URL the SDK talks to. On the merchant-api backend,
+ * the default, it is the configurator's URL when one is set. Otherwise
+ * undefined, and the SDK keeps its default.
  */
 export function resolveSdkApiUrl(event: H3Event): string | undefined {
-  const backend = readConfiguratorBackendValue(event);
-  if (backend !== 'merchant-api' && backend !== 'composite') return undefined;
+  const backend = resolveConfiguratorBackendName(
+    readConfiguratorBackendValue(event),
+  );
+  if (backend === 'fixture') return undefined;
   const url = readConfiguratorMerchantApiUrl(event);
   return typeof url === 'string' && url !== '' ? url : undefined;
 }

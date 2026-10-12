@@ -89,23 +89,8 @@ describe('canAccessFeature', () => {
 });
 
 describe('canConfigure', () => {
-  it('needs the configurator switched on and a signed-in buyer', () => {
-    expect(canConfigure({ enabled: true }, loggedIn)).toBe(true);
-    expect(canConfigure({ enabled: true }, anonymous)).toBe(false);
-  });
-
-  it('refuses when the configurator is off or absent', () => {
-    expect(canConfigure({ enabled: false }, loggedIn)).toBe(false);
-    expect(canConfigure(undefined, loggedIn)).toBe(false);
-  });
-
-  it('does not read the access rule', () => {
-    const openToAll = { enabled: true, access: 'all' as FeatureAccess };
-    const signedInOnly = {
-      enabled: true,
-      access: 'authenticated' as FeatureAccess,
-    };
-    expect(canConfigure(openToAll, anonymous)).toBe(false);
-    expect(canConfigure(signedInOnly, loggedIn)).toBe(true);
+  it('needs a signed-in buyer and nothing else', () => {
+    expect(canConfigure(loggedIn)).toBe(true);
+    expect(canConfigure(anonymous)).toBe(false);
   });
 });

@@ -22,14 +22,10 @@ export function useFeatureAccess() {
     return canAccessFeature(features.value?.[featureName], user());
   }
 
-  function configurator() {
-    return features.value?.configurator;
-  }
-
   return {
     canAccess,
-    canConfigure: () => canConfigure(configurator(), user()),
+    canConfigure: () => canConfigure(user()),
     pageTypeOf: (product: { configurable?: boolean } | null | undefined) =>
-      resolveProductPageType(product, configurator(), user()),
+      resolveProductPageType(product, user()),
   };
 }

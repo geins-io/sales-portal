@@ -61,13 +61,11 @@ const mockWithConfigurableFlags = vi.fn(
       return type === 'configurable' ? { ...rest, configurable: true } : rest;
     }),
 );
-const mockMayHaveConfigurableProducts = vi.fn(async () => false);
 vi.mock('../../../server/services/configurator', () => ({
   isConfigurableProduct: (...args: unknown[]) =>
     mockIsConfigurableProduct(...args),
   withConfigurableFlags: (event: unknown, products: never) =>
     mockWithConfigurableFlags(event, products),
-  mayHaveConfigurableProducts: () => mockMayHaveConfigurableProducts(),
 }));
 
 const mockLoggerWarn = vi.fn();
@@ -149,7 +147,6 @@ describe('Product API Routes', () => {
     // `clearAllMocks` clears calls, not return values, so an answer set in one
     // case would otherwise travel into the next.
     mockIsConfigurableProduct.mockReturnValue(false);
-    mockMayHaveConfigurableProducts.mockResolvedValue(false);
   });
 
   // =======================================================================
@@ -411,7 +408,7 @@ describe('Product API Routes', () => {
     //
     // The related query's item type carries neither `productId` nor `type`.
     // The id comes from the row's SKUs; the type from a second lookup, made
-    // only where a product can be configurable at all.
+    // whenever there is anything related.
     // -------------------------------------------------------------------
     const machine = {
       alias: 'machine',
@@ -454,9 +451,8 @@ describe('Product API Routes', () => {
       ]);
     });
 
-    it('flags a configurable related product on a configurator tenant', async () => {
+    it('flags a configurable related product, with no tenant switch to ask', async () => {
       vi.mocked(getRouterParam).mockReturnValue('my-product');
-      mockMayHaveConfigurableProducts.mockResolvedValue(true);
       answer([
         { productId: 1359, type: 'configurable' },
         { productId: 42, type: 'product' },
@@ -476,7 +472,6 @@ describe('Product API Routes', () => {
         authToken: 'tok',
         refreshToken: 'refresh',
       });
-      mockMayHaveConfigurableProducts.mockResolvedValue(true);
       answer([]);
 
       await handler(fakeEvent);
@@ -508,23 +503,8 @@ describe('Product API Routes', () => {
       });
     });
 
-    it('makes no second call where the configurator is off', async () => {
-      vi.mocked(getRouterParam).mockReturnValue('my-product');
-      answer([{ productId: 1359, type: 'configurable' }]);
-
-      const result = await handler(fakeEvent);
-
-      expect(queries()).toEqual(['query:products/related-products.graphql']);
-      expect(mockWithConfigurableFlags).not.toHaveBeenCalled();
-      expect(result).toEqual([
-        { ...machine, productId: 1359 },
-        { ...screw, productId: 42 },
-      ]);
-    });
-
     it('makes no second call when there is nothing related', async () => {
       vi.mocked(getRouterParam).mockReturnValue('my-product');
-      mockMayHaveConfigurableProducts.mockResolvedValue(true);
       mockGraphqlQuery.mockResolvedValue({ relatedProducts: [] });
 
       expect(await handler(fakeEvent)).toEqual([]);
@@ -533,7 +513,6 @@ describe('Product API Routes', () => {
 
     it('renders the list unflagged when the type lookup fails', async () => {
       vi.mocked(getRouterParam).mockReturnValue('my-product');
-      mockMayHaveConfigurableProducts.mockResolvedValue(true);
       answer(new Error('upstream down'));
 
       const result = await handler(fakeEvent);
@@ -542,12 +521,13 @@ describe('Product API Routes', () => {
         { ...machine, productId: 1359 },
         { ...screw, productId: 42 },
       ]);
-      expect(mockLoggerWarn).toHaveBeenCalledOnce();
+      expect(mockLoggerWarn.mock.calls).toEqual([
+        ['[configurator] related product types unavailable'],
+      ]);
     });
 
     it('passes a missing list through', async () => {
       vi.mocked(getRouterParam).mockReturnValue('my-product');
-      mockMayHaveConfigurableProducts.mockResolvedValue(true);
       mockGraphqlQuery.mockResolvedValue({ relatedProducts: null });
 
       expect(await handler(fakeEvent)).toBeNull();
@@ -555,7 +535,6 @@ describe('Product API Routes', () => {
 
     it('leaves a row with no SKU without a product id', async () => {
       vi.mocked(getRouterParam).mockReturnValue('my-product');
-      mockMayHaveConfigurableProducts.mockResolvedValue(true);
       mockGraphqlQuery.mockResolvedValue({
         relatedProducts: [{ alias: 'bare', skus: [] }],
       });

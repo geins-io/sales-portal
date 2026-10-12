@@ -61,11 +61,14 @@ vi.mock('../../../../../server/services/tenant-config', () => ({
   getFeatures: (...args: unknown[]) => getFeatures(...args),
 }));
 
-/** The tenant's `features.configurator`, as the merchant admin would set it. */
-export function configuratorFeature(
-  feature: { enabled: boolean; access?: 'all' | 'authenticated' } | undefined,
-): void {
-  getFeatures.mockResolvedValue(feature ? { configurator: feature } : {});
+/**
+ * A `features.configurator` left stored from before the switch was retired,
+ * in any shape. Nothing may read it.
+ */
+export function storedConfiguratorFeature(feature: unknown): void {
+  getFeatures.mockResolvedValue(
+    feature === undefined ? {} : { configurator: feature },
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -204,7 +207,7 @@ export const engineRefusal = () =>
 export function resetHarness(): void {
   vi.clearAllMocks();
   errorContexts.length = 0;
-  configuratorFeature({ enabled: true });
+  storedConfiguratorFeature(undefined);
   getConfiguratorBackend.mockReturnValue(backend);
   buildConfiguratorRequestContext.mockResolvedValue(CTX);
 }
@@ -237,9 +240,11 @@ export function lifecycleCases(spec: {
   const reach = () => backend[spec.method].mockResolvedValue(spec.result);
 
   describe('the gate', () => {
-    it('answers 404 when the tenant has no configurator feature', async () => {
-      configuratorFeature(undefined);
-      const event = spec.event();
+    it('answers 404 for an anonymous request, before the body is read', async () => {
+      // Unparseable for every schema here, so a route that read it first would
+      // answer 400 and fail this case rather than pass it by accident.
+      const event = spec.event({ authenticated: false });
+      (event as unknown as { body: unknown }).body = { nonsense: true };
 
       await expect(spec.handler()(event)).rejects.toMatchObject({
         statusCode: 404,
@@ -248,29 +253,14 @@ export function lifecycleCases(spec: {
       expect(getConfiguratorBackend).not.toHaveBeenCalled();
     });
 
-    it('answers 404 when configurator is off, before the body is read', async () => {
-      configuratorFeature({ enabled: false });
-      // Unparseable for every schema here, so a route that read it first would
-      // answer 400 and fail this case rather than pass it by accident.
-      const event = spec.event();
-      (event as unknown as { body: unknown }).body = { nonsense: true };
-
-      await expect(spec.handler()(event)).rejects.toMatchObject({
-        statusCode: 404,
-      });
-      expect(bodyReads).not.toHaveBeenCalled();
-    });
-
     it('sets Cache-Control even on the 404 the gate answers', async () => {
-      configuratorFeature({ enabled: false });
-      const event = spec.event();
+      const event = spec.event({ authenticated: false });
 
       await expect(spec.handler()(event)).rejects.toThrow();
       expect(headersOf(event)['Cache-Control']).toBe('private, no-store');
     });
 
-    it('lets a signed-in request through when configurator is enabled', async () => {
-      configuratorFeature({ enabled: true });
+    it('lets a signed-in request through with no configurator feature stored', async () => {
       reach();
 
       await spec.handler()(spec.event({ authenticated: true }));
@@ -278,20 +268,23 @@ export function lifecycleCases(spec: {
       expect(backend[spec.method]).toHaveBeenCalled();
     });
 
-    it('answers 404 for an anonymous request when configurator is enabled', async () => {
-      configuratorFeature({ enabled: true });
-      const event = spec.event({ authenticated: false });
+    it.each([
+      ['{ enabled: false }', { enabled: false }],
+      ['a bare false', false],
+    ])(
+      'lets a signed-in request through with a stored %s',
+      async (_label, feature) => {
+        storedConfiguratorFeature(feature);
+        reach();
 
-      await expect(spec.handler()(event)).rejects.toMatchObject({
-        statusCode: 404,
-      });
-      expect(bodyReads).not.toHaveBeenCalled();
-      expect(getConfiguratorBackend).not.toHaveBeenCalled();
-    });
+        await spec.handler()(spec.event({ authenticated: true }));
+
+        expect(backend[spec.method]).toHaveBeenCalled();
+      },
+    );
 
     it("answers 404 for an anonymous request even with a stored access 'all'", async () => {
-      // An older stored config may still carry `access`; the point is that it is ignored.
-      configuratorFeature({ enabled: true, access: 'all' });
+      storedConfiguratorFeature({ enabled: true, access: 'all' });
       const event = spec.event({ authenticated: false });
 
       await expect(spec.handler()(event)).rejects.toMatchObject({

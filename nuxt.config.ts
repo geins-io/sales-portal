@@ -314,15 +314,15 @@ export default defineNuxtConfig({
       verboseRequests: false,
     },
 
-    // Which implementation answers a product-configuration request.
-    // 'off' | 'fixture' | 'merchant-api' | 'composite'; anything else, an empty
-    // string included, is read as 'off' (see server/services/configurator.ts).
-    // Azure: NUXT_CONFIGURATOR_BACKEND=fixture
+    // Which implementation answers a product-configuration request. Empty
+    // means 'merchant-api'; 'fixture' is the e2e override (CI and local
+    // Playwright only), and any other value stops the server at startup
+    // (server/services/configurator-backend-name.ts).
     // The merchant-api GraphQL URL the CPQ area is reached on; empty means the
     // ordinary endpoint.
     // Azure: NUXT_CONFIGURATOR_MERCHANT_API_URL=
     configurator: {
-      backend: 'off',
+      backend: '',
       merchantApiUrl: '',
     },
 

@@ -61,13 +61,10 @@ export function canAccessFeature(
 }
 
 /**
- * Whether this buyer may configure products. Configuring always needs a
- * signed-in buyer, so `access` on the feature is not read: `enabled` alone
- * switches the configurator on for a tenant.
+ * Whether this buyer may configure products: a signed-in buyer may. Which
+ * products are configurable is the catalogue's to say, through each product's
+ * type; no tenant feature takes part.
  */
-export function canConfigure(
-  feature: { enabled: boolean } | undefined,
-  user: UserContext,
-): boolean {
-  return feature?.enabled === true && user.authenticated;
+export function canConfigure(user: UserContext): boolean {
+  return user.authenticated;
 }

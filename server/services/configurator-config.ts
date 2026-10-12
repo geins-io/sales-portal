@@ -9,7 +9,7 @@ import type { H3Event } from 'h3';
  * instance, so a global stub cannot reach it and a test mocks this module
  * instead. The value is returned unparsed — the parser lives with the seam.
  */
-export function readConfiguratorBackendValue(event: H3Event): unknown {
+export function readConfiguratorBackendValue(event?: H3Event): unknown {
   return useRuntimeConfig(event).configurator?.backend;
 }
 

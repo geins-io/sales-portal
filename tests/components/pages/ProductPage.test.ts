@@ -116,7 +116,6 @@ vi.mock('../../../app/composables/useLocaleMarket', () => ({
 
 // The page type runs for real over these two; only where they come from is
 // mocked.
-const mockConfiguratorOn = ref(true);
 const mockSignedIn = ref(false);
 vi.mock('../../../app/composables/useFeatureAccess', async () => {
   const { resolveProductPageType } =
@@ -125,11 +124,7 @@ vi.mock('../../../app/composables/useFeatureAccess', async () => {
     useFeatureAccess: () => ({
       canAccess: () => true,
       pageTypeOf: (product: { configurable?: boolean } | null | undefined) =>
-        resolveProductPageType(
-          product,
-          { enabled: mockConfiguratorOn.value },
-          { authenticated: mockSignedIn.value },
-        ),
+        resolveProductPageType(product, { authenticated: mockSignedIn.value }),
     }),
   };
 });
@@ -200,7 +195,6 @@ beforeEach(() => {
   mockProduct.value = makeProduct();
   mockStatus.value = 'success';
   mockError.value = null;
-  mockConfiguratorOn.value = true;
   mockSignedIn.value = false;
   navigateToMock.mockClear();
   recoverEntityUrlMock.mockClear();
@@ -236,18 +230,6 @@ describe('product page: the component a product type gets', () => {
     expect(wrapper.find('[data-testid="page-configurator"]').exists()).toBe(
       false,
     );
-  });
-
-  it('renders the ordinary detail page for a configurable product when the configurator is off', async () => {
-    mockProduct.value = makeProduct({ configurable: true });
-    mockConfiguratorOn.value = false;
-    mockSignedIn.value = true;
-
-    const wrapper = await mountPage();
-
-    const page = wrapper.find('[data-testid="page-ordinary"]');
-    expect(page.exists()).toBe(true);
-    expect(page.attributes('data-sign-in-to-configure')).toBe('false');
   });
 
   it('renders the ordinary detail page for a product with no configurator behind it', async () => {

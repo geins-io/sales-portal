@@ -12,8 +12,7 @@ import { canConfigureServer } from './feature-access';
 //
 // Written once rather than six times: the gate is the part that must not drift
 // between the routes, and it is checked before any body is read so that a
-// tenant without the feature answers the same 404 to a malformed request as to
-// a well-formed one.
+// guest gets the same 404 for a malformed request as for a well-formed one.
 // ---------------------------------------------------------------------------
 
 export interface ConfiguratorRoute {
@@ -28,8 +27,7 @@ export async function requireConfigurator(
   setResponseHeader(event, 'Cache-Control', 'private, no-store');
 
   if (!(await canConfigureServer(event))) {
-    // 404 rather than 403, for a guest as well as for the flag: a request
-    // that may not have the feature is not told that it exists.
+    // 404 rather than 403: a guest is not told that the feature exists.
     throw createAppError(ErrorCode.NOT_FOUND, 'No configurator on this tenant');
   }
 

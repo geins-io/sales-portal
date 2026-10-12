@@ -84,40 +84,37 @@ describe('useFeatureAccess', () => {
   });
 
   describe('configuring', () => {
-    it('lets a signed-in buyer configure when the configurator is on', () => {
-      mockFeatures.value = { configurator: { enabled: true } };
+    it('lets a signed-in buyer configure with no configurator feature stored', () => {
+      mockFeatures.value = {};
       mockAuthStore.isAuthenticated = true;
       const { canConfigure, pageTypeOf } = useFeatureAccess();
       expect(canConfigure()).toBe(true);
       expect(pageTypeOf({ configurable: true })).toBe('configurable');
     });
 
-    it('asks a guest to sign in, whatever a stored access rule says', () => {
-      // An older stored config may still carry `access`; the point is that it is ignored.
-      mockFeatures.value = { configurator: { enabled: true, access: 'all' } };
+    it('asks a guest to sign in on a configurable product', () => {
+      mockFeatures.value = {};
       const { canConfigure, pageTypeOf } = useFeatureAccess();
       expect(canConfigure()).toBe(false);
       expect(pageTypeOf({ configurable: true })).toBe('sign-in-to-configure');
     });
 
-    it('treats a configurable product as ordinary when the configurator is off', () => {
-      mockFeatures.value = { configurator: { enabled: false } };
-      mockAuthStore.isAuthenticated = true;
-      const { canConfigure, pageTypeOf } = useFeatureAccess();
-      expect(canConfigure()).toBe(false);
-      expect(pageTypeOf({ configurable: true })).toBe('ordinary');
-    });
-
-    it('refuses configuring before the tenant config has loaded', () => {
-      mockFeatures.value = undefined;
-      mockAuthStore.isAuthenticated = true;
-      const { canConfigure, pageTypeOf } = useFeatureAccess();
-      expect(canConfigure()).toBe(false);
-      expect(pageTypeOf({ configurable: true })).toBe('ordinary');
-    });
+    it.each([
+      ['a stored { enabled: false }', { configurator: { enabled: false } }],
+      ['a stored bare false', { configurator: false }],
+      ['no tenant config yet', undefined],
+    ])(
+      'does not read the configurator feature: %s changes nothing',
+      (_label, features) => {
+        mockFeatures.value = features as typeof mockFeatures.value;
+        mockAuthStore.isAuthenticated = true;
+        const { canConfigure, pageTypeOf } = useFeatureAccess();
+        expect(canConfigure()).toBe(true);
+        expect(pageTypeOf({ configurable: true })).toBe('configurable');
+      },
+    );
 
     it('follows the buyer signing in without a new composable', () => {
-      mockFeatures.value = { configurator: { enabled: true } };
       const { canConfigure, pageTypeOf } = useFeatureAccess();
       expect(pageTypeOf({ configurable: true })).toBe('sign-in-to-configure');
       mockAuthStore.isAuthenticated = true;

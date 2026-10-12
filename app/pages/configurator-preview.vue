@@ -81,7 +81,7 @@ const committed = ref<CommittedConfiguration | null>(null);
 const lastResponse = ref<unknown>(null);
 const outcome = ref('');
 const failure = ref('');
-const backendOff = ref(false);
+const notConfigurable = ref(false);
 const finished = ref(false);
 const busy = ref(false);
 
@@ -150,11 +150,9 @@ async function start(): Promise<void> {
     if (result.body) config.value = result.body;
     return result;
   });
-  // A 404 here is the switch: this page is only reachable with the feature on,
-  // so the route that still answers 404 is one with no backend behind it. A
-  // hand-typed `?product=` that matches no seed lands here too, which is why
-  // the server's own message is shown next to it.
-  backendOff.value = failure.value.startsWith('404');
+  // This page is only reachable signed in, so a 404 here is a `?product=` the
+  // backend does not configure; the server's own message says which.
+  notConfigurable.value = failure.value.startsWith('404');
 }
 
 // ---------------------------------------------------------------------------
@@ -417,8 +415,8 @@ const raw = computed(() =>
       <p>product {{ productId }}</p>
     </header>
 
-    <p v-if="backendOff">
-      The fixture backend is off in this environment. The server said:
+    <p v-if="notConfigurable">
+      The configurator backend does not configure this product. The server said:
       {{ failure }}
     </p>
 

@@ -36,12 +36,12 @@ vi.mock('../../../server/services/_sdk', () => ({
   buildRequestContext: vi.fn().mockReturnValue(undefined),
 }));
 
-// A tenant without the configurator: the cart is the SDK's alone.
+// A guest request: the cart is the SDK's alone.
 vi.mock('../../../server/utils/feature-access', () => ({
   canConfigureServer: vi.fn().mockResolvedValue(false),
 }));
-// The copy at sign-in asks the backend whatever the gate says; with the
-// configurator off it answers no configured lines.
+// The copy at sign-in asks the backend whatever the gate says; here it
+// answers no configured lines.
 vi.mock('../../../server/services/configurator', () => ({
   getConfiguratorBackend: () => ({
     cartLineConfigurations: async () => new Map(),

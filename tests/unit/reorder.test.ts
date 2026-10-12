@@ -12,16 +12,12 @@ const configurable = {
 };
 const configured = { ...configurable, configuration: SUMMARY };
 
-function pageTypes(configuratorOn: boolean, signedIn: boolean) {
+function pageTypes(signedIn: boolean) {
   return (product: { configurable?: boolean } | null | undefined) =>
-    resolveProductPageType(
-      product,
-      { enabled: configuratorOn },
-      { authenticated: signedIn },
-    );
+    resolveProductPageType(product, { authenticated: signedIn });
 }
 
-const SIGNED_IN = pageTypes(true, true);
+const SIGNED_IN = pageTypes(true);
 
 describe('reorderLines', () => {
   it('adds an ordinary row at its quantity', () => {
@@ -40,24 +36,10 @@ describe('reorderLines', () => {
 
   it('leaves out and counts a configurable row for a guest, never a plain add', () => {
     expect(
-      reorderLines([plain, configurable, configured], pageTypes(true, false)),
+      reorderLines([plain, configurable, configured], pageTypes(false)),
     ).toEqual({
       lines: [{ skuId: 10, quantity: 2 }],
       skipped: 2,
-    });
-  });
-
-  it('leaves out a configured row when the configurator is off', () => {
-    expect(reorderLines([configured], pageTypes(false, true))).toEqual({
-      lines: [],
-      skipped: 1,
-    });
-  });
-
-  it('adds a configurable row without a configuration when the configurator is off, as add-all does', () => {
-    expect(reorderLines([configurable], pageTypes(false, true))).toEqual({
-      lines: [{ skuId: 20, quantity: 1 }],
-      skipped: 0,
     });
   });
 

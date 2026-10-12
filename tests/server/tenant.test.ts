@@ -835,35 +835,31 @@ describe('Tenant utilities', () => {
       expect(built.branding.logoUrl).toBe('https://example.com/logo.png');
     });
 
-    it('resolves a bare configurator: true from the merchant to { enabled: true } alone', () => {
-      const settings = parseStoreSettingsResilient(
-        { ...minimalSettings(), features: { configurator: true } },
-        'tenant-defaults.litium.store',
-      );
-      expect(settings).not.toBeNull();
-      const built = buildTenantConfig(settings as StoreSettings);
-      expect(built.features.configurator).toEqual({ enabled: true });
-    });
-
-    it('defaults an absent configurator to { enabled: false } alone', () => {
+    it('adds no configurator feature to a tenant that stores none', () => {
       const built = buildTenantConfig(minimalSettings());
-      expect(built.features.configurator).toEqual({ enabled: false });
+      expect(built.features).not.toHaveProperty('configurator');
     });
 
-    it('still resolves a stored configurator { enabled: true, access } as enabled', () => {
-      const settings = parseStoreSettingsResilient(
-        {
-          ...minimalSettings(),
-          features: {
-            configurator: { enabled: true, access: 'authenticated' },
-          },
-        },
-        'tenant-defaults.litium.store',
-      );
-      expect(settings).not.toBeNull();
-      const built = buildTenantConfig(settings as StoreSettings);
-      expect(built.features.configurator?.enabled).toBe(true);
-    });
+    it.each([
+      ['a bare true', true],
+      ['a bare false', false],
+      ['{ enabled: false }', { enabled: false }],
+      ['{ enabled, access }', { enabled: true, access: 'authenticated' }],
+    ])(
+      'still accepts a configurator stored from before as %s',
+      (_label, configurator) => {
+        // Studio drops the field after the switch is retired; a stored value
+        // must not fail the tenant's settings until then.
+        const settings = parseStoreSettingsResilient(
+          { ...minimalSettings(), features: { configurator } },
+          'tenant-defaults.litium.store',
+        );
+        expect(settings).not.toBeNull();
+        expect(() =>
+          buildTenantConfig(settings as StoreSettings),
+        ).not.toThrow();
+      },
+    );
 
     it('fills branding.name from geinsSettings.accountName when name is empty', () => {
       const settings = minimalSettings();

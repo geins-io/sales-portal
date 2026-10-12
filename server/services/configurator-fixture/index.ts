@@ -46,12 +46,6 @@ export interface FixtureConfiguratorBackend extends ConfiguratorBackend {
   cartLineConfigurations: NonNullable<
     ConfiguratorBackend['cartLineConfigurations']
   >;
-  /**
-   * Whether the id is one of this fixture's sessions, finished ones included.
-   * The composite backend routes an id-only call by it, so it answers and
-   * never throws.
-   */
-  owns(id: string, ctx: ConfiguratorContext): boolean;
   /** What a committed configuration froze, for a cart line to read back. */
   readCommitted(
     id: string,
@@ -310,10 +304,6 @@ export function createFixtureConfiguratorBackend({
 
     ownsLine(cartId: string, itemId: string, ctx: ConfiguratorContext) {
       return lines.has(lineKey(ctx, cartId, itemId));
-    },
-
-    owns(id: string, ctx: ConfiguratorContext): boolean {
-      return store.has(ctx.hostname, id);
     },
 
     readCommitted(id: string, ctx: ConfiguratorContext) {
