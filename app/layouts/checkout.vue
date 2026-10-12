@@ -12,7 +12,7 @@ const { localePath } = useLocaleMarket();
       <div
         class="mx-auto grid h-14 max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 lg:px-6"
       >
-        <div class="flex items-center gap-2 sm:gap-4">
+        <div class="flex items-center gap-2 lg:gap-4">
           <NuxtLink
             :to="localePath('/')"
             :aria-label="$t('checkout.back_to_store')"
@@ -20,7 +20,7 @@ const { localePath } = useLocaleMarket();
             data-testid="checkout-back-link"
           >
             <ArrowLeft class="size-4" />
-            <span class="hidden sm:inline">{{
+            <span class="hidden lg:inline">{{
               $t('checkout.back_to_store')
             }}</span>
           </NuxtLink>

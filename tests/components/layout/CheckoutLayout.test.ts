@@ -17,7 +17,7 @@ describe('checkout layout', () => {
     );
   });
 
-  it('shows the back link as the arrow alone below sm, named by its aria-label', () => {
+  it('shows the back link as the arrow alone below desktop, named by its aria-label', () => {
     const backLink = shallowMountComponent(CheckoutLayout).find(
       '[data-testid="checkout-back-link"]',
     );
@@ -25,7 +25,7 @@ describe('checkout layout', () => {
     expect(backLink.attributes('aria-label')).toBe('checkout.back_to_store');
     const label = backLink.find('span');
     expect(label.text()).toBe('checkout.back_to_store');
-    expect(label.classes()).toEqual(['hidden', 'sm:inline']);
+    expect(label.classes()).toEqual(['hidden', 'lg:inline']);
   });
 
   it('centres the title between two equal columns and shows no buyer name', () => {
