@@ -38,6 +38,23 @@ outOfScope(
 
 test.use({ storageState: signedInState });
 
+/**
+ * The boxes of the given parts of `root`, measured in one frame: two
+ * boundingBox() calls land in different frames while the drawer slides in.
+ */
+function boxesInOneFrame(root: Locator, testIds: string[]) {
+  return root.evaluate(
+    (el, ids) =>
+      ids.map((id) => {
+        const { x, y, height } = el
+          .querySelector(`[data-testid="${id}"]`)!
+          .getBoundingClientRect();
+        return { x, y, height };
+      }),
+    testIds,
+  );
+}
+
 test.describe('Cart', () => {
   // Every test starts with an empty cart: Playwright gives each test a fresh
   // browser context from the stored login state, which carries no cart cookie,
@@ -729,9 +746,13 @@ test.describe('Cart layout', () => {
     );
     expect(await unit.innerText()).toContain(perUnit);
 
-    const totalBox = (await total.boundingBox())!;
-    const unitBox = (await unit.boundingBox())!;
-    expect(unitBox.y).toBeGreaterThanOrEqual(totalBox.y + totalBox.height - 1);
+    const [totalBox, unitBox] = await boxesInOneFrame(item, [
+      'cart-item-total-price',
+      'cart-item-unit-price',
+    ]);
+    expect(unitBox!.y).toBeGreaterThanOrEqual(
+      totalBox!.y + totalBox!.height - 1,
+    );
 
     const priceText = await item
       .locator('[data-testid="cart-item-price"]')
@@ -811,8 +832,10 @@ test.describe('Cart layout', () => {
       await regular.evaluate((el) => getComputedStyle(el).textDecorationLine),
     ).toContain('line-through');
     await expect(total).toHaveClass(/text-destructive/);
-    expect((await regular.boundingBox())!.x).toBeLessThan(
-      (await total.boundingBox())!.x,
-    );
+    const [regularBox, totalBox] = await boxesInOneFrame(item, [
+      'cart-item-regular-price',
+      'cart-item-total-price',
+    ]);
+    expect(regularBox!.x).toBeLessThan(totalBox!.x);
   });
 });
