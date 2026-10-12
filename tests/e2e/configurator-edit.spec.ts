@@ -228,7 +228,7 @@ test.describe('Editing a configured cart line', () => {
     outOfScope(
       !configurable,
       'tenant-config',
-      `${ALIAS} is not configurable on this target (it is on the monitor account with the merchant-api or composite backend)`,
+      `${ALIAS} is not configurable on this target (it is on the monitor account with the merchant-api backend)`,
     );
   });
 
@@ -478,7 +478,7 @@ test.describe("Changing a configured line's quantity", () => {
     outOfScope(
       !configurable,
       'tenant-config',
-      `${ALIAS} is not configurable on this target (it is on the monitor account with the merchant-api or composite backend)`,
+      `${ALIAS} is not configurable on this target (it is on the monitor account with the merchant-api backend)`,
     );
   });
 
@@ -653,7 +653,7 @@ test.describe("Following a line's quantity on the configurator page", () => {
     outOfScope(
       !configurable,
       'tenant-config',
-      `${ALIAS} is not configurable on this target (it is on the monitor account with the merchant-api or composite backend)`,
+      `${ALIAS} is not configurable on this target (it is on the monitor account with the merchant-api backend)`,
     );
   });
 

@@ -55,17 +55,17 @@ These are **sensitive values** that must be kept secret. They are encrypted by G
 
 These are **non-sensitive configuration values** visible in the repository settings.
 
-| Variable                        | Default                        | Description                                | Options                                       |
-| ------------------------------- | ------------------------------ | ------------------------------------------ | --------------------------------------------- |
-| `GEINS_API_ENDPOINT`            | `https://api.geins.io/graphql` | Geins GraphQL API URL                      | Any valid URL                                 |
-| `GEINS_TENANT_API_URL`          | _(empty)_                      | Geins Tenant API URL (server-only)         | Any valid URL                                 |
-| `STORAGE_DRIVER`                | `fs`                           | Storage backend for tenant config          | `memory`, `fs`, `redis`                       |
-| `ENABLE_ANALYTICS`              | `false`                        | Enable client-side analytics               | `true`, `false`                               |
-| `CONFIGURATOR_BACKEND`          | `off`                          | Backend for product configuration          | `off`, `fixture`, `merchant-api`, `composite` |
-| `CONFIGURATOR_MERCHANT_API_URL` | _(empty)_                      | Merchant-api URL the CPQ area is served on | Any valid URL; empty adds no app setting      |
-| `LOG_LEVEL`                     | `info`                         | Server log verbosity                       | `debug`, `info`, `warn`, `error`, `silent`    |
-| `SENTRY_ORG`                    | _(empty)_                      | Sentry organization slug                   | Your Sentry org name                          |
-| `SENTRY_PROJECT`                | _(empty)_                      | Sentry project slug                        | Your Sentry project name                      |
+| Variable                        | Default                        | Description                                | Options                                    |
+| ------------------------------- | ------------------------------ | ------------------------------------------ | ------------------------------------------ |
+| `GEINS_API_ENDPOINT`            | `https://api.geins.io/graphql` | Geins GraphQL API URL                      | Any valid URL                              |
+| `GEINS_TENANT_API_URL`          | _(empty)_                      | Geins Tenant API URL (server-only)         | Any valid URL                              |
+| `STORAGE_DRIVER`                | `fs`                           | Storage backend for tenant config          | `memory`, `fs`, `redis`                    |
+| `ENABLE_ANALYTICS`              | `false`                        | Enable client-side analytics               | `true`, `false`                            |
+| `CONFIGURATOR_BACKEND`          | _(empty)_ = `merchant-api`     | Test override for the configurator backend | `fixture` (CI e2e only), `merchant-api`    |
+| `CONFIGURATOR_MERCHANT_API_URL` | _(empty)_                      | Merchant-api URL the CPQ area is served on | Any valid URL; empty adds no app setting   |
+| `LOG_LEVEL`                     | `info`                         | Server log verbosity                       | `debug`, `info`, `warn`, `error`, `silent` |
+| `SENTRY_ORG`                    | _(empty)_                      | Sentry organization slug                   | Your Sentry org name                       |
+| `SENTRY_PROJECT`                | _(empty)_                      | Sentry project slug                        | Your Sentry project name                   |
 
 ### Notes on Variables
 
@@ -224,8 +224,9 @@ Copy the output values for the next step.
 - [ ] `GEINS_TENANT_API_URL` - Geins Tenant API URL
 - [ ] `STORAGE_DRIVER` - Set to `redis` for production
 - [ ] `ENABLE_ANALYTICS` - Set to `true` if needed
-- [ ] `CONFIGURATOR_BACKEND` - Set to `fixture` on an environment that should serve product
-      configuration. An unset variable arrives as an empty string, which reads as `off`.
+- [ ] `CONFIGURATOR_BACKEND` - Leave unset: an unset variable arrives as an empty string, which
+      reads as `merchant-api`. `fixture` is for CI's e2e and local Playwright runs only, never a
+      deployed environment. Any other value stops the app at startup.
 - [ ] `CONFIGURATOR_MERCHANT_API_URL` - Set only on an environment whose configurator backend
       reaches the CPQ area on another host. Unset, Bicep adds no app setting at all, so the
       environment's settings stay as they are and the ordinary merchant-api endpoint is used.

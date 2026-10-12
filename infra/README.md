@@ -225,7 +225,7 @@ These secrets can be configured per GitHub Environment if needed:
 | `GEINS_TENANT_API_URL`          | Geins Tenant API URL (server-only)                           | (empty)                        |
 | `STORAGE_DRIVER`                | Storage driver (`fs` or `redis`)                             | `fs`                           |
 | `ENABLE_ANALYTICS`              | Enable analytics                                             | `false`                        |
-| `CONFIGURATOR_BACKEND`          | Backend for product configuration                            | `off`                          |
+| `CONFIGURATOR_BACKEND`          | Test override for the configurator backend                   | (empty = `merchant-api`)       |
 | `CONFIGURATOR_MERCHANT_API_URL` | Merchant-api URL for the CPQ area; unset adds no app setting | (empty)                        |
 | `LOG_LEVEL`                     | Log level (`silent` to disable)                              | `info`                         |
 | `SENTRY_ORG`                    | Sentry organization slug                                     | (empty - Sentry disabled)      |

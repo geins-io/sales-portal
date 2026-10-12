@@ -82,7 +82,7 @@ test.describe('Configurator and the stock', () => {
     outOfScope(
       skuId === null,
       'tenant-config',
-      `${ALIAS} is not a configurable product with one unit in stock on this target (it is on the monitor account with the merchant-api or composite backend)`,
+      `${ALIAS} is not a configurable product with one unit in stock on this target (it is on the monitor account with the merchant-api backend)`,
     );
 
     const sent = { commits: 0, adds: 0 };

@@ -207,7 +207,7 @@ test.describe('Opening a configured order row', () => {
     outOfScope(
       !(await isConfigurable(page, ALIAS)),
       'tenant-config',
-      `${ALIAS} is not configurable on this target (it is on the monitor account with the merchant-api or composite backend)`,
+      `${ALIAS} is not configurable on this target (it is on the monitor account with the merchant-api backend)`,
     );
   });
 

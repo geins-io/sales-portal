@@ -65,23 +65,22 @@ test.use({ storageState: signedInState });
  *
  * Two questions in a fixed order, because they are answered by different
  * gates. `configurable` on the product asks the backend seam alone, so it says
- * whether an implementation is behind the configurator at all. The feature
- * flag and the signed-in check live in `requireConfigurator`, which answers before
- * the body is read — so an empty POST reaches the gate and nothing else, and
- * no session is created to probe it. Asking them the other way round would
- * read a backend that is off as a feature that is off.
+ * whether the backend configures the seed at all. The signed-in check lives in
+ * `requireConfigurator`, which answers before the body is read — so an empty
+ * POST reaches the gate and nothing else, and no session is created to probe
+ * it. Asking them the other way round would read a missing seed as a guest.
  */
 async function unavailableReason(
   page: Page,
   alias = SEED_ALIAS,
 ): Promise<string | null> {
   if (!(await isConfigurable(page, alias))) {
-    return `the configurator backend is off on this target, or ${alias} is missing from the catalogue`;
+    return `the target does not run the fixture backend, or ${alias} is missing from the catalogue`;
   }
 
   const gate = await page.request.post('/api/configurations', { data: {} });
   if (gate.status() === 404) {
-    return 'the configurator feature is off for this tenant, or the e2e user is not signed in';
+    return 'the e2e user is not signed in';
   }
 
   return null;
@@ -883,7 +882,7 @@ test.describe('Configured line through the cart', () => {
     outOfScope(
       !alias,
       'tenant-config',
-      'no configurable product here commits as created with stock for two and a choice to change (the configurator is off, or the catalogue has none)',
+      'no configurable product here commits as created with stock for two and a choice to change (the catalogue has none)',
     );
 
     let cartId: string | undefined;
@@ -1065,7 +1064,7 @@ test.describe('The specification of a configured line', () => {
     outOfScope(
       !alias,
       'tenant-config',
-      'no configurable product here commits as created (the configurator is off, or the catalogue has none)',
+      'no configurable product here commits as created (the catalogue has none)',
     );
 
     let cartId: string | undefined;
@@ -1176,9 +1175,7 @@ test.describe('The specification of a configured line', () => {
 
 /**
  * A guest on a configurable product. Configuring needs a signed-in buyer, so
- * the page offers no price and no plain add, only a way to sign in. Asked of
- * `/api/config` rather than the gate: the gate answers a guest 404 whether the
- * feature is on or not.
+ * the page offers no price and no plain add, only a way to sign in.
  */
 test.describe('a guest on a configurable product', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
@@ -1187,13 +1184,7 @@ test.describe('a guest on a configurable product', () => {
     outOfScope(
       !(await isConfigurable(page, SEED_ALIAS)),
       'fixture-missing',
-      `the configurator backend is off on this target, or ${SEED_ALIAS} is missing from the catalogue`,
-    );
-    const config = await (await page.request.get('/api/config')).json();
-    outOfScope(
-      config?.features?.configurator?.enabled !== true,
-      'tenant-config',
-      'the configurator feature is off for this tenant',
+      `the target does not run the fixture backend, or ${SEED_ALIAS} is missing from the catalogue`,
     );
   });
 

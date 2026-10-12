@@ -47,8 +47,8 @@ param redisUrl string
 @description('Enable analytics')
 param enableAnalytics string
 
-@description('Configurator backend: off, fixture, merchant-api or composite. Anything else reads as off.')
-param configuratorBackend string = 'off'
+@description('Configurator backend: leave empty for merchant-api. fixture is for CI e2e only; any other value stops the app at startup.')
+param configuratorBackend string = ''
 
 @description('Configurator merchant-api URL. Empty adds no app setting.')
 param configuratorMerchantApiUrl string = ''
