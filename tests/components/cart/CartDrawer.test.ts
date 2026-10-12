@@ -1,10 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { ref } from 'vue';
 import { shallowMountComponent } from '../../utils/component';
 import CartDrawer from '../../../app/components/cart/CartDrawer.vue';
 import type { CartType } from '../../../shared/types/commerce';
 import { useCartStore } from '../../../app/stores/cart';
 import { createPinia, setActivePinia } from 'pinia';
 import { mockShowIncVat, mockIsCatalogMode } from '../../setup-components';
+
+const mockShowPrice = ref(true);
+vi.mock('../../../app/composables/usePriceVisibility', () => ({
+  usePriceVisibility: () => ({ showPrice: mockShowPrice }),
+}));
 
 const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
@@ -701,7 +707,7 @@ describe('CartDrawer', () => {
         global: { stubs: sheetStubs },
       });
 
-      const summary = wrapper.find('[data-testid="cart-summary-card"]');
+      const summary = wrapper.find('[data-testid="cart-summary"]');
       expect(summary.text()).toContain('125 kr');
       expect(summary.text()).not.toContain('100 kr');
     });
@@ -716,7 +722,7 @@ describe('CartDrawer', () => {
         global: { stubs: sheetStubs },
       });
 
-      const summary = wrapper.find('[data-testid="cart-summary-card"]');
+      const summary = wrapper.find('[data-testid="cart-summary"]');
       expect(summary.text()).toContain('100 kr');
       expect(summary.text()).not.toContain('125 kr');
     });
@@ -744,8 +750,231 @@ describe('CartDrawer', () => {
         global: { stubs: sheetStubs },
       });
 
-      const summary = wrapper.find('[data-testid="cart-summary-card"]');
+      const summary = wrapper.find('[data-testid="cart-summary"]');
       expect(summary.text()).toContain('125 kr');
+    });
+  });
+
+  describe("laid out as the prototype's panel", () => {
+    const stubs = {
+      Sheet: { template: '<div><slot /></div>', props: ['open'] },
+      SheetContent: { template: '<div><slot /></div>' },
+      SheetHeader: { template: '<div><slot /></div>' },
+      SheetTitle: { template: '<div><slot /></div>' },
+      SheetDescription: { template: '<div><slot /></div>' },
+      CartItem: {
+        template: '<div data-testid="cart-item" />',
+        props: ['item'],
+      },
+      CartSkippedNote: { template: '<p data-testid="skipped-note" />' },
+    };
+
+    function cartWith(summary: Record<string, unknown> = {}) {
+      return {
+        id: 'cart-123',
+        items: [
+          { id: 'item-1', skuId: 100, quantity: 1 },
+          { id: 'item-2', skuId: 200, quantity: 3 },
+        ],
+        appliedCampaigns: [],
+        summary: {
+          subTotal: { sellingPriceIncVatFormatted: '500 kr' },
+          total: {
+            sellingPriceIncVatFormatted: '500 kr',
+            vatFormatted: '100 kr',
+          },
+          shipping: { feeIncVatFormatted: '49 kr' },
+          ...summary,
+        },
+      } as unknown as CartType;
+    }
+
+    function mountDrawer(cart: CartType | null = cartWith()) {
+      const store = useCartStore();
+      store.isOpen = true;
+      store.cart = cart;
+      return shallowMountComponent(CartDrawer, { global: { stubs } });
+    }
+    const byId = (wrapper: ReturnType<typeof mountDrawer>, id: string) =>
+      wrapper.find(`[data-testid="${id}"]`);
+
+    it('is one 576 px column at every width', () => {
+      const content = byId(mountDrawer(), 'cart-drawer');
+
+      expect(content.classes()).toEqual(
+        expect.arrayContaining(['flex', 'flex-col', 'sm:max-w-xl']),
+      );
+      expect(content.classes()).not.toContain('sm:max-w-md');
+      expect(content.classes()).not.toContain('lg:max-w-4xl');
+    });
+
+    it('scrolls the lines and keeps the summary outside the scroll, pinned at the bottom', () => {
+      const wrapper = mountDrawer();
+
+      const list = byId(wrapper, 'cart-drawer-list');
+      expect(list.classes()).toEqual(
+        expect.arrayContaining(['min-h-0', 'flex-1', 'overflow-y-auto']),
+      );
+      expect(list.findAll('[data-testid="cart-item"]')).toHaveLength(2);
+
+      const summary = byId(wrapper, 'cart-summary');
+      expect(list.element.contains(summary.element)).toBe(false);
+      expect(summary.element.parentElement).toBe(list.element.parentElement);
+      expect(summary.element.previousElementSibling).toBe(list.element);
+      expect(summary.classes()).toEqual(
+        expect.arrayContaining(['shrink-0', 'border-t', 'bg-muted']),
+      );
+      expect(byId(wrapper, 'cart-summary-card').exists()).toBe(false);
+    });
+
+    it('draws a line between the rows and one under the last, on the list', () => {
+      const lines = byId(mountDrawer(), 'cart-items');
+
+      expect(lines.classes()).toEqual(
+        expect.arrayContaining(['divide-y', 'border-b']),
+      );
+      expect(lines.findAll('[data-testid="cart-item"]')).toHaveLength(2);
+    });
+
+    it('keeps the skip note at the top of the scrolling list', () => {
+      const list = byId(mountDrawer(), 'cart-drawer-list');
+
+      expect(list.element.firstElementChild?.getAttribute('data-testid')).toBe(
+        'skipped-note',
+      );
+    });
+
+    it.each([
+      [false, 'cart.prices_ex_vat'],
+      [true, 'cart.prices_inc_vat'],
+    ])(
+      'states the VAT once under the title (incl. VAT: %s)',
+      (incVat, text) => {
+        mockShowIncVat.value = incVat;
+        const note = byId(mountDrawer(), 'cart-vat-note');
+
+        expect(note.text()).toBe(text);
+        expect(note.classes()).toEqual(
+          expect.arrayContaining(['text-sm', 'text-muted-foreground']),
+        );
+      },
+    );
+
+    it('says nothing of VAT where prices are hidden', () => {
+      mockShowPrice.value = false;
+      try {
+        const wrapper = mountDrawer();
+        expect(byId(wrapper, 'cart-items').exists()).toBe(true);
+        expect(byId(wrapper, 'cart-vat-note').exists()).toBe(false);
+      } finally {
+        mockShowPrice.value = true;
+      }
+    });
+
+    it('says nothing of VAT on an empty cart', () => {
+      const wrapper = mountDrawer(null);
+
+      expect(byId(wrapper, 'cart-empty').exists()).toBe(true);
+      expect(byId(wrapper, 'cart-vat-note').exists()).toBe(false);
+    });
+
+    it('lists the summary rows 8 px apart and shows each one the cart has', () => {
+      const wrapper = mountDrawer();
+
+      expect(byId(wrapper, 'cart-summary').find('dl').classes()).toContain(
+        'space-y-2',
+      );
+      expect(byId(wrapper, 'cart-summary-subtotal').text()).toBe('500 kr');
+      expect(byId(wrapper, 'cart-summary-shipping').text()).toBe('49 kr');
+      expect(byId(wrapper, 'cart-summary-tax').text()).toBe('100 kr');
+    });
+
+    it('leaves out shipping and VAT when the cart has none', () => {
+      const wrapper = mountDrawer(
+        cartWith({
+          total: { sellingPriceIncVatFormatted: '500 kr' },
+          shipping: {},
+        }),
+      );
+
+      expect(byId(wrapper, 'cart-summary-shipping').exists()).toBe(false);
+      expect(byId(wrapper, 'cart-summary-tax').exists()).toBe(false);
+    });
+
+    describe("shipping and discount in the buyer's VAT choice", () => {
+      const vatCart = () =>
+        cartWith({
+          total: {
+            sellingPriceIncVatFormatted: '500 kr',
+            currency: { code: 'SEK' },
+          },
+          shipping: {
+            feeIncVat: 62.5,
+            feeIncVatFormatted: '62,50 kr',
+            feeExVat: 50,
+            feeExVatFormatted: '50,00 kr',
+          },
+          fixedAmountDiscountIncVat: 125,
+          fixedAmountDiscountExVat: 100,
+        });
+
+      it('shows them excluding VAT when the buyer chose that', () => {
+        mockShowIncVat.value = false;
+        const wrapper = mountDrawer(vatCart());
+
+        expect(byId(wrapper, 'cart-summary-shipping').text()).toBe('50,00 kr');
+        expect(byId(wrapper, 'cart-summary-discount-amount').text()).toMatch(
+          /^-\D*100[,.]00/,
+        );
+      });
+
+      it('shows them including VAT when the buyer chose that', () => {
+        mockShowIncVat.value = true;
+        const wrapper = mountDrawer(vatCart());
+
+        expect(byId(wrapper, 'cart-summary-shipping').text()).toBe('62,50 kr');
+        expect(byId(wrapper, 'cart-summary-discount-amount').text()).toMatch(
+          /^-\D*125[,.]00/,
+        );
+      });
+
+      it('formats the ex-VAT fee itself when the cart sends no text for it', () => {
+        mockShowIncVat.value = false;
+        const cart = vatCart();
+        delete (cart.summary.shipping as { feeExVatFormatted?: string })
+          .feeExVatFormatted;
+        const wrapper = mountDrawer(cart);
+
+        expect(byId(wrapper, 'cart-summary-shipping').text()).toMatch(
+          /^\D*50[,.]00/,
+        );
+      });
+
+      it('leaves shipping out in either choice when the cart has no fee yet', () => {
+        mockShowIncVat.value = false;
+        const wrapper = mountDrawer(
+          cartWith({
+            shipping: {
+              feeIncVat: 0,
+              feeIncVatFormatted: '',
+              feeExVat: 0,
+              feeExVatFormatted: '',
+            },
+          }),
+        );
+
+        expect(byId(wrapper, 'cart-summary-shipping').exists()).toBe(false);
+      });
+    });
+
+    it('shows the total larger, on the baseline, in tabular figures', () => {
+      const total = byId(mountDrawer(), 'cart-summary-total');
+
+      expect(total.text()).toBe('500 kr');
+      expect(total.classes()).toContain('tabular-nums');
+      expect([...(total.element.parentElement?.classList ?? [])]).toEqual(
+        expect.arrayContaining(['text-lg', 'font-semibold', 'items-baseline']),
+      );
     });
   });
 });

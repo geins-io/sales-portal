@@ -1,10 +1,26 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { ref } from 'vue';
 import { ImageOff } from 'lucide-vue-next';
 import { useCartStore } from '../../../app/stores/cart';
 import { mountComponent } from '../../utils/component';
 import { mockShowIncVat } from '../../setup-components';
 import CartItem from '../../../app/components/cart/CartItem.vue';
 import type { CartItemType } from '../../../shared/types/commerce';
+
+// The shared mock drops a parameter its key does not name; here the key is
+// followed by the values, so a test can read the price a phrase was given.
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string, params?: Record<string, unknown>) =>
+      params ? `${key}(${Object.values(params).join(', ')})` : key,
+    locale: ref('en'),
+  }),
+}));
+
+const mockShowPrice = ref(true);
+vi.mock('../../../app/composables/usePriceVisibility', () => ({
+  usePriceVisibility: () => ({ showPrice: mockShowPrice }),
+}));
 
 const mockItem = {
   id: 'item-1',
@@ -42,7 +58,6 @@ describe('CartItem', () => {
       global: {
         stubs: {
           GeinsImage: true,
-          PriceDisplay: { template: '<span />', props: ['price'] },
           QuantityInput: {
             template: '<div />',
             props: ['modelValue', 'min', 'max'],
@@ -64,7 +79,6 @@ describe('CartItem', () => {
             template: '<img data-testid="geins-image" />',
             props: ['fileName', 'type', 'alt'],
           },
-          PriceDisplay: { template: '<span />', props: ['price'] },
           QuantityInput: {
             template: '<div />',
             props: ['modelValue', 'min', 'max'],
@@ -75,16 +89,12 @@ describe('CartItem', () => {
     expect(wrapper.find('[data-testid="geins-image"]').exists()).toBe(true);
   });
 
-  it('renders price display', () => {
+  it('renders the line total', () => {
     const wrapper = mountComponent(CartItem, {
       props: { item: mockItem },
       global: {
         stubs: {
           GeinsImage: true,
-          PriceDisplay: {
-            template: '<span data-testid="price" />',
-            props: ['price'],
-          },
           QuantityInput: {
             template: '<div />',
             props: ['modelValue', 'min', 'max'],
@@ -92,7 +102,9 @@ describe('CartItem', () => {
         },
       },
     });
-    expect(wrapper.findAll('[data-testid="price"]').length).toBeGreaterThan(0);
+    expect(wrapper.find('[data-testid="cart-item-total-price"]').text()).toBe(
+      '200 kr',
+    );
   });
 
   it('emits remove when remove button clicked', async () => {
@@ -101,7 +113,6 @@ describe('CartItem', () => {
       global: {
         stubs: {
           GeinsImage: true,
-          PriceDisplay: { template: '<span />', props: ['price'] },
           QuantityInput: {
             template: '<div />',
             props: ['modelValue', 'min', 'max'],
@@ -120,7 +131,6 @@ describe('CartItem', () => {
       global: {
         stubs: {
           GeinsImage: true,
-          PriceDisplay: { template: '<span />', props: ['price'] },
           QuantityInput: {
             template: '<div />',
             props: ['modelValue', 'min', 'max'],
@@ -144,7 +154,6 @@ describe('CartItem', () => {
       global: {
         stubs: {
           GeinsImage: true,
-          PriceDisplay: { template: '<span />', props: ['price'] },
           QuantityInput: {
             template: '<div />',
             props: ['modelValue', 'min', 'max'],
@@ -155,17 +164,24 @@ describe('CartItem', () => {
     expect(wrapper.text()).toContain('Art nr. ART-001');
   });
 
-  it('passes the line quantity with the total', () => {
+  it("judges the total's discount by the line quantity, so a CPQ rounding gap on three units is no sale", () => {
     const wrapper = mountComponent(CartItem, {
-      props: { item: mockItem },
+      props: {
+        item: {
+          ...mockItem,
+          quantity: 3,
+          totalPrice: {
+            ...mockItem.totalPrice,
+            isDiscounted: true,
+            sellingPriceExVat: 260.22,
+            regularPriceExVat: 260.2251,
+            regularPriceIncVatFormatted: '325,28 kr',
+          },
+        },
+      },
       global: {
         stubs: {
           GeinsImage: true,
-          PriceDisplay: {
-            template:
-              '<span :data-testid="testid" :data-quantity="quantity" />',
-            props: ['price', 'quantity', 'testid'],
-          },
           QuantityInput: {
             template: '<div />',
             props: ['modelValue', 'min', 'max'],
@@ -173,14 +189,18 @@ describe('CartItem', () => {
         },
       },
     });
-    const total = wrapper.find('[data-testid="cart-item-total-price"]');
-    expect(total.attributes('data-quantity')).toBe(String(mockItem.quantity));
+
+    expect(
+      wrapper.find('[data-testid="cart-item-regular-price"]').exists(),
+    ).toBe(false);
+    expect(
+      wrapper.find('[data-testid="cart-item-total-price"]').classes(),
+    ).not.toContain('text-destructive');
   });
 
   describe('campaign badges', () => {
     const stubs = {
       GeinsImage: true,
-      PriceDisplay: { template: '<span />', props: ['price'] },
       QuantityInput: {
         template: '<div />',
         props: ['modelValue', 'min', 'max'],
@@ -235,10 +255,6 @@ describe('CartItem', () => {
   describe('a configured line', () => {
     const stubs = {
       GeinsImage: true,
-      PriceDisplay: {
-        template: '<span :data-testid="testid" />',
-        props: ['price', 'testid'],
-      },
       QuantityInput: {
         template: '<div />',
         props: ['modelValue', 'min', 'max'],
@@ -267,25 +283,66 @@ describe('CartItem', () => {
     const actionsOf = (wrapper: ReturnType<typeof mountLine>) =>
       wrapper.find('[data-testid="cart-item-configuration-actions"]');
 
-    it('says it is a configured product instead of the article line', () => {
-      const wrapper = mountLine(configuredItem);
+    it('says it is a configured product where an ordinary line names its variant, after the article number', () => {
+      const wrapper = mountLine({
+        ...configuredItem,
+        skuId: 100,
+        product: {
+          ...mockItem.product,
+          skus: [{ skuId: 100, name: 'Standard' }],
+        },
+      } as unknown as CartItemType);
 
-      expect(wrapper.find('[data-testid="cart-item-configured"]').text()).toBe(
+      const article = wrapper.find('[data-testid="cart-item-article"]');
+      expect(article.text().replace(/\s+/g, ' ')).toBe(
+        'Art nr. ART-001 • cart.configured_product',
+      );
+      expect(article.find('[data-testid="cart-item-configured"]').text()).toBe(
         'cart.configured_product',
       );
-      expect(wrapper.text()).not.toContain('Art nr.');
     });
 
-    it('names the product without a link, since editing a line is its own action', () => {
-      useCartStore().cartId = 'cart-1';
+    it('says it is a configured product without an article number too', () => {
+      const wrapper = mountLine({
+        ...configuredItem,
+        product: { ...mockItem.product, articleNumber: '' },
+      });
+
+      expect(
+        wrapper
+          .find('[data-testid="cart-item-article"]')
+          .text()
+          .replace(/\s+/g, ' '),
+      ).toBe('cart.configured_product');
+    });
+
+    it('links the name to the configurator with the line, the same target as "Ändra konfiguration"', async () => {
+      const cart = useCartStore();
+      cart.cartId = 'cart-1';
+      cart.isOpen = true;
+      const wrapper = mountLine(configuredItem);
+
+      const name = wrapper.find('[data-testid="cart-item-name"]');
+      expect(name.text()).toBe('Test Product');
+      expect(name.element.tagName).toBe('A');
+      expect(name.attributes('href')).toBe(
+        '/se/en/p/test-product?cart=cart-1&line=item-1',
+      );
+      expect(name.attributes('href')).toBe(
+        wrapper.find('[data-testid="cart-item-edit"]').attributes('href'),
+      );
+
+      await name.trigger('click');
+      expect(cart.isOpen).toBe(false);
+    });
+
+    it('names the product without a link when the line cannot be reopened', () => {
+      useCartStore().cartId = null;
       const wrapper = mountLine(configuredItem);
 
       const name = wrapper.find('[data-testid="cart-item-name"]');
       expect(name.text()).toBe('Test Product');
       expect(name.element.tagName).not.toBe('A');
-      expect(
-        wrapper.findAll('a').map((link) => link.attributes('data-testid')),
-      ).toEqual(['cart-item-edit']);
     });
 
     it('hands the specification the line: its name, quantity, configuration and prices', () => {
@@ -398,15 +455,15 @@ describe('CartItem', () => {
       });
     });
 
-    it('shows the line total only', () => {
+    it('shows its unit price under the total, as every line does', () => {
       const wrapper = mountLine(configuredItem);
 
-      expect(
-        wrapper.find('[data-testid="cart-item-total-price"]').exists(),
-      ).toBe(true);
-      expect(
-        wrapper.find('[data-testid="cart-item-unit-price"]').exists(),
-      ).toBe(false);
+      expect(wrapper.find('[data-testid="cart-item-total-price"]').text()).toBe(
+        '200 kr',
+      );
+      expect(wrapper.find('[data-testid="cart-item-unit-price"]').text()).toBe(
+        'cart.per_unit(100 kr)',
+      );
     });
 
     it('leaves an ordinary line as it was', () => {
@@ -428,7 +485,6 @@ describe('CartItem', () => {
   describe('while its quantity changes', () => {
     const stubs = {
       GeinsImage: true,
-      PriceDisplay: { template: '<span />', props: ['price'] },
       QuantityInput: {
         template:
           '<div data-testid="quantity-stub" :data-value="modelValue" :data-disabled="String(!!disabled)" />',
@@ -494,9 +550,12 @@ describe('CartItem', () => {
       expect(
         wrapper.find('[data-testid="cart-item-remove"]').attributes('disabled'),
       ).toBeDefined();
-      const edit = wrapper.find('[data-testid="cart-item-edit"]');
-      expect(edit.attributes('aria-disabled')).toBe('true');
-      expect(edit.attributes('tabindex')).toBe('-1');
+      for (const id of ['cart-item-edit', 'cart-item-name']) {
+        const link = wrapper.find(`[data-testid="${id}"]`);
+        expect(link.attributes('aria-disabled'), id).toBe('true');
+        expect(link.attributes('tabindex'), id).toBe('-1');
+        expect(link.classes(), id).toContain('pointer-events-none');
+      }
     });
 
     it('holds nothing on another line', () => {
@@ -544,20 +603,44 @@ describe('CartItem', () => {
         template: '<img data-testid="geins-image" :data-sizes="sizes" />',
         props: ['fileName', 'sizes'],
       },
-      PriceDisplay: {
-        template:
-          '<span :data-testid="testid" :data-vat-label="String(vatLabel)" />',
-        props: ['price', 'quantity', 'testid', 'vatLabel'],
-      },
       QuantityInput: {
         template: '<div data-testid="quantity-stub" />',
         props: ['modelValue', 'min', 'max', 'disabled'],
       },
     };
-    const configuredItem = {
+
+    /** Both VAT variants, as the cart sends them. */
+    function price(exVat: number, regularExVat = exVat) {
+      const text = (n: number) => `${n.toFixed(2).replace('.', ',')} kr`;
+      return {
+        sellingPriceExVat: exVat,
+        sellingPriceExVatFormatted: text(exVat),
+        sellingPriceIncVat: exVat * 1.25,
+        sellingPriceIncVatFormatted: text(exVat * 1.25),
+        regularPriceExVat: regularExVat,
+        regularPriceExVatFormatted: text(regularExVat),
+        regularPriceIncVat: regularExVat * 1.25,
+        regularPriceIncVatFormatted: text(regularExVat * 1.25),
+        isDiscounted: regularExVat > exVat,
+        discountPercentage: Math.round((1 - exVat / regularExVat) * 100),
+        currency: { code: 'SEK', symbol: 'kr' },
+      };
+    }
+
+    const plainItem = {
       ...mockItem,
+      unitPrice: price(100),
+      totalPrice: price(200),
+    } as CartItemType;
+    const saleItem = {
+      ...mockItem,
+      unitPrice: price(2490, 2990),
+      totalPrice: price(4980, 5980),
+    } as CartItemType;
+    const configuredItem = {
+      ...plainItem,
       configuration: { configurationId: 'committed-1', summary: [] },
-    };
+    } as CartItemType;
 
     beforeEach(() => {
       useCartStore().cartId = 'cart-1';
@@ -567,48 +650,48 @@ describe('CartItem', () => {
       mockShowIncVat.value = true;
     });
 
-    function mountLine(item: CartItemType = mockItem) {
+    function mountLine(item: CartItemType = plainItem) {
       return mountComponent(CartItem, { props: { item }, global: { stubs } });
     }
     const byId = (wrapper: ReturnType<typeof mountLine>, id: string) =>
       wrapper.find(`[data-testid="${id}"]`);
 
-    it('shows the image at 80 px in a thin border, and asks for it at 80 px so it stays sharp', () => {
+    it('shows the image at 48 px without a border, and asks for it at 48 px', () => {
       const wrapper = mountLine();
 
       const image = byId(wrapper, 'cart-item-image');
       expect(image.classes()).toEqual(
-        expect.arrayContaining(['size-20', 'rounded-md', 'border']),
+        expect.arrayContaining(['size-12', 'rounded-md']),
       );
+      expect(image.classes()).not.toContain('border');
+      expect(image.classes()).not.toContain('size-20');
       expect(byId(wrapper, 'geins-image').attributes('data-sizes')).toBe(
-        '80px',
+        '48px',
       );
     });
 
-    it('keeps the placeholder at 80 px on a line without an image', () => {
+    it('keeps the placeholder at 48 px on a line without an image', () => {
       const wrapper = mountLine({
-        ...mockItem,
+        ...plainItem,
         product: { ...mockItem.product, productImages: [] },
       });
 
-      const image = byId(wrapper, 'cart-item-image');
-      expect(image.classes()).toEqual(
-        expect.arrayContaining(['size-20', 'border']),
-      );
+      expect(byId(wrapper, 'cart-item-image').classes()).toContain('size-12');
       expect(byId(wrapper, 'geins-image').exists()).toBe(false);
-      expect(image.findComponent(ImageOff).classes()).toContain('size-8');
+      expect(
+        byId(wrapper, 'cart-item-image').findComponent(ImageOff).classes(),
+      ).toContain('size-5');
     });
 
-    it('draws its own divider underneath, so the last line has one too, 20 px from the content', () => {
+    it('leaves the divider to the list it sits in, 16 px from the content', () => {
       const line = byId(mountLine(), 'cart-item');
 
-      expect(line.classes()).toEqual(
-        expect.arrayContaining(['border-b', 'py-5']),
-      );
+      expect(line.classes()).toContain('py-4');
+      expect(line.classes()).not.toContain('border-b');
     });
 
     it.each([
-      ['an ordinary line', mockItem, ['cart-item-name', 'cart-item-remove']],
+      ['an ordinary line', plainItem, ['cart-item-name', 'cart-item-remove']],
       [
         'a configured line',
         configuredItem,
@@ -620,16 +703,17 @@ describe('CartItem', () => {
         ],
       ],
     ])(
-      'puts everything on %s but the image in one column beside it, 12 px between its rows',
+      'puts everything on %s but the image in one column beside it, 8 px between its rows',
       (_case, item, inside) => {
         const wrapper = mountLine(item);
 
         const info = byId(wrapper, 'cart-item-info');
-        expect(info.classes()).toContain('space-y-3');
+        expect(info.classes()).toContain('space-y-2');
         for (const id of [
           ...inside,
           'quantity-stub',
           'cart-item-total-price',
+          'cart-item-unit-price',
         ]) {
           expect(info.find(`[data-testid="${id}"]`).exists(), id).toBe(true);
         }
@@ -640,86 +724,150 @@ describe('CartItem', () => {
       },
     );
 
-    it('names the product at 16 px over a 14 px second line, and an ordinary line still links to its product', () => {
+    it('names the product at 14 px over a 12 px article line, and an ordinary line links to its product', () => {
       const wrapper = mountLine();
 
       const name = byId(wrapper, 'cart-item-name');
       expect(name.element.tagName).toBe('A');
-      expect(name.classes()).toContain('font-medium');
-      expect(name.classes()).not.toContain('text-sm');
-      expect(byId(wrapper, 'cart-item-article').classes()).toContain('text-sm');
-    });
-
-    it('says "Konfigurerad produkt" at 14 px on a configured line', () => {
-      const wrapper = mountLine(configuredItem);
-
-      expect(byId(wrapper, 'cart-item-configured').classes()).toContain(
-        'text-sm',
+      expect(name.attributes('href')).toBe('/se/en/p/test-product');
+      expect(name.classes()).toEqual(
+        expect.arrayContaining(['text-sm', 'font-medium']),
       );
-      expect(byId(wrapper, 'cart-item-name').classes()).not.toContain(
-        'text-sm',
-      );
+      expect(byId(wrapper, 'cart-item-article').classes()).toContain('text-xs');
     });
 
     it('puts the quantity on the left and the line price on the right of one row', () => {
-      const wrapper = mountLine(configuredItem);
+      const wrapper = mountLine();
 
       const row = byId(wrapper, 'cart-item-price-row');
-      expect(row.classes()).toContain('justify-between');
       const [left, right] = row.element.children;
       expect(left?.contains(byId(wrapper, 'quantity-stub').element)).toBe(true);
-      expect(
-        right?.contains(byId(wrapper, 'cart-item-total-price').element),
-      ).toBe(true);
+      expect(right?.isSameNode(byId(wrapper, 'cart-item-price').element)).toBe(
+        true,
+      );
+      expect(byId(wrapper, 'cart-item-price').classes()).toEqual(
+        expect.arrayContaining(['shrink-0', 'text-right', 'whitespace-nowrap']),
+      );
     });
 
-    it('shows the line price at 16 px in tabular figures, then "Exkl. moms" in normal weight 6 px after it', () => {
-      const wrapper = mountLine(configuredItem);
+    it('shows the line total on top at 16 px in tabular figures, and the unit price under it as "/st", with no VAT word', () => {
+      const wrapper = mountLine();
 
+      const price = byId(wrapper, 'cart-item-price');
+      const [top, bottom] = price.element.children;
       const total = byId(wrapper, 'cart-item-total-price');
-      expect(total.classes()).toEqual(
+      expect(top?.contains(total.element)).toBe(true);
+      expect([...(top?.classList ?? [])]).toEqual(
         expect.arrayContaining(['text-base', 'font-semibold', 'tabular-nums']),
       );
-      expect(total.attributes('data-vat-label')).toBe('false');
-      const vat = byId(wrapper, 'cart-item-vat');
-      expect(vat.text()).toBe('common.vat_excl');
-      expect(vat.classes()).toEqual(
-        expect.arrayContaining(['ml-1.5', 'text-xs', 'text-muted-foreground']),
+      expect(total.text()).toBe('200,00 kr');
+
+      const unit = byId(wrapper, 'cart-item-unit-price');
+      expect(bottom?.isSameNode(unit.element)).toBe(true);
+      expect(unit.text()).toBe('cart.per_unit(100,00 kr)');
+      expect(unit.classes()).toEqual(
+        expect.arrayContaining([
+          'text-xs',
+          'text-muted-foreground',
+          'tabular-nums',
+          'mt-1',
+        ]),
       );
-      expect(vat.classes()).not.toContain('font-semibold');
+
+      expect(price.text()).not.toContain('common.vat');
+      expect(byId(wrapper, 'cart-item-vat').exists()).toBe(false);
     });
 
-    it('says "Inkl. moms" after the price when the buyer shows prices including VAT', () => {
+    it('shows the figures including VAT when the buyer chose that', () => {
       mockShowIncVat.value = true;
-      const wrapper = mountLine(configuredItem);
-
-      expect(byId(wrapper, 'cart-item-vat').text()).toBe('common.vat_incl');
-    });
-
-    it("keeps an ordinary line's unit price, under its total", () => {
       const wrapper = mountLine();
 
-      const price = byId(wrapper, 'cart-item-price-row').element.children[1];
+      expect(byId(wrapper, 'cart-item-total-price').text()).toBe('250,00 kr');
+      expect(byId(wrapper, 'cart-item-unit-price').text()).toBe(
+        'cart.per_unit(125,00 kr)',
+      );
+    });
+
+    it('formats the figure itself when the cart sends no text for the chosen VAT', () => {
+      const wrapper = mountLine({
+        ...plainItem,
+        totalPrice: {
+          ...plainItem.totalPrice,
+          sellingPriceExVatFormatted: undefined,
+        },
+      } as CartItemType);
+
       expect(
-        price?.contains(byId(wrapper, 'cart-item-unit-price').element),
+        byId(wrapper, 'cart-item-total-price').text().replace(/\s/g, ' '),
+      ).toMatch(/200[.,]00/);
+    });
+
+    it('strikes the regular total through before a sale total, which is red, with no percent badge', () => {
+      const wrapper = mountLine(saleItem);
+
+      const top = byId(wrapper, 'cart-item-price').element.children[0];
+      const regular = byId(wrapper, 'cart-item-regular-price');
+      const total = byId(wrapper, 'cart-item-total-price');
+      expect(top?.firstElementChild?.isSameNode(regular.element)).toBe(true);
+      expect(regular.text()).toBe('5980,00 kr');
+      expect(regular.classes()).toEqual(
+        expect.arrayContaining([
+          'line-through',
+          'text-xs',
+          'text-muted-foreground',
+          'font-normal',
+          'mr-1.5',
+        ]),
+      );
+      expect(total.text()).toBe('4980,00 kr');
+      expect(total.classes()).toContain('text-destructive');
+      expect(wrapper.text()).not.toContain('%');
+    });
+
+    it('shows the unit price of a sale line as the selling price only', () => {
+      const wrapper = mountLine(saleItem);
+
+      const unit = byId(wrapper, 'cart-item-unit-price');
+      expect(unit.text()).toBe('cart.per_unit(2490,00 kr)');
+      expect(unit.find('.line-through').exists()).toBe(false);
+    });
+
+    it('strikes nothing on a line at its regular price', () => {
+      const wrapper = mountLine();
+
+      expect(byId(wrapper, 'cart-item-regular-price').exists()).toBe(false);
+      expect(byId(wrapper, 'cart-item-total-price').classes()).not.toContain(
+        'text-destructive',
+      );
+    });
+
+    it('shows no price where prices are hidden', () => {
+      mockShowPrice.value = false;
+      try {
+        const wrapper = mountLine();
+        expect(byId(wrapper, 'cart-item-price').exists()).toBe(false);
+      } finally {
+        mockShowPrice.value = true;
+      }
+    });
+
+    it('starts the quantity row under the image, as tall as it is', () => {
+      const wrapper = mountLine();
+
+      const nameRow = byId(wrapper, 'cart-item-remove').element.parentElement;
+      expect(nameRow?.classList).toContain('min-h-12');
+      expect(
+        nameRow?.nextElementSibling?.isSameNode(
+          byId(wrapper, 'cart-item-price-row').element,
+        ),
       ).toBe(true);
     });
 
-    it('says the VAT word once on an ordinary line, after the total and not after the unit price', () => {
-      const wrapper = mountLine();
-
-      expect(
-        byId(wrapper, 'cart-item-unit-price').attributes('data-vat-label'),
-      ).toBe('false');
-      expect(byId(wrapper, 'cart-item-vat').text()).toBe('common.vat_excl');
-    });
-
-    it('sets the trash button up and out into the corner', () => {
+    it('keeps the trash button in the corner without pulling it out', () => {
       const remove = byId(mountLine(), 'cart-item-remove');
 
-      expect(remove.classes()).toEqual(
-        expect.arrayContaining(['-mt-1', '-mr-2']),
-      );
+      expect(remove.classes()).not.toContain('-mt-1');
+      expect(remove.classes()).not.toContain('-mr-2');
     });
   });
 });

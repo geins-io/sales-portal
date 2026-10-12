@@ -38,9 +38,20 @@ const totalFormatted = computed(() => {
   );
 });
 
-const shippingFee = computed(
-  () => cartStore.cart?.summary?.shipping?.feeIncVatFormatted ?? null,
-);
+// The row shows once the cart has a fee, in the buyer's VAT choice.
+const shippingFee = computed(() => {
+  const shipping = cartStore.cart?.summary?.shipping;
+  if (!shipping?.feeIncVatFormatted) return null;
+  if (showIncVat.value) return shipping.feeIncVatFormatted;
+  return (
+    shipping.feeExVatFormatted ||
+    formatPrice(
+      shipping.feeExVat,
+      cartStore.cart?.summary?.total?.currency?.code,
+      formatLocale.value,
+    )
+  );
+});
 
 const taxFormatted = computed(
   () => cartStore.cart?.summary?.total?.vatFormatted ?? null,
@@ -50,14 +61,22 @@ const discountFormatted = computed(() => {
   if (!cartStore.discountAmount) return '';
   const currency = cartStore.cart?.summary?.total?.currency;
   return formatPrice(
-    cartStore.discountAmount,
+    showIncVat.value
+      ? cartStore.discountAmount
+      : (cartStore.cart?.summary?.fixedAmountDiscountExVat ?? 0),
     currency?.code,
     formatLocale.value,
   );
 });
 
+/**
+ * Back to the page the buyer came from, when that page is ours: Vue Router
+ * records it as `back` in the history state. Opened directly, there is no such
+ * page, and going back would leave the portal.
+ */
 function onClose() {
-  router.back();
+  if (window.history.state?.back) router.back();
+  else router.push(localePath('/'));
 }
 
 function goToCheckout() {
@@ -66,30 +85,42 @@ function goToCheckout() {
 </script>
 
 <template>
-  <div class="px-4 py-8 lg:px-6">
-    <div class="mx-auto max-w-7xl" data-testid="cart-page">
+  <div class="py-8">
+    <div class="mx-auto max-w-xl" data-testid="cart-page">
       <!-- Header row -->
-      <div class="mb-6 flex items-start justify-between">
-        <h1 class="text-2xl font-bold" data-testid="cart-page-title">
-          {{ $t('cart.shopping_cart') }}
-          <span v-if="cartStore.itemCount > 0" class="font-bold">
-            ({{ $t('cart.item_count', { count: cartStore.itemCount }) }})
-          </span>
-        </h1>
-        <Button
-          variant="outline"
-          size="icon"
-          :aria-label="$t('common.close')"
-          data-testid="cart-page-close"
-          @click="onClose"
+      <div class="mb-6 px-6">
+        <div class="flex items-start justify-between">
+          <h1 class="text-2xl font-bold" data-testid="cart-page-title">
+            {{ $t('cart.shopping_cart') }}
+            <span v-if="cartStore.itemCount > 0" class="font-bold">
+              ({{ $t('cart.item_count', { count: cartStore.itemCount }) }})
+            </span>
+          </h1>
+          <Button
+            variant="outline"
+            size="icon"
+            :aria-label="$t('common.close')"
+            data-testid="cart-page-close"
+            @click="onClose"
+          >
+            <X class="size-5" />
+          </Button>
+        </div>
+        <p
+          v-if="showPrice && !cartStore.isEmpty"
+          class="text-muted-foreground text-sm"
+          data-testid="cart-vat-note"
         >
-          <X class="size-5" />
-        </Button>
+          {{
+            showIncVat ? $t('cart.prices_inc_vat') : $t('cart.prices_ex_vat')
+          }}
+        </p>
       </div>
 
       <!-- Loading state -->
       <CartPageSkeleton
         v-if="cartStore.isLoading && !cartStore.cart"
+        class="px-6"
         data-testid="cart-page-loading"
       />
 
@@ -101,17 +132,20 @@ function goToCheckout() {
 
       <!-- Empty state -->
       <template v-else-if="cartStore.isEmpty">
-        <CartSkippedNote />
+        <CartSkippedNote class="mx-6" />
         <CartEmptyState data-testid="cart-page-empty" />
       </template>
 
-      <!-- Cart content: items + summary -->
-      <div v-else class="flex flex-col gap-8 lg:flex-row lg:items-start">
-        <!-- LEFT: Cart items list -->
-        <div class="min-w-0 flex-1">
+      <!-- The lines, and under them the summary, pinned to the bottom of the
+           window while the lines scroll past -->
+      <template v-else>
+        <div class="px-6">
           <CartSkippedNote class="mb-2" />
           <ErrorBoundary section="cart-items">
-            <div>
+            <div
+              class="divide-border border-border divide-y border-b"
+              data-testid="cart-items"
+            >
               <CartItem
                 v-for="item in cartStore.cart?.items"
                 :key="item.id"
@@ -123,68 +157,59 @@ function goToCheckout() {
           </ErrorBoundary>
         </div>
 
-        <!-- RIGHT: Order Summary (sticky) -->
-        <div class="w-full lg:w-80 lg:shrink-0">
-          <ErrorBoundary section="order-summary">
-            <div
-              class="bg-card border-border sticky top-24 space-y-4 rounded-lg border p-6"
-              data-testid="cart-order-summary"
-            >
-              <h2 class="text-lg font-semibold">
-                {{ $t('cart.order_summary') }}
-              </h2>
+        <ErrorBoundary section="order-summary">
+          <aside
+            class="bg-muted border-border sticky bottom-0 z-10 flex flex-col gap-4 border-t px-6 py-5"
+            data-testid="cart-order-summary"
+          >
+            <h2 class="text-base font-semibold">
+              {{ $t('cart.order_summary') }}
+            </h2>
 
-              <div v-if="showPrice" class="space-y-3">
-                <!-- Subtotal -->
-                <div class="flex items-center justify-between text-sm">
-                  <span class="text-muted-foreground">
-                    {{
-                      $t('cart.subtotal_items', { count: cartStore.itemCount })
-                    }}
-                  </span>
-                  <span data-testid="cart-summary-subtotal">
+            <dl class="space-y-2 text-sm">
+              <template v-if="showPrice">
+                <div class="flex items-center justify-between">
+                  <dt class="text-muted-foreground">
+                    {{ $t('cart.subtotal') }}
+                  </dt>
+                  <dd data-testid="cart-summary-subtotal">
                     {{ subTotalFormatted }}
-                  </span>
+                  </dd>
                 </div>
-
-                <!-- Discount line -->
                 <div
                   v-if="cartStore.discountAmount"
-                  class="flex items-center justify-between text-sm"
+                  class="flex items-center justify-between"
                   data-testid="cart-summary-discount"
                 >
-                  <span class="text-destructive">{{
-                    $t('discount.discount')
-                  }}</span>
-                  <span
+                  <dt class="text-destructive">
+                    {{ $t('discount.discount') }}
+                  </dt>
+                  <dd
                     class="text-destructive font-medium"
                     data-testid="cart-summary-discount-amount"
-                    >-{{ discountFormatted }}</span
                   >
+                    -{{ discountFormatted }}
+                  </dd>
                 </div>
-
-                <!-- Shipping -->
-                <div class="flex items-center justify-between text-sm">
-                  <span class="text-muted-foreground">
+                <div
+                  v-if="shippingFee"
+                  class="flex items-center justify-between"
+                >
+                  <dt class="text-muted-foreground">
                     {{ $t('cart.shipping') }}
-                  </span>
-                  <span data-testid="cart-summary-shipping">
-                    {{ shippingFee || $t('cart.calculated_at_checkout') }}
-                  </span>
+                  </dt>
+                  <dd data-testid="cart-summary-shipping">{{ shippingFee }}</dd>
                 </div>
-
-                <!-- Tax -->
-                <div class="flex items-center justify-between text-sm">
-                  <span class="text-muted-foreground">
+                <div
+                  v-if="taxFormatted"
+                  class="flex items-center justify-between"
+                >
+                  <dt class="text-muted-foreground">
                     {{ $t('cart.tax_estimated') }}
-                  </span>
-                  <span data-testid="cart-summary-tax">
-                    {{ taxFormatted || $t('cart.calculated_at_checkout') }}
-                  </span>
+                  </dt>
+                  <dd data-testid="cart-summary-tax">{{ taxFormatted }}</dd>
                 </div>
-              </div>
-
-              <!-- Cart-level campaigns -->
+              </template>
               <div
                 v-if="cartStore.visibleCartCampaigns.length"
                 class="space-y-1"
@@ -199,39 +224,34 @@ function goToCheckout() {
                   <span class="text-destructive">{{ campaign.name }}</span>
                 </div>
               </div>
-
-              <!-- Divider -->
-              <div class="border-border border-t" />
-
-              <!-- Total -->
-              <div
-                v-if="showPrice"
-                class="flex items-center justify-between font-semibold"
-              >
-                <span>{{ $t('cart.total') }}</span>
-                <span data-testid="cart-summary-total">
-                  {{ totalFormatted }}
-                </span>
+              <div v-if="showPrice" class="border-border border-t pt-3">
+                <div
+                  class="flex items-baseline justify-between text-lg font-semibold"
+                >
+                  <dt>{{ $t('cart.total') }}</dt>
+                  <dd class="tabular-nums" data-testid="cart-summary-total">
+                    {{ totalFormatted }}
+                  </dd>
+                </div>
               </div>
+            </dl>
 
-              <!-- Checkout button -->
-              <Button
-                class="w-full"
-                data-testid="cart-checkout-button"
-                :disabled="cartStore.isLoading || cartStore.isUpdatingLines"
-                @click="goToCheckout"
-              >
-                {{ $t('cart.proceed_to_checkout') }}
-              </Button>
-            </div>
-          </ErrorBoundary>
-        </div>
-      </div>
+            <Button
+              class="w-full"
+              data-testid="cart-checkout-button"
+              :disabled="cartStore.isLoading || cartStore.isUpdatingLines"
+              @click="goToCheckout"
+            >
+              {{ $t('cart.proceed_to_checkout') }}
+            </Button>
+          </aside>
+        </ErrorBoundary>
+      </template>
 
       <!-- Error -->
       <p
         v-if="cartStore.error"
-        class="text-destructive mt-4 text-sm"
+        class="text-destructive mt-4 px-6 text-sm"
         data-testid="cart-page-error"
       >
         {{ cartStore.error }}

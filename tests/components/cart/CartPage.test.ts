@@ -1,10 +1,16 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { ref } from 'vue';
 import { shallowMountComponent } from '../../utils/component';
 import CartPage from '../../../app/components/pages/CartPage.vue';
 import type { CartType } from '../../../shared/types/commerce';
 import { useCartStore } from '../../../app/stores/cart';
 import { createPinia, setActivePinia } from 'pinia';
 import { mockShowIncVat } from '../../setup-components';
+
+const mockShowPrice = ref(true);
+vi.mock('../../../app/composables/usePriceVisibility', () => ({
+  usePriceVisibility: () => ({ showPrice: mockShowPrice }),
+}));
 
 const mockCart: CartType = {
   id: 'cart-123',
@@ -310,7 +316,7 @@ describe('CartPage', () => {
     expect(shipping.text()).toBe('$8.00');
   });
 
-  it('shows a localized fallback when shipping fee is missing', () => {
+  it('leaves out shipping when the cart has no fee, as the panel does', () => {
     const store = useCartStore();
     store.cart = {
       ...mockCart,
@@ -324,11 +330,13 @@ describe('CartPage', () => {
       global: { stubs: defaultStubs },
     });
 
-    const shipping = wrapper.find('[data-testid="cart-summary-shipping"]');
-    expect(shipping.text()).toBe('cart.calculated_at_checkout');
+    expect(wrapper.find('[data-testid="cart-summary-shipping"]').exists()).toBe(
+      false,
+    );
+    expect(wrapper.text()).not.toContain('cart.calculated_at_checkout');
   });
 
-  it('shows a localized fallback when tax is missing', () => {
+  it('leaves out VAT when the cart has none, as the panel does', () => {
     const store = useCartStore();
     store.cart = {
       ...mockCart,
@@ -342,8 +350,10 @@ describe('CartPage', () => {
       global: { stubs: defaultStubs },
     });
 
-    const tax = wrapper.find('[data-testid="cart-summary-tax"]');
-    expect(tax.text()).toBe('cart.calculated_at_checkout');
+    expect(wrapper.find('[data-testid="cart-summary-tax"]').exists()).toBe(
+      false,
+    );
+    expect(wrapper.text()).not.toContain('cart.calculated_at_checkout');
   });
 
   it('checkout button is not disabled when cart has items', () => {
@@ -405,6 +415,43 @@ describe('CartPage', () => {
     });
 
     expect(wrapper.find('[data-testid="cart-page-close"]').exists()).toBe(true);
+  });
+
+  describe('closing the page', () => {
+    afterEach(() => {
+      window.history.replaceState(null, '');
+    });
+
+    async function close() {
+      const router = useRouter();
+      vi.mocked(router.back).mockClear();
+      vi.mocked(router.push).mockClear();
+      const wrapper = shallowMountComponent(CartPage, {
+        global: { stubs: defaultStubs },
+      });
+      await wrapper.find('[data-testid="cart-page-close"]').trigger('click');
+      return router;
+    }
+
+    it('goes back to the page the buyer came from inside the portal', async () => {
+      window.history.replaceState({ back: '/se/en/p/test-product' }, '');
+
+      const router = await close();
+
+      expect(router.back).toHaveBeenCalledOnce();
+      expect(router.push).not.toHaveBeenCalled();
+    });
+
+    it('goes to the start page when the cart was opened directly', async () => {
+      window.history.replaceState({ back: null }, '');
+
+      const router = await close();
+
+      expect(router.back).not.toHaveBeenCalled();
+      expect(router.push).toHaveBeenCalledWith(
+        expect.stringMatching(/^\/se\/en\/?$/),
+      );
+    });
   });
 
   it('renders error message when store has error', () => {
@@ -537,6 +584,150 @@ describe('CartPage', () => {
       const campaigns = wrapper.find('[data-testid="cart-campaigns"]');
       expect(campaigns.exists()).toBe(true);
       expect(campaigns.text()).toContain('Cart discount');
+    });
+  });
+
+  describe('made the same way as the panel', () => {
+    function mountPage(cart: CartType | null = mockCart) {
+      useCartStore().cart = cart;
+      return shallowMountComponent(CartPage, {
+        global: { stubs: defaultStubs },
+      });
+    }
+    const byId = (wrapper: ReturnType<typeof mountPage>, id: string) =>
+      wrapper.find(`[data-testid="${id}"]`);
+
+    it("is one centred column at the panel's 576 px", () => {
+      const page = byId(mountPage(), 'cart-page');
+
+      expect(page.classes()).toEqual(
+        expect.arrayContaining(['mx-auto', 'max-w-xl']),
+      );
+      expect(page.classes()).not.toContain('max-w-7xl');
+      expect(page.find('.lg\\:flex-row').exists()).toBe(false);
+    });
+
+    it('puts the lines above the summary, the summary pinned to the bottom of the window', () => {
+      const wrapper = mountPage();
+
+      const lines = byId(wrapper, 'cart-items');
+      const summary = byId(wrapper, 'cart-order-summary');
+      expect(lines.findAll('[data-testid="cart-item"]')).toHaveLength(2);
+      expect(
+        lines.element.compareDocumentPosition(summary.element) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(summary.classes()).toEqual(
+        expect.arrayContaining([
+          'sticky',
+          'bottom-0',
+          'z-10',
+          'bg-muted',
+          'border-t',
+        ]),
+      );
+      expect(summary.classes()).not.toContain('top-24');
+    });
+
+    it('draws a line between the rows and one under the last, on the list', () => {
+      expect(byId(mountPage(), 'cart-items').classes()).toEqual(
+        expect.arrayContaining(['divide-y', 'border-b']),
+      );
+    });
+
+    it.each([
+      [false, 'cart.prices_ex_vat'],
+      [true, 'cart.prices_inc_vat'],
+    ])(
+      'states the VAT once under the title (incl. VAT: %s)',
+      (incVat, text) => {
+        mockShowIncVat.value = incVat;
+        const wrapper = mountPage();
+
+        const note = byId(wrapper, 'cart-vat-note');
+        expect(note.text()).toBe(text);
+        expect(
+          byId(wrapper, 'cart-page-title').element.compareDocumentPosition(
+            note.element,
+          ) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+      },
+    );
+
+    it('says nothing of VAT where prices are hidden', () => {
+      mockShowPrice.value = false;
+      try {
+        const wrapper = mountPage();
+        expect(byId(wrapper, 'cart-items').exists()).toBe(true);
+        expect(byId(wrapper, 'cart-vat-note').exists()).toBe(false);
+      } finally {
+        mockShowPrice.value = true;
+      }
+    });
+
+    it('says nothing of VAT on an empty cart', () => {
+      const wrapper = mountPage(null);
+
+      expect(byId(wrapper, 'cart-page-empty').exists()).toBe(true);
+      expect(byId(wrapper, 'cart-vat-note').exists()).toBe(false);
+    });
+
+    it('calls the subtotal "Delsumma" without the count, and lists the rows 8 px apart', () => {
+      const summary = byId(mountPage(), 'cart-order-summary');
+
+      expect(summary.text()).toContain('cart.subtotal');
+      expect(summary.text()).not.toContain('cart.subtotal_items');
+      expect(summary.find('dl').classes()).toContain('space-y-2');
+    });
+
+    describe("shipping and discount in the buyer's VAT choice", () => {
+      const vatCart = () =>
+        ({
+          ...mockCart,
+          summary: {
+            ...mockCart.summary,
+            total: { ...mockCart.summary.total, currency: { code: 'SEK' } },
+            shipping: {
+              ...mockCart.summary.shipping,
+              feeIncVat: 62.5,
+              feeIncVatFormatted: '62,50 kr',
+              feeExVat: 50,
+              feeExVatFormatted: '50,00 kr',
+            },
+            fixedAmountDiscountIncVat: 125,
+            fixedAmountDiscountExVat: 100,
+          },
+        }) as unknown as CartType;
+
+      it('shows them excluding VAT when the buyer chose that', () => {
+        mockShowIncVat.value = false;
+        const wrapper = mountPage(vatCart());
+
+        expect(byId(wrapper, 'cart-summary-shipping').text()).toBe('50,00 kr');
+        expect(byId(wrapper, 'cart-summary-discount-amount').text()).toMatch(
+          /^-\D*100[,.]00/,
+        );
+      });
+
+      it('shows them including VAT when the buyer chose that', () => {
+        mockShowIncVat.value = true;
+        const wrapper = mountPage(vatCart());
+
+        expect(byId(wrapper, 'cart-summary-shipping').text()).toBe('62,50 kr');
+        expect(byId(wrapper, 'cart-summary-discount-amount').text()).toMatch(
+          /^-\D*125[,.]00/,
+        );
+      });
+    });
+
+    it('shows the total larger, on the baseline, in tabular figures', () => {
+      const total = byId(mountPage(), 'cart-summary-total');
+
+      expect(total.text()).toBe('$237.97');
+      expect(total.classes()).toContain('tabular-nums');
+      expect([...(total.element.parentElement?.classList ?? [])]).toEqual(
+        expect.arrayContaining(['text-lg', 'font-semibold', 'items-baseline']),
+      );
     });
   });
 });

@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { Loader2, Pencil, Trash2 } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
-import type { CartItemType } from '#shared/types/commerce';
-import { filterVisibleCampaigns } from '#shared/types/commerce';
+import type { CartItemType, PriceType } from '#shared/types/commerce';
+import { filterVisibleCampaigns, formatPrice } from '#shared/types/commerce';
 import { productPath } from '#shared/utils/route-helpers';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 import { useCartStore } from '~/stores/cart';
 import { editLineHref } from '~/utils/configurator-edit';
+import { isShownAsDiscount } from '~/utils/price-discount';
 
 const { t } = useI18n();
 
@@ -27,6 +28,7 @@ function onQuantityUpdate(value: number) {
 const { localePath } = useLocaleMarket();
 const { showPrice } = usePriceVisibility();
 const { showIncVat } = useVatDisplay();
+const { formatLocale } = useFormatLocale();
 const productUrl = computed(() =>
   props.item.product?.canonicalUrl
     ? localePath(productPath(props.item.product.canonicalUrl))
@@ -69,10 +71,20 @@ const editUrl = computed(() => {
   });
 });
 
+/** A configured line's name reopens it, as "Ändra konfiguration" does. */
+const nameUrl = computed(() =>
+  configuration.value ? editUrl.value : productUrl.value,
+);
+
 /** A change on its way holds the line's controls until it answers. */
 const updating = computed(
   () => !!props.item.id && cart.updatingItems.has(props.item.id),
 );
+/** The name of a configured line opens the configurator, so it holds too. */
+const nameHeld = computed(() => !!configuration.value && updating.value);
+function onNameClick() {
+  if (configuration.value) cart.isOpen = false;
+}
 const shownQuantity = computed(
   () =>
     (props.item.id ? cart.pendingQuantities.get(props.item.id) : undefined) ??
@@ -80,6 +92,48 @@ const shownQuantity = computed(
 );
 const quantityFailed = computed(
   () => !!props.item.id && cart.quantityFailed.has(props.item.id),
+);
+
+/** A price in the buyer's VAT choice; the row carries no VAT word. */
+function inVatChoice(
+  price: PriceType | undefined,
+  kind: 'selling' | 'regular',
+): string {
+  if (!price) return '';
+  const inc = showIncVat.value;
+  const text =
+    kind === 'selling'
+      ? inc
+        ? price.sellingPriceIncVatFormatted
+        : price.sellingPriceExVatFormatted
+      : inc
+        ? price.regularPriceIncVatFormatted
+        : price.regularPriceExVatFormatted;
+  if (text) return text;
+  const raw =
+    kind === 'selling'
+      ? inc
+        ? price.sellingPriceIncVat
+        : price.sellingPriceExVat
+      : inc
+        ? price.regularPriceIncVat
+        : price.regularPriceExVat;
+  return raw == null
+    ? ''
+    : formatPrice(raw, price.currency?.code, formatLocale.value);
+}
+
+const onSale = computed(() =>
+  isShownAsDiscount(props.item.totalPrice, props.item.quantity),
+);
+const totalFormatted = computed(() =>
+  inVatChoice(props.item.totalPrice, 'selling'),
+);
+const regularTotalFormatted = computed(() =>
+  onSale.value ? inVatChoice(props.item.totalPrice, 'regular') : '',
+);
+const unitFormatted = computed(() =>
+  inVatChoice(props.item.unitPrice, 'selling'),
 );
 
 const visibleItemCampaigns = computed(() =>
@@ -97,50 +151,52 @@ const maxQuantity = computed(() => {
 </script>
 
 <template>
-  <div class="border-b py-5" data-testid="cart-item">
+  <div class="py-4" data-testid="cart-item">
     <div class="flex gap-4">
       <ProductThumbnail
         :file-name="imageFileName"
         :alt="item.product?.name ?? ''"
-        size="size-20"
+        size="size-12"
         radius="rounded-md"
-        icon-size="size-8"
-        sizes="80px"
-        class="border"
+        icon-size="size-5"
+        sizes="48px"
         data-testid="cart-item-image"
       />
 
-      <div class="min-w-0 flex-1 space-y-3" data-testid="cart-item-info">
+      <div class="min-w-0 flex-1 space-y-2" data-testid="cart-item-info">
         <!-- Name, what the line is, and the way to remove it -->
-        <div class="flex items-start justify-between gap-3">
+        <div class="flex min-h-12 items-start justify-between gap-3">
           <div class="min-w-0">
             <NuxtLink
-              v-if="productUrl && !configuration"
-              :to="productUrl"
-              class="hover:text-primary font-medium"
+              v-if="nameUrl"
+              :to="nameUrl"
+              class="hover:text-primary text-sm font-medium"
+              :class="{ 'pointer-events-none': nameHeld }"
+              :aria-disabled="nameHeld || undefined"
+              :tabindex="nameHeld ? -1 : undefined"
               data-testid="cart-item-name"
+              @click="onNameClick"
             >
               {{ item.product?.name }}
             </NuxtLink>
-            <p v-else class="font-medium" data-testid="cart-item-name">
+            <p v-else class="text-sm font-medium" data-testid="cart-item-name">
               {{ item.product?.name ?? item.title ?? '' }}
             </p>
             <p
-              v-if="configuration"
-              class="text-muted-foreground text-sm"
-              data-testid="cart-item-configured"
-            >
-              {{ t('cart.configured_product') }}
-            </p>
-            <p
-              v-else-if="item.product?.articleNumber || skuName"
-              class="text-muted-foreground text-sm"
+              v-if="item.product?.articleNumber || skuName || configuration"
+              class="text-muted-foreground text-xs"
               data-testid="cart-item-article"
             >
               <template v-if="item.product?.articleNumber">
                 Art nr. {{ item.product.articleNumber }}
               </template>
-              <template v-if="skuName">
+              <template v-if="configuration">
+                <span v-if="item.product?.articleNumber"> &bull; </span>
+                <span data-testid="cart-item-configured">{{
+                  t('cart.configured_product')
+                }}</span>
+              </template>
+              <template v-else-if="skuName">
                 <span v-if="item.product?.articleNumber"> &bull; </span>
                 {{ skuName }}
               </template>
@@ -163,7 +219,7 @@ const maxQuantity = computed(() => {
           <Button
             variant="ghost"
             size="icon-sm"
-            class="text-muted-foreground hover:text-destructive -mt-1 -mr-2 shrink-0"
+            class="text-muted-foreground hover:text-destructive shrink-0"
             data-testid="cart-item-remove"
             :disabled="updating"
             :aria-label="
@@ -201,34 +257,32 @@ const maxQuantity = computed(() => {
             </span>
           </div>
 
-          <div v-if="showPrice && item.totalPrice" class="min-w-0 text-right">
-            <div>
-              <PriceDisplay
-                :price="item.totalPrice"
-                :quantity="item.quantity"
-                :vat-label="false"
-                testid="cart-item-total-price"
-                class="inline-block text-base font-semibold tabular-nums"
-              />
+          <!-- The line total on top, the unit price under it. The cart states
+               VAT once, under its title. -->
+          <div
+            v-if="showPrice && item.totalPrice"
+            class="shrink-0 text-right whitespace-nowrap"
+            data-testid="cart-item-price"
+          >
+            <p class="text-base font-semibold tabular-nums">
               <span
-                class="text-muted-foreground ml-1.5 text-xs"
-                data-testid="cart-item-vat"
+                v-if="regularTotalFormatted"
+                class="text-muted-foreground mr-1.5 text-xs font-normal line-through"
+                data-testid="cart-item-regular-price"
+                >{{ regularTotalFormatted }}</span
+              ><span
+                :class="{ 'text-destructive': onSale }"
+                data-testid="cart-item-total-price"
+                >{{ totalFormatted }}</span
               >
-                {{ showIncVat ? t('common.vat_incl') : t('common.vat_excl') }}
-              </span>
-            </div>
-            <div
-              v-if="item.unitPrice && !configuration"
-              class="text-muted-foreground inline-flex items-baseline gap-1 text-sm"
+            </p>
+            <p
+              v-if="unitFormatted"
+              class="text-muted-foreground mt-1 text-xs tabular-nums"
+              data-testid="cart-item-unit-price"
             >
-              <span>{{ t('cart.unit_price_prefix') }}</span>
-              <PriceDisplay
-                :price="item.unitPrice"
-                :vat-label="false"
-                testid="cart-item-unit-price"
-                class="text-sm"
-              />
-            </div>
+              {{ t('cart.per_unit', { price: unitFormatted }) }}
+            </p>
           </div>
         </div>
 
