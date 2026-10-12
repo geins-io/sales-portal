@@ -925,6 +925,24 @@ test.describe('Configured line through the cart', () => {
       await expect(specification).toBeHidden();
       await expect(drawer).toBeVisible();
 
+      // The name reopens the line in the configurator, as "Ändra
+      // konfiguration" does.
+      const name = lineIn(drawer).getByTestId('cart-item-name');
+      expect(await name.getAttribute('href')).toBe(
+        await lineIn(drawer).getByTestId('cart-item-edit').getAttribute('href'),
+      );
+      const reopenedByName = page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/api/configurations/reopen') &&
+          response.request().method() === 'POST',
+      );
+      await name.click();
+      expect((await reopenedByName).status()).toBe(200);
+      await expect(page.getByTestId('configurator-editing')).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(drawer).toBeHidden();
+
       // ---------- Edit from the cart page ----------
       await page.goto('/cart');
       await waitForHydration(page);

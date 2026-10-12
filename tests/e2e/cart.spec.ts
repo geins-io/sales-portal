@@ -1,17 +1,19 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import {
   discoverPurchasableProduct,
+  discoverProduct,
   discoverCategory,
   addToCart,
   fetchCart,
-  parsePrice,
   readPrice,
   waitForHydration,
   hasE2ECredentials,
+  isConfigurable,
   outOfScope,
   signedInState,
   type ApiCart,
 } from './helpers';
+import { localeText } from './locale-text';
 
 /**
  * Cart E2E Tests
@@ -57,6 +59,57 @@ test.describe('Cart', () => {
     // `hasEmpty || !hasItems` restated its first operand and passed either way.
     await expect(emptyState).toBeVisible();
     await expect(cartItem).toHaveCount(0);
+    await expect(page.locator('[data-testid="cart-vat-note"]')).toHaveCount(0);
+  });
+
+  test('closing the cart page opened directly goes to the start page, not out of the portal', async ({
+    page,
+  }) => {
+    await page.goto('/cart');
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+    const origin = new URL(page.url()).origin;
+
+    await page.locator('[data-testid="cart-page-close"]').click();
+
+    await expect(page).toHaveURL(
+      (url) =>
+        url.origin === origin &&
+        /^\/(?:[a-z]{2}\/[a-z]{2}\/?)?$/.test(url.pathname),
+    );
+    await expect(page.locator('[data-testid="cart-page"]')).toHaveCount(0);
+  });
+
+  test('closing the cart page reached from a product page goes back to that product', async ({
+    page,
+  }) => {
+    const product = await discoverProduct(page);
+    await page.goto(`/p/${product.alias}`);
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+    const productUrl = page.url();
+    const prefix =
+      new URL(productUrl).pathname.match(/^\/[a-z]{2}\/[a-z]{2}/)?.[0] ?? '';
+
+    // Nothing in the portal links to /cart, so the app's own router takes the
+    // buyer there, as an in-app link would.
+    await page.evaluate((to) => {
+      const app = (
+        document.querySelector('#__nuxt') as unknown as {
+          __vue_app__: {
+            config: {
+              globalProperties: { $router: { push: (to: string) => unknown } };
+            };
+          };
+        }
+      ).__vue_app__;
+      return app.config.globalProperties.$router.push(to);
+    }, `${prefix}/cart`);
+    await expect(page.locator('[data-testid="cart-page"]')).toBeVisible();
+
+    await page.locator('[data-testid="cart-page-close"]').click();
+
+    await expect(page).toHaveURL(productUrl);
   });
 
   test('should add a product to cart from PDP', async ({ page }) => {
@@ -308,36 +361,43 @@ test.describe('Cart values', () => {
   const QUANTITY = 3;
 
   /**
+   * The cart's shipping fee and fixed discount excluding VAT, the figures the
+   * cart shows in the default VAT choice. `fetchCart` carries the inc-VAT ones
+   * that checkout reads.
+   */
+  async function exVatFigures(page: Page) {
+    const cartId = (await page.context().cookies()).find(
+      (cookie) => cookie.name === 'cart_id',
+    )?.value;
+    const response = await page.request.get('/api/cart', {
+      params: { cartId: cartId! },
+    });
+    expect(response.ok(), '/api/cart did not answer 200').toBe(true);
+    const summary = (await response.json())?.summary;
+    return {
+      shippingFee: summary?.shipping?.feeExVat as number,
+      discount: summary?.fixedAmountDiscountExVat as number,
+    };
+  }
+
+  /**
    * Shipping has no number before checkout: `/api/cart` sends an empty fee
-   * string until an option is selected, and the two surfaces answer that
-   * differently — the page falls back to "calculated at checkout", the drawer
-   * drops the row. Asserting the fallback as text would assert the active
-   * locale, so the absence is asserted as "no digits here" instead.
+   * string until an option is selected, and both surfaces then drop the row.
    */
   async function expectShippingMatches(
+    page: Page,
     cell: Locator,
-    surface: 'page' | 'drawer',
     feeFormatted: string,
   ) {
     if (feeFormatted === '') {
-      if (surface === 'drawer') {
-        await expect(cell).toHaveCount(0);
-        return;
-      }
-      await expect(cell).toBeVisible();
-      const text = (await cell.innerText()).trim();
-      expect(
-        text.length,
-        'the shipping cell rendered nothing at all',
-      ).toBeGreaterThan(0);
-      expect(
-        /\d/.test(text),
-        `the API sent no shipping fee, so the cell must not show a number: ${JSON.stringify(text)}`,
-      ).toBe(false);
+      await expect(cell).toHaveCount(0);
       return;
     }
 
-    expect(await readPrice(cell)).toBeCloseTo(parsePrice(feeFormatted), 2);
+    expect(await readPrice(cell)).toBeCloseTo(
+      (await exVatFigures(page)).shippingFee,
+      2,
+    );
   }
 
   /** Subtotal, VAT and total on one surface, against the cart the API reports. */
@@ -386,8 +446,8 @@ test.describe('Cart values', () => {
 
     await expectSummaryMatches(drawer, cart);
     await expectShippingMatches(
+      page,
       drawer.locator('[data-testid="cart-summary-shipping"]'),
-      'drawer',
       cart.shippingFeeFormatted,
     );
 
@@ -395,8 +455,8 @@ test.describe('Cart values', () => {
 
     await expectSummaryMatches(page.locator('[data-testid="cart-page"]'), cart);
     await expectShippingMatches(
+      page,
       page.locator('[data-testid="cart-summary-shipping"]'),
-      'page',
       cart.shippingFeeFormatted,
     );
   });
@@ -504,13 +564,255 @@ test.describe('Cart values', () => {
 
     const discountRow = page.locator('[data-testid="cart-summary-discount"]');
     await expect(discountRow).toBeVisible();
-    // The row id covers the label too, hence a second id on the amount.
-    // `discountAmount` is the inc-VAT figure the store exposes
-    // (app/stores/cart.ts:24), which is what both surfaces render today.
+    // The row id covers the label too, hence a second id on the amount. The
+    // cart shows it in the buyer's VAT choice, ex VAT by default.
     expect(
       await readPrice(
         discountRow.locator('[data-testid="cart-summary-discount-amount"]'),
       ),
-    ).toBeCloseTo(cart.discountIncVat, 2);
+    ).toBeCloseTo((await exVatFigures(page)).discount, 2);
+  });
+});
+
+/**
+ * The cart as the narrow panel: one column, the lines scroll, the summary and
+ * "Gå till kassan" stay at the bottom of the panel and of the cart page.
+ */
+test.describe('Cart layout', () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  /** How many lines make a list longer than the panel on every viewport. */
+  const LINES = 8;
+
+  /** This host's cart id: the stored session may hold other tenants' cookies. */
+  async function cartIdOf(page: Page): Promise<string> {
+    const id = (await page.context().cookies(page.url())).find(
+      (c) => c.name === 'cart_id',
+    )?.value;
+    expect(id, 'the page holds no cart').toBeTruthy();
+    return id!;
+  }
+
+  /**
+   * A cart of LINES ordinary lines: the first through the PDP, so the page
+   * owns the cart, the rest straight to the cart route. A product that is out
+   * of stock answers 200 and adds no line, so lines are counted, not assumed.
+   */
+  async function fillCart(page: Page): Promise<number> {
+    const first = await discoverPurchasableProduct(page);
+    await addToCart(page, first.alias);
+    const cartId = await cartIdOf(page);
+
+    const response = await page.request.get('/api/product-lists/products', {
+      params: { take: '60', filter: JSON.stringify({ sort: 'ALPHABETICAL' }) },
+    });
+    expect(response.ok()).toBe(true);
+    const rows: { alias?: string; skus?: { skuId: number }[] }[] =
+      (await response.json()).products ?? [];
+
+    let count = (await fetchCart(page)).items.length;
+    for (const row of rows) {
+      if (count >= LINES) break;
+      const skuId = row.skus?.[0]?.skuId;
+      if (!row.alias || !skuId || row.alias === first.alias) continue;
+      if (await isConfigurable(page, row.alias)) continue;
+      const added = await page.request.post('/api/cart/items', {
+        data: { cartId, skuId, quantity: 1 },
+      });
+      if (added.ok()) count = (await fetchCart(page)).items.length;
+    }
+    expect(
+      count,
+      `the catalogue gave only ${count} lines that could be added`,
+    ).toBeGreaterThanOrEqual(LINES);
+    return count;
+  }
+
+  async function openDrawer(page: Page): Promise<Locator> {
+    await page.goto('/');
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+    await page.locator('[data-slot="cart-button"]').click();
+    const drawer = page.locator('[data-testid="cart-drawer"]');
+    await expect(drawer).toBeVisible();
+    await expect(
+      drawer.locator('[data-testid="cart-item"]').first(),
+    ).toBeVisible({ timeout: 20000 });
+    return drawer;
+  }
+
+  /**
+   * Scrolled to the last line, the first one has left the view and the
+   * summary and the checkout button have not.
+   */
+  async function expectBottomStays(
+    lines: Locator,
+    summary: Locator,
+    checkout: Locator,
+  ) {
+    await expect(summary).toBeInViewport({ ratio: 1 });
+    await expect(checkout).toBeInViewport({ ratio: 1 });
+    await expect(lines.last()).not.toBeInViewport();
+
+    await lines.last().scrollIntoViewIfNeeded();
+    await expect(lines.last()).toBeInViewport();
+    await expect(lines.first()).not.toBeInViewport();
+    await expect(summary).toBeInViewport({ ratio: 1 });
+    await expect(checkout).toBeInViewport({ ratio: 1 });
+  }
+
+  for (const [name, viewport] of [
+    ['desktop', { width: 1440, height: 900 }],
+    ['mobile', { width: 390, height: 844 }],
+  ] as const) {
+    test.describe(name, () => {
+      test.use({ viewport });
+
+      test('the panel scrolls its lines and keeps the summary and checkout at the bottom', async ({
+        page,
+      }) => {
+        const count = await fillCart(page);
+        const drawer = await openDrawer(page);
+
+        const lines = drawer.locator('[data-testid="cart-item"]');
+        await expect(lines).toHaveCount(count);
+        await expect(
+          drawer.locator('[data-testid="cart-vat-note"]'),
+        ).toHaveText(await localeText(page, 'cart.prices_ex_vat'));
+        await expectBottomStays(
+          lines,
+          drawer.locator('[data-testid="cart-summary"]'),
+          drawer.locator('[data-testid="cart-drawer-checkout-button"]'),
+        );
+      });
+
+      test('the cart page keeps the summary and checkout at the bottom of the window', async ({
+        page,
+      }) => {
+        const count = await fillCart(page);
+        await page.goto('/cart');
+        await page.waitForLoadState('load');
+        await waitForHydration(page);
+
+        const cartPage = page.locator('[data-testid="cart-page"]');
+        const lines = cartPage.locator('[data-testid="cart-item"]');
+        await expect(lines).toHaveCount(count, { timeout: 20000 });
+        await expect(
+          cartPage.locator('[data-testid="cart-vat-note"]'),
+        ).toHaveText(await localeText(page, 'cart.prices_ex_vat'));
+        await expectBottomStays(
+          lines,
+          cartPage.locator('[data-testid="cart-order-summary"]'),
+          cartPage.locator('[data-testid="cart-checkout-button"]'),
+        );
+      });
+    });
+  }
+
+  test('a line shows its total and, under it, the unit price "/st", with no VAT word', async ({
+    page,
+  }) => {
+    const product = await discoverPurchasableProduct(page);
+    await addToCart(page, product.alias, 3);
+    const drawer = page.locator('[data-testid="cart-drawer"]');
+    const item = drawer.locator('[data-testid="cart-item"]').first();
+    await expect(item).toBeVisible({ timeout: 10000 });
+
+    const line = (await fetchCart(page)).items[0]!;
+    const unit = item.locator('[data-testid="cart-item-unit-price"]');
+    const total = item.locator('[data-testid="cart-item-total-price"]');
+    expect(await readPrice(total)).toBeCloseTo(line.totalPriceExVat, 2);
+    expect(await readPrice(unit)).toBeCloseTo(line.unitPriceExVat, 2);
+    const perUnit = (await localeText(page, 'cart.per_unit')).replace(
+      '{price}',
+      '',
+    );
+    expect(await unit.innerText()).toContain(perUnit);
+
+    const totalBox = (await total.boundingBox())!;
+    const unitBox = (await unit.boundingBox())!;
+    expect(unitBox.y).toBeGreaterThanOrEqual(totalBox.y + totalBox.height - 1);
+
+    const priceText = await item
+      .locator('[data-testid="cart-item-price"]')
+      .innerText();
+    for (const key of ['common.vat_excl', 'common.vat_incl']) {
+      expect(priceText).not.toContain(await localeText(page, key));
+    }
+  });
+
+  test('a sale-priced line strikes its regular total through before the sale total', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await waitForHydration(page);
+    type Row = {
+      alias?: string;
+      unitPrice?: {
+        isDiscounted?: boolean;
+        sellingPriceExVat?: number;
+        regularPriceExVat?: number;
+      };
+    };
+    // The whole catalogue, a page at a time: a sale can sit on any product.
+    const rows: Row[] = [];
+    for (let skip = 0; ; skip += 100) {
+      const response = await page.request.get('/api/product-lists/products', {
+        params: {
+          take: '100',
+          skip: String(skip),
+          filter: JSON.stringify({ sort: 'ALPHABETICAL' }),
+        },
+      });
+      expect(response.ok()).toBe(true);
+      const batch: Row[] = (await response.json()).products ?? [];
+      rows.push(...batch);
+      if (batch.length < 100) break;
+    }
+    // The same check the line makes: the flag, confirmed by half an öre.
+    const onSale = rows.filter(
+      (r) =>
+        !!r.alias &&
+        r.unitPrice?.isDiscounted === true &&
+        (r.unitPrice.regularPriceExVat ?? 0) -
+          (r.unitPrice.sellingPriceExVat ?? 0) >=
+          0.005,
+    );
+    let product: (typeof onSale)[number] | undefined;
+    for (const row of onSale) {
+      if (!(await isConfigurable(page, row.alias!))) {
+        product = row;
+        break;
+      }
+    }
+    outOfScope(
+      !product,
+      'tenant-config',
+      'no product in the catalogue is on sale, so no line can show a sale price',
+    );
+
+    await addToCart(page, product!.alias!);
+    const item = page
+      .locator('[data-testid="cart-drawer"] [data-testid="cart-item"]')
+      .first();
+    await expect(item).toBeVisible({ timeout: 10000 });
+
+    const regular = item.locator('[data-testid="cart-item-regular-price"]');
+    const total = item.locator('[data-testid="cart-item-total-price"]');
+    expect(await readPrice(regular)).toBeCloseTo(
+      product!.unitPrice!.regularPriceExVat!,
+      2,
+    );
+    expect(await readPrice(total)).toBeCloseTo(
+      product!.unitPrice!.sellingPriceExVat!,
+      2,
+    );
+    expect(
+      await regular.evaluate((el) => getComputedStyle(el).textDecorationLine),
+    ).toContain('line-through');
+    await expect(total).toHaveClass(/text-destructive/);
+    expect((await regular.boundingBox())!.x).toBeLessThan(
+      (await total.boundingBox())!.x,
+    );
   });
 });
