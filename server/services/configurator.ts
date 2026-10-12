@@ -1,8 +1,5 @@
 import type { H3Event } from 'h3';
-import type {
-  CartLineConfiguration,
-  OrderLineRead,
-} from '#shared/types/commerce';
+import type { CartLineConfiguration } from '#shared/types/commerce';
 import type {
   CommittedConfiguration,
   Configuration,
@@ -159,15 +156,6 @@ export interface ConfiguratorBackend {
     cartId: string,
     ctx: ConfiguratorContext,
   ): Promise<Map<string, CartLineConfiguration>>;
-  /**
-   * Each row of an order by its position in the order's rows: its product's
-   * type and what a configured row was committed with. The order itself is the
-   * portal's ordinary read.
-   */
-  orderLineConfigurations(
-    publicOrderId: string,
-    ctx: ConfiguratorContext,
-  ): Promise<Map<number, OrderLineRead>>;
   /**
    * The choices one order row was committed with, read only when a replay
    * starts; null when the row carries none.

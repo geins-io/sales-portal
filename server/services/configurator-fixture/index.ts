@@ -294,10 +294,6 @@ export function createFixtureConfiguratorBackend({
     },
 
     // An order placed from them is the platform's, which carries none.
-    async orderLineConfigurations() {
-      return new Map();
-    },
-
     async orderLineChoices() {
       return null;
     },

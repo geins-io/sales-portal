@@ -278,7 +278,6 @@ function makeOrder(overrides: Record<string, unknown> = {}) {
       },
       paymentDetails: [{ name: 'Invoice' }],
       shippingDetails: [{ name: 'Standard Delivery' }],
-      reorderable: true,
       ...overrides,
     },
   };
@@ -1192,17 +1191,6 @@ describe('OrderDetail', () => {
           ],
         ]);
       });
-    });
-
-    it.each([
-      ['the server could not read the rows', false],
-      ['the order does not say', undefined],
-    ])('offers no reorder when %s', (_case, reorderable) => {
-      const wrapper = mountOrder(makeOrder({ reorderable }));
-
-      expect(wrapper.find('[data-testid="reorder-button"]').exists()).toBe(
-        false,
-      );
     });
   });
 

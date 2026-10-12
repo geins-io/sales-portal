@@ -149,17 +149,6 @@ export interface CartLineConfiguration extends LineConfigurationSummary {
   configurationId: string;
 }
 
-/**
- * An order row as the configurator backend reads it: by position, with the
- * product it was read for, since an order row's id is the nil GUID. `type` is
- * for the server's configurable check and goes no further.
- */
-export interface OrderLineRead {
-  productId: number | null;
-  type: string | null;
-  configuration: LineConfigurationSummary | null;
-}
-
 /** The SDK's line, its configuration fields read into one. */
 export type CartItemType = Omit<
   SdkCartItemType,
@@ -452,14 +441,14 @@ export type OrderDetailItem = Omit<
   SdkCartItemType,
   'product' | 'configurationId' | 'configuration'
 > & {
-  product?: SdkCartItemType['product'] & { configurable?: true };
+  product?: Omit<NonNullable<SdkCartItemType['product']>, 'type'> & {
+    configurable?: true;
+  };
   configuration?: LineConfigurationSummary;
 };
 
 export type OrderDetailType = Omit<OrderSummaryType, 'cart'> & {
   cart?: Omit<SdkCartType, 'items'> & { items: OrderDetailItem[] };
-  /** False when the server could not tell which rows are configurable. */
-  reorderable: boolean;
 };
 
 // ---------------------------------------------------------------------------

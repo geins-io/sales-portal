@@ -1,8 +1,4 @@
-import type {
-  CartLineConfiguration,
-  OrderLineRead,
-  PriceType,
-} from '#shared/types/commerce';
+import type { CartLineConfiguration, PriceType } from '#shared/types/commerce';
 import type {
   CommittedConfiguration,
   Configuration,
@@ -21,11 +17,7 @@ import {
   VALUE_TYPES,
   valueOf,
 } from '../configuration-value';
-import {
-  cartLineConfiguration,
-  lineConfiguration,
-  summaryRows,
-} from '../line-configuration';
+import { cartLineConfiguration, summaryRows } from '../line-configuration';
 import type { OrderLineChoices } from '../configurator';
 import type {
   CommittedConfigurationOptionGroupType,
@@ -39,7 +31,6 @@ import type {
   ConfigurationType,
   ConfigurationVariableType,
   ConfiguredCartLinesType,
-  ConfiguredOrderLinesType,
 } from '@geins/types';
 
 // ---------------------------------------------------------------------------
@@ -276,27 +267,6 @@ export function mapCartLineConfigurations(
     const configuration = cartLineConfiguration(line);
     if (line.id && configuration) lines.set(line.id, configuration);
   }
-  return lines;
-}
-
-/**
- * The rows of an order by position, each with its product's type and, when
- * configured, its summary and sections. A null row keeps its place, so positions match the
- * order's own rows.
- */
-export function mapOrderLineConfigurations(
-  order: ConfiguredOrderLinesType,
-): Map<number, OrderLineRead> {
-  const lines = new Map<number, OrderLineRead>();
-  order.items.forEach((line, position) => {
-    if (!line) return;
-    lines.set(position, {
-      productId: line.product?.productId ?? null,
-      type: line.product?.type ?? null,
-      configuration:
-        line.configuration && lineConfiguration(line.configuration),
-    });
-  });
   return lines;
 }
 

@@ -42,7 +42,6 @@ export const backend: Record<
   reopen: vi.fn(),
   replaceLine: vi.fn(),
   cartLineConfigurations: vi.fn(),
-  orderLineConfigurations: vi.fn(),
   orderLineChoices: vi.fn(),
 };
 

@@ -171,19 +171,6 @@ describe('getConfiguratorBackend', () => {
     },
   );
 
-  it('answers no configured order rows on the fixture, without a request', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch');
-
-    const lines = await withBackend('fixture').orderLineConfigurations(
-      'order-1',
-      CTX,
-    );
-
-    expect(lines.size).toBe(0);
-    expect(fetchSpy).not.toHaveBeenCalled();
-    fetchSpy.mockRestore();
-  });
-
   it('answers no order-row choices on the fixture, whose orders carry none, without a request', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
 

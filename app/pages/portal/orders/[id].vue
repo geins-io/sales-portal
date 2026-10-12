@@ -31,7 +31,6 @@ const canReorder = computed(
   () =>
     canAccess('reorder') &&
     !isCatalogMode.value &&
-    order.value?.reorderable === true &&
     reorder.value.lines.length > 0,
 );
 

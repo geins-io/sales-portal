@@ -7,10 +7,8 @@ import type { H3Event } from 'h3';
 import type {
   OrderDetailItem,
   OrderDetailType,
-  OrderLineRead,
   OrderListItem,
 } from '#shared/types/commerce';
-import { logger } from '../utils/logger';
 import {
   getTenantSDK,
   buildRequestContext,
@@ -20,77 +18,42 @@ import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
 import { getCompany } from './company';
 import type { ConfigurableCandidate } from './configurator';
-import {
-  buildConfiguratorRequestContext,
-  configurableCheck,
-  getConfiguratorBackend,
-} from './configurator';
+import { configurableCheck } from './configurator';
+import { lineConfiguration } from './line-configuration';
 
 /**
- * Never throws. A failed read answers null, unlike a backend with nothing to
- * read (an empty map): the rows then render without a configuration, and the
- * order cannot say which of them are configurable.
+ * Puts each row's configurable flag and its configuration, as the buyer reads
+ * it, on the row. The product's type is for the configurable check and goes
+ * no further.
  */
-async function orderLineConfigurations(
-  publicOrderId: string,
-  event: H3Event,
-): Promise<Map<number, OrderLineRead> | null> {
-  try {
-    return await getConfiguratorBackend(event).orderLineConfigurations(
-      publicOrderId,
-      await buildConfiguratorRequestContext(event),
-    );
-  } catch {
-    logger.warn('[configurator] order line configurations unavailable');
-    return null;
-  }
-}
-
-/**
- * Puts each row's configuration and configurable flag on it, by position, and
- * only when that row is the product the line was read for: a wrong summary on
- * a row is worse than none. Without a read, or with a read that misses a row,
- * reorder cannot tell which rows to leave out, so the order is not
- * reorderable. A backend with nothing to read answers no rows at all.
- */
-export function withOrderLineConfigurations(
+export function toOrderDetail(
   order: OrderSummaryType,
-  lines: Map<number, OrderLineRead> | null,
   isConfigurable: (product: ConfigurableCandidate) => boolean,
 ): OrderDetailType {
   const { cart } = order;
-  let unmatched = false;
-  const toRow = (row: SdkCartItemType, position: number): OrderDetailItem => {
+  const toRow = (row: SdkCartItemType): OrderDetailItem => {
     if (!row) return row;
-    // An order read selects no configuration; the cpq read is the only one.
-    const { configurationId: _id, configuration: _none, ...item } = row;
-    if (!item.product || item.product.productId == null) return item;
-    const productId = String(item.product.productId);
-    const read = lines?.get(position);
-    const line =
-      read && String(read.productId) === productId ? read : undefined;
-    if (!line) unmatched = true;
-    const configurable = isConfigurable({
-      productId,
-      type: line?.type ?? null,
-    });
+    const { configurationId: _id, configuration, ...item } = row;
+    const detail: OrderDetailItem = configuration
+      ? { ...item, configuration: lineConfiguration(configuration) }
+      : item;
+    if (!item.product) return detail;
+    const { type, ...product } = item.product;
+    const configurable =
+      product.productId != null &&
+      isConfigurable({
+        productId: String(product.productId),
+        type: type ?? null,
+      });
     return {
-      ...item,
-      ...(configurable
-        ? { product: { ...item.product, configurable: true as const } }
-        : {}),
-      ...(line?.configuration ? { configuration: line.configuration } : {}),
+      ...detail,
+      product: configurable ? { ...product, configurable: true } : product,
     };
   };
   // A cart or its rows the SDK answered null for stay null.
-  const detail = cart && {
-    ...cart,
-    items: cart.items && cart.items.map(toRow),
-  };
   return {
     ...order,
-    reorderable: lines !== null && !(lines.size > 0 && unmatched),
-    cart: detail,
+    cart: cart && { ...cart, items: cart.items && cart.items.map(toRow) },
   };
 }
 
@@ -99,18 +62,12 @@ export async function getOrder(
   event: H3Event,
 ): Promise<OrderDetailType | undefined> {
   const { oms } = await getTenantSDK(event);
-  const requestContext = buildRequestContext(event);
-  const [order, lines] = await Promise.all([
-    wrapServiceCall(
-      () => oms.order.get(args, requestContext),
-      'order',
-      OrderError,
-    ),
-    orderLineConfigurations(args.publicOrderId, event),
-  ]);
-  return order
-    ? withOrderLineConfigurations(order, lines, configurableCheck(event))
-    : undefined;
+  const order = await wrapServiceCall(
+    () => oms.order.get(args, buildRequestContext(event)),
+    'order',
+    OrderError,
+  );
+  return order ? toOrderDetail(order, configurableCheck(event)) : undefined;
 }
 
 export async function listOrders(
