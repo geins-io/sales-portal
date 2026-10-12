@@ -225,7 +225,7 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
     value: amounts.value.shipping,
   },
   {
-    label: t('portal.orders.detail.summary.tax'),
+    label: t(showIncVat.value ? 'common.vat_included' : 'common.vat'),
     value: amounts.value.tax,
   },
   {
@@ -421,7 +421,7 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                       colspan="4"
                       class="text-muted-foreground px-4 py-3 text-right text-sm"
                     >
-                      {{ t('portal.orders.detail.summary.tax') }}
+                      {{ t(showIncVat ? 'common.vat_included' : 'common.vat') }}
                     </td>
                     <td class="px-4 py-3 text-right text-sm">
                       {{ amounts.tax }}
@@ -497,7 +497,7 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                 </div>
                 <div class="flex justify-between text-sm">
                   <span class="text-muted-foreground">{{
-                    t('portal.orders.detail.summary.tax')
+                    t(showIncVat ? 'common.vat_included' : 'common.vat')
                   }}</span>
                   <span data-testid="order-summary-tax">{{ amounts.tax }}</span>
                 </div>

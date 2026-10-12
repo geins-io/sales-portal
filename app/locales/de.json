@@ -26,7 +26,9 @@
     "vat_display": "MwSt.-Anzeige",
     "change_vat_display": "MwSt.-Anzeige ändern",
     "vat_incl": "Inkl. MwSt.",
-    "vat_excl": "Exkl. MwSt."
+    "vat_excl": "Exkl. MwSt.",
+    "vat": "MwSt.",
+    "vat_included": "Davon MwSt."
   },
   "auth": {
     "already_have_account": "Sie haben bereits ein Konto?",
@@ -109,7 +111,6 @@
     "quantity": "Menge",
     "subtotal": "Zwischensumme",
     "shipping": "Versand",
-    "tax_estimated": "Steuer (geschätzt)",
     "total": "Gesamt",
     "checkout": "Zur Kasse",
     "proceed_to_checkout": "Zur Kasse gehen",
@@ -157,7 +158,6 @@
     "mobile": "Mobil",
     "subtotal": "Zwischensumme",
     "shipping": "Versand",
-    "tax": "Steuer",
     "discount": "Rabatt",
     "total": "Gesamt",
     "free_shipping": "Kostenlos",
@@ -229,8 +229,6 @@
     "summary": "Zusammenfassung",
     "subtotal": "Zwischensumme",
     "shipping": "Versand",
-    "tax": "Steuer",
-    "vat": "MwSt.",
     "discount": "Rabatt",
     "total": "Gesamt",
     "billing_address": "Rechnungsadresse",
@@ -667,7 +665,6 @@
           "title": "Bestellübersicht",
           "subtotal_with_count": "Zwischensumme ({count} Artikel)",
           "shipping": "Versand",
-          "tax": "Steuer (geschätzt)",
           "total": "Gesamt"
         },
         "additional_info": {
@@ -871,7 +868,6 @@
       "subtotal": "Zwischensumme",
       "subtotal_with_count": "Zwischensumme ({count} Artikel)",
       "shipping": "Versand",
-      "tax": "Steuer",
       "grand_total": "Gesamt",
       "accept": "Annehmen und bestellen",
       "decline": "Angebot ablehnen",

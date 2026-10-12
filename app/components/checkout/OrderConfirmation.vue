@@ -347,7 +347,7 @@ function lineTotal(row: { quantity?: number; price?: SummaryRowPrice }) {
               </div>
               <div class="flex items-center justify-between text-sm">
                 <span class="text-muted-foreground">{{
-                  t('order_confirmation.vat')
+                  t(showIncVat ? 'common.vat_included' : 'common.vat')
                 }}</span>
                 <span data-testid="summary-vat">
                   {{

@@ -170,6 +170,35 @@ describe('CheckoutOrderSummary', () => {
     expect(wrapper.text()).toContain('549,00 kr');
   });
 
+  it.each([
+    [true, 'common.vat_included'],
+    [false, 'common.vat'],
+  ])(
+    'labels the VAT row by the chosen side (incl. VAT: %s)',
+    (incVat, label) => {
+      mockShowIncVat.value = incVat;
+      const wrapper = mountComponent(CheckoutOrderSummary, {
+        props: {
+          itemCount: 3,
+          subtotal: '500,00 kr',
+          shippingFee: '49,00 kr',
+          tax: '109,80 kr',
+          total: '549,00 kr',
+          canPlaceOrder: true,
+          isPlacingOrder: false,
+          termsAccepted: false,
+        },
+        global: { stubs },
+      });
+      const tax = wrapper.find('[data-testid="checkout-summary-tax"]');
+
+      expect(tax.text()).toBe('109,80 kr');
+      expect(tax.element.previousElementSibling?.textContent?.trim()).toBe(
+        label,
+      );
+    },
+  );
+
   it('shows discount line when discount is provided', () => {
     const wrapper = mountComponent(CheckoutOrderSummary, {
       props: {

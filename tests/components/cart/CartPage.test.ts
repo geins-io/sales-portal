@@ -654,6 +654,31 @@ describe('CartPage', () => {
       },
     );
 
+    it.each([
+      [true, 'common.vat_included'],
+      [false, 'common.vat'],
+    ])(
+      'labels the VAT row by the chosen side (incl. VAT: %s)',
+      (incVat, label) => {
+        mockShowIncVat.value = incVat;
+        const tax = byId(
+          mountPage({
+            ...mockCart,
+            summary: {
+              ...mockCart.summary,
+              total: { ...mockCart.summary!.total, vatFormatted: '$17.23' },
+            },
+          } as CartType),
+          'cart-summary-tax',
+        );
+
+        expect(tax.text()).toBe('$17.23');
+        expect(tax.element.previousElementSibling?.textContent?.trim()).toBe(
+          label,
+        );
+      },
+    );
+
     it('says nothing of VAT where prices are hidden', () => {
       mockShowPrice.value = false;
       try {

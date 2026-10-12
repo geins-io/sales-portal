@@ -5,6 +5,7 @@ import { Button } from '~/components/ui/button';
 
 const { t } = useI18n();
 const { showPrice } = usePriceVisibility();
+const { showIncVat } = useVatDisplay();
 
 const props = defineProps<{
   itemCount: number;
@@ -72,7 +73,7 @@ const emit = defineEmits<{
       <!-- Tax -->
       <div class="flex items-center justify-between text-sm">
         <span class="text-muted-foreground">
-          {{ t('checkout.tax') }}
+          {{ t(showIncVat ? 'common.vat_included' : 'common.vat') }}
         </span>
         <span data-testid="checkout-summary-tax">
           {{ props.tax }}

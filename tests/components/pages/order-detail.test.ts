@@ -970,6 +970,30 @@ describe('OrderDetail', () => {
       };
     }
 
+    it.each([
+      [true, 'common.vat_included'],
+      [false, 'common.vat'],
+    ])(
+      'labels the VAT row by the chosen side on the card, the table and the sheet (incl. VAT: %s)',
+      (incVat, label) => {
+        mockShowIncVat.value = incVat;
+        const wrapper = mountDefault();
+        const tax = wrapper.find('[data-testid="order-summary-tax"]');
+        const footerLabels = wrapper.findAll('tfoot td').map((td) => td.text());
+        const sheet = wrapper.findComponent({ name: 'PortalItemRowsSheet' });
+        const sheetLabels = (sheet.props('totals') as { label: string }[]).map(
+          (row) => row.label,
+        );
+
+        expect(tax.element.previousElementSibling?.textContent?.trim()).toBe(
+          label,
+        );
+        expect(footerLabels).toContain(label);
+        expect(sheetLabels).toContain(label);
+        expect(wrapper.text()).not.toContain('summary.tax');
+      },
+    );
+
     it('shows every amount inc VAT when inc is chosen', () => {
       mockShowIncVat.value = true;
       const wrapper = mountDefault();

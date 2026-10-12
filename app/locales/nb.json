@@ -26,7 +26,9 @@
     "vat_display": "Mva.",
     "change_vat_display": "Endre mva.-visning",
     "vat_incl": "Inkl. mva.",
-    "vat_excl": "Ekskl. mva."
+    "vat_excl": "Ekskl. mva.",
+    "vat": "Mva.",
+    "vat_included": "Herav mva."
   },
   "auth": {
     "already_have_account": "Har du allerede en konto?",
@@ -109,7 +111,6 @@
     "quantity": "Antall",
     "subtotal": "Delsum",
     "shipping": "Frakt",
-    "tax_estimated": "Mva. (beregnet)",
     "total": "Totalt",
     "checkout": "Gå til kassen",
     "proceed_to_checkout": "Gå til kassen",
@@ -157,7 +158,6 @@
     "mobile": "Mobil",
     "subtotal": "Delsum",
     "shipping": "Frakt",
-    "tax": "Mva.",
     "discount": "Rabatt",
     "total": "Totalt",
     "free_shipping": "Gratis",
@@ -229,8 +229,6 @@
     "summary": "Sammendrag",
     "subtotal": "Delsum",
     "shipping": "Frakt",
-    "tax": "Mva.",
-    "vat": "Mva.",
     "discount": "Rabatt",
     "total": "Totalt",
     "billing_address": "Fakturaadresse",
@@ -667,7 +665,6 @@
           "title": "Ordresammendrag",
           "subtotal_with_count": "Delsum ({count} varer)",
           "shipping": "Frakt",
-          "tax": "Mva. (beregnet)",
           "total": "Totalt"
         },
         "additional_info": {
@@ -871,7 +868,6 @@
       "subtotal": "Delsum",
       "subtotal_with_count": "Delsum ({count} varer)",
       "shipping": "Frakt",
-      "tax": "Mva.",
       "grand_total": "Totalt",
       "accept": "Godta og legg inn ordre",
       "decline": "Avslå tilbud",

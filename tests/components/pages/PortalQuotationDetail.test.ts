@@ -530,6 +530,28 @@ describe('PortalQuotationDetail', () => {
       };
     }
 
+    it.each([
+      [true, 'common.vat_included'],
+      [false, 'common.vat'],
+    ])(
+      'labels the VAT row by the chosen side on the card and the sheet (incl. VAT: %s)',
+      async (incVat, label) => {
+        mockShowIncVat.value = incVat;
+        mockData.value = { quote: shipped() };
+        const { wrapper } = await mountDetailPage();
+        const tax = wrapper.find('[data-testid="quote-summary-tax"]');
+        const sheet = wrapper.findComponent({ name: 'PortalItemRowsSheet' });
+        const sheetLabels = (sheet.props('totals') as { label: string }[]).map(
+          (row) => row.label,
+        );
+
+        expect(tax.element.previousElementSibling?.textContent?.trim()).toBe(
+          label,
+        );
+        expect(sheetLabels).toContain(label);
+      },
+    );
+
     it('shows every amount inc VAT when inc is chosen', async () => {
       mockShowIncVat.value = true;
       expect(await read()).toEqual({

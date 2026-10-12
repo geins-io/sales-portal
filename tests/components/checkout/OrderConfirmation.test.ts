@@ -346,6 +346,21 @@ describe('OrderConfirmation', () => {
       expect(total).not.toContain('$300.00');
     });
 
+    it.each([
+      [true, 'common.vat_included'],
+      [false, 'common.vat'],
+    ])(
+      'labels the VAT row by the chosen side (incl. VAT: %s)',
+      (incVat, label) => {
+        mockShowIncVat.value = incVat;
+        const vat = mountConfirmation().find('[data-testid="summary-vat"]');
+
+        expect(vat.element.previousElementSibling?.textContent?.trim()).toBe(
+          label,
+        );
+      },
+    );
+
     it('keeps the VAT row the same in both modes', () => {
       mockShowIncVat.value = true;
       const inc = mountConfirmation()

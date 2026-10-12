@@ -889,6 +889,22 @@ describe('CartDrawer', () => {
       expect(byId(wrapper, 'cart-summary-tax').text()).toBe('100 kr');
     });
 
+    it.each([
+      [true, 'common.vat_included'],
+      [false, 'common.vat'],
+    ])(
+      'labels the VAT row by the chosen side (incl. VAT: %s)',
+      (incVat, label) => {
+        mockShowIncVat.value = incVat;
+        const tax = byId(mountDrawer(), 'cart-summary-tax');
+
+        expect(tax.text()).toBe('100 kr');
+        expect(tax.element.previousElementSibling?.textContent?.trim()).toBe(
+          label,
+        );
+      },
+    );
+
     it('leaves out shipping and VAT when the cart has none', () => {
       const wrapper = mountDrawer(
         cartWith({

@@ -133,7 +133,10 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
       value: amounts.value.shipping,
     });
   }
-  rows.push({ label: t('portal.quotations.tax'), value: q?.taxFormatted });
+  rows.push({
+    label: t(showIncVat.value ? 'common.vat_included' : 'common.vat'),
+    value: q?.taxFormatted,
+  });
   rows.push({
     label: t('portal.quotations.grand_total'),
     value: amounts.value.total,
@@ -309,7 +312,7 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
                 </div>
                 <div class="flex justify-between text-sm">
                   <span class="text-muted-foreground">{{
-                    t('portal.quotations.tax')
+                    t(showIncVat ? 'common.vat_included' : 'common.vat')
                   }}</span>
                   <span data-testid="quote-summary-tax">{{
                     quote.taxFormatted

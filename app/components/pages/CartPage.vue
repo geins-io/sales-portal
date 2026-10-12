@@ -205,7 +205,7 @@ function goToCheckout() {
                   class="flex items-center justify-between"
                 >
                   <dt class="text-muted-foreground">
-                    {{ $t('cart.tax_estimated') }}
+                    {{ $t(showIncVat ? 'common.vat_included' : 'common.vat') }}
                   </dt>
                   <dd data-testid="cart-summary-tax">{{ taxFormatted }}</dd>
                 </div>
