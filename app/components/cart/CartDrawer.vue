@@ -27,14 +27,14 @@ const isOpen = computed({
   },
 });
 
-// Summary price computeds: pick incl-VAT or excl-VAT based on user preference.
-// sellingPriceExVatFormatted is optional on PriceType, so fall back to IncVat when absent.
+// Summary amounts on the side of the buyer's VAT choice; a missing one stays
+// empty rather than showing the other side.
 const subTotalFormatted = computed(() => {
   const s = cartStore.cart?.summary?.subTotal;
   return (
     (showIncVat.value
       ? s?.sellingPriceIncVatFormatted
-      : (s?.sellingPriceExVatFormatted ?? s?.sellingPriceIncVatFormatted)) ?? ''
+      : s?.sellingPriceExVatFormatted) ?? ''
   );
 });
 
@@ -43,8 +43,16 @@ const totalFormatted = computed(() => {
   return (
     (showIncVat.value
       ? t?.sellingPriceIncVatFormatted
-      : (t?.sellingPriceExVatFormatted ?? t?.sellingPriceIncVatFormatted)) ?? ''
+      : t?.sellingPriceExVatFormatted) ?? ''
   );
+});
+
+// What is charged, under an ex-VAT total; never a 0.
+const toPayIncVat = computed(() => {
+  const t = cartStore.cart?.summary?.total;
+  return !showIncVat.value && (t?.sellingPriceIncVat ?? 0) > 0
+    ? t?.sellingPriceIncVatFormatted || ''
+    : '';
 });
 
 // The fee in the buyer's VAT choice, or null before the cart has one.
@@ -237,6 +245,14 @@ function goToCheckout() {
                 <dd class="tabular-nums" data-testid="cart-summary-total">
                   {{ totalFormatted }}
                 </dd>
+              </div>
+              <div
+                v-if="toPayIncVat"
+                class="text-muted-foreground mt-1 flex items-baseline justify-between"
+                data-testid="cart-summary-to-pay"
+              >
+                <dt>{{ $t('common.to_pay_inc_vat') }}</dt>
+                <dd class="tabular-nums">{{ toPayIncVat }}</dd>
               </div>
             </div>
           </dl>

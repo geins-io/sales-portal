@@ -530,6 +530,86 @@ describe('CartPage', () => {
       const total = wrapper.find('[data-testid="cart-summary-total"]');
       expect(total.text()).toBe('$190.38');
     });
+
+    function mountWithTotals(
+      subTotal: Record<string, unknown>,
+      total: Record<string, unknown>,
+    ) {
+      useCartStore().cart = {
+        ...mockCart,
+        summary: { ...mockCart.summary, subTotal, total },
+      } as unknown as CartType;
+      return shallowMountComponent(CartPage, {
+        global: { stubs: defaultStubs },
+      });
+    }
+
+    it('shows no subtotal or total, not the inc amounts, when the ex amounts are missing', () => {
+      mockShowIncVat.value = false;
+      const wrapper = mountWithTotals(
+        { sellingPriceIncVat: 229.97, sellingPriceIncVatFormatted: '$229.97' },
+        { sellingPriceIncVat: 237.97, sellingPriceIncVatFormatted: '$237.97' },
+      );
+
+      expect(wrapper.find('[data-testid="cart-summary-subtotal"]').text()).toBe(
+        '',
+      );
+      expect(wrapper.find('[data-testid="cart-summary-total"]').text()).toBe(
+        '',
+      );
+    });
+
+    describe('the amount to pay incl. VAT', () => {
+      it('shows the inc-VAT total under the total on the ex side', () => {
+        mockShowIncVat.value = false;
+        useCartStore().cart = mockCart;
+        const wrapper = shallowMountComponent(CartPage, {
+          global: { stubs: defaultStubs },
+        });
+        const line = wrapper.find('[data-testid="cart-summary-to-pay"]');
+
+        expect(line.text()).toContain('common.to_pay_inc_vat');
+        expect(line.text()).toContain('$237.97');
+        expect(
+          wrapper
+            .find('[data-testid="cart-summary-total"]')
+            .element.compareDocumentPosition(line.element) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+      });
+
+      it('shows no line on the inc side, where the total already is it', () => {
+        mockShowIncVat.value = true;
+        useCartStore().cart = mockCart;
+        const wrapper = shallowMountComponent(CartPage, {
+          global: { stubs: defaultStubs },
+        });
+
+        expect(
+          wrapper.find('[data-testid="cart-summary-to-pay"]').exists(),
+        ).toBe(false);
+      });
+
+      it.each([
+        [0, '$0.00'],
+        [undefined, undefined],
+      ])(
+        'shows no line on the ex side when the inc total is %s',
+        (sellingPriceIncVat, sellingPriceIncVatFormatted) => {
+          mockShowIncVat.value = false;
+          const wrapper = mountWithTotals(mockCart.summary!.subTotal!, {
+            sellingPriceExVat: 190.38,
+            sellingPriceExVatFormatted: '$190.38',
+            sellingPriceIncVat,
+            sellingPriceIncVatFormatted,
+          });
+
+          expect(
+            wrapper.find('[data-testid="cart-summary-to-pay"]').exists(),
+          ).toBe(false);
+        },
+      );
+    });
   });
 
   describe('discount line', () => {
