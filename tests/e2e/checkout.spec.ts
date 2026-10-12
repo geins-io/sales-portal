@@ -117,22 +117,14 @@ test.describe('Checkout summary', () => {
 
   /**
    * Shipping has no number before an option is selected: `/api/cart` sends an
-   * empty fee string and the summary leaves the cell empty by design, so
-   * nothing on the last screen reads as a fee that was never quoted.
-   *
-   * The cell is asserted as present-and-numberless rather than visible: an
-   * element with no content has no box, which Playwright reports as hidden.
-   * The summary's other numbers are read on the same page, so this absence is
-   * never the whole of what the test saw.
+   * empty fee string and the summary says shipping may apply, so nothing on
+   * the last screen reads as a fee that was never quoted.
    */
   async function expectShippingMatches(cell: Locator, feeFormatted: string) {
     if (feeFormatted === '') {
-      await expect(cell).toHaveCount(1);
-      const text = ((await cell.textContent()) ?? '').trim();
-      expect(
-        /\d/.test(text),
-        `the API sent no shipping fee, so the cell must not show a number: ${JSON.stringify(text)}`,
-      ).toBe(false);
+      await expect(cell).toHaveText(
+        await localeText(cell.page(), 'common.shipping_may_apply'),
+      );
       return;
     }
 
@@ -218,6 +210,20 @@ test.describe('Checkout summary', () => {
       if (unitExpected !== unitOther) {
         expect(unitPrice).not.toBeCloseTo(unitOther, 2);
       }
+
+      // The side is named once, under the heading, and on no line.
+      await expect(
+        page.locator('[data-testid="checkout-vat-note"]'),
+      ).toHaveText(
+        await localeText(
+          page,
+          inc ? 'cart.prices_inc_vat' : 'cart.prices_ex_vat',
+        ),
+      );
+      const lineText = await item.innerText();
+      for (const key of ['common.vat_excl', 'common.vat_incl']) {
+        expect(lineText).not.toContain(await localeText(page, key));
+      }
     });
 
     test(`the cart and the checkout show the same ${side}-VAT total`, async ({
@@ -265,6 +271,36 @@ test.describe('Checkout summary', () => {
     if (cart.vat > 0) {
       expect(incTotal).not.toBeCloseTo(sideOf(cart, 'ex').total, 2);
     }
+  });
+
+  test('on the ex side, the amount to pay is the inc-VAT total /api/cart reports', async ({
+    page,
+  }) => {
+    const cart = await openCheckout(page, 'ex');
+    const toPay = page.locator('[data-testid="checkout-summary-to-pay"]');
+
+    await expect(toPay).toContainText(
+      await localeText(page, 'common.to_pay_inc_vat'),
+    );
+    expect(await readPrice(toPay.locator('span').last())).toBeCloseTo(
+      cart.totalIncVat,
+      2,
+    );
+    if (cart.vat > 0) {
+      expect(
+        await readPrice(page.locator('[data-testid="checkout-summary-total"]')),
+      ).not.toBeCloseTo(cart.totalIncVat, 2);
+    }
+  });
+
+  test('on the inc side, there is no separate amount to pay', async ({
+    page,
+  }) => {
+    await openCheckout(page, 'inc');
+
+    await expect(
+      page.locator('[data-testid="checkout-summary-to-pay"]'),
+    ).toHaveCount(0);
   });
 
   test('removing the last line switches the page to the empty-cart state', async ({

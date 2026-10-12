@@ -399,7 +399,8 @@ test.describe('Cart values', () => {
 
   /**
    * Shipping has no number before checkout: `/api/cart` sends an empty fee
-   * string until an option is selected, and both surfaces then drop the row.
+   * string until an option is selected, and both surfaces then say it may
+   * apply.
    */
   async function expectShippingMatches(
     page: Page,
@@ -407,7 +408,9 @@ test.describe('Cart values', () => {
     feeFormatted: string,
   ) {
     if (feeFormatted === '') {
-      await expect(cell).toHaveCount(0);
+      await expect(cell).toHaveText(
+        await localeText(page, 'common.shipping_may_apply'),
+      );
       return;
     }
 

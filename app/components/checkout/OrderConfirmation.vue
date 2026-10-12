@@ -92,6 +92,13 @@ const totalFormatted = computed(
       : props.summary?.total?.orderValueExVatFormatted) ?? '',
 );
 
+// What is charged, under an ex-VAT total; never a 0.
+const toPayFormatted = computed(() =>
+  !showIncVat.value && (props.summary?.total?.sum ?? 0) > 0
+    ? props.summary?.total?.sumFormatted || ''
+    : '',
+);
+
 function formatAddressLines(address: AddressType | undefined | null): string[] {
   if (!address) return [];
   const lines: string[] = [];
@@ -378,6 +385,14 @@ function lineTotal(row: { quantity?: number; price?: SummaryRowPrice }) {
                 >
                   <span>{{ t('order_confirmation.total') }}</span>
                   <span>{{ totalFormatted }}</span>
+                </div>
+                <div
+                  v-if="toPayFormatted"
+                  class="text-muted-foreground mt-1 flex items-center justify-between text-sm"
+                  data-testid="summary-to-pay"
+                >
+                  <span>{{ t('common.to_pay_inc_vat') }}</span>
+                  <span>{{ toPayFormatted }}</span>
                 </div>
               </div>
             </div>

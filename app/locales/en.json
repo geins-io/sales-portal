@@ -28,7 +28,9 @@
     "vat_incl": "Incl. VAT",
     "vat_excl": "Excl. VAT",
     "vat": "VAT",
-    "vat_included": "Includes VAT"
+    "vat_included": "Includes VAT",
+    "to_pay_inc_vat": "To pay incl. VAT",
+    "shipping_may_apply": "May apply"
   },
   "auth": {
     "already_have_account": "Already have an account?",

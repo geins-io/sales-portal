@@ -25,5 +25,6 @@ defineProps<{
         <slot name="action" />
       </div>
     </div>
+    <slot />
   </CardHeader>
 </template>

@@ -28,7 +28,9 @@
     "vat_incl": "Inkl. mva.",
     "vat_excl": "Ekskl. mva.",
     "vat": "Mva.",
-    "vat_included": "Herav mva."
+    "vat_included": "Herav mva.",
+    "to_pay_inc_vat": "Å betale inkl. mva.",
+    "shipping_may_apply": "Kan tilkomme"
   },
   "auth": {
     "already_have_account": "Har du allerede en konto?",

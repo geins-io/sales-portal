@@ -361,6 +361,49 @@ describe('OrderConfirmation', () => {
       },
     );
 
+    it('shows the amount charged incl. VAT under the total on the ex side', () => {
+      mockShowIncVat.value = false;
+      const wrapper = mountConfirmation();
+      const line = wrapper.find('[data-testid="summary-to-pay"]');
+
+      expect(line.text()).toContain('common.to_pay_inc_vat');
+      expect(line.text()).toContain('$300.00');
+      expect(
+        wrapper
+          .find('[data-testid="summary-total"]')
+          .element.compareDocumentPosition(line.element) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it('shows no extra line on the inc side', () => {
+      mockShowIncVat.value = true;
+
+      expect(
+        mountConfirmation().find('[data-testid="summary-to-pay"]').exists(),
+      ).toBe(false);
+    });
+
+    it.each([
+      [0, '$0.00'],
+      [undefined, undefined],
+    ])(
+      'shows no line on the ex side when the amount charged is %s',
+      (sum, sumFormatted) => {
+        mockShowIncVat.value = false;
+        const wrapper = mountConfirmation({
+          summary: {
+            ...mockSummary,
+            total: { ...mockSummary.total, sum, sumFormatted },
+          },
+        });
+
+        expect(wrapper.find('[data-testid="summary-to-pay"]').exists()).toBe(
+          false,
+        );
+      },
+    );
+
     it('keeps the VAT row the same in both modes', () => {
       mockShowIncVat.value = true;
       const inc = mountConfirmation()

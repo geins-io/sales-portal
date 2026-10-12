@@ -28,7 +28,9 @@
     "vat_incl": "Sis. ALV",
     "vat_excl": "Ei sis. ALV",
     "vat": "ALV",
-    "vat_included": "Josta ALV"
+    "vat_included": "Josta ALV",
+    "to_pay_inc_vat": "Maksettava sis. ALV",
+    "shipping_may_apply": "Voi tulla lisäksi"
   },
   "auth": {
     "already_have_account": "Onko sinulla jo tili?",

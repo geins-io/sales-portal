@@ -47,7 +47,7 @@ const totalFormatted = computed(() => {
   );
 });
 
-// The row shows once the cart has a fee, in the buyer's VAT choice.
+// The fee in the buyer's VAT choice, or null before the cart has one.
 const shippingFee = computed(() => {
   const shipping = cartStore.cart?.summary?.shipping;
   if (!shipping?.feeIncVatFormatted) return null;
@@ -198,11 +198,16 @@ function goToCheckout() {
                 -{{ discountFormatted }}
               </dd>
             </div>
-            <div v-if="shippingFee" class="flex items-center justify-between">
+            <div class="flex items-center justify-between">
               <dt class="text-muted-foreground">
                 {{ $t('cart.shipping') }}
               </dt>
-              <dd data-testid="cart-summary-shipping">{{ shippingFee }}</dd>
+              <dd data-testid="cart-summary-shipping">
+                <template v-if="shippingFee">{{ shippingFee }}</template>
+                <span v-else class="text-muted-foreground">{{
+                  $t('common.shipping_may_apply')
+                }}</span>
+              </dd>
             </div>
             <div v-if="taxFormatted" class="flex items-center justify-between">
               <dt class="text-muted-foreground">

@@ -282,7 +282,7 @@ const stubs = {
     // button. Auto-accept on mount mirrors a buyer who ticked it, clearing the
     // page's place-order gate (acceptedTerms) the same way the real flow does.
     template:
-      '<div data-testid="checkout-order-summary" :data-can-place-order="String(canPlaceOrder)" :data-subtotal="subtotal" :data-shipping-fee="shippingFee" :data-tax="tax" :data-total="total" :data-discount="discount"><button data-testid="place-order-button" @click="$emit(\'placeOrder\')" /></div>',
+      '<div data-testid="checkout-order-summary" :data-can-place-order="String(canPlaceOrder)" :data-subtotal="subtotal" :data-shipping-fee="shippingFee" :data-tax="tax" :data-total="total" :data-discount="discount" :data-to-pay="toPayIncVat"><button data-testid="place-order-button" @click="$emit(\'placeOrder\')" /></div>',
     props: [
       'itemCount',
       'subtotal',
@@ -290,6 +290,7 @@ const stubs = {
       'tax',
       'total',
       'discount',
+      'toPayIncVat',
       'canPlaceOrder',
       'isPlacingOrder',
       'termsAccepted',
@@ -818,6 +819,42 @@ describe('checkout page', () => {
       expect(attrs['data-discount']).toMatch(/20/);
       expect(attrs['data-discount']).not.toMatch(/25/);
     });
+
+    it.each([true, false])(
+      'hands the summary the inc-VAT total to pay (incl. VAT chosen: %s)',
+      async (incVat) => {
+        mockShowIncVat.value = incVat;
+        const cart = cartWithSummary();
+        Object.assign(cart.summary.total, { sellingPriceIncVat: 312.5 });
+        mockCartStore.cart = cart;
+        mockCartStore.itemCount = 1;
+        const wrapper = await mountCheckoutPage();
+
+        expect(
+          wrapper
+            .find('[data-testid="checkout-order-summary"]')
+            .attributes('data-to-pay'),
+        ).toBe('312,50 kr');
+      },
+    );
+
+    it.each([0, undefined])(
+      'hands the summary no amount to pay when the inc total is %s',
+      async (sellingPriceIncVat) => {
+        mockShowIncVat.value = false;
+        const cart = cartWithSummary();
+        Object.assign(cart.summary.total, { sellingPriceIncVat });
+        mockCartStore.cart = cart;
+        mockCartStore.itemCount = 1;
+        const wrapper = await mountCheckoutPage();
+
+        expect(
+          wrapper
+            .find('[data-testid="checkout-order-summary"]')
+            .attributes('data-to-pay'),
+        ).toBeUndefined();
+      },
+    );
 
     it('shows nothing rather than the inc amount when an ex amount is missing', async () => {
       mockShowIncVat.value = false;

@@ -316,7 +316,7 @@ describe('CartPage', () => {
     expect(shipping.text()).toBe('$8.00');
   });
 
-  it('leaves out shipping when the cart has no fee, as the panel does', () => {
+  it('says shipping may apply when the cart has no fee, as the panel does', () => {
     const store = useCartStore();
     store.cart = {
       ...mockCart,
@@ -330,9 +330,9 @@ describe('CartPage', () => {
       global: { stubs: defaultStubs },
     });
 
-    expect(wrapper.find('[data-testid="cart-summary-shipping"]').exists()).toBe(
-      false,
-    );
+    const shipping = wrapper.find('[data-testid="cart-summary-shipping"]');
+    expect(shipping.text()).toBe('common.shipping_may_apply');
+    expect(shipping.find('.text-muted-foreground').exists()).toBe(true);
     expect(wrapper.text()).not.toContain('cart.calculated_at_checkout');
   });
 

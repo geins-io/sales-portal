@@ -905,7 +905,7 @@ describe('CartDrawer', () => {
       },
     );
 
-    it('leaves out shipping and VAT when the cart has none', () => {
+    it('says shipping may apply and leaves out VAT when the cart has neither', () => {
       const wrapper = mountDrawer(
         cartWith({
           total: { sellingPriceIncVatFormatted: '500 kr' },
@@ -913,7 +913,9 @@ describe('CartDrawer', () => {
         }),
       );
 
-      expect(byId(wrapper, 'cart-summary-shipping').exists()).toBe(false);
+      const shipping = byId(wrapper, 'cart-summary-shipping');
+      expect(shipping.text()).toBe('common.shipping_may_apply');
+      expect(shipping.find('.text-muted-foreground').exists()).toBe(true);
       expect(byId(wrapper, 'cart-summary-tax').exists()).toBe(false);
     });
 
@@ -966,7 +968,7 @@ describe('CartDrawer', () => {
         );
       });
 
-      it('leaves shipping out in either choice when the cart has no fee yet', () => {
+      it('says shipping may apply in either choice when the cart has no fee yet', () => {
         mockShowIncVat.value = false;
         const wrapper = mountDrawer(
           cartWith({
@@ -979,7 +981,9 @@ describe('CartDrawer', () => {
           }),
         );
 
-        expect(byId(wrapper, 'cart-summary-shipping').exists()).toBe(false);
+        expect(byId(wrapper, 'cart-summary-shipping').text()).toBe(
+          'common.shipping_may_apply',
+        );
       });
     });
 

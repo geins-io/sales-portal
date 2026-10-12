@@ -147,6 +147,12 @@ const total = computed(
       ? cartSummary.value?.total?.sellingPriceIncVatFormatted
       : cartSummary.value?.total?.sellingPriceExVatFormatted) ?? '',
 );
+// The charge is inc VAT whichever side the buyer reads; never a 0.
+const toPayIncVat = computed(() =>
+  (cartSummary.value?.total?.sellingPriceIncVat ?? 0) > 0
+    ? cartSummary.value?.total?.sellingPriceIncVatFormatted || undefined
+    : undefined,
+);
 const discountFormatted = computed(() => {
   const amount = showIncVat.value
     ? cartSummary.value?.fixedAmountDiscountIncVat
@@ -508,6 +514,7 @@ async function handlePlaceOrder() {
                 :tax="tax"
                 :total="total"
                 :discount="discountFormatted || undefined"
+                :to-pay-inc-vat="toPayIncVat"
                 :can-place-order="
                   checkoutStore.canPlaceOrder &&
                   !checkoutStore.isBlacklisted &&

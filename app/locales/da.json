@@ -28,7 +28,9 @@
     "vat_incl": "Inkl. moms",
     "vat_excl": "Ekskl. moms",
     "vat": "Moms",
-    "vat_included": "Heraf moms"
+    "vat_included": "Heraf moms",
+    "to_pay_inc_vat": "At betale inkl. moms",
+    "shipping_may_apply": "Kan tilkomme"
   },
   "auth": {
     "already_have_account": "Har du allerede en konto?",

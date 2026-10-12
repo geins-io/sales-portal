@@ -8,6 +8,8 @@ import { useCartStore } from '~/stores/cart';
 
 const { t } = useI18n();
 const cartStore = useCartStore();
+const { showIncVat } = useVatDisplay();
+const { showPrice } = usePriceVisibility();
 
 const props = withDefaults(
   defineProps<{
@@ -59,10 +61,15 @@ function handleRemove(item: CartItemType) {
     data-testid="checkout-cart-items"
     class="gap-0"
   >
-    <CheckoutCardHeader
-      :icon="ShoppingCart"
-      :title="t('checkout.cart_items')"
-    />
+    <CheckoutCardHeader :icon="ShoppingCart" :title="t('checkout.cart_items')">
+      <p
+        v-if="showPrice"
+        class="text-muted-foreground text-sm"
+        data-testid="checkout-vat-note"
+      >
+        {{ showIncVat ? t('cart.prices_inc_vat') : t('cart.prices_ex_vat') }}
+      </p>
+    </CheckoutCardHeader>
     <CardContent class="px-6">
       <div class="divide-border divide-y">
         <div
@@ -173,6 +180,7 @@ function handleRemove(item: CartItemType) {
               v-if="item.totalPrice"
               :price="item.totalPrice"
               :quantity="item.quantity"
+              :vat-label="false"
               testid="checkout-line-total"
               class="text-base font-semibold"
             />
@@ -183,6 +191,7 @@ function handleRemove(item: CartItemType) {
             >
               <PriceDisplay
                 :price="item.unitPrice"
+                :vat-label="false"
                 class="inline text-sm [&_span]:font-normal"
               />
               {{ t('checkout.per_unit') }}

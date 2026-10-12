@@ -28,7 +28,9 @@
     "vat_incl": "Inkl. moms",
     "vat_excl": "Exkl. moms",
     "vat": "Moms",
-    "vat_included": "Varav moms"
+    "vat_included": "Varav moms",
+    "to_pay_inc_vat": "Att betala inkl. moms",
+    "shipping_may_apply": "Kan tillkomma"
   },
   "auth": {
     "already_have_account": "Har du redan ett konto?",

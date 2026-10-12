@@ -28,7 +28,9 @@
     "vat_incl": "Inkl. MwSt.",
     "vat_excl": "Exkl. MwSt.",
     "vat": "MwSt.",
-    "vat_included": "Davon MwSt."
+    "vat_included": "Davon MwSt.",
+    "to_pay_inc_vat": "Zu zahlen inkl. MwSt.",
+    "shipping_may_apply": "Kann anfallen"
   },
   "auth": {
     "already_have_account": "Sie haben bereits ein Konto?",
