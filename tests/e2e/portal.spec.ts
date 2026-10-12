@@ -1312,10 +1312,10 @@ test.describe('Portal bulk adds that leave a configurable product out', () => {
     quantity: number;
   }
 
-  // Only a backend that reads order rows from the platform can mark a row
-  // configured; the fixture (CI) reads none, so no order there holds one.
+  // A row carries its configuration only when the platform committed one; a
+  // line the fixture (CI) configured is a plain line, so no order there holds one.
   const NO_CONFIGURED_ORDER =
-    "no order of the test account holds a configured row next to an ordinary one (the target's configurator backend reads no configured order rows)";
+    'no order of the test account holds a configured row next to an ordinary one (an order placed through the fixture carries no configuration)';
 
   const ONE_SKIPPED =
     '1 produkt kräver konfiguration och lades inte i varukorgen';
@@ -1349,10 +1349,7 @@ test.describe('Portal bulk adds that leave a configurable product out', () => {
       const rows: DetailRow[] = (order?.cart?.items ?? []).filter(
         (row: DetailRow | null) => row?.skuId,
       );
-      // `!== false`: an order the server could not read hides "Beställ
-      // igen" by design, so it cannot serve.
       if (
-        order?.reorderable !== false &&
         rows.some((row) => !!row.configuration) &&
         rows.some((row) => !isLeftOut(row) && row.product?.alias)
       ) {
