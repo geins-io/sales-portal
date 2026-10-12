@@ -220,6 +220,13 @@ test.describe('Configurator', () => {
       page.getByTestId('configurator-panel-net'),
     );
 
+    // Every option the seed preselects is free, so the whole price is the base
+    // price, as a row of its own above the sections.
+    const basePrice = page
+      .getByTestId('configurator-panel-rows')
+      .getByTestId('specification-base-price-amount');
+    expect(await readPrice(basePrice)).toBe(priceBefore);
+
     await openSection(page, COLOUR_SECTION);
 
     const changed = changeResponse(page);
@@ -239,6 +246,9 @@ test.describe('Configurator', () => {
       .poll(() => readPrice(page.getByTestId('configurator-panel-net')))
       .toBe(priceBefore + PRICED_COLOUR_NET);
     await expect(validity).not.toContainText(COLOUR_GROUP_NAME);
+    // The colour is a row of its own now, so the base price stays put and the
+    // rows still add up to the price.
+    expect(await readPrice(basePrice)).toBe(priceBefore);
 
     const commit = page.getByTestId('configurator-commit');
     await expect(commit).toBeEnabled();
@@ -838,15 +848,52 @@ async function cartProduct(page: Page): Promise<string | null> {
   return null;
 }
 
+interface CommittedGroup {
+  options: { quantity?: number; unitPrice?: { sellingPriceExVat?: number } }[];
+  optionGroups: CommittedGroup[];
+}
+
+interface CommittedSection {
+  name: string;
+  optionGroups: CommittedGroup[];
+  sections: CommittedSection[];
+}
+
 interface CartLine {
   id: string;
   quantity: number;
+  unitPrice?: { sellingPriceExVat?: number };
   totalPrice?: { sellingPriceExVat?: number };
   configuration?: {
     configurationId: string;
     summary: { label: string; value: string }[];
-    sections?: { name: string }[];
+    sections?: CommittedSection[];
   };
+}
+
+/**
+ * One unit of the line less every option it was committed with, each row in
+ * cents as the sheet shows it: what its base price row must read.
+ */
+function baseCentsOf(line: CartLine): number {
+  const cents = (amount = 0) => Math.round(amount * 100);
+  const ofGroup = (group: CommittedGroup): number =>
+    group.options.reduce(
+      (sum, option) =>
+        sum +
+        Math.round(
+          cents(option.unitPrice?.sellingPriceExVat) * (option.quantity ?? 1),
+        ),
+      0,
+    ) + group.optionGroups.reduce((sum, nested) => sum + ofGroup(nested), 0);
+  const ofSection = (section: CommittedSection): number =>
+    section.optionGroups.reduce((sum, group) => sum + ofGroup(group), 0) +
+    section.sections.reduce((sum, nested) => sum + ofSection(nested), 0);
+  const options = (line.configuration?.sections ?? []).reduce(
+    (sum, section) => sum + ofSection(section),
+    0,
+  );
+  return cents(line.unitPrice?.sellingPriceExVat) - options;
 }
 
 /** This host's cart only: the stored session may hold other tenants' cookies. */
@@ -1129,6 +1176,16 @@ test.describe('The specification of a configured line', () => {
       }
       const net = await readPrice(sheet.getByTestId('line-specification-net'));
       expect(net).toBeCloseTo(line?.totalPrice?.sellingPriceExVat ?? NaN, 2);
+
+      // Per unit, above the first section, at zero too; a negative remainder
+      // is a stale line price and no row.
+      const base = baseCentsOf(line!);
+      const baseRow = sheet.getByTestId('specification-base-price-amount');
+      if (base >= 0) {
+        expect(Math.round((await readPrice(baseRow)) * 100)).toBe(base);
+      } else {
+        await expect(baseRow).toHaveCount(0);
+      }
 
       // Escape closes the sheet and leaves the drawer.
       await page.keyboard.press('Escape');
