@@ -13,15 +13,32 @@ export interface FavoriteProduct {
     regularPriceIncVatFormatted?: string | null;
     sellingPriceIncVat?: number | null;
     sellingPriceIncVatFormatted?: string | null;
+    regularPriceExVat?: number | null;
+    regularPriceExVatFormatted?: string | null;
+    sellingPriceExVat?: number | null;
+    sellingPriceExVatFormatted?: string | null;
   } | null;
   skus?: Array<{ skuId?: number | null } | null> | null;
   configurable?: boolean;
 }
 
-export function toFavoriteCardItem(product: FavoriteProduct): ProductCardItem {
+export function toFavoriteCardItem(
+  product: FavoriteProduct,
+  showIncVat: boolean,
+): ProductCardItem {
   const unitPrice = product.unitPrice;
-  const regular = unitPrice?.regularPriceIncVat ?? null;
-  const selling = unitPrice?.sellingPriceIncVat ?? null;
+  const regular = showIncVat
+    ? unitPrice?.regularPriceIncVat
+    : unitPrice?.regularPriceExVat;
+  const selling = showIncVat
+    ? unitPrice?.sellingPriceIncVat
+    : unitPrice?.sellingPriceExVat;
+  const regularFormatted = showIncVat
+    ? unitPrice?.regularPriceIncVatFormatted
+    : unitPrice?.regularPriceExVatFormatted;
+  const sellingFormatted = showIncVat
+    ? unitPrice?.sellingPriceIncVatFormatted
+    : unitPrice?.sellingPriceExVatFormatted;
   const hasDiscount =
     unitPrice?.isDiscounted === true ||
     (regular != null && selling != null && regular > selling);
@@ -30,11 +47,9 @@ export function toFavoriteCardItem(product: FavoriteProduct): ProductCardItem {
     name: product.name ?? '',
     imageFileName: product.productImages?.[0]?.fileName ?? null,
     price: hasDiscount
-      ? (unitPrice?.regularPriceIncVatFormatted ?? null)
-      : (unitPrice?.sellingPriceIncVatFormatted ?? null),
-    salePrice: hasDiscount
-      ? (unitPrice?.sellingPriceIncVatFormatted ?? null)
-      : null,
+      ? (regularFormatted ?? null)
+      : (sellingFormatted ?? null),
+    salePrice: hasDiscount ? (sellingFormatted ?? null) : null,
     articleNumber: product.articleNumber ?? null,
     alias: product.alias ?? null,
     ...(product.configurable === true && { configurable: true }),

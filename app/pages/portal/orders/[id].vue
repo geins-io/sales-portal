@@ -59,6 +59,38 @@ const order = computed(() => data.value?.order);
 
 const itemCount = computed(() => order.value?.cart?.items?.length ?? 0);
 
+// Every amount is the side of the buyer's VAT choice; VAT itself is one number.
+const { showIncVat } = useVatDisplay();
+
+type Side = {
+  sellingPriceIncVatFormatted?: string | null;
+  sellingPriceExVatFormatted?: string | null;
+} | null;
+
+function sideOf(price: Side | undefined): string | undefined {
+  return (
+    (showIncVat.value
+      ? price?.sellingPriceIncVatFormatted
+      : price?.sellingPriceExVatFormatted) ?? undefined
+  );
+}
+
+const amounts = computed(() => {
+  const summary = order.value?.cart?.summary;
+  return {
+    subtotal: sideOf(summary?.subTotal),
+    shipping:
+      (showIncVat.value
+        ? summary?.shipping?.feeIncVatFormatted
+        : summary?.shipping?.feeExVatFormatted) ?? undefined,
+    tax:
+      summary?.total?.vatFormatted ??
+      order.value?.vat?.sellingPriceIncVatFormatted ??
+      undefined,
+    total: sideOf(summary?.total) ?? sideOf(order.value?.orderTotal),
+  };
+});
+
 function mapAddress(
   a: AddressType | null | undefined,
 ): QuoteAddress | undefined {
@@ -168,10 +200,8 @@ const orderItemRows = computed<PortalItemRow[]>(() =>
     name: item?.product?.name ?? '',
     articleNumber: item?.product?.articleNumber ?? undefined,
     quantity: item?.quantity ?? 0,
-    unitPriceFormatted:
-      item?.unitPrice?.sellingPriceIncVatFormatted ?? undefined,
-    totalPriceFormatted:
-      item?.totalPrice?.sellingPriceIncVatFormatted ?? undefined,
+    unitPriceFormatted: sideOf(item?.unitPrice),
+    totalPriceFormatted: sideOf(item?.totalPrice),
     imageFileName: item?.product?.productImages?.[0]?.fileName ?? null,
     alias: item?.product?.alias ?? null,
     href: item?.configuration
@@ -188,28 +218,19 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
     label: t('portal.orders.detail.summary.subtotal_with_count', {
       count: itemCount.value,
     }),
-    value:
-      order.value?.cart?.summary?.subTotal?.sellingPriceIncVatFormatted ??
-      undefined,
+    value: amounts.value.subtotal,
   },
   {
     label: t('portal.orders.detail.summary.shipping'),
-    value:
-      order.value?.cart?.summary?.shipping?.feeIncVatFormatted ?? undefined,
+    value: amounts.value.shipping,
   },
   {
     label: t('portal.orders.detail.summary.tax'),
-    value:
-      order.value?.cart?.summary?.total?.vatFormatted ??
-      order.value?.vat?.sellingPriceIncVatFormatted ??
-      undefined,
+    value: amounts.value.tax,
   },
   {
     label: t('portal.orders.detail.summary.total'),
-    value:
-      order.value?.cart?.summary?.total?.sellingPriceIncVatFormatted ??
-      order.value?.orderTotal?.sellingPriceIncVatFormatted ??
-      undefined,
+    value: amounts.value.total,
     emphasis: true,
   },
 ]);
@@ -355,13 +376,13 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                       data-testid="order-item-unit-price"
                       class="h-24 px-4 py-2 text-right"
                     >
-                      {{ item?.unitPrice?.sellingPriceIncVatFormatted }}
+                      {{ sideOf(item?.unitPrice) }}
                     </td>
                     <td
                       data-testid="order-item-total-price"
                       class="h-24 px-4 py-2 text-right font-medium"
                     >
-                      {{ item?.totalPrice?.sellingPriceIncVatFormatted }}
+                      {{ sideOf(item?.totalPrice) }}
                     </td>
                   </tr>
                 </tbody>
@@ -381,10 +402,7 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                       }}
                     </td>
                     <td class="px-4 py-3 text-right text-sm">
-                      {{
-                        order?.cart?.summary?.subTotal
-                          ?.sellingPriceIncVatFormatted
-                      }}
+                      {{ amounts.subtotal }}
                     </td>
                   </tr>
                   <tr>
@@ -395,7 +413,7 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                       {{ t('portal.orders.detail.summary.shipping') }}
                     </td>
                     <td class="px-4 py-3 text-right text-sm">
-                      {{ order?.cart?.summary?.shipping?.feeIncVatFormatted }}
+                      {{ amounts.shipping }}
                     </td>
                   </tr>
                   <tr>
@@ -406,10 +424,7 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                       {{ t('portal.orders.detail.summary.tax') }}
                     </td>
                     <td class="px-4 py-3 text-right text-sm">
-                      {{
-                        order?.cart?.summary?.total?.vatFormatted ??
-                        order?.vat?.sellingPriceIncVatFormatted
-                      }}
+                      {{ amounts.tax }}
                     </td>
                   </tr>
                   <tr class="border-border border-t">
@@ -423,11 +438,7 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                       data-testid="order-items-footer-total"
                       class="px-4 py-5 text-right text-sm font-semibold"
                     >
-                      {{
-                        order?.cart?.summary?.total
-                          ?.sellingPriceIncVatFormatted ??
-                        order?.orderTotal?.sellingPriceIncVatFormatted
-                      }}
+                      {{ amounts.total }}
                     </td>
                   </tr>
                 </tfoot>
@@ -473,7 +484,7 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                     })
                   }}</span>
                   <span data-testid="order-summary-subtotal">{{
-                    order?.cart?.summary?.subTotal?.sellingPriceIncVatFormatted
+                    amounts.subtotal
                   }}</span>
                 </div>
                 <div class="flex justify-between text-sm">
@@ -481,25 +492,21 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                     t('portal.orders.detail.summary.shipping')
                   }}</span>
                   <span data-testid="order-summary-shipping">{{
-                    order?.cart?.summary?.shipping?.feeIncVatFormatted
+                    amounts.shipping
                   }}</span>
                 </div>
                 <div class="flex justify-between text-sm">
                   <span class="text-muted-foreground">{{
                     t('portal.orders.detail.summary.tax')
                   }}</span>
-                  <span data-testid="order-summary-tax">{{
-                    order?.cart?.summary?.total?.vatFormatted ??
-                    order?.vat?.sellingPriceIncVatFormatted
-                  }}</span>
+                  <span data-testid="order-summary-tax">{{ amounts.tax }}</span>
                 </div>
                 <div
                   class="border-border mt-2 flex justify-between border-t pt-4 font-semibold"
                 >
                   <span>{{ t('portal.orders.detail.summary.total') }}</span>
                   <span data-testid="order-summary-total">{{
-                    order?.cart?.summary?.total?.sellingPriceIncVatFormatted ??
-                    order?.orderTotal?.sellingPriceIncVatFormatted
+                    amounts.total
                   }}</span>
                 </div>
               </div>

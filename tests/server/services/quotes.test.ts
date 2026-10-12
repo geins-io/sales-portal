@@ -105,10 +105,36 @@ describe('quotes service', () => {
         quoteNumber: 'Q-20260101001',
         status: 'pending',
         totalFormatted: '10 039 SEK',
+        totalExVat: 8031.2,
+        totalExVatFormatted: '8 031 SEK',
         currency: 'SEK',
         itemCount: 1,
       });
     });
+
+    it.each([
+      ['no summary', undefined],
+      ['an empty summary', {}],
+    ])(
+      'lists a quotation with %s at an empty ex-VAT total',
+      async (_, summary) => {
+        const cart = makeRawQuotationCart();
+        cart.summary = summary;
+        mockGraphqlQuery.mockResolvedValueOnce({ listQuotationCarts: [cart] });
+
+        const result = await quotesService.listQuotes(
+          'org-1',
+          0,
+          10,
+          mockEvent,
+        );
+
+        expect(result.quotes[0]).toMatchObject({
+          totalExVat: 0,
+          totalExVatFormatted: '',
+        });
+      },
+    );
 
     it('returns empty array when listQuotationCarts returns null', async () => {
       mockGraphqlQuery.mockResolvedValueOnce({ listQuotationCarts: null });
@@ -238,6 +264,12 @@ describe('quotes service', () => {
         taxFormatted: '1 998 SEK',
         shipping: 49,
         shippingFormatted: '49 SEK',
+        subtotalExVat: 7992,
+        subtotalExVatFormatted: '7 992 SEK',
+        shippingExVat: 39.2,
+        shippingExVatFormatted: '39 SEK',
+        totalExVat: 8031.2,
+        totalExVatFormatted: '8 031 SEK',
         createdAt: '2026-03-01T10:15:00Z',
         updatedAt: '2026-03-01T10:15:00Z',
         expiresAt: '2026-04-01T00:00:00Z',
@@ -258,6 +290,10 @@ describe('quotes service', () => {
         unitPriceFormatted: '4 995 SEK',
         totalPrice: 9990,
         totalPriceFormatted: '9 990 SEK',
+        unitPriceExVat: 3996,
+        unitPriceExVatFormatted: '3 996 SEK',
+        totalPriceExVat: 7992,
+        totalPriceExVatFormatted: '7 992 SEK',
         imageFileName: '/img/desk.jpg',
       });
 
@@ -321,6 +357,68 @@ describe('quotes service', () => {
       expect(result.shipping).toBe(0);
       expect(result.shippingFormatted).toBe('');
     });
+
+    it('leaves the ex-VAT amounts empty, never the inc ones, when the API omits them', async () => {
+      const cart = makeRawQuotationCart();
+      const items = cart.items as Array<Record<string, unknown>>;
+      items[0]!.unitPrice = { sellingPriceIncVat: 4995 };
+      items[0]!.totalPrice = { sellingPriceIncVat: 9990 };
+      cart.summary = {
+        subTotal: { sellingPriceIncVat: 9990 },
+        shipping: { feeIncVat: 49 },
+        total: { sellingPriceIncVat: 10039 },
+      };
+      mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(result).toMatchObject({
+        subtotalExVat: 0,
+        subtotalExVatFormatted: '',
+        shippingExVat: 0,
+        shippingExVatFormatted: '',
+        totalExVat: 0,
+        totalExVatFormatted: '',
+      });
+      expect(result.lineItems[0]).toMatchObject({
+        unitPriceExVat: 0,
+        unitPriceExVatFormatted: '',
+        totalPriceExVat: 0,
+        totalPriceExVatFormatted: '',
+      });
+    });
+
+    it.each([
+      ['no summary', undefined],
+      ['an empty summary', {}],
+    ])(
+      'maps a quotation with %s and unpriced lines to empty ex-VAT amounts',
+      async (_, summary) => {
+        const cart = makeRawQuotationCart();
+        const items = cart.items as Array<Record<string, unknown>>;
+        delete items[0]!.unitPrice;
+        delete items[0]!.totalPrice;
+        cart.summary = summary;
+        mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+
+        const result = await quotesService.getQuote('cart-001', mockEvent);
+
+        expect(result).toMatchObject({
+          subtotalExVat: 0,
+          subtotalExVatFormatted: '',
+          shippingExVat: 0,
+          shippingExVatFormatted: '',
+          totalExVat: 0,
+          totalExVatFormatted: '',
+        });
+        expect(result.lineItems[0]).toMatchObject({
+          unitPriceExVat: 0,
+          unitPriceExVatFormatted: '',
+          totalPriceExVat: 0,
+          totalPriceExVatFormatted: '',
+        });
+      },
+    );
 
     it('maps quotation.name to Quote.name (proposal title)', async () => {
       const cart = makeRawQuotationCart({ name: 'Dec order proposal' });

@@ -429,6 +429,8 @@ export interface OrderListItem {
       total?: {
         sellingPriceIncVat?: number;
         sellingPriceIncVatFormatted?: string;
+        sellingPriceExVat?: number;
+        sellingPriceExVatFormatted?: string;
       } | null;
     } | null;
   } | null;
@@ -459,8 +461,10 @@ export interface PurchasedProduct {
   articleNumber: string;
   alias?: string | null;
   imageFileName?: string | null;
-  priceExVat: number;
+  priceExVat?: number;
   priceExVatFormatted?: string;
+  priceIncVat?: number;
+  priceIncVatFormatted?: string;
   totalQuantity: number;
   latestOrderDate: string;
   latestOrderId: string;

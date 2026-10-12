@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { mockShowIncVat } from '../../setup-components';
 import { mountComponent } from '../../utils/component';
 import CheckoutOrderSummary from '../../../app/components/checkout/CheckoutOrderSummary.vue';
 import CheckoutPaymentOptions from '../../../app/components/checkout/CheckoutPaymentOptions.vue';
@@ -102,6 +103,7 @@ const mockShippingOptions: ShippingOptionType[] = [
     isSelected: false,
     amountLeftToFreeShipping: 200,
     feeIncVatFormatted: '49,00 kr',
+    feeExVatFormatted: '39,20 kr',
     amountLeftToFreeShippingFormatted: '200,00 kr',
   },
   {
@@ -307,6 +309,30 @@ describe('CheckoutOrderSummary', () => {
 // CheckoutPaymentOptions
 // ---------------------------------------------------------------------------
 describe('CheckoutPaymentOptions', () => {
+  beforeEach(() => {
+    mockShowIncVat.value = true;
+  });
+
+  function cardFee(): string {
+    const wrapper = mountComponent(CheckoutPaymentOptions, {
+      props: { options: mockPaymentOptions, modelValue: null, disabled: false },
+      global: { stubs },
+    });
+    return wrapper.find('[data-testid="payment-option-2"]').text();
+  }
+
+  it('shows the fee inc VAT when inc is chosen', () => {
+    mockShowIncVat.value = true;
+    expect(cardFee()).toContain('+15');
+  });
+
+  it('shows the fee ex VAT when ex is chosen', () => {
+    mockShowIncVat.value = false;
+    const text = cardFee();
+    expect(text).toContain('+12');
+    expect(text).not.toContain('15');
+  });
+
   it('renders all payment options as radio buttons', () => {
     const wrapper = mountComponent(CheckoutPaymentOptions, {
       props: {
@@ -395,6 +421,49 @@ describe('CheckoutPaymentOptions', () => {
 // CheckoutShippingOptions
 // ---------------------------------------------------------------------------
 describe('CheckoutShippingOptions', () => {
+  beforeEach(() => {
+    mockShowIncVat.value = true;
+  });
+
+  function standardFee(): string {
+    const wrapper = mountComponent(CheckoutShippingOptions, {
+      props: {
+        options: mockShippingOptions,
+        modelValue: null,
+        disabled: false,
+      },
+      global: { stubs },
+    });
+    return wrapper.find('[data-testid="shipping-option-10"]').text();
+  }
+
+  it('shows the fee inc VAT when inc is chosen', () => {
+    mockShowIncVat.value = true;
+    expect(standardFee()).toContain('49,00 kr');
+  });
+
+  it('shows the fee ex VAT when ex is chosen', () => {
+    mockShowIncVat.value = false;
+    const text = standardFee();
+    expect(text).toContain('39,20 kr');
+    expect(text).not.toContain('49,00 kr');
+  });
+
+  it('shows "Free" for a zero fee when ex is chosen', () => {
+    mockShowIncVat.value = false;
+    const wrapper = mountComponent(CheckoutShippingOptions, {
+      props: {
+        options: mockShippingOptions,
+        modelValue: null,
+        disabled: false,
+      },
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="shipping-option-11"]').text()).toContain(
+      'checkout.free_shipping',
+    );
+  });
+
   it('renders all shipping options', () => {
     const wrapper = mountComponent(CheckoutShippingOptions, {
       props: {

@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { mountComponent } from '../../utils/component';
 import type { QuoteListItem } from '../../../shared/types/quote';
 import { makeQuoteListItem as makeQuote } from '../../fixtures/quote';
+import { mockShowIncVat } from '../../setup-components';
 
 // Mock useFetch — returns reactive refs
 const mockData = ref<{
@@ -53,6 +54,7 @@ describe('PortalQuotations page', () => {
     mockData.value = null;
     mockPending.value = false;
     mockError.value = null;
+    mockShowIncVat.value = true;
     mockRefresh.mockClear();
     useFetchMock.mockClear();
   });
@@ -251,6 +253,30 @@ describe('PortalQuotations page', () => {
       expect(
         wrapper.find('table').find('[data-testid="quotation-row"]').text(),
       ).toContain('2 500,00 kr');
+    });
+
+    it('shows each total inc VAT when inc is chosen, on both layouts', () => {
+      mockShowIncVat.value = true;
+      mockData.value = { quotes: [makeQuote()], total: 1 };
+      const wrapper = mountComponent(PortalQuotations, {
+        global: { stubs: defaultStubs },
+      });
+      const cells = wrapper
+        .findAll('[data-testid="quotation-total"]')
+        .map((cell) => cell.text());
+      expect(cells).toEqual(['1 500,00 kr', '1 500,00 kr']);
+    });
+
+    it('shows each total ex VAT when ex is chosen, on both layouts', () => {
+      mockShowIncVat.value = false;
+      mockData.value = { quotes: [makeQuote()], total: 1 };
+      const wrapper = mountComponent(PortalQuotations, {
+        global: { stubs: defaultStubs },
+      });
+      const cells = wrapper
+        .findAll('[data-testid="quotation-total"]')
+        .map((cell) => cell.text());
+      expect(cells).toEqual(['1 200,00 kr', '1 200,00 kr']);
     });
 
     it('renders a view link for each quote', () => {

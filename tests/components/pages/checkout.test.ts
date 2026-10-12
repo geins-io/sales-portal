@@ -3,6 +3,7 @@ import { ref, defineComponent, h, Suspense, computed } from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { defaultMountOptions } from '../../utils/component';
+import { mockShowIncVat } from '../../setup-components';
 
 // ---------------------------------------------------------------------------
 // Nuxt auto-import stubs
@@ -212,7 +213,7 @@ function checkoutStoreStub(overrides: Partial<CheckoutStore>): CheckoutStore {
 }
 
 const mockCartStore = {
-  cart: null as { items: unknown[] } | null,
+  cart: null as { items: unknown[]; summary?: unknown } | null,
   cartId: 'cart-test-001' as string | null,
   itemCount: 0,
   discountAmount: 0,
@@ -281,7 +282,7 @@ const stubs = {
     // button. Auto-accept on mount mirrors a buyer who ticked it, clearing the
     // page's place-order gate (acceptedTerms) the same way the real flow does.
     template:
-      '<div data-testid="checkout-order-summary" :data-can-place-order="String(canPlaceOrder)"><button data-testid="place-order-button" @click="$emit(\'placeOrder\')" /></div>',
+      '<div data-testid="checkout-order-summary" :data-can-place-order="String(canPlaceOrder)" :data-subtotal="subtotal" :data-shipping-fee="shippingFee" :data-tax="tax" :data-total="total" :data-discount="discount"><button data-testid="place-order-button" @click="$emit(\'placeOrder\')" /></div>',
     props: [
       'itemCount',
       'subtotal',
@@ -364,6 +365,7 @@ describe('checkout page', () => {
     mockCartStore.cartId = 'cart-test-001';
     mockCartStore.itemCount = 0;
     mockCartStore.isUpdatingLines = false;
+    mockShowIncVat.value = true;
     mockFetchCheckout.mockClear();
     mockPlaceOrder = vi.fn().mockResolvedValue(undefined);
     // Reset to non-company state between tests
@@ -757,5 +759,83 @@ describe('checkout page', () => {
     await placeOrderButton.trigger('click');
     await flushPromises();
     expect(mockPlaceOrder).toHaveBeenCalled();
+  });
+
+  describe('summary follows the VAT choice', () => {
+    function cartWithSummary() {
+      return {
+        items: [{ id: '1' }],
+        summary: {
+          subTotal: {
+            sellingPriceIncVatFormatted: '250,00 kr',
+            sellingPriceExVatFormatted: '200,00 kr',
+          },
+          shipping: {
+            feeIncVatFormatted: '62,50 kr',
+            feeExVatFormatted: '50,00 kr',
+          },
+          total: {
+            sellingPriceIncVatFormatted: '312,50 kr',
+            sellingPriceExVatFormatted: '250,00 kr',
+            vatFormatted: '62,50 kr',
+            currency: { code: 'SEK' },
+          },
+          fixedAmountDiscountIncVat: 25,
+          fixedAmountDiscountExVat: 20,
+        },
+      };
+    }
+
+    async function summaryAttrs() {
+      mockCartStore.cart = cartWithSummary();
+      mockCartStore.itemCount = 1;
+      const wrapper = await mountCheckoutPage();
+      return wrapper
+        .find('[data-testid="checkout-order-summary"]')
+        .attributes();
+    }
+
+    it('passes the inc-VAT amounts when inc is chosen', async () => {
+      mockShowIncVat.value = true;
+      const attrs = await summaryAttrs();
+
+      expect(attrs['data-subtotal']).toBe('250,00 kr');
+      expect(attrs['data-shipping-fee']).toBe('62,50 kr');
+      expect(attrs['data-total']).toBe('312,50 kr');
+      expect(attrs['data-tax']).toBe('62,50 kr');
+      expect(attrs['data-discount']).toMatch(/25/);
+    });
+
+    it('passes the ex-VAT amounts when ex is chosen', async () => {
+      mockShowIncVat.value = false;
+      const attrs = await summaryAttrs();
+
+      expect(attrs['data-subtotal']).toBe('200,00 kr');
+      expect(attrs['data-shipping-fee']).toBe('50,00 kr');
+      expect(attrs['data-total']).toBe('250,00 kr');
+      // VAT is one number in both modes.
+      expect(attrs['data-tax']).toBe('62,50 kr');
+      expect(attrs['data-discount']).toMatch(/20/);
+      expect(attrs['data-discount']).not.toMatch(/25/);
+    });
+
+    it('shows nothing rather than the inc amount when an ex amount is missing', async () => {
+      mockShowIncVat.value = false;
+      const cart = cartWithSummary();
+      cart.summary.total = {
+        sellingPriceIncVatFormatted: '312,50 kr',
+        vatFormatted: '62,50 kr',
+        currency: { code: 'SEK' },
+      } as typeof cart.summary.total;
+      mockCartStore.cart = cart;
+      mockCartStore.itemCount = 1;
+      const wrapper = await mountCheckoutPage();
+
+      expect(
+        wrapper
+          .find('[data-testid="checkout-order-summary"]')
+          .attributes('data-total') ?? '',
+      ).toBe('');
+    });
   });
 });

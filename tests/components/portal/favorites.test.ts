@@ -4,6 +4,7 @@ import { ref, computed, reactive } from 'vue';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { Star, Heart } from 'lucide-vue-next';
+import { mockShowIncVat } from '../../setup-components';
 
 // ---------------------------------------------------------------------------
 // Favorites store mock
@@ -53,6 +54,8 @@ type FavoriteProduct = {
     sellingPriceIncVatFormatted?: string | null;
     regularPriceIncVat?: number | null;
     regularPriceIncVatFormatted?: string | null;
+    sellingPriceExVat?: number | null;
+    sellingPriceExVatFormatted?: string | null;
     isDiscounted?: boolean | null;
   } | null;
   skus?: Array<{ skuId?: number | null } | null> | null;
@@ -106,7 +109,7 @@ const stubs = {
   ProductCard: {
     name: 'ProductCard',
     template:
-      '<div data-testid="product-card" :data-alias="product?.alias" :data-name="product?.name"></div>',
+      '<div data-testid="product-card" :data-alias="product?.alias" :data-name="product?.name" :data-price="product?.price"></div>',
     props: ['product', 'variant', 'isLoading'],
     emits: ['add-to-cart'],
   },
@@ -143,6 +146,7 @@ describe('FavoritesPage (Figma-aligned grid)', () => {
     mockAddItem.mockClear();
     mockRefresh.mockClear();
     mockPruneStaleAliases.mockClear();
+    mockShowIncVat.value = true;
   });
 
   it('renders inside PortalShell', () => {
@@ -270,5 +274,40 @@ describe('FavoritesPage (Figma-aligned grid)', () => {
     // Empty-state icon is the shared Star, not a heart.
     expect(wrapper.findComponent(Star).exists()).toBe(true);
     expect(wrapper.findComponent(Heart).exists()).toBe(false);
+  });
+
+  describe('prices follow the VAT choice', () => {
+    const product: FavoriteProduct = {
+      alias: 'wood-screw',
+      name: 'Wood screw',
+      unitPrice: {
+        sellingPriceIncVat: 125,
+        sellingPriceIncVatFormatted: '125,00 kr',
+        sellingPriceExVat: 100,
+        sellingPriceExVatFormatted: '100,00 kr',
+      },
+    };
+
+    it('hands the card the inc-VAT price when inc is chosen', () => {
+      mockShowIncVat.value = true;
+      const wrapper = mountFavorites({
+        aliases: ['wood-screw'],
+        products: [product],
+      });
+      expect(
+        wrapper.find('[data-testid="product-card"]').attributes('data-price'),
+      ).toBe('125,00 kr');
+    });
+
+    it('hands the card the ex-VAT price when ex is chosen', () => {
+      mockShowIncVat.value = false;
+      const wrapper = mountFavorites({
+        aliases: ['wood-screw'],
+        products: [product],
+      });
+      expect(
+        wrapper.find('[data-testid="product-card"]').attributes('data-price'),
+      ).toBe('100,00 kr');
+    });
   });
 });

@@ -4,7 +4,7 @@ import { Button } from '~/components/ui/button';
 import { useQuotesStore } from '~/stores/quotes';
 import { safeConfirm } from '~/utils/client-helpers';
 import { getQuoteStatusPillClass } from '~/utils/quote-status';
-import type { Quote } from '#shared/types/quote';
+import type { Quote, QuoteLineItem } from '#shared/types/quote';
 import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
 import { productPath } from '#shared/utils/route-helpers';
 
@@ -16,6 +16,7 @@ const { timezone } = useTenant();
 const route = useRoute();
 const store = useQuotesStore();
 const { localePath } = useLocaleMarket();
+const { showIncVat } = useVatDisplay();
 
 const quoteId = computed(() => route.params.id as string);
 
@@ -75,6 +76,32 @@ function formatDate(iso: string): string {
   });
 }
 
+// Every amount is the side of the buyer's VAT choice; VAT itself is one number.
+function unitPriceOf(item: QuoteLineItem): string {
+  return showIncVat.value
+    ? item.unitPriceFormatted
+    : item.unitPriceExVatFormatted;
+}
+
+function totalPriceOf(item: QuoteLineItem): string {
+  return showIncVat.value
+    ? item.totalPriceFormatted
+    : item.totalPriceExVatFormatted;
+}
+
+const amounts = computed(() => {
+  const q = quote.value;
+  return {
+    subtotal: showIncVat.value
+      ? q?.subtotalFormatted
+      : q?.subtotalExVatFormatted,
+    shipping: showIncVat.value
+      ? q?.shippingFormatted
+      : q?.shippingExVatFormatted,
+    total: showIncVat.value ? q?.totalFormatted : q?.totalExVatFormatted,
+  };
+});
+
 // Normalised line items + totals for the mobile rows sheet (the desktop table
 // does not work on small screens).
 const quoteItemRows = computed<PortalItemRow[]>(() =>
@@ -83,8 +110,8 @@ const quoteItemRows = computed<PortalItemRow[]>(() =>
     name: item.name,
     articleNumber: item.articleNumber || undefined,
     quantity: item.quantity,
-    unitPriceFormatted: item.unitPriceFormatted,
-    totalPriceFormatted: item.totalPriceFormatted,
+    unitPriceFormatted: unitPriceOf(item),
+    totalPriceFormatted: totalPriceOf(item),
     imageFileName: item.imageFileName ?? null,
     alias: item.alias ?? null,
   })),
@@ -97,19 +124,19 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
       label: t('portal.quotations.subtotal_with_count', {
         count: q?.lineItems?.length ?? 0,
       }),
-      value: q?.subtotalFormatted,
+      value: amounts.value.subtotal,
     },
   ];
   if ((q?.shipping ?? 0) > 0) {
     rows.push({
       label: t('portal.quotations.shipping'),
-      value: q?.shippingFormatted,
+      value: amounts.value.shipping,
     });
   }
   rows.push({ label: t('portal.quotations.tax'), value: q?.taxFormatted });
   rows.push({
     label: t('portal.quotations.grand_total'),
-    value: q?.totalFormatted,
+    value: amounts.value.total,
     emphasis: true,
   });
   return rows;
@@ -202,13 +229,13 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
                       data-testid="line-item-unit-price"
                       class="px-4 py-3 text-right"
                     >
-                      {{ item.unitPriceFormatted }}
+                      {{ unitPriceOf(item) }}
                     </td>
                     <td
                       data-testid="line-item-total-price"
                       class="px-4 py-3 text-right font-medium"
                     >
-                      {{ item.totalPriceFormatted }}
+                      {{ totalPriceOf(item) }}
                     </td>
                   </tr>
                 </tbody>
@@ -265,7 +292,7 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
                     })
                   }}</span>
                   <span data-testid="quote-summary-subtotal">{{
-                    quote.subtotalFormatted
+                    amounts.subtotal
                   }}</span>
                 </div>
                 <div
@@ -277,7 +304,7 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
                     t('portal.quotations.shipping')
                   }}</span>
                   <span data-testid="quote-summary-shipping">{{
-                    quote.shippingFormatted
+                    amounts.shipping
                   }}</span>
                 </div>
                 <div class="flex justify-between text-sm">
@@ -293,7 +320,7 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
                 >
                   <span>{{ t('portal.quotations.grand_total') }}</span>
                   <span data-testid="quote-summary-total">{{
-                    quote.totalFormatted
+                    amounts.total
                   }}</span>
                 </div>
               </div>

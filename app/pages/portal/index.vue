@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { OrderListItem, PurchasedProduct } from '#shared/types/commerce';
-import type { QuoteStatus } from '#shared/types/quote';
+import type { QuoteListItem, QuoteStatus } from '#shared/types/quote';
 import {
   ChevronRight,
   FileText,
@@ -24,6 +24,11 @@ const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
 const { timezone } = useTenant();
 const { localePath } = useLocaleMarket();
+const { showIncVat } = useVatDisplay();
+
+function quoteTotal(quote: QuoteListItem): string {
+  return showIncVat.value ? quote.totalFormatted : quote.totalExVatFormatted;
+}
 
 // ---------------------------------------------------------------------------
 // Orders data
@@ -124,7 +129,9 @@ function getStatusLabel(status: QuoteStatus): string {
 function mapPurchasedProduct(product: PurchasedProduct): ProductCardItem {
   return {
     name: product.name,
-    price: product.priceExVatFormatted ?? String(product.priceExVat ?? '-'),
+    price: showIncVat.value
+      ? (product.priceIncVatFormatted ?? String(product.priceIncVat ?? '-'))
+      : (product.priceExVatFormatted ?? String(product.priceExVat ?? '-')),
     articleNumber: product.articleNumber,
     imageFileName: product.imageFileName ?? null,
     alias: product.alias ?? null,
@@ -243,7 +250,7 @@ function handleProductAddToCart(
               </div>
               <div class="text-right">
                 <div class="text-sm font-medium">
-                  {{ quote.totalFormatted }}
+                  {{ quoteTotal(quote) }}
                 </div>
                 <span
                   class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
@@ -295,7 +302,7 @@ function handleProductAddToCart(
                       {{ getStatusLabel(quote.status) }}
                     </span>
                   </td>
-                  <td class="py-3 pr-4">{{ quote.totalFormatted }}</td>
+                  <td class="py-3 pr-4">{{ quoteTotal(quote) }}</td>
                   <td class="py-3 text-right">
                     <PortalRowAction
                       :to="localePath(`/portal/quotations/${quote.id}`)"

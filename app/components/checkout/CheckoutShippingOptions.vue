@@ -2,6 +2,7 @@
 import type { ShippingOptionType } from '#shared/types/commerce';
 
 const { t } = useI18n();
+const { showIncVat } = useVatDisplay();
 
 const props = defineProps<{
   options: ShippingOptionType[];
@@ -15,6 +16,17 @@ const emit = defineEmits<{
 
 function selectOption(id: number) {
   emit('update:modelValue', id);
+}
+
+function fee(option: ShippingOptionType): number {
+  return showIncVat.value ? option.feeIncVat : option.feeExVat;
+}
+
+function feeFormatted(option: ShippingOptionType): string {
+  return (
+    (showIncVat.value ? option.feeIncVatFormatted : option.feeExVatFormatted) ??
+    ''
+  );
 }
 </script>
 
@@ -51,11 +63,11 @@ function selectOption(id: number) {
               {{ option.displayName ?? option.name }}
             </span>
             <span class="text-sm">
-              <template v-if="option.feeIncVat === 0">
+              <template v-if="fee(option) === 0">
                 {{ t('checkout.free_shipping') }}
               </template>
               <template v-else>
-                {{ option.feeIncVatFormatted }}
+                {{ feeFormatted(option) }}
               </template>
             </span>
           </div>

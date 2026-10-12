@@ -1,5 +1,6 @@
-import { describe, it, expect, assert } from 'vitest';
+import { describe, it, expect, assert, beforeEach, afterEach } from 'vitest';
 import { mountComponent } from '../../utils/component';
+import { mockShowIncVat } from '../../setup-components';
 import PortalProductsTable from '../../../app/components/portal/PortalProductsTable.vue';
 
 const mockProducts = [
@@ -8,6 +9,8 @@ const mockProducts = [
     articleNumber: 'ART-001',
     priceExVat: 150,
     priceExVatFormatted: '150,00 SEK',
+    priceIncVat: 187.5,
+    priceIncVatFormatted: '187,50 SEK',
     totalQuantity: 42,
     latestOrderDate: '2025-12-22T17:22:00Z',
     latestOrderId: '1421',
@@ -19,6 +22,8 @@ const mockProducts = [
     articleNumber: 'ART-002',
     priceExVat: 85,
     priceExVatFormatted: '85,00 SEK',
+    priceIncVat: 106.25,
+    priceIncVatFormatted: '106,25 SEK',
     totalQuantity: 10,
     latestOrderDate: '2025-12-23T10:00:00Z',
     latestOrderId: '1422',
@@ -28,6 +33,14 @@ const mockProducts = [
 ];
 
 describe('PortalProductsTable', () => {
+  // The storefront default; the inc side is set per test below.
+  beforeEach(() => {
+    mockShowIncVat.value = false;
+  });
+  afterEach(() => {
+    mockShowIncVat.value = true;
+  });
+
   it('renders table with product rows', () => {
     const wrapper = mountComponent(PortalProductsTable, {
       props: {
@@ -132,5 +145,63 @@ describe('PortalProductsTable', () => {
       },
     });
     expect(wrapper.text()).toContain('150');
+  });
+
+  it.each([false, true])(
+    'shows "-" for a product without a price (inc VAT: %s)',
+    (showIncVat) => {
+      mockShowIncVat.value = showIncVat;
+      const firstProduct = mockProducts[0];
+      assert.isDefined(firstProduct);
+      const wrapper = mountComponent(PortalProductsTable, {
+        props: {
+          products: [
+            {
+              ...firstProduct,
+              priceExVat: undefined,
+              priceExVatFormatted: undefined,
+              priceIncVat: undefined,
+              priceIncVatFormatted: undefined,
+            },
+          ],
+          sortColumn: 'name',
+          sortDirection: 'asc',
+        },
+      });
+      const cells = wrapper.findAll('tbody td').map((td) => td.text());
+      expect(cells).toContain('-');
+      expect(cells).not.toContain('0');
+    },
+  );
+
+  describe('follows the VAT choice', () => {
+    function mountTable() {
+      return mountComponent(PortalProductsTable, {
+        props: {
+          products: mockProducts,
+          sortColumn: 'name',
+          sortDirection: 'asc',
+        },
+      });
+    }
+
+    it('shows prices and the column heading ex VAT when ex is chosen', () => {
+      mockShowIncVat.value = false;
+      const text = mountTable().text();
+      expect(text).toContain('150,00 SEK');
+      expect(text).toContain('portal.purchased_products.columns.price_ex_vat');
+      expect(text).not.toContain('187,50 SEK');
+      expect(text).not.toContain('price_inc_vat');
+    });
+
+    it('shows prices and the column heading inc VAT when inc is chosen', () => {
+      mockShowIncVat.value = true;
+      const text = mountTable().text();
+      expect(text).toContain('187,50 SEK');
+      expect(text).toContain('106,25 SEK');
+      expect(text).toContain('portal.purchased_products.columns.price_inc_vat');
+      expect(text).not.toContain('150,00 SEK');
+      expect(text).not.toContain('price_ex_vat');
+    });
   });
 });

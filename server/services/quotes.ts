@@ -19,18 +19,19 @@ import { unwrapGraphQL } from './graphql/unwrap';
 // GraphQL response types (raw Geins API shapes)
 // ---------------------------------------------------------------------------
 
+interface RawPrice {
+  sellingPriceIncVat?: number;
+  sellingPriceIncVatFormatted?: string;
+  sellingPriceExVat?: number;
+  sellingPriceExVatFormatted?: string;
+}
+
 interface RawCartItem {
   id?: string;
   skuId?: number;
   quantity: number;
-  unitPrice?: {
-    sellingPriceIncVat?: number;
-    sellingPriceIncVatFormatted?: string;
-  };
-  totalPrice?: {
-    sellingPriceIncVat?: number;
-    sellingPriceIncVatFormatted?: string;
-  };
+  unitPrice?: RawPrice;
+  totalPrice?: RawPrice;
   product?: {
     productId?: number;
     alias?: string;
@@ -104,22 +105,17 @@ interface RawQuotation {
 }
 
 interface RawCartSummary {
-  subTotal?: {
-    sellingPriceIncVat?: number;
-    sellingPriceIncVatFormatted?: string;
-    sellingPriceExVat?: number;
-    sellingPriceExVatFormatted?: string;
+  subTotal?: RawPrice & {
     vat?: number;
     vatFormatted?: string;
   };
   shipping?: {
     feeIncVat?: number;
     feeIncVatFormatted?: string;
+    feeExVat?: number;
+    feeExVatFormatted?: string;
   };
-  total?: {
-    sellingPriceIncVat?: number;
-    sellingPriceIncVatFormatted?: string;
-  };
+  total?: RawPrice;
 }
 
 interface RawQuotationCart {
@@ -165,6 +161,10 @@ function mapLineItem(item: RawCartItem): QuoteLineItem {
     unitPriceFormatted: item.unitPrice?.sellingPriceIncVatFormatted ?? '',
     totalPrice: item.totalPrice?.sellingPriceIncVat ?? 0,
     totalPriceFormatted: item.totalPrice?.sellingPriceIncVatFormatted ?? '',
+    unitPriceExVat: item.unitPrice?.sellingPriceExVat ?? 0,
+    unitPriceExVatFormatted: item.unitPrice?.sellingPriceExVatFormatted ?? '',
+    totalPriceExVat: item.totalPrice?.sellingPriceExVat ?? 0,
+    totalPriceExVatFormatted: item.totalPrice?.sellingPriceExVatFormatted ?? '',
     imageFileName: item.product?.productImages?.[0]?.fileName ?? undefined,
   };
 }
@@ -224,6 +224,12 @@ function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
     shippingFormatted: summary?.shipping?.feeIncVatFormatted ?? '',
     total: summary?.total?.sellingPriceIncVat ?? 0,
     totalFormatted: summary?.total?.sellingPriceIncVatFormatted ?? '',
+    subtotalExVat: summary?.subTotal?.sellingPriceExVat ?? 0,
+    subtotalExVatFormatted: summary?.subTotal?.sellingPriceExVatFormatted ?? '',
+    shippingExVat: summary?.shipping?.feeExVat ?? 0,
+    shippingExVatFormatted: summary?.shipping?.feeExVatFormatted ?? '',
+    totalExVat: summary?.total?.sellingPriceExVat ?? 0,
+    totalExVatFormatted: summary?.total?.sellingPriceExVatFormatted ?? '',
     currency: q.currency ?? '',
     paymentTerms: q.terms?.text ?? undefined,
     expiresAt: q.validTo ?? undefined,
@@ -250,6 +256,8 @@ function mapQuotationCartToListItem(cart: RawQuotationCart): QuoteListItem {
     status: mapStatus(q.status),
     total: cart.summary?.total?.sellingPriceIncVat ?? 0,
     totalFormatted: cart.summary?.total?.sellingPriceIncVatFormatted ?? '',
+    totalExVat: cart.summary?.total?.sellingPriceExVat ?? 0,
+    totalExVatFormatted: cart.summary?.total?.sellingPriceExVatFormatted ?? '',
     currency: q.currency ?? '',
     itemCount: cart.items?.length ?? 0,
     createdAt: q.createdAt ?? '',

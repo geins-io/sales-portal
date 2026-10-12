@@ -10,6 +10,11 @@ const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
 const { timezone } = useTenant();
 const { localePath } = useLocaleMarket();
+const { showIncVat } = useVatDisplay();
+
+function totalOf(quote: QuoteListItem): string {
+  return showIncVat.value ? quote.totalFormatted : quote.totalExVatFormatted;
+}
 
 const { data, pending, error, refresh } = useFetch<{
   quotes: QuoteListItem[];
@@ -169,7 +174,7 @@ function getStatusLabel(status: QuoteStatus): string {
                 <span
                   data-testid="quotation-total"
                   class="text-foreground font-medium"
-                  >{{ quote.totalFormatted }}</span
+                  >{{ totalOf(quote) }}</span
                 >
               </div>
               <div>{{ quote.contactName }}</div>
@@ -211,7 +216,7 @@ function getStatusLabel(status: QuoteStatus): string {
                 <td class="py-3 pr-4">{{ formatDate(quote.createdAt) }}</td>
                 <td class="py-3 pr-4">{{ quote.contactName }}</td>
                 <td data-testid="quotation-total" class="py-3 pr-4">
-                  {{ quote.totalFormatted }}
+                  {{ totalOf(quote) }}
                 </td>
                 <td class="py-3 pr-4">
                   <span

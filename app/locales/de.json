@@ -921,6 +921,7 @@
         "product": "Produkt",
         "article_number": "Art.-Nr.",
         "price_ex_vat": "Preis (exkl. MwSt.)",
+        "price_inc_vat": "Preis (inkl. MwSt.)",
         "total_ordered": "Insgesamt bestellt",
         "latest_order": "Letzte Bestellung",
         "latest_buyer": "Letzter Besteller"

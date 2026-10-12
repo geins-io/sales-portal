@@ -13,6 +13,7 @@ definePageMeta({ middleware: ['auth', 'feature'], feature: 'wishlist' });
 
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
+const { showIncVat } = useVatDisplay();
 const favoritesStore = useFavoritesStore();
 const cartStore = useCartStore();
 
@@ -179,7 +180,7 @@ async function handleAddToCart(
             data-testid="favorite-card"
           >
             <ProductCard
-              :product="toFavoriteCardItem(product)"
+              :product="toFavoriteCardItem(product, showIncVat)"
               :variant="viewMode"
               @add-to-cart="handleAddToCart(product, $event)"
             />

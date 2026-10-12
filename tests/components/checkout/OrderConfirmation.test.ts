@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { mockShowIncVat } from '../../setup-components';
 import { mountComponent } from '../../utils/component';
 import OrderConfirmation from '../../../app/components/checkout/OrderConfirmation.vue';
 
@@ -13,6 +14,8 @@ const mockSummary = {
       price: {
         priceIncVat: 89.99,
         priceIncVatFormatted: '$89.99',
+        priceExVat: 72,
+        priceExVatFormatted: '$72.00',
       },
     },
     {
@@ -23,6 +26,8 @@ const mockSummary = {
       price: {
         priceIncVat: 49.5,
         priceIncVatFormatted: '$49.50',
+        priceExVat: 39.6,
+        priceExVatFormatted: '$39.60',
       },
     },
     {
@@ -33,6 +38,8 @@ const mockSummary = {
       price: {
         priceIncVat: 19.99,
         priceIncVatFormatted: '$19.99',
+        priceExVat: 16,
+        priceExVatFormatted: '$16.00',
       },
     },
   ],
@@ -40,6 +47,9 @@ const mockSummary = {
     itemValueExVat: 232,
     itemValueIncVat: 290,
     itemValueIncVatFormatted: '$290.00',
+    itemValueExVatFormatted: '$232.00',
+    orderValueExVat: 240,
+    orderValueExVatFormatted: '$240.00',
     shippingFeeIncVat: 10,
     shippingFeeIncVatFormatted: '$10.00',
     discountIncVat: 0,
@@ -80,6 +90,10 @@ function mountConfirmation(props: Record<string, unknown> = {}) {
 }
 
 describe('OrderConfirmation', () => {
+  beforeEach(() => {
+    mockShowIncVat.value = true;
+  });
+
   it('renders the order-confirmed heading', () => {
     const wrapper = mountConfirmation();
     expect(wrapper.text()).toContain('order_confirmation.thank_you');
@@ -281,5 +295,98 @@ describe('OrderConfirmation', () => {
     expect(wrapper.find('[data-testid="back-to-store"]').exists()).toBe(true);
     // Never display the legacy "Order not found" error text.
     expect(wrapper.text()).not.toContain('order_confirmation.order_not_found');
+  });
+
+  describe('follows the VAT choice', () => {
+    const discounted = {
+      ...mockSummary,
+      total: {
+        ...mockSummary.total,
+        discountIncVat: 25,
+        discountIncVatFormatted: '$25.00',
+        discountExVat: 20,
+        discountExVatFormatted: '$20.00',
+      },
+    };
+
+    it('shows rows, subtotal, discount and total inc VAT when inc is chosen', () => {
+      mockShowIncVat.value = true;
+      const wrapper = mountConfirmation({ summary: discounted });
+      const firstRow = wrapper.findAll('[data-testid="items-list"] li')[0]!;
+
+      expect(firstRow.text()).toContain('2 × $89.99');
+      expect(firstRow.text()).toContain('179.98');
+      expect(wrapper.find('[data-testid="summary-subtotal"]').text()).toBe(
+        '$290.00',
+      );
+      expect(wrapper.find('[data-testid="summary-discount"]').text()).toContain(
+        '$25.00',
+      );
+      expect(wrapper.find('[data-testid="summary-total"]').text()).toContain(
+        '$300.00',
+      );
+    });
+
+    it('shows rows, subtotal, discount and total ex VAT when ex is chosen', () => {
+      mockShowIncVat.value = false;
+      const wrapper = mountConfirmation({ summary: discounted });
+      const firstRow = wrapper.findAll('[data-testid="items-list"] li')[0]!;
+
+      expect(firstRow.text()).toContain('2 × $72.00');
+      expect(firstRow.text()).toContain('144');
+      expect(firstRow.text()).not.toContain('89.99');
+      expect(wrapper.find('[data-testid="summary-subtotal"]').text()).toBe(
+        '$232.00',
+      );
+      expect(wrapper.find('[data-testid="summary-discount"]').text()).toContain(
+        '$20.00',
+      );
+      const total = wrapper.find('[data-testid="summary-total"]').text();
+      expect(total).toContain('$240.00');
+      expect(total).not.toContain('$300.00');
+    });
+
+    it('keeps the VAT row the same in both modes', () => {
+      mockShowIncVat.value = true;
+      const inc = mountConfirmation()
+        .find('[data-testid="summary-vat"]')
+        .text();
+      mockShowIncVat.value = false;
+      const ex = mountConfirmation().find('[data-testid="summary-vat"]').text();
+
+      expect(ex).toBe(inc);
+    });
+
+    it('shows no amount rather than the inc one when the ex amounts are missing', () => {
+      mockShowIncVat.value = false;
+      const summary = {
+        ...mockSummary,
+        rows: [
+          {
+            quantity: 1,
+            articleNumber: 'ART-009',
+            name: 'Inc only',
+            product: { name: 'Inc only' },
+            price: { priceIncVat: 50, priceIncVatFormatted: '$50.00' },
+          },
+        ],
+        total: {
+          itemValueIncVat: 50,
+          itemValueIncVatFormatted: '$50.00',
+          sum: 50,
+          sumFormatted: '$50.00',
+          currency: 'SEK',
+        },
+      };
+      const wrapper = mountConfirmation({ summary });
+
+      expect(wrapper.find('[data-testid="items-list"]').text()).not.toContain(
+        '50',
+      );
+      expect(wrapper.find('[data-testid="summary-subtotal"]').text()).toBe('');
+      expect(
+        wrapper.find('[data-testid="summary-total"]').text(),
+      ).not.toContain('$50.00');
+    });
   });
 });

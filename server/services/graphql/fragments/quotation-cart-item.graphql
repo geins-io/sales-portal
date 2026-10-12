@@ -5,10 +5,14 @@ fragment QuotationCartItem on CartItemType {
   unitPrice {
     sellingPriceIncVat
     sellingPriceIncVatFormatted
+    sellingPriceExVat
+    sellingPriceExVatFormatted
   }
   totalPrice {
     sellingPriceIncVat
     sellingPriceIncVatFormatted
+    sellingPriceExVat
+    sellingPriceExVatFormatted
   }
   product {
     productId

@@ -4,6 +4,7 @@ import { Receipt } from 'lucide-vue-next';
 import type { PaymentOptionType } from '#shared/types/commerce';
 
 const { t } = useI18n();
+const { showIncVat } = useVatDisplay();
 
 const props = defineProps<{
   options: PaymentOptionType[];
@@ -17,6 +18,10 @@ const emit = defineEmits<{
 
 function selectOption(id: number) {
   emit('update:modelValue', id);
+}
+
+function fee(option: PaymentOptionType): number {
+  return showIncVat.value ? option.feeIncVat : option.feeExVat;
 }
 
 // Map the Geins paymentType enum to a localized fallback label. Used when
@@ -93,11 +98,8 @@ function paymentIcon(option: PaymentOptionType): FunctionalComponent {
             />
             {{ paymentLabel(option) }}
           </span>
-          <span
-            v-if="option.feeIncVat > 0"
-            class="text-muted-foreground text-xs"
-          >
-            +{{ option.feeIncVat }}
+          <span v-if="fee(option) > 0" class="text-muted-foreground text-xs">
+            +{{ fee(option) }}
           </span>
         </div>
       </label>

@@ -73,6 +73,11 @@ vi.mock('../../../app/composables/useTenant', () => ({
   }),
 }));
 
+const mockShowIncVat = ref(true);
+vi.mock('../../../app/composables/useVatDisplay', () => ({
+  useVatDisplay: () => ({ showIncVat: computed(() => mockShowIncVat.value) }),
+}));
+
 // Mock callOnce — calls the factory function synchronously (mirrors Nuxt's callOnce)
 vi.stubGlobal(
   'callOnce',
@@ -125,6 +130,7 @@ let mockPendingQuotes: Array<{
   contactName: string;
   status: string;
   totalFormatted: string;
+  totalExVatFormatted?: string;
   createdAt: string;
 }> = [];
 let mockPendingCount = 0;
@@ -208,6 +214,7 @@ describe('Portal Overview page', () => {
     mockProductsPending = false;
     mockListsData = { lists: [] };
     mockListsPending = false;
+    mockShowIncVat.value = true;
   });
 
   // -------------------------------------------------------------------------
@@ -455,6 +462,7 @@ describe('Portal Overview page', () => {
   });
 
   it('passes mapped PurchasedProduct data to ProductCard', () => {
+    mockShowIncVat.value = false;
     mockProductsData = {
       products: [
         {
@@ -550,5 +558,95 @@ describe('Portal Overview page', () => {
     // exists and the handler is callable. When the API is enriched with
     // skuId in M7, this test should be tightened to assert cartStore.addItem.
     expect(() => card.vm.$emit('add-to-cart', { quantity: 2 })).not.toThrow();
+  });
+
+  describe('prices follow the VAT choice', () => {
+    function withQuoteAndProduct() {
+      mockPendingQuotes = [
+        {
+          id: 'q1',
+          quoteNumber: 'Q-1001',
+          contactName: 'Jane Doe',
+          status: 'pending',
+          totalFormatted: '625,00 kr',
+          totalExVatFormatted: '500,00 kr',
+          createdAt: '2026-03-01T00:00:00Z',
+        },
+      ];
+      mockPendingCount = 1;
+      mockProductsData = {
+        products: [
+          {
+            name: 'Hammer',
+            articleNumber: 'ART-001',
+            priceExVat: 40,
+            priceExVatFormatted: '40,00 kr',
+            priceIncVat: 50,
+            priceIncVatFormatted: '50,00 kr',
+            totalQuantity: 1,
+            latestOrderDate: '2026-03-01T00:00:00Z',
+            latestOrderId: 'o1',
+            latestOrderPublicId: 'pub-o1',
+            latestBuyerName: 'Jane',
+          },
+        ],
+      };
+      const wrapper = mount(PortalOverviewPage.default, {
+        global: { stubs },
+      });
+      return {
+        quoteRows: wrapper
+          .findAll('[data-testid="pending-quote-row"]')
+          .map((row) => row.text()),
+        cardPrice: wrapper
+          .find('[data-testid="product-card"]')
+          .attributes('data-price'),
+      };
+    }
+
+    it('shows the quote total and product price inc VAT when inc is chosen', () => {
+      mockShowIncVat.value = true;
+      const { quoteRows, cardPrice } = withQuoteAndProduct();
+      expect(quoteRows.length).toBeGreaterThan(0);
+      for (const row of quoteRows) expect(row).toContain('625,00 kr');
+      expect(cardPrice).toBe('50,00 kr');
+    });
+
+    it('shows the quote total and product price ex VAT when ex is chosen', () => {
+      mockShowIncVat.value = false;
+      const { quoteRows, cardPrice } = withQuoteAndProduct();
+      expect(quoteRows.length).toBeGreaterThan(0);
+      for (const row of quoteRows) {
+        expect(row).toContain('500,00 kr');
+        expect(row).not.toContain('625,00 kr');
+      }
+      expect(cardPrice).toBe('40,00 kr');
+    });
+
+    it.each([false, true])(
+      'shows "-" for a product without a price (inc VAT: %s)',
+      (showIncVat) => {
+        mockShowIncVat.value = showIncVat;
+        mockProductsData = {
+          products: [
+            {
+              name: 'Hammer',
+              articleNumber: 'ART-001',
+              totalQuantity: 1,
+              latestOrderDate: '2026-03-01T00:00:00Z',
+              latestOrderId: 'o1',
+              latestOrderPublicId: 'pub-o1',
+              latestBuyerName: 'Jane',
+            },
+          ],
+        };
+        const wrapper = mount(PortalOverviewPage.default, {
+          global: { stubs },
+        });
+        expect(
+          wrapper.find('[data-testid="product-card"]').attributes('data-price'),
+        ).toBe('-');
+      },
+    );
   });
 });

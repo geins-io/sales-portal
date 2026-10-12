@@ -921,6 +921,7 @@
         "product": "Tuote",
         "article_number": "Tuotenro",
         "price_ex_vat": "Hinta (ei sis. ALV)",
+        "price_inc_vat": "Hinta (sis. ALV)",
         "total_ordered": "Tilattu yhteensä",
         "latest_order": "Viimeisin tilaus",
         "latest_buyer": "Viimeisin ostaja"

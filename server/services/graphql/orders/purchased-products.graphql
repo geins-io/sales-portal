@@ -22,6 +22,8 @@ query getCompanyOrdersForPurchasedProducts(
         unitPrice {
           sellingPriceExVat
           sellingPriceExVatFormatted
+          sellingPriceIncVat
+          sellingPriceIncVatFormatted
         }
         product {
           # For the configurator seam only; neither reaches the response.

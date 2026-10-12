@@ -1,6 +1,6 @@
 import { describe, it, expect, assert, afterEach } from 'vitest';
 import { mountComponent } from '../../utils/component';
-import { mockTenantTimezone } from '../../setup-components';
+import { mockShowIncVat, mockTenantTimezone } from '../../setup-components';
 import PortalOrdersTable from '../../../app/components/portal/PortalOrdersTable.vue';
 
 const mockOrders = [
@@ -15,6 +15,8 @@ const mockOrders = [
         total: {
           sellingPriceIncVat: 17000,
           sellingPriceIncVatFormatted: '17 000 SEK',
+          sellingPriceExVat: 13600,
+          sellingPriceExVatFormatted: '13 600 SEK',
         },
       },
     },
@@ -30,6 +32,8 @@ const mockOrders = [
         total: {
           sellingPriceIncVat: 8500,
           sellingPriceIncVatFormatted: '8 500 SEK',
+          sellingPriceExVat: 6800,
+          sellingPriceExVatFormatted: '6 800 SEK',
         },
       },
     },
@@ -43,6 +47,7 @@ assert.isDefined(secondOrder);
 // The ref is shared across the whole component tier and nothing resets it.
 afterEach(() => {
   mockTenantTimezone.value = undefined;
+  mockShowIncVat.value = true;
 });
 
 describe('PortalOrdersTable', () => {
@@ -202,5 +207,55 @@ describe('PortalOrdersTable', () => {
     });
     expect(wrapper.text()).toContain('portal.orders.status.delivered');
     expect(wrapper.text()).toContain('portal.orders.status.cancelled');
+  });
+
+  describe('follows the VAT choice', () => {
+    function totals() {
+      const wrapper = mountComponent(PortalOrdersTable, {
+        props: { orders: mockOrders },
+      });
+      return wrapper
+        .findAll('[data-testid="order-total"]')
+        .map((cell) => cell.text());
+    }
+
+    it('shows the order totals inc VAT when inc is chosen', () => {
+      mockShowIncVat.value = true;
+      const cells = totals();
+      expect(cells).toContain('17 000 SEK');
+      expect(cells).toContain('8 500 SEK');
+    });
+
+    it('shows the order totals ex VAT when ex is chosen', () => {
+      mockShowIncVat.value = false;
+      const cells = totals();
+      expect(cells).toContain('13 600 SEK');
+      expect(cells).toContain('6 800 SEK');
+      expect(cells.join(' ')).not.toContain('17 000');
+    });
+
+    it('shows a dash rather than the inc total when the ex total is missing', () => {
+      mockShowIncVat.value = false;
+      const wrapper = mountComponent(PortalOrdersTable, {
+        props: {
+          orders: [
+            {
+              ...firstOrder,
+              cart: {
+                summary: {
+                  total: {
+                    sellingPriceIncVat: 17000,
+                    sellingPriceIncVatFormatted: '17 000 SEK',
+                  },
+                },
+              },
+            },
+          ],
+        },
+      });
+      for (const cell of wrapper.findAll('[data-testid="order-total"]')) {
+        expect(cell.text()).toBe('-');
+      }
+    });
   });
 });

@@ -11,6 +11,7 @@ import { mount, flushPromises } from '@vue/test-utils';
 import { defaultMountOptions } from '../../utils/component';
 import type { Quote } from '../../../shared/types/quote';
 import { makeQuote } from '../../fixtures/quote';
+import { mockShowIncVat } from '../../setup-components';
 
 // Per-file override of the shared `vue-i18n` mock from `tests/setup-components.ts`.
 // Wraps `t` in a `vi.fn` so individual cases (e.g. D8 subtotal-with-count) can
@@ -278,6 +279,7 @@ describe('PortalQuotationDetail', () => {
     });
     mockSafeConfirm.mockClear();
     mockSafeConfirm.mockReturnValue(true);
+    mockShowIncVat.value = true;
   });
 
   describe('SSR 404 handling', () => {
@@ -369,6 +371,10 @@ describe('PortalQuotationDetail', () => {
               unitPriceFormatted: '100,00 kr',
               totalPrice: 200,
               totalPriceFormatted: '200,00 kr',
+              unitPriceExVat: 0,
+              unitPriceExVatFormatted: '',
+              totalPriceExVat: 0,
+              totalPriceExVatFormatted: '',
             },
           ],
         }),
@@ -406,6 +412,10 @@ describe('PortalQuotationDetail', () => {
               unitPriceFormatted: '100,00 kr',
               totalPrice: 200,
               totalPriceFormatted: '200,00 kr',
+              unitPriceExVat: 0,
+              unitPriceExVatFormatted: '',
+              totalPriceExVat: 0,
+              totalPriceExVatFormatted: '',
             },
             {
               productId: 2,
@@ -417,6 +427,10 @@ describe('PortalQuotationDetail', () => {
               unitPriceFormatted: '50,00 kr',
               totalPrice: 50,
               totalPriceFormatted: '50,00 kr',
+              unitPriceExVat: 0,
+              unitPriceExVatFormatted: '',
+              totalPriceExVat: 0,
+              totalPriceExVatFormatted: '',
             },
           ],
         }),
@@ -481,6 +495,67 @@ describe('PortalQuotationDetail', () => {
       const contact = wrapper.find('[data-testid="sale-contact"]');
       expect(contact.text()).toContain('Jane Doe');
       expect(contact.text()).toContain('jane@example.com');
+    });
+  });
+
+  describe('prices follow the VAT choice', () => {
+    const shipped = () =>
+      makeQuote({
+        shipping: 100,
+        shippingFormatted: '100,00 kr',
+        shippingExVat: 80,
+        shippingExVatFormatted: '80,00 kr',
+      });
+
+    async function read() {
+      mockData.value = { quote: shipped() };
+      const { wrapper } = await mountDetailPage();
+      const sheet = wrapper.findComponent({ name: 'PortalItemRowsSheet' });
+      return {
+        unit: wrapper.find('[data-testid="line-item-unit-price"]').text(),
+        line: wrapper.find('[data-testid="line-item-total-price"]').text(),
+        subtotal: wrapper.find('[data-testid="quote-summary-subtotal"]').text(),
+        shipping: wrapper.find('[data-testid="quote-summary-shipping"]').text(),
+        tax: wrapper.find('[data-testid="quote-summary-tax"]').text(),
+        total: wrapper.find('[data-testid="quote-summary-total"]').text(),
+        sheetRows: (
+          sheet.props('items') as {
+            unitPriceFormatted?: string;
+            totalPriceFormatted?: string;
+          }[]
+        ).map((row) => [row.unitPriceFormatted, row.totalPriceFormatted]),
+        sheetTotals: (sheet.props('totals') as { value?: string }[]).map(
+          (row) => row.value,
+        ),
+      };
+    }
+
+    it('shows every amount inc VAT when inc is chosen', async () => {
+      mockShowIncVat.value = true;
+      expect(await read()).toEqual({
+        unit: '100,00 kr',
+        line: '200,00 kr',
+        subtotal: '200,00 kr',
+        shipping: '100,00 kr',
+        tax: '50,00 kr',
+        total: '250,00 kr',
+        sheetRows: [['100,00 kr', '200,00 kr']],
+        sheetTotals: ['200,00 kr', '100,00 kr', '50,00 kr', '250,00 kr'],
+      });
+    });
+
+    it('shows every amount ex VAT when ex is chosen, VAT unchanged', async () => {
+      mockShowIncVat.value = false;
+      expect(await read()).toEqual({
+        unit: '80,00 kr',
+        line: '160,00 kr',
+        subtotal: '160,00 kr',
+        shipping: '80,00 kr',
+        tax: '50,00 kr',
+        total: '200,00 kr',
+        sheetRows: [['80,00 kr', '160,00 kr']],
+        sheetTotals: ['160,00 kr', '80,00 kr', '50,00 kr', '200,00 kr'],
+      });
     });
   });
 
@@ -585,6 +660,10 @@ describe('PortalQuotationDetail', () => {
               unitPriceFormatted: '10 kr',
               totalPrice: 10,
               totalPriceFormatted: '10 kr',
+              unitPriceExVat: 0,
+              unitPriceExVatFormatted: '',
+              totalPriceExVat: 0,
+              totalPriceExVatFormatted: '',
             },
             {
               productId: 2,
@@ -596,6 +675,10 @@ describe('PortalQuotationDetail', () => {
               unitPriceFormatted: '20 kr',
               totalPrice: 20,
               totalPriceFormatted: '20 kr',
+              unitPriceExVat: 0,
+              unitPriceExVatFormatted: '',
+              totalPriceExVat: 0,
+              totalPriceExVatFormatted: '',
             },
             {
               productId: 3,
@@ -607,6 +690,10 @@ describe('PortalQuotationDetail', () => {
               unitPriceFormatted: '30 kr',
               totalPrice: 30,
               totalPriceFormatted: '30 kr',
+              unitPriceExVat: 0,
+              unitPriceExVatFormatted: '',
+              totalPriceExVat: 0,
+              totalPriceExVatFormatted: '',
             },
           ],
         }),

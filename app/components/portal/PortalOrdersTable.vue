@@ -5,6 +5,7 @@ const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
 const { timezone } = useTenant();
 const { localePath } = useLocaleMarket();
+const { showIncVat } = useVatDisplay();
 
 defineProps<{
   orders: Array<{
@@ -22,6 +23,8 @@ defineProps<{
         total?: {
           sellingPriceIncVat?: number;
           sellingPriceIncVatFormatted?: string;
+          sellingPriceExVat?: number;
+          sellingPriceExVatFormatted?: string;
         } | null;
       } | null;
     } | null;
@@ -87,11 +90,19 @@ function getStatusKey(status: string): string {
 function getTotal(order: {
   cart?: {
     summary?: {
-      total?: { sellingPriceIncVatFormatted?: string } | null;
+      total?: {
+        sellingPriceIncVatFormatted?: string;
+        sellingPriceExVatFormatted?: string;
+      } | null;
     } | null;
   } | null;
 }): string {
-  return order.cart?.summary?.total?.sellingPriceIncVatFormatted ?? '-';
+  const total = order.cart?.summary?.total;
+  return (
+    (showIncVat.value
+      ? total?.sellingPriceIncVatFormatted
+      : total?.sellingPriceExVatFormatted) ?? '-'
+  );
 }
 
 function getOrderLink(order: {

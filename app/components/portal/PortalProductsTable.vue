@@ -31,8 +31,18 @@ function formatDate(dateStr: string | null | undefined): string {
   }
 }
 
+const { showIncVat } = useVatDisplay();
+
+const priceHeading = computed(() =>
+  showIncVat.value
+    ? t('portal.purchased_products.columns.price_inc_vat')
+    : t('portal.purchased_products.columns.price_ex_vat'),
+);
+
 function getPrice(product: PurchasedProduct): string {
-  return product.priceExVatFormatted ?? String(product.priceExVat ?? '-');
+  return showIncVat.value
+    ? (product.priceIncVatFormatted ?? String(product.priceIncVat ?? '-'))
+    : (product.priceExVatFormatted ?? String(product.priceExVat ?? '-'));
 }
 
 function getOrderLink(product: PurchasedProduct): string | null {
@@ -95,9 +105,7 @@ function handleSortProduct() {
               {{ product.articleNumber }}
             </div>
             <div class="text-muted-foreground grid grid-cols-2 gap-1 text-sm">
-              <span>{{
-                t('portal.purchased_products.columns.price_ex_vat')
-              }}</span>
+              <span>{{ priceHeading }}</span>
               <span class="text-foreground text-right">{{
                 getPrice(product)
               }}</span>
@@ -146,7 +154,7 @@ function handleSortProduct() {
               {{ t('portal.purchased_products.columns.article_number') }}
             </th>
             <th class="py-3 pr-4 font-medium">
-              {{ t('portal.purchased_products.columns.price_ex_vat') }}
+              {{ priceHeading }}
             </th>
             <th class="py-3 pr-4 font-medium">
               {{ t('portal.purchased_products.columns.total_ordered') }}

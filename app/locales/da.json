@@ -921,6 +921,7 @@
         "product": "Produkt",
         "article_number": "Varenr.",
         "price_ex_vat": "Pris (ekskl. moms)",
+        "price_inc_vat": "Pris (inkl. moms)",
         "total_ordered": "Bestilt i alt",
         "latest_order": "Seneste ordre",
         "latest_buyer": "Seneste køber"

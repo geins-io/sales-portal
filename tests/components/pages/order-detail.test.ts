@@ -14,7 +14,7 @@ import OrderDetail from '../../../app/pages/portal/orders/[id].vue';
 import LineSpecification from '../../../app/components/cart/LineSpecification.vue';
 import { useTenant } from '../../../app/composables/useTenant';
 import { useAuthStore } from '../../../app/stores/auth';
-import { mockIsCatalogMode } from '../../setup-components';
+import { mockIsCatalogMode, mockShowIncVat } from '../../setup-components';
 
 // Escapes the tier-wide mock, which answers true for every key; see
 // tests/setup-components.ts. The real chain then runs over the fixture below.
@@ -221,10 +221,14 @@ function makeOrder(overrides: Record<string, unknown> = {}) {
             unitPrice: {
               sellingPriceIncVat: 150,
               sellingPriceIncVatFormatted: '150,00 kr',
+              sellingPriceExVat: 120,
+              sellingPriceExVatFormatted: '120,00 kr',
             },
             totalPrice: {
               sellingPriceIncVat: 450,
               sellingPriceIncVatFormatted: '450,00 kr',
+              sellingPriceExVat: 360,
+              sellingPriceExVatFormatted: '360,00 kr',
             },
           },
           {
@@ -240,10 +244,14 @@ function makeOrder(overrides: Record<string, unknown> = {}) {
             unitPrice: {
               sellingPriceIncVat: 200,
               sellingPriceIncVatFormatted: '200,00 kr',
+              sellingPriceExVat: 160,
+              sellingPriceExVatFormatted: '160,00 kr',
             },
             totalPrice: {
               sellingPriceIncVat: 200,
               sellingPriceIncVatFormatted: '200,00 kr',
+              sellingPriceExVat: 160,
+              sellingPriceExVatFormatted: '160,00 kr',
             },
           },
         ],
@@ -251,14 +259,20 @@ function makeOrder(overrides: Record<string, unknown> = {}) {
           subTotal: {
             sellingPriceIncVat: 650,
             sellingPriceIncVatFormatted: '650,00 kr',
+            sellingPriceExVat: 520,
+            sellingPriceExVatFormatted: '520,00 kr',
           },
           shipping: {
             feeIncVat: 49,
             feeIncVatFormatted: '49,00 kr',
+            feeExVat: 39.2,
+            feeExVatFormatted: '39,20 kr',
           },
           total: {
             sellingPriceIncVat: 699,
             sellingPriceIncVatFormatted: '699,00 kr',
+            sellingPriceExVat: 559.2,
+            sellingPriceExVatFormatted: '559,20 kr',
             vat: 139.8,
             vatFormatted: '139,80 kr',
           },
@@ -267,6 +281,8 @@ function makeOrder(overrides: Record<string, unknown> = {}) {
       orderTotal: {
         sellingPriceIncVat: 699,
         sellingPriceIncVatFormatted: '699,00 kr',
+        sellingPriceExVat: 559.2,
+        sellingPriceExVatFormatted: '559,20 kr',
       },
       shippingFee: {
         sellingPriceIncVat: 49,
@@ -328,6 +344,7 @@ describe('OrderDetail', () => {
     mockAddItems.mockClear();
     mockNavigateTo.mockClear();
     mockAddItems.mockResolvedValue(undefined);
+    mockShowIncVat.value = true;
   });
 
   // canReorder is `canAccess('reorder') && !isCatalogMode`, so each test has to
@@ -924,6 +941,134 @@ describe('OrderDetail', () => {
       const summary = wrapper.find('[data-testid="order-summary"]');
       expect(summary.text()).toContain(
         'portal.orders.detail.summary.subtotal_with_count',
+      );
+    });
+  });
+
+  describe('prices follow the VAT choice', () => {
+    function mountDefault() {
+      mockData.value = makeOrder();
+      return shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+    }
+
+    function texts(wrapper: ReturnType<typeof mountDefault>, id: string) {
+      return wrapper.findAll(`[data-testid="${id}"]`).map((el) => el.text());
+    }
+
+    function sheetValues(wrapper: ReturnType<typeof mountDefault>) {
+      const sheet = wrapper.findComponent({ name: 'PortalItemRowsSheet' });
+      const items = sheet.props('items') as {
+        unitPriceFormatted?: string;
+        totalPriceFormatted?: string;
+      }[];
+      const totals = sheet.props('totals') as { value?: string }[];
+      return {
+        rows: items.map((i) => [i.unitPriceFormatted, i.totalPriceFormatted]),
+        totals: totals.map((row) => row.value),
+      };
+    }
+
+    it('shows every amount inc VAT when inc is chosen', () => {
+      mockShowIncVat.value = true;
+      const wrapper = mountDefault();
+
+      expect(texts(wrapper, 'order-item-unit-price')).toEqual([
+        '150,00 kr',
+        '200,00 kr',
+      ]);
+      expect(texts(wrapper, 'order-item-total-price')).toEqual([
+        '450,00 kr',
+        '200,00 kr',
+      ]);
+      expect(
+        wrapper.find('[data-testid="order-items-footer"]').text(),
+      ).toContain('650,00 kr');
+      expect(
+        wrapper.find('[data-testid="order-items-footer-total"]').text(),
+      ).toBe('699,00 kr');
+      expect(
+        wrapper.find('[data-testid="order-summary-subtotal"]').text(),
+      ).toBe('650,00 kr');
+      expect(
+        wrapper.find('[data-testid="order-summary-shipping"]').text(),
+      ).toBe('49,00 kr');
+      expect(wrapper.find('[data-testid="order-summary-total"]').text()).toBe(
+        '699,00 kr',
+      );
+      expect(sheetValues(wrapper)).toEqual({
+        rows: [
+          ['150,00 kr', '450,00 kr'],
+          ['200,00 kr', '200,00 kr'],
+        ],
+        totals: ['650,00 kr', '49,00 kr', '139,80 kr', '699,00 kr'],
+      });
+    });
+
+    it('shows every amount ex VAT when ex is chosen, VAT unchanged', () => {
+      mockShowIncVat.value = false;
+      const wrapper = mountDefault();
+
+      expect(texts(wrapper, 'order-item-unit-price')).toEqual([
+        '120,00 kr',
+        '160,00 kr',
+      ]);
+      expect(texts(wrapper, 'order-item-total-price')).toEqual([
+        '360,00 kr',
+        '160,00 kr',
+      ]);
+      const footer = wrapper.find('[data-testid="order-items-footer"]').text();
+      expect(footer).toContain('520,00 kr');
+      expect(footer).toContain('39,20 kr');
+      expect(footer).toContain('139,80 kr');
+      expect(footer).not.toContain('650,00 kr');
+      expect(
+        wrapper.find('[data-testid="order-items-footer-total"]').text(),
+      ).toBe('559,20 kr');
+      expect(
+        wrapper.find('[data-testid="order-summary-subtotal"]').text(),
+      ).toBe('520,00 kr');
+      expect(
+        wrapper.find('[data-testid="order-summary-shipping"]').text(),
+      ).toBe('39,20 kr');
+      expect(wrapper.find('[data-testid="order-summary-tax"]').text()).toBe(
+        '139,80 kr',
+      );
+      expect(wrapper.find('[data-testid="order-summary-total"]').text()).toBe(
+        '559,20 kr',
+      );
+      expect(sheetValues(wrapper)).toEqual({
+        rows: [
+          ['120,00 kr', '360,00 kr'],
+          ['160,00 kr', '160,00 kr'],
+        ],
+        totals: ['520,00 kr', '39,20 kr', '139,80 kr', '559,20 kr'],
+      });
+    });
+
+    it('falls back to the order total of the same side, never the other side', () => {
+      mockShowIncVat.value = false;
+      const base = makeOrder().order;
+      mockData.value = makeOrder({
+        cart: {
+          ...base.cart,
+          summary: {
+            ...base.cart.summary,
+            total: {
+              sellingPriceIncVat: 699,
+              sellingPriceIncVatFormatted: '699,00 kr',
+              vatFormatted: '139,80 kr',
+            },
+          },
+        },
+      });
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      expect(wrapper.find('[data-testid="order-summary-total"]').text()).toBe(
+        '559,20 kr',
       );
     });
   });

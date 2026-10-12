@@ -22,6 +22,10 @@ export interface QuoteLineItem {
   unitPriceFormatted: string;
   totalPrice: number;
   totalPriceFormatted: string;
+  unitPriceExVat: number;
+  unitPriceExVatFormatted: string;
+  totalPriceExVat: number;
+  totalPriceExVatFormatted: string;
   imageFileName?: string;
 }
 
@@ -73,6 +77,12 @@ export interface Quote {
   shippingFormatted: string;
   total: number;
   totalFormatted: string;
+  subtotalExVat: number;
+  subtotalExVatFormatted: string;
+  shippingExVat: number;
+  shippingExVatFormatted: string;
+  totalExVat: number;
+  totalExVatFormatted: string;
   currency: string;
   paymentTerms?: string;
   expiresAt?: string;
@@ -94,6 +104,8 @@ export interface QuoteListItem {
   status: QuoteStatus;
   total: number;
   totalFormatted: string;
+  totalExVat: number;
+  totalExVatFormatted: string;
   currency: string;
   itemCount: number;
   createdAt: string;

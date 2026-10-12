@@ -66,6 +66,8 @@ function makeOrder(overrides: {
     quantity?: number;
     sellingPriceExVat?: number;
     sellingPriceExVatFormatted?: string;
+    sellingPriceIncVat?: number;
+    sellingPriceIncVatFormatted?: string;
   }> | null;
 }) {
   return {
@@ -94,6 +96,9 @@ function makeOrder(overrides: {
                 sellingPriceExVat: item.sellingPriceExVat ?? 100,
                 sellingPriceExVatFormatted:
                   item.sellingPriceExVatFormatted ?? '100 kr',
+                sellingPriceIncVat: item.sellingPriceIncVat ?? 125,
+                sellingPriceIncVatFormatted:
+                  item.sellingPriceIncVatFormatted ?? '125 kr',
               },
               product: {
                 productId: item.productId ?? 1,
@@ -233,6 +238,9 @@ describe('getPurchasedProducts', () => {
             name: 'Widget',
             quantity: 3,
             sellingPriceExVat: 50,
+            sellingPriceExVatFormatted: '50 kr',
+            sellingPriceIncVat: 62.5,
+            sellingPriceIncVatFormatted: '62,50 kr',
           },
         ],
       }),
@@ -245,6 +253,9 @@ describe('getPurchasedProducts', () => {
             name: 'Widget',
             quantity: 5,
             sellingPriceExVat: 60,
+            sellingPriceExVatFormatted: '60 kr',
+            sellingPriceIncVat: 75,
+            sellingPriceIncVatFormatted: '75 kr',
           },
         ],
       }),
@@ -258,6 +269,9 @@ describe('getPurchasedProducts', () => {
         articleNumber: 'ART-001',
         totalQuantity: 8,
         priceExVat: 60,
+        priceExVatFormatted: '60 kr',
+        priceIncVat: 75,
+        priceIncVatFormatted: '75 kr',
         latestOrderId: '2',
         latestOrderPublicId: 'pub-2',
         latestOrderDate: '2026-03-15T00:00:00Z',
@@ -305,6 +319,48 @@ describe('getPurchasedProducts', () => {
         latestBuyerName: 'Alice Smith',
         priceExVat: 99,
         totalQuantity: 3,
+      }),
+    );
+  });
+
+  it('keeps both VAT sides of the latest order when an older one comes later', async () => {
+    withOrders([
+      makeOrder({
+        id: 10,
+        createdAt: '2026-04-01T00:00:00Z',
+        items: [
+          {
+            articleNumber: 'ART-001',
+            sellingPriceExVat: 99,
+            sellingPriceExVatFormatted: '99 kr',
+            sellingPriceIncVat: 123.75,
+            sellingPriceIncVatFormatted: '123,75 kr',
+          },
+        ],
+      }),
+      makeOrder({
+        id: 5,
+        createdAt: '2026-01-01T00:00:00Z',
+        items: [
+          {
+            articleNumber: 'ART-001',
+            sellingPriceExVat: 80,
+            sellingPriceExVatFormatted: '80 kr',
+            sellingPriceIncVat: 100,
+            sellingPriceIncVatFormatted: '100 kr',
+          },
+        ],
+      }),
+    ]);
+
+    const result = await purchasedProducts.getPurchasedProducts(mockEvent);
+
+    expect(result.products[0]).toEqual(
+      expect.objectContaining({
+        priceExVat: 99,
+        priceExVatFormatted: '99 kr',
+        priceIncVat: 123.75,
+        priceIncVatFormatted: '123,75 kr',
       }),
     );
   });
@@ -417,8 +473,10 @@ describe('getPurchasedProducts', () => {
 
     const result = await purchasedProducts.getPurchasedProducts(mockEvent);
 
-    expect(result.products[0]!.priceExVat).toBe(0);
+    expect(result.products[0]!.priceExVat).toBeUndefined();
     expect(result.products[0]!.priceExVatFormatted).toBeUndefined();
+    expect(result.products[0]!.priceIncVat).toBeUndefined();
+    expect(result.products[0]!.priceIncVatFormatted).toBeUndefined();
   });
 
   it('sorts results by latest order date descending', async () => {

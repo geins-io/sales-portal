@@ -58,8 +58,38 @@ const visibleRows = computed(() =>
 );
 const hasMoreRows = computed(() => rows.value.length > COLLAPSED_ROW_LIMIT);
 
-const hasDiscount = computed(
-  () => (props.summary?.total?.discountIncVat ?? 0) > 0,
+const { showIncVat } = useVatDisplay();
+
+const subtotalFormatted = computed(
+  () =>
+    (showIncVat.value
+      ? props.summary?.total?.itemValueIncVatFormatted
+      : props.summary?.total?.itemValueExVatFormatted) ?? '',
+);
+
+const discountAmount = computed(
+  () =>
+    (showIncVat.value
+      ? props.summary?.total?.discountIncVat
+      : props.summary?.total?.discountExVat) ?? 0,
+);
+
+const discountFormatted = computed(
+  () =>
+    (showIncVat.value
+      ? props.summary?.total?.discountIncVatFormatted
+      : props.summary?.total?.discountExVatFormatted) ?? '',
+);
+
+const hasDiscount = computed(() => discountAmount.value > 0);
+
+// `sum` is the charged amount and has no ex-VAT twin; the ex side is the
+// order value.
+const totalFormatted = computed(
+  () =>
+    (showIncVat.value
+      ? props.summary?.total?.sumFormatted
+      : props.summary?.total?.orderValueExVatFormatted) ?? '',
 );
 
 function formatAddressLines(address: AddressType | undefined | null): string[] {
@@ -95,25 +125,35 @@ const paymentLabel = computed(() => {
   return localized === key ? raw : localized;
 });
 
-function lineUnitPrice(row: { price?: { priceIncVatFormatted?: string } }) {
-  return row.price?.priceIncVatFormatted ?? '';
+type SummaryRowPrice = {
+  priceIncVat?: number;
+  priceIncVatFormatted?: string;
+  priceExVat?: number;
+  priceExVatFormatted?: string;
+};
+
+function lineUnitPrice(row: { price?: SummaryRowPrice }) {
+  return (
+    (showIncVat.value
+      ? row.price?.priceIncVatFormatted
+      : row.price?.priceExVatFormatted) ?? ''
+  );
 }
 
-function lineTotal(row: {
-  quantity?: number;
-  price?: { priceIncVat?: number; priceIncVatFormatted?: string };
-}) {
+function lineTotal(row: { quantity?: number; price?: SummaryRowPrice }) {
   // CheckoutSummaryPriceType doesn't expose a line total — multiply the
   // unit price by quantity for display. Falls back to the unit string if
   // numeric multiplication isn't possible.
-  const unit = row.price?.priceIncVat;
+  const unit = showIncVat.value
+    ? row.price?.priceIncVat
+    : row.price?.priceExVat;
   const qty = row.quantity ?? 0;
   if (typeof unit === 'number' && qty > 0) {
     const currency = props.summary?.total?.currency ?? '';
     const value = (unit * qty).toLocaleString(formatLocale.value);
     return `${value} ${currency}`.trim();
   }
-  return row.price?.priceIncVatFormatted ?? '';
+  return lineUnitPrice(row);
 }
 </script>
 
@@ -238,7 +278,7 @@ function lineTotal(row: {
               <div class="shrink-0 text-right">
                 <p class="text-sm font-semibold">{{ lineTotal(row) }}</p>
                 <p
-                  v-if="row.quantity && row.price?.priceIncVatFormatted"
+                  v-if="row.quantity && lineUnitPrice(row)"
                   class="text-muted-foreground mt-0.5 text-xs"
                 >
                   {{ row.quantity }} × {{ lineUnitPrice(row) }}
@@ -302,7 +342,7 @@ function lineTotal(row: {
                   t('order_confirmation.subtotal')
                 }}</span>
                 <span data-testid="summary-subtotal">{{
-                  summary.total?.itemValueIncVatFormatted
+                  subtotalFormatted
                 }}</span>
               </div>
               <div class="flex items-center justify-between text-sm">
@@ -329,9 +369,7 @@ function lineTotal(row: {
                 data-testid="summary-discount"
               >
                 <span>{{ t('order_confirmation.discount') }}</span>
-                <span class="font-medium"
-                  >-{{ summary.total?.discountIncVatFormatted }}</span
-                >
+                <span class="font-medium">-{{ discountFormatted }}</span>
               </div>
               <div class="border-border border-t pt-3">
                 <div
@@ -339,7 +377,7 @@ function lineTotal(row: {
                   data-testid="summary-total"
                 >
                   <span>{{ t('order_confirmation.total') }}</span>
-                  <span>{{ summary.total?.sumFormatted }}</span>
+                  <span>{{ totalFormatted }}</span>
                 </div>
               </div>
             </div>

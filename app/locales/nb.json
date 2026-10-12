@@ -921,6 +921,7 @@
         "product": "Produkt",
         "article_number": "Art.nr",
         "price_ex_vat": "Pris (ekskl. mva.)",
+        "price_inc_vat": "Pris (inkl. mva.)",
         "total_ordered": "Totalt bestilt",
         "latest_order": "Siste ordre",
         "latest_buyer": "Siste kjøper"

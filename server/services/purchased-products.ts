@@ -30,6 +30,8 @@ interface RawOrderItem {
   unitPrice?: {
     sellingPriceExVat?: number | null;
     sellingPriceExVatFormatted?: string | null;
+    sellingPriceIncVat?: number | null;
+    sellingPriceIncVatFormatted?: string | null;
   } | null;
   product?: {
     productId?: number | null;
@@ -130,9 +132,12 @@ export async function getPurchasedProducts(
       const alias = item.product?.alias ?? null;
       const imageFileName = item.product?.productImages?.[0]?.fileName ?? null;
       const quantity = item.quantity ?? 0;
-      const priceExVat = item.unitPrice?.sellingPriceExVat ?? 0;
+      const priceExVat = item.unitPrice?.sellingPriceExVat ?? undefined;
       const priceExVatFormatted =
         item.unitPrice?.sellingPriceExVatFormatted ?? undefined;
+      const priceIncVat = item.unitPrice?.sellingPriceIncVat ?? undefined;
+      const priceIncVatFormatted =
+        item.unitPrice?.sellingPriceIncVatFormatted ?? undefined;
 
       const existing = productMap.get(articleNumber);
 
@@ -148,6 +153,8 @@ export async function getPurchasedProducts(
           imageFileName,
           priceExVat,
           priceExVatFormatted,
+          priceIncVat,
+          priceIncVatFormatted,
           totalQuantity: quantity,
           latestOrderDate: orderDate,
           latestOrderId: orderId,
@@ -167,6 +174,8 @@ export async function getPurchasedProducts(
           existing.latestBuyerName = buyerName;
           existing.priceExVat = priceExVat;
           existing.priceExVatFormatted = priceExVatFormatted;
+          existing.priceIncVat = priceIncVat;
+          existing.priceIncVatFormatted = priceIncVatFormatted;
         }
         if (!existing.alias && alias) existing.alias = alias;
         if (!existing.imageFileName && imageFileName)

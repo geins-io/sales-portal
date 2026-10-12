@@ -10,9 +10,13 @@ fragment QuotationCartSummary on CartSummaryType {
   shipping {
     feeIncVat
     feeIncVatFormatted
+    feeExVat
+    feeExVatFormatted
   }
   total {
     sellingPriceIncVat
     sellingPriceIncVatFormatted
+    sellingPriceExVat
+    sellingPriceExVatFormatted
   }
 }

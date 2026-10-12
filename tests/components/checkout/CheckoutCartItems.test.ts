@@ -6,6 +6,8 @@ import type {
   CartItemType,
   CartLineConfiguration,
 } from '../../../shared/types/commerce';
+import PriceDisplay from '../../../app/components/shared/PriceDisplay.vue';
+import { mockShowIncVat } from '../../setup-components';
 
 // Mock the cart store
 const mockUpdateQuantity = vi.fn();
@@ -114,6 +116,7 @@ function mountItems(
 beforeEach(() => {
   mockUpdateQuantity.mockReset();
   mockRemoveItem.mockReset();
+  mockShowIncVat.value = true;
 });
 
 describe('CheckoutCartItems', () => {
@@ -501,6 +504,58 @@ describe('CheckoutCartItems', () => {
         wrapper.find('[data-testid="line-specification-open"]').exists(),
       ).toBe(false);
       expect(wrapper.text()).toContain('Art nr. ART-001');
+    });
+  });
+
+  describe('follows the VAT choice', () => {
+    function pricedItem() {
+      return createItem({
+        totalPrice: {
+          sellingPriceIncVatFormatted: '125,00 kr',
+          sellingPriceExVatFormatted: '100,00 kr',
+          sellingPriceIncVat: 125,
+          sellingPriceExVat: 100,
+          currency: { code: 'SEK' },
+        },
+        unitPrice: {
+          sellingPriceIncVatFormatted: '62,50 kr',
+          sellingPriceExVatFormatted: '50,00 kr',
+          sellingPriceIncVat: 62.5,
+          sellingPriceExVat: 50,
+          currency: { code: 'SEK' },
+        },
+      } as Partial<CartItemType>);
+    }
+
+    function mountWithRealPrice() {
+      return mountComponent(CheckoutCartItems, {
+        props: { items: [pricedItem()] },
+        global: { stubs: { ...stubs, PriceDisplay } },
+      });
+    }
+
+    it('shows the line total and unit price inc VAT when inc is chosen', () => {
+      mockShowIncVat.value = true;
+      const wrapper = mountWithRealPrice();
+
+      expect(
+        wrapper.find('[data-testid="checkout-line-total"]').text(),
+      ).toContain('125,00 kr');
+      expect(
+        wrapper.find('[data-testid="checkout-unit-price"]').text(),
+      ).toContain('62,50 kr');
+    });
+
+    it('shows the line total and unit price ex VAT when ex is chosen', () => {
+      mockShowIncVat.value = false;
+      const wrapper = mountWithRealPrice();
+
+      const total = wrapper.find('[data-testid="checkout-line-total"]').text();
+      const unit = wrapper.find('[data-testid="checkout-unit-price"]').text();
+      expect(total).toContain('100,00 kr');
+      expect(total).not.toContain('125,00 kr');
+      expect(unit).toContain('50,00 kr');
+      expect(unit).not.toContain('62,50 kr');
     });
   });
 });
