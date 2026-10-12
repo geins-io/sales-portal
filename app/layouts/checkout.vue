@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ArrowLeft, Lock } from 'lucide-vue-next';
-import { useAuthStore } from '~/stores/auth';
 
-const authStore = useAuthStore();
 const { localePath } = useLocaleMarket();
 </script>
 
@@ -10,34 +8,32 @@ const { localePath } = useLocaleMarket();
   <div class="flex min-h-screen flex-col">
     <!-- Minimal checkout header -->
     <header class="bg-top-bar-background text-primary-foreground">
+      <!-- Equal outer columns keep the title centred whatever the left holds. -->
       <div
-        class="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 lg:px-6"
+        class="mx-auto grid h-14 max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 lg:px-6"
       >
-        <!-- Left: Back to store -->
-        <NuxtLink
-          :to="localePath('/')"
-          class="inline-flex items-center gap-1.5 text-sm opacity-70 transition-opacity hover:opacity-100"
-          data-testid="checkout-back-link"
-        >
-          <ArrowLeft class="size-4" />
-          {{ $t('checkout.back_to_store') }}
-        </NuxtLink>
+        <div class="flex items-center gap-2 sm:gap-4">
+          <NuxtLink
+            :to="localePath('/')"
+            :aria-label="$t('checkout.back_to_store')"
+            class="inline-flex items-center gap-1.5 text-sm opacity-70 transition-opacity hover:opacity-100"
+            data-testid="checkout-back-link"
+          >
+            <ArrowLeft class="size-4" />
+            <span class="hidden sm:inline">{{
+              $t('checkout.back_to_store')
+            }}</span>
+          </NuxtLink>
+          <VatDisplaySwitcher variant="text" />
+        </div>
 
-        <!-- Center: Checkout title with lock -->
-        <div class="inline-flex items-center gap-1.5 text-sm font-medium">
+        <div
+          class="inline-flex items-center gap-1.5 text-sm font-medium"
+          data-testid="checkout-header-title"
+        >
           <Lock class="size-3.5" />
           {{ $t('checkout.title') }}
         </div>
-
-        <!-- Right: User name -->
-        <span
-          v-if="authStore.displayName"
-          class="text-sm opacity-70"
-          data-testid="checkout-user-name"
-        >
-          {{ authStore.displayName }}
-        </span>
-        <span v-else />
       </div>
     </header>
 

@@ -13,6 +13,7 @@ import {
   type ApiCart,
   type VatSide,
 } from './helpers';
+import { localeText } from './locale-text';
 
 /**
  * Checkout E2E Tests
@@ -237,6 +238,34 @@ test.describe('Checkout summary', () => {
       expect(checkoutTotal).toBeCloseTo(sideOf(cart, side).total, 2);
     });
   }
+
+  test('the VAT switcher in the checkout header moves the total to the other side', async ({
+    page,
+  }) => {
+    const cart = await openCheckout(page, 'ex');
+    const total = page.locator('[data-testid="checkout-summary-total"]');
+    expect(await readPrice(total)).toBeCloseTo(sideOf(cart, 'ex').total, 2);
+
+    await page
+      .locator('header')
+      .getByRole('button', {
+        name: await localeText(page, 'common.change_vat_display'),
+      })
+      .click();
+    await page
+      .getByRole('menuitem', {
+        name: await localeText(page, 'common.vat_incl'),
+      })
+      .click();
+
+    const incTotal = sideOf(cart, 'inc').total;
+    await expect
+      .poll(() => readPrice(total), { timeout: 10000 })
+      .toBeCloseTo(incTotal, 2);
+    if (cart.vat > 0) {
+      expect(incTotal).not.toBeCloseTo(sideOf(cart, 'ex').total, 2);
+    }
+  });
 
   test('removing the last line switches the page to the empty-cart state', async ({
     page,
