@@ -384,6 +384,7 @@
       "expired": "The configuration session has expired.",
       "resume": "Resume",
       "title": "Specification",
+      "base_price": "Base price",
       "net_price": "Net price",
       "vat": "VAT ({rate}%)",
       "vat_no_rate": "VAT",

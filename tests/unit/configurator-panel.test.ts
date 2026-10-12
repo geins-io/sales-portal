@@ -7,15 +7,18 @@ import type {
 } from '#shared/types/commerce';
 import type { Configuration } from '#shared/types/configurator';
 import {
+  basePrice,
   collectBlockingItems,
   collectBlockingMessages,
   committedSpecificationRows,
   groupSpecificationRows,
+  lineBasePrice,
   lineSpecificationTotals,
   panelTotals,
   specificationRows,
   specificationText,
   unnamedBlockingMessages,
+  valueAmount,
   type SpecificationRow,
   type SpecificationValue,
 } from '../../app/utils/configurator-panel';
@@ -969,6 +972,207 @@ describe('committedSpecificationRows', () => {
   });
 });
 
+describe('valueAmount', () => {
+  const net = (amount: number): PriceType => ({ sellingPriceExVat: amount });
+
+  it('is the price times the quantity', () => {
+    expect(
+      valueAmount({ text: 'Battery', quantity: 4, price: net(76.2) }),
+    ).toBe(304.8);
+  });
+
+  it('takes a fractional quantity, rounded to the cent', () => {
+    // 619.49 × 0.073 = 45.22277.
+    expect(
+      valueAmount({ text: 'Steel', quantity: 0.073, price: net(619.49) }),
+    ).toBe(45.22);
+  });
+
+  it('rounds the price to the cent before multiplying', () => {
+    // 100.006 is 100.01 as shown; unrounded twice it would be 200.01.
+    expect(valueAmount({ text: 'A', quantity: 2, price: net(100.006) })).toBe(
+      200.02,
+    );
+  });
+
+  it('counts a value without a quantity once', () => {
+    expect(valueAmount({ text: 'A', price: net(400) })).toBe(400);
+  });
+
+  it('is nothing for a value without a price', () => {
+    expect(valueAmount({ number: 1200 })).toBe(0);
+  });
+});
+
+describe('basePrice', () => {
+  const EUR = { code: 'EUR' };
+  const net = (amount: number): PriceType => ({
+    sellingPriceExVat: amount,
+    currency: EUR,
+  });
+
+  function row(values: SpecificationValue[]): SpecificationRow {
+    return { id: 'group:g', group: 'Machine', label: 'Part', values };
+  }
+
+  it('is the unit price less the options shown', () => {
+    // A CPQ product measured 2026-10-08: unit 21 405,02, options 3 402,70.
+    expect(
+      basePrice(net(21405.02), [
+        row([{ text: 'A', quantity: 1, price: net(1944.4) }]),
+        row([{ text: 'B', quantity: 1, price: net(1458.3) }]),
+      ]),
+    ).toBe(18002.32);
+  });
+
+  it('is the whole unit price where no option is priced', () => {
+    expect(
+      basePrice(net(18002.32), [row([{ text: 'Included', price: net(0) }])]),
+    ).toBe(18002.32);
+    expect(basePrice(net(18002.32), [])).toBe(18002.32);
+  });
+
+  it('subtracts an option once per unit of it, fractional quantities too', () => {
+    expect(
+      basePrice(net(1000), [
+        row([{ text: 'Teeth', quantity: 4, price: net(100) }]),
+        row([{ text: 'Steel', quantity: 0.073, price: net(1000) }]),
+      ]),
+    ).toBe(527);
+  });
+
+  it('counts a committed option without a quantity once', () => {
+    expect(basePrice(net(1000), [row([{ text: 'A', price: net(400) }])])).toBe(
+      600,
+    );
+  });
+
+  it('ignores a value with no price, a measurement or "nothing chosen"', () => {
+    expect(
+      basePrice(net(1000), [
+        row([{ number: 1200, unit: 'mm' }]),
+        row([{ none: true }]),
+        row([{ text: 'A', quantity: 1, price: net(250) }]),
+      ]),
+    ).toBe(750);
+  });
+
+  it('is zero where the options add up to the unit price', () => {
+    // A CPQ product measured 2026-10-08 whose options make up its price.
+    expect(
+      basePrice(net(2118.94), [
+        row([{ text: 'A', quantity: 1, price: net(894.49) }]),
+        row([{ text: 'B', quantity: 1, price: net(1224.45) }]),
+      ]),
+    ).toBe(0);
+  });
+
+  it('is nothing where the options exceed the unit price', () => {
+    // A line that kept a stale price: 236.82 against 1870.20 of options.
+    expect(
+      basePrice(net(236.82), [
+        row([{ text: 'A', quantity: 1, price: net(1870.2) }]),
+      ]),
+    ).toBeNull();
+  });
+
+  it('works from the amounts as shown, so a remainder under a cent is zero', () => {
+    // A committed line measured 2026-10-08: the raw remainder is 0.0054,
+    // the rows as shown add up exactly.
+    expect(
+      basePrice(net(4709.514), [
+        row([{ text: 'A', quantity: 1, price: net(894.4886) }]),
+        row([{ text: 'B', quantity: 1, price: net(1224.45) }]),
+        row([{ text: 'C', quantity: 1, price: net(2590.57) }]),
+      ]),
+    ).toBe(0);
+  });
+
+  it('rounds each shown amount to the cent before subtracting', () => {
+    // 100.006 shows as 100.01, twice; unrounded the remainder would be 99.99.
+    expect(
+      basePrice(net(300), [
+        row([{ text: 'A', quantity: 2, price: net(100.006) }]),
+      ]),
+    ).toBe(99.98);
+  });
+
+  it('subtracts each row as it is shown, rounded to the cent', () => {
+    // Each row is 10 × 0.0005 = 0.005, shown as 0.01; unrounded the two would
+    // take one cent, not two.
+    expect(
+      basePrice(net(1), [
+        row([{ text: 'A', quantity: 0.0005, price: net(10) }]),
+        row([{ text: 'B', quantity: 0.0005, price: net(10) }]),
+      ]),
+    ).toBe(0.98);
+  });
+
+  it('is nothing without a unit price, even where an option takes money off', () => {
+    expect(basePrice(undefined, [])).toBeNull();
+    expect(
+      basePrice(undefined, [
+        row([{ text: 'Trade-in', quantity: 1, price: net(-100) }]),
+      ]),
+    ).toBeNull();
+  });
+});
+
+describe('lineBasePrice', () => {
+  const unit: PriceType = { sellingPriceExVat: 18002.32 };
+
+  it('is the whole unit price where the recorded sections are empty', () => {
+    expect(lineBasePrice({ summary: [], sections: [] }, unit)).toBe(18002.32);
+  });
+
+  it('is nothing where the sections hold no choice but the summary names some', () => {
+    expect(
+      lineBasePrice(
+        { summary: [{ label: 'Adapter', value: 'S45' }], sections: [] },
+        unit,
+      ),
+    ).toBeNull();
+  });
+
+  it('is nothing on a line committed before its sections were recorded', () => {
+    expect(lineBasePrice({ summary: [] }, unit)).toBeNull();
+  });
+
+  it('subtracts the committed options', () => {
+    expect(
+      lineBasePrice(
+        {
+          summary: [],
+          sections: [
+            {
+              name: 'Configuration',
+              sortIndex: 0,
+              variables: [],
+              optionGroups: [
+                {
+                  id: 'g',
+                  name: 'Licence',
+                  sortIndex: 1,
+                  options: [
+                    {
+                      name: 'A',
+                      quantity: 2,
+                      unitPrice: { sellingPriceExVat: 1000 },
+                    },
+                  ],
+                  optionGroups: [],
+                },
+              ],
+              sections: [],
+            },
+          ],
+        },
+        unit,
+      ),
+    ).toBe(16002.32);
+  });
+});
+
 describe('lineSpecificationTotals', () => {
   it("reads the amounts from the line's total and the rate from one unit", () => {
     expect(
@@ -1052,8 +1256,10 @@ describe('specificationText', () => {
   ];
 
   const formatValue = (value: SpecificationValue) => value.text ?? '';
-  const formatPrice = (price: PriceType) =>
-    price.sellingPriceExVat ? `+${price.sellingPriceExVat} kr` : null;
+  const formatPrice = (value: SpecificationValue) =>
+    value.price?.sellingPriceExVat
+      ? `+${value.price.sellingPriceExVat} kr`
+      : null;
 
   it('writes the product, the quantity, the groups and their rows', () => {
     const text = specificationText({
@@ -1094,6 +1300,27 @@ describe('specificationText', () => {
         'Indikativt pris.',
       ].join('\n'),
     );
+  });
+
+  it('writes the base price on a line of its own above the first group', () => {
+    const text = specificationText({
+      productName: 'Arbetsbord Pro',
+      articleNumber: 'KONF-1001',
+      quantityLine: 'Antal: 2 st',
+      basePrice: { label: 'Grundpris', amount: '3 200 kr' },
+      rows,
+      formatValue,
+      formatPrice,
+    });
+
+    expect(text.split('\n').slice(0, 6)).toEqual([
+      'Arbetsbord Pro (KONF-1001)',
+      'Antal: 2 st',
+      '',
+      'Grundpris: 3 200 kr',
+      '',
+      'FRAME',
+    ]);
   });
 
   it('leaves the price out when the buyer may not see one', () => {

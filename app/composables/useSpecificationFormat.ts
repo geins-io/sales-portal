@@ -1,8 +1,10 @@
 import { toValue, type MaybeRefOrGetter } from 'vue';
-import { formatPrice, type PriceType } from '#shared/types/commerce';
-import { exVatAmount } from '#shared/utils/configurator-price';
+import { formatPrice } from '#shared/types/commerce';
 import { optionPricePrefix } from '~/utils/configurator-form';
-import type { SpecificationValue } from '~/utils/configurator-panel';
+import {
+  valueAmount,
+  type SpecificationValue,
+} from '~/utils/configurator-panel';
 
 /**
  * How a specification writes its values and prices, so the PDP's panel, a
@@ -42,25 +44,27 @@ export function useSpecificationFormat(
           ? numberText(value.number, value.decimals)
           : (value.text ?? '');
     const text = value.unit ? `${written} ${value.unit}` : written;
-    if (!value.quantity || value.quantity <= 1) return text;
-    return `${text} · ${t('configurator.panel.quantity_suffix', { count: value.quantity })}`;
+    // Wherever the price is for more or less than one, which a part measured
+    // in fractions of a unit is.
+    if (!value.quantity || value.quantity === 1) return text;
+    const count = new Intl.NumberFormat(formatLocale.value, {
+      maximumFractionDigits: 6,
+    }).format(value.quantity);
+    return `${text} · ${t('configurator.panel.quantity_suffix', { count })}`;
   }
 
   /**
-   * A price, or nothing. The rule is the option row's: a choice the provider
-   * charges nothing for says nothing, rather than a column of zeroes.
+   * A value's price for every one of it chosen, or nothing. The rule is the
+   * option row's: a choice the provider charges nothing for says nothing,
+   * rather than a column of zeroes.
    */
-  function priceText(price: PriceType): string | null {
-    if (!showPrice.value) return null;
-    const net = exVatAmount(price);
+  function valuePrice(value: SpecificationValue): string | null {
+    if (!showPrice.value || !value.price) return null;
+    const net = valueAmount(value);
     const prefix = optionPricePrefix(net);
     if (prefix === null) return null;
     return `${prefix}${money(net)}`;
   }
 
-  function valuePrice(value: SpecificationValue): string | null {
-    return value.price ? priceText(value.price) : null;
-  }
-
-  return { money, valueText, priceText, valuePrice };
+  return { money, valueText, valuePrice };
 }

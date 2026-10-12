@@ -160,10 +160,57 @@ describe('LineSpecification', () => {
       .findAll('dd')
       .map((dd) => plain(dd.text()));
     expect(values[0]).toMatch(/^S45\s*\+.*1,870\.20/);
+    // Four teeth at 619.49, so the row says what the four cost.
     expect(values[1]).toMatch(
-      /^J250 Bucket Teeth · configurator\.panel\.quantity_suffix 4\s*\+.*619\.49/,
+      /^J250 Bucket Teeth · configurator\.panel\.quantity_suffix 4\s*\+.*2,477\.96$/,
     );
     expect(values[2]).toBe('1,200 mm');
+  });
+
+  it('writes a quantity other than one in the number format of the locale', async () => {
+    const wrapper = await opened({
+      configuration: {
+        summary: [],
+        sections: [
+          {
+            name: 'Material',
+            sortIndex: 1,
+            variables: [],
+            optionGroups: [
+              {
+                id: 'steel',
+                name: 'Steel',
+                sortIndex: 1,
+                options: [
+                  {
+                    name: 'Plate',
+                    quantity: 0.0735,
+                    unitPrice: { sellingPriceExVat: 1000, currency: SEK },
+                  },
+                  {
+                    name: 'Bolt',
+                    quantity: 1234.5,
+                    unitPrice: { sellingPriceExVat: 1, currency: SEK },
+                  },
+                ],
+                optionGroups: [],
+              },
+            ],
+            sections: [],
+          },
+        ],
+      },
+    });
+
+    const values = sheet(wrapper)
+      .findAll('dd')
+      .map((dd) => plain(dd.text()));
+    expect(values[0]).toMatch(
+      /^Plate · configurator\.panel\.quantity_suffix 0\.0735\s*\+.*73\.50$/,
+    );
+    expect(values[1]).toMatch(
+      /^Bolt · configurator\.panel\.quantity_suffix 1,234\.5\s*\+.*1,234\.50$/,
+    );
   });
 
   it("totals the line from its own total, with the unit's VAT rate", async () => {
@@ -269,6 +316,109 @@ describe('LineSpecification', () => {
         .find('[data-testid="line-specification-summary"]')
         .exists(),
     ).toBe(false);
+  });
+
+  describe('base price', () => {
+    // 1870.20 + 4 × 619.49 = 4348.16 of options against 5000 a unit.
+    const GAP_UNIT: PriceType = {
+      sellingPriceExVat: 5000,
+      vat: 1250,
+      sellingPriceIncVat: 6250,
+      currency: SEK,
+    };
+    const base = (wrapper: ReturnType<typeof mountLine>) =>
+      sheet(wrapper).find('[data-testid="specification-base-price"]');
+
+    it('writes the remainder of one unit as a row above the first section', async () => {
+      const wrapper = await opened({ unitPrice: GAP_UNIT });
+
+      expect(plain(base(wrapper).text()).replace(/\s+/g, ' ')).toMatch(
+        /^configurator\.panel\.base_price\s*SEK 651\.84$/,
+      );
+      const heading = sheet(wrapper).find('h4');
+      expect(
+        base(wrapper).element.compareDocumentPosition(heading.element) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it('shows the row at zero where the options make up the unit price', async () => {
+      const wrapper = await opened({
+        unitPrice: { sellingPriceExVat: 4348.16, currency: SEK },
+      });
+
+      expect(plain(base(wrapper).text())).toContain('SEK 0.00');
+    });
+
+    it('shows no row where the options exceed the unit price', async () => {
+      const wrapper = await opened();
+
+      expect(base(wrapper).exists()).toBe(false);
+    });
+
+    it('shows no row where the buyer may not see prices', async () => {
+      setFeatures({ priceVisibility: { enabled: false } });
+
+      const wrapper = await opened({ unitPrice: GAP_UNIT });
+
+      expect(base(wrapper).exists()).toBe(false);
+    });
+
+    it('shows no row on a line committed before its structure was recorded', async () => {
+      const wrapper = await opened({
+        unitPrice: GAP_UNIT,
+        configuration: { summary: [{ label: 'Adapter', value: 'S45' }] },
+      });
+
+      expect(base(wrapper).exists()).toBe(false);
+      expect(
+        sheet(wrapper).findAll(
+          '[data-testid="line-specification-summary-row"]',
+        ),
+      ).toHaveLength(1);
+    });
+
+    it('shows no row where the recorded sections hold no choice but the summary names some', async () => {
+      const wrapper = await opened({
+        unitPrice: GAP_UNIT,
+        configuration: {
+          summary: [{ label: 'Adapter', value: 'S45' }],
+          sections: [
+            {
+              name: 'Machine',
+              sortIndex: 1,
+              variables: [],
+              optionGroups: [],
+              sections: [],
+            },
+          ],
+        },
+      });
+
+      expect(base(wrapper).exists()).toBe(false);
+      expect(
+        sheet(wrapper).findAll(
+          '[data-testid="line-specification-summary-row"]',
+        ),
+      ).toHaveLength(1);
+    });
+
+    it('shows the row above the standard text where the recorded sections are empty', async () => {
+      const wrapper = await opened({
+        unitPrice: GAP_UNIT,
+        configuration: { summary: [], sections: [] },
+      });
+
+      expect(plain(base(wrapper).text())).toContain('SEK 5,000.00');
+      const standard = sheet(wrapper).find(
+        '[data-testid="line-specification-default"]',
+      );
+      expect(standard.text()).toBe('cart.default_configuration');
+      expect(
+        base(wrapper).element.compareDocumentPosition(standard.element) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
   });
 
   it('closes, and opens again', async () => {

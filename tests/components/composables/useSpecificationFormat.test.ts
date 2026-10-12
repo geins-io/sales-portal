@@ -58,30 +58,53 @@ describe('useSpecificationFormat', () => {
       expect(format().valueText({})).toBe('');
     });
 
-    it('adds the quantity above one only', () => {
+    it('adds the quantity wherever the price is for more or less than one', () => {
       const { valueText } = format();
 
       expect(valueText({ text: 'J250', quantity: 4 })).toMatch(
         /^J250 · configurator\.panel\.quantity_suffix/,
       );
+      expect(valueText({ text: 'Steel', quantity: 0.073 })).toMatch(
+        /^Steel · configurator\.panel\.quantity_suffix/,
+      );
       expect(valueText({ text: 'J250', quantity: 1 })).toBe('J250');
       expect(valueText({ text: 'J250', quantity: 0 })).toBe('J250');
+      expect(valueText({ text: 'J250' })).toBe('J250');
     });
   });
 
-  describe('priceText', () => {
+  describe('valuePrice', () => {
     it('writes a price as an addition, in the currency given', () => {
       expect(
-        plain(format('SEK').priceText({ sellingPriceExVat: 619.49 })),
+        plain(
+          format('SEK').valuePrice({ price: { sellingPriceExVat: 619.49 } }),
+        ),
       ).toBe('+SEK 619.49');
     });
 
+    it('writes the price times the quantity', () => {
+      expect(
+        plain(
+          format('SEK').valuePrice({
+            quantity: 4,
+            price: { sellingPriceExVat: 76.2 },
+          }),
+        ),
+      ).toBe('+SEK 304.80');
+    });
+
     it('writes nothing for a price of nothing, or where prices are hidden', () => {
-      expect(format().priceText({ sellingPriceExVat: 0 })).toBeNull();
+      const { valuePrice } = format();
+      expect(valuePrice({ price: { sellingPriceExVat: 0 } })).toBeNull();
+      expect(
+        valuePrice({ quantity: 0, price: { sellingPriceExVat: 619.49 } }),
+      ).toBeNull();
 
       assert.isDefined(tenant.value);
       tenant.value.features = { priceVisibility: { enabled: false } };
-      expect(format().priceText({ sellingPriceExVat: 619.49 })).toBeNull();
+      expect(
+        format().valuePrice({ price: { sellingPriceExVat: 619.49 } }),
+      ).toBeNull();
     });
 
     it('reads a value without a price as having none', () => {

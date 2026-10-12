@@ -19,6 +19,7 @@ import {
   TooltipTrigger,
 } from '~/components/ui/tooltip';
 import {
+  basePrice,
   panelTotals,
   specificationRows,
   specificationText,
@@ -64,8 +65,12 @@ const rows = computed(() =>
   configuration ? specificationRows(configuration) : [],
 );
 
+const base = computed(() =>
+  showPrice.value ? basePrice(configuration?.unitPrice, rows.value) : null,
+);
+
 const currency = computed(() => currencyCode(configuration?.unitPrice));
-const { money, valueText, priceText } = useSpecificationFormat(currency);
+const { money, valueText, valuePrice } = useSpecificationFormat(currency);
 
 /**
  * Net leads and VAT and the total support it, as the prototype. Every figure is
@@ -98,9 +103,17 @@ const asText = computed(() =>
     quantityLine: t('configurator.panel.copy_quantity', {
       count: configuration?.quantity ?? 1,
     }),
+    ...(base.value === null
+      ? {}
+      : {
+          basePrice: {
+            label: t('configurator.panel.base_price'),
+            amount: money(base.value),
+          },
+        }),
     rows: rows.value,
     formatValue: valueText,
-    formatPrice: priceText,
+    formatPrice: valuePrice,
     ...(showPrice.value
       ? {
           price: {
@@ -270,11 +283,16 @@ const quantity = computed(() => configuration?.quantity ?? 1);
         <!-- The value is the content and the price is an annotation, so the
              value leads and a price appears only where there is one. -->
         <div
-          v-if="rows.length"
+          v-if="rows.length || base !== null"
           class="min-h-0 flex-1 overflow-y-auto px-4 py-3"
           data-testid="configurator-panel-rows"
         >
-          <SpecificationRows :rows="rows" :large="false" :currency="currency" />
+          <SpecificationRows
+            :rows="rows"
+            :large="false"
+            :currency="currency"
+            :base-price="base"
+          />
         </div>
 
         <div
@@ -302,7 +320,12 @@ const quantity = computed(() => configuration?.quantity ?? 1);
       :product-name="productName"
       test-id="configurator-spec-sheet"
     >
-      <SpecificationRows :rows="rows" :large="true" :currency="currency" />
+      <SpecificationRows
+        :rows="rows"
+        :large="true"
+        :currency="currency"
+        :base-price="base"
+      />
       <template v-if="showPrice" #footer>
         <SpecificationPrice
           prefix="configurator-sheet"

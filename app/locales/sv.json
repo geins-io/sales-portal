@@ -384,6 +384,7 @@
       "expired": "Konfigurationssessionen har gått ut.",
       "resume": "Återuppta",
       "title": "Specifikation",
+      "base_price": "Grundpris",
       "net_price": "Nettopris",
       "vat": "Moms ({rate}%)",
       "vat_no_rate": "Moms",

@@ -8,6 +8,7 @@ import { currencyCode } from '#shared/utils/configurator-price';
 import { Button } from '~/components/ui/button';
 import {
   committedSpecificationRows,
+  lineBasePrice,
   lineSpecificationTotals,
 } from '~/utils/configurator-panel';
 
@@ -34,6 +35,10 @@ const open = ref(false);
 
 const rows = computed(() =>
   committedSpecificationRows(configuration.sections ?? []),
+);
+
+const base = computed(() =>
+  showPrice.value ? lineBasePrice(configuration, unitPrice) : null,
 );
 
 const currency = computed(() => currencyCode(totalPrice ?? unitPrice));
@@ -82,13 +87,14 @@ const supportingRows = computed(() =>
     test-id="line-specification-sheet"
   >
     <SpecificationRows
-      v-if="rows.length"
+      v-if="rows.length || base !== null"
       :rows="rows"
       :large="true"
       :currency="currency"
+      :base-price="base"
     />
     <dl
-      v-else-if="configuration.summary.length"
+      v-if="!rows.length && configuration.summary.length"
       class="divide-border/60 divide-y px-6 pb-2"
       data-testid="line-specification-summary"
     >
@@ -105,7 +111,7 @@ const supportingRows = computed(() =>
       </div>
     </dl>
     <p
-      v-else
+      v-else-if="!rows.length"
       class="text-muted-foreground px-6 py-3 text-sm"
       data-testid="line-specification-default"
     >

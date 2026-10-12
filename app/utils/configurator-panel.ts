@@ -8,6 +8,7 @@ import type {
 import type {
   LineConfigurationGroup,
   LineConfigurationSection,
+  LineConfigurationSummary,
   PriceType,
 } from '#shared/types/commerce';
 import {
@@ -430,6 +431,61 @@ export function committedSpecificationRows(
   return rows;
 }
 
+/** In cents, as a price is shown. */
+function cents(amount: number): number {
+  return Math.round(amount * 100);
+}
+
+function valueCents(value: SpecificationValue): number {
+  return Math.round(cents(exVatAmount(value.price)) * (value.quantity ?? 1));
+}
+
+/**
+ * What a row's value costs for one configured unit: the option's price as
+ * shown, times how many of it, rounded to the cent. A quantity can be a
+ * fraction of a part.
+ */
+export function valueAmount(value: SpecificationValue): number {
+  return valueCents(value) / 100;
+}
+
+/**
+ * What one unit costs beyond the options the rows show, zero included. The
+ * provider sends no base price, only the options and the total, so this
+ * remainder is the only way the rows on screen add up to it.
+ *
+ * Subtracts each row as it is shown, so a remainder made of rounding is zero.
+ * A negative one is a line that kept a stale price, not a base price, and is
+ * `null`, as is a price that is not there.
+ */
+export function basePrice(
+  unitPrice: PriceType | undefined,
+  rows: SpecificationRow[],
+): number | null {
+  if (!unitPrice) return null;
+  const shown = rows
+    .flatMap((row) => row.values)
+    .reduce((sum, value) => sum + valueCents(value), 0);
+  const remainder = cents(exVatAmount(unitPrice)) - shown;
+  return remainder >= 0 ? remainder / 100 : null;
+}
+
+/**
+ * A committed line's base price. Recorded sections with nothing in them still
+ * get the row where nothing at all was chosen. Where the summary names choices
+ * the sections do not hold, or a line was committed before its structure was
+ * recorded, the remainder would include those choices, so there is none.
+ */
+export function lineBasePrice(
+  configuration: LineConfigurationSummary,
+  unitPrice: PriceType | undefined,
+): number | null {
+  if (!configuration.sections) return null;
+  const rows = committedSpecificationRows(configuration.sections);
+  if (!rows.length && configuration.summary.length) return null;
+  return basePrice(unitPrice, rows);
+}
+
 export interface LineSpecificationTotals {
   net: number;
   vat: number;
@@ -473,11 +529,13 @@ export interface SpecificationTextInput {
   articleNumber: string;
   /** Already translated, because a pure function has no locale. */
   quantityLine: string;
+  /** Absent where the panel shows no base price row. */
+  basePrice?: { label: string; amount: string };
   rows: SpecificationRow[];
   /** What a value reads as on screen, so the text and the panel agree. */
   formatValue: (value: SpecificationValue) => string;
-  /** `null` where the panel renders no price either. */
-  formatPrice: (price: PriceType) => string | null;
+  /** What a value's price reads as on screen; `null` where it shows none. */
+  formatPrice: (value: SpecificationValue) => string | null;
   /** Absent when the buyer may not see prices. */
   price?: { lines: { label: string; amount: string }[]; note: string };
 }
@@ -494,12 +552,16 @@ export function specificationText(input: SpecificationTextInput): string {
     '',
   ];
 
+  if (input.basePrice) {
+    lines.push(`${input.basePrice.label}: ${input.basePrice.amount}`, '');
+  }
+
   for (const [group, rows] of groupSpecificationRows(input.rows)) {
     lines.push(group.toUpperCase());
     for (const row of rows) {
       lines.push(`  ${row.label}:`);
       for (const value of row.values) {
-        const price = value.price ? input.formatPrice(value.price) : null;
+        const price = input.formatPrice(value);
         lines.push(
           `    ${input.formatValue(value)}${price ? `  (${price})` : ''}`,
         );

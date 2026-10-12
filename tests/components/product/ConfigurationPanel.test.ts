@@ -425,6 +425,9 @@ describe('ConfigurationPanel', () => {
       expect(rows.text()).toContain(
         'Power strip · configurator.panel.quantity_suffix 3',
       );
+      // 550 a strip, so the row says what the three of them cost.
+      expect(plainText(rows.text())).toContain('+SEK 1,650.00');
+      expect(plainText(rows.text())).not.toContain('+SEK 550.00');
       expect(rows.text()).toContain('Fixed height legs');
       expect(rows.text()).not.toContain(
         'Fixed height legs · configurator.panel.quantity_suffix 1',
@@ -442,6 +445,96 @@ describe('ConfigurationPanel', () => {
       );
       expect(rows.text()).toContain('Electric height legs');
       expect(plainText(rows.text())).not.toContain('4,200');
+    });
+  });
+
+  describe('base price', () => {
+    // The valid document prices every chosen option at 0 against 3,200 a unit.
+    const baseIn = (wrapper: ReturnType<typeof mountPanel>, scope: string) =>
+      wrapper
+        .find(`[data-testid="${scope}"]`)
+        .find('[data-testid="specification-base-price"]');
+
+    it('writes the remainder as a row above the first section in the column', () => {
+      const wrapper = mountPanel();
+      const base = baseIn(wrapper, 'configurator-panel-rows');
+
+      expect(plainText(base.text())).toMatch(
+        /^configurator\.panel\.base_price\s*SEK 3,200\.00$/,
+      );
+      const heading = wrapper
+        .find('[data-testid="configurator-panel-rows"]')
+        .find('h4');
+      expect(
+        base.element.compareDocumentPosition(heading.element) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it('writes it in the sheet too, larger', async () => {
+      const wrapper = mountPanel();
+      await wrapper
+        .find('[data-testid="configurator-panel-expand"]')
+        .trigger('click');
+      const base = baseIn(wrapper, 'configurator-spec-sheet');
+
+      expect(plainText(base.text())).toContain('SEK 3,200.00');
+      expect(base.classes()).toContain('text-base');
+    });
+
+    it('subtracts what the shown options cost', () => {
+      const config = makeValidConfiguration();
+      findOption(config, 'legs-fixed').selected = false;
+      findOption(config, 'legs-electric').selected = true;
+      config.unitPrice = { ...config.unitPrice, sellingPriceExVat: 7400 };
+
+      const base = baseIn(
+        mountPanel({ configuration: config }),
+        'configurator-panel-rows',
+      );
+      expect(plainText(base.text())).toContain('SEK 3,200.00');
+    });
+
+    it('stays per unit at a quantity above one', () => {
+      const config = makeValidConfiguration();
+      config.quantity = 3;
+
+      const base = baseIn(
+        mountPanel({ configuration: config }),
+        'configurator-panel-rows',
+      );
+      expect(plainText(base.text())).toContain('SEK 3,200.00');
+    });
+
+    it('shows the row at zero where the options make up the whole price', () => {
+      const config = makeValidConfiguration();
+      findOption(config, 'legs-fixed').selected = false;
+      findOption(config, 'legs-electric').selected = true;
+      config.unitPrice = { ...config.unitPrice, sellingPriceExVat: 4200 };
+
+      const base = baseIn(
+        mountPanel({ configuration: config }),
+        'configurator-panel-rows',
+      );
+      expect(plainText(base.text())).toContain('SEK 0.00');
+    });
+
+    it('shows no row where the buyer may not see prices', () => {
+      setFeatures({ priceVisibility: { enabled: false } });
+
+      expect(
+        mountPanel().find('[data-testid="specification-base-price"]').exists(),
+      ).toBe(false);
+    });
+
+    it('shows the row alone where no choice has been made', () => {
+      const config = makeValidConfiguration({ sections: [] });
+
+      const base = baseIn(
+        mountPanel({ configuration: config }),
+        'configurator-panel-rows',
+      );
+      expect(plainText(base.text())).toContain('SEK 3,200.00');
     });
   });
 
@@ -796,6 +889,66 @@ describe('ConfigurationPanel', () => {
       expect(lines[net + 1]).toBe('configurator.panel.vat 25: SEK 800.00');
       expect(lines[net + 2]).toBe('configurator.panel.inc_vat: SEK 4,000.00');
       expect(lines[net + 3]).toBe('configurator.panel.indicative');
+    });
+
+    it('copies the base price on a line of its own above the first section', async () => {
+      const writeText = grantClipboard();
+
+      await copyText(mountPanel());
+
+      const lines = (writeText.mock.calls[0]?.[0] as string)
+        .split('\n')
+        .map(plainText);
+      expect(lines.slice(1, 6)).toEqual([
+        'configurator.panel.copy_quantity 1',
+        '',
+        'configurator.panel.base_price: SEK 3,200.00',
+        '',
+        'FRAME',
+      ]);
+    });
+
+    it('copies an option of several at the price of all of them', async () => {
+      const writeText = grantClipboard();
+      const config = makeValidConfiguration();
+      const power = findOption(config, 'acc-power');
+      power.selected = true;
+      power.quantity = 3;
+
+      await copyText(mountPanel({ configuration: config }));
+
+      const lines = (writeText.mock.calls[0]?.[0] as string)
+        .split('\n')
+        .map(plainText);
+      expect(lines).toContain(
+        '    Power strip · configurator.panel.quantity_suffix 3  (+SEK 1,650.00)',
+      );
+    });
+
+    it('copies a base price of zero', async () => {
+      const writeText = grantClipboard();
+      const config = makeValidConfiguration();
+      findOption(config, 'legs-fixed').selected = false;
+      findOption(config, 'legs-electric').selected = true;
+      config.unitPrice = { ...config.unitPrice, sellingPriceExVat: 4200 };
+
+      await copyText(mountPanel({ configuration: config }));
+
+      const lines = (writeText.mock.calls[0]?.[0] as string)
+        .split('\n')
+        .map(plainText);
+      expect(lines).toContain('configurator.panel.base_price: SEK 0.00');
+    });
+
+    it('copies no base price where the buyer may not see prices', async () => {
+      setFeatures({ priceVisibility: { enabled: false } });
+      const writeText = grantClipboard();
+
+      await copyText(mountPanel());
+
+      expect(writeText.mock.calls[0]?.[0]).not.toContain(
+        'configurator.panel.base_price',
+      );
     });
 
     it('copies the totals for the quantity under the quantity line', async () => {

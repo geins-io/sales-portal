@@ -10,19 +10,45 @@ import {
  * content and the price an annotation, so the value leads and a price appears
  * only where there is one.
  */
-const { rows, large, currency } = defineProps<{
+const {
+  rows,
+  large,
+  currency,
+  basePrice = null,
+} = defineProps<{
   rows: SpecificationRow[];
   large: boolean;
   /** The currency the option prices are written in. */
   currency: string | undefined;
+  /** Net, per unit; `null` where there is no row to show. */
+  basePrice?: number | null;
 }>();
 
-const { valueText, valuePrice } = useSpecificationFormat(() => currency);
+const { t } = useI18n();
+const { money, valueText, valuePrice } = useSpecificationFormat(() => currency);
 
 const grouped = computed(() => groupSpecificationRows(rows));
 </script>
 
 <template>
+  <!-- Not a choice, so a plain row of its own rather than a section. -->
+  <div v-if="basePrice !== null" :class="large ? 'px-6 py-2' : 'mb-3'">
+    <div
+      class="flex items-baseline justify-between gap-3"
+      :class="large ? 'py-3 text-base' : 'py-1.5 text-sm'"
+      data-testid="specification-base-price"
+    >
+      <span class="text-foreground font-medium">
+        {{ t('configurator.panel.base_price') }}
+      </span>
+      <span
+        class="text-foreground tabular-nums"
+        data-testid="specification-base-price-amount"
+      >
+        {{ money(basePrice) }}
+      </span>
+    </div>
+  </div>
   <div
     v-for="[group, groupRows] in grouped"
     :key="group"

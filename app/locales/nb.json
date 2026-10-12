@@ -384,6 +384,7 @@
       "expired": "Konfigurasjonsøkten har utløpt.",
       "resume": "Gjenoppta",
       "title": "Spesifikasjon",
+      "base_price": "Grunnpris",
       "net_price": "Nettopris",
       "vat": "Mva. ({rate}%)",
       "vat_no_rate": "Mva.",

@@ -384,6 +384,7 @@
       "expired": "Die Konfigurationssitzung ist abgelaufen.",
       "resume": "Fortsetzen",
       "title": "Spezifikation",
+      "base_price": "Grundpreis",
       "net_price": "Nettopreis",
       "vat": "MwSt. ({rate}%)",
       "vat_no_rate": "MwSt.",
