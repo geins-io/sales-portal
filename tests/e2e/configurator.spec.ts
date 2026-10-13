@@ -4,8 +4,10 @@ import {
   isConfigurable,
   outOfScope,
   readPrice,
+  setVatDisplay,
   signedInState,
   waitForHydration,
+  type VatSide,
 } from './helpers';
 import { localeText } from './locale-text';
 
@@ -46,6 +48,8 @@ const COLOUR_SECTION = 'finish';
  */
 const PRICED_COLOUR = 'ral-7016';
 const PRICED_COLOUR_NET = 150;
+/** The same colour with the seed's 25 % VAT. */
+const PRICED_COLOUR_INC = 187.5;
 
 /** A second priced row, for the click that must not reach the network. */
 const OTHER_COLOUR = 'ral-9006';
@@ -166,6 +170,24 @@ function changeResponse(page: Page) {
       /\/api\/configurations\/[^/]+\/changes$/.test(response.url()) &&
       response.request().method() === 'POST',
   );
+}
+
+/** Moves the prices to a VAT side with the header's switcher, as a buyer does. */
+async function switchVat(page: Page, side: VatSide): Promise<void> {
+  await page
+    .locator('header')
+    .getByRole('button', {
+      name: await localeText(page, 'common.change_vat_display'),
+    })
+    .click();
+  await page
+    .getByRole('menuitem', {
+      name: await localeText(
+        page,
+        side === 'inc' ? 'common.vat_incl' : 'common.vat_excl',
+      ),
+    })
+    .click();
 }
 
 /** The cart lines behind the `cart_id` cookie, none when there is no cart. */
@@ -301,6 +323,70 @@ test.describe('Configurator', () => {
     } finally {
       await removeCartLines(page, linesBefore);
     }
+  });
+
+  test('every price on the page follows the VAT choice, both ways', async ({
+    page,
+  }) => {
+    const unavailable = await unavailableReason(page);
+    outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
+
+    await setVatDisplay(page, 'ex');
+    await openConfigurator(page);
+    await openSection(page, COLOUR_SECTION);
+    const changed = changeResponse(page);
+    await (await openColourSheet(page))
+      .locator(`[data-option-id="${PRICED_COLOUR}"]`)
+      .click();
+    await changed;
+    await expect(action(page)).toHaveAttribute('aria-busy', 'false');
+
+    const lead = page.getByTestId('configurator-panel-net');
+    const priceRows = page.getByTestId('configurator-panel-price-row');
+    const optionPrice = colourGroup(page).getByTestId(
+      'configurator-option-price',
+    );
+    const base = page
+      .getByTestId('configurator-panel-rows')
+      .getByTestId('specification-base-price-amount');
+    // The amount beside the one priced choice, not the choice's name, which
+    // carries digits of its own.
+    const rowPrice = page
+      .getByTestId('configurator-panel-rows')
+      .locator('dd', { hasText: /\+/ })
+      .locator('span')
+      .last();
+    const cents = (amount: number) => Math.round(amount * 100);
+
+    // Ex: price, VAT and the total with VAT; the colour and the base add up
+    // to the price.
+    await expect
+      .poll(() => readPrice(optionPrice))
+      .toBeCloseTo(PRICED_COLOUR_NET, 2);
+    await expect(priceRows).toHaveCount(3);
+    const exLead = await readPrice(lead);
+    const exTotal = await readPrice(priceRows.nth(2).locator('span').last());
+    expect(cents(await readPrice(base)) + cents(PRICED_COLOUR_NET)).toBe(
+      cents(exLead),
+    );
+    expect(await readPrice(rowPrice)).toBeCloseTo(PRICED_COLOUR_NET, 2);
+
+    // Inc: the price is the total with VAT, the third line goes, and every
+    // amount moves with it.
+    await switchVat(page, 'inc');
+    await expect(priceRows).toHaveCount(2);
+    await expect.poll(() => readPrice(lead)).toBeCloseTo(exTotal, 2);
+    expect(await readPrice(optionPrice)).toBeCloseTo(PRICED_COLOUR_INC, 2);
+    expect(await readPrice(rowPrice)).toBeCloseTo(PRICED_COLOUR_INC, 2);
+    expect(cents(await readPrice(base)) + cents(PRICED_COLOUR_INC)).toBe(
+      cents(exTotal),
+    );
+
+    // And back.
+    await switchVat(page, 'ex');
+    await expect(priceRows).toHaveCount(3);
+    await expect.poll(() => readPrice(lead)).toBeCloseTo(exLead, 2);
+    expect(await readPrice(optionPrice)).toBeCloseTo(PRICED_COLOUR_NET, 2);
   });
 
   test('a list card leads to the configurator, never to the cart', async ({
@@ -848,8 +934,13 @@ async function cartProduct(page: Page): Promise<string | null> {
   return null;
 }
 
+interface SidedPrice {
+  sellingPriceExVat?: number;
+  sellingPriceIncVat?: number;
+}
+
 interface CommittedGroup {
-  options: { quantity?: number; unitPrice?: { sellingPriceExVat?: number } }[];
+  options: { quantity?: number; unitPrice?: SidedPrice }[];
   optionGroups: CommittedGroup[];
 }
 
@@ -862,8 +953,8 @@ interface CommittedSection {
 interface CartLine {
   id: string;
   quantity: number;
-  unitPrice?: { sellingPriceExVat?: number };
-  totalPrice?: { sellingPriceExVat?: number };
+  unitPrice?: SidedPrice;
+  totalPrice?: SidedPrice;
   configuration?: {
     configurationId: string;
     summary: { label: string; value: string }[];
@@ -875,15 +966,15 @@ interface CartLine {
  * One unit of the line less every option it was committed with, each row in
  * cents as the sheet shows it: what its base price row must read.
  */
-function baseCentsOf(line: CartLine): number {
+function baseCentsOf(line: CartLine, side: VatSide = 'ex'): number {
   const cents = (amount = 0) => Math.round(amount * 100);
+  const amount = (price: SidedPrice | undefined) =>
+    side === 'inc' ? price?.sellingPriceIncVat : price?.sellingPriceExVat;
   const ofGroup = (group: CommittedGroup): number =>
     group.options.reduce(
       (sum, option) =>
         sum +
-        Math.round(
-          cents(option.unitPrice?.sellingPriceExVat) * (option.quantity ?? 1),
-        ),
+        Math.round(cents(amount(option.unitPrice)) * (option.quantity ?? 1)),
       0,
     ) + group.optionGroups.reduce((sum, nested) => sum + ofGroup(nested), 0);
   const ofSection = (section: CommittedSection): number =>
@@ -893,7 +984,7 @@ function baseCentsOf(line: CartLine): number {
     (sum, section) => sum + ofSection(section),
     0,
   );
-  return cents(line.unitPrice?.sellingPriceExVat) - options;
+  return cents(amount(line.unitPrice)) - options;
 }
 
 /** This host's cart only: the stored session may hold other tenants' cookies. */
@@ -1236,6 +1327,87 @@ test.describe('The specification of a configured line', () => {
         .click();
       await expect(sheet).toBeHidden();
       await expect(lineIn(checkout)).toBeVisible();
+    } finally {
+      if (cartId) {
+        for (const { id } of await readLines(page, cartId)) {
+          await page.request.delete('/api/cart/items', {
+            params: { cartId, itemId: id },
+          });
+        }
+      }
+    }
+  });
+});
+
+test.describe('The specification of a configured line, on each VAT side', () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test('writes the total, the VAT rows and the base price on the side chosen', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await waitForHydration(page);
+    const alias = await cartProduct(page);
+    outOfScope(
+      !alias,
+      'tenant-config',
+      'no configurable product here commits as created (the catalogue has none)',
+    );
+
+    let cartId: string | undefined;
+    try {
+      await openConfigurator(page, alias!);
+      const commit = action(page);
+      await expect(commit).toBeEnabled({ timeout: 30_000 });
+      await expect(commit).toHaveAttribute('aria-busy', 'false');
+      const added = page.waitForResponse(
+        (response) =>
+          /\/api\/configurations\/[^/]+\/cart$/.test(response.url()) &&
+          response.request().method() === 'POST',
+      );
+      await commit.click();
+      const addResponse = await added;
+      expect(addResponse.status()).toBe(200);
+      const { itemId } = (await addResponse.json()) as { itemId: string };
+      cartId = await cartIdOf(page);
+      const line = (await readLines(page, cartId!)).find(
+        (candidate) => candidate.id === itemId,
+      );
+      expect(line, 'the cart answered without the new line').toBeDefined();
+
+      for (const side of ['inc', 'ex'] as const) {
+        await setVatDisplay(page, side);
+        await page.goto('/cart');
+        await waitForHydration(page);
+        const row = page
+          .getByTestId('cart-page')
+          .getByTestId('cart-item')
+          .filter({ has: page.locator(`[id$="-configuration-${itemId}"]`) });
+        await row.getByTestId('line-specification-open').click();
+        const sheet = page.getByTestId('line-specification-sheet');
+        await expect(sheet).toBeInViewport({ ratio: 1 });
+
+        const total =
+          side === 'inc'
+            ? line!.totalPrice?.sellingPriceIncVat
+            : line!.totalPrice?.sellingPriceExVat;
+        expect(
+          await readPrice(sheet.getByTestId('line-specification-net')),
+        ).toBeCloseTo(total ?? NaN, 2);
+        await expect(
+          sheet.getByTestId('line-specification-price-row'),
+        ).toHaveCount(side === 'inc' ? 2 : 3);
+
+        const base = baseCentsOf(line!, side);
+        const baseRow = sheet.getByTestId('specification-base-price-amount');
+        if (base >= 0) {
+          expect(Math.round((await readPrice(baseRow)) * 100)).toBe(base);
+        } else {
+          await expect(baseRow).toHaveCount(0);
+        }
+        await page.keyboard.press('Escape');
+        await expect(sheet).toBeHidden();
+      }
     } finally {
       if (cartId) {
         for (const { id } of await readLines(page, cartId)) {
