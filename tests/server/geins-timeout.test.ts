@@ -37,7 +37,9 @@ async function stallingServer() {
   let closed!: () => void;
   const connection = new Promise<void>((resolve) => (connected = resolve));
   const release = new Promise<void>((resolve) => (closed = resolve));
+  const sockets: net.Socket[] = [];
   const server = net.createServer((socket) => {
+    sockets.push(socket);
     socket.resume();
     socket.on('close', closed);
     connected();
@@ -49,6 +51,7 @@ async function stallingServer() {
     connection,
     release,
     server,
+    sockets,
   };
 }
 
@@ -85,6 +88,7 @@ describe('a Geins call that never answers', () => {
 
   afterEach(async () => {
     vi.useRealTimers();
+    for (const socket of stall.sockets) socket.destroy();
     await new Promise<void>((resolve) => stall.server.close(() => resolve()));
   });
 
@@ -146,5 +150,23 @@ describe('a Geins call that never answers', () => {
     await call.catch(() => undefined);
     expect(settled).toHaveBeenCalledOnce();
     await stall.release;
+  });
+
+  it('lets an order wait past the limit: it may complete upstream after a cut', async () => {
+    const order = omsAt(stall.url).checkout.createOrder({
+      cartId: CART_ID,
+      checkoutOptions: { paymentId: 1, shippingId: 1 },
+    });
+    const settled = vi.fn();
+    order.then(settled, settled);
+    await stall.connection;
+
+    await vi.advanceTimersByTimeAsync(GEINS_REQUEST_TIMEOUT_MS * 3);
+
+    expect(settled).not.toHaveBeenCalled();
+    expect(mockLoggerError).not.toHaveBeenCalled();
+    // Only the far end can end it: the order answers as not created.
+    for (const socket of stall.sockets) socket.destroy();
+    await expect(order).resolves.toMatchObject({ created: false });
   });
 });

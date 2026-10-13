@@ -9,10 +9,17 @@ import { logger } from './logger';
 // default of 300 s, past the App Service gateway's 240 s, and a render held on
 // it answers nothing and reports nothing.
 //
-//   Geins GraphQL (SDK)          GEINS_REQUEST_TIMEOUT_MS, below; a call may
-//                                ask for its own limit, which wins
+//   Geins GraphQL (SDK)          GEINS_REQUEST_TIMEOUT_MS, below, for every
+//                                read and write; a call may ask for its own
+//                                limit, which wins
+//     menus and content areas    CMS_READ_TIMEOUT_MS per attempt, one more
+//                                attempt after a timeout, then the last good
+//                                copy (services/cms)
 //     CMS page-link read         CMS_READ_TIMEOUT_MS (services/cms)
-//     quote accept and reject    WRITE_TIMEOUT_MS (services/quotes)
+//     CMS page read              the default: without it the page is the
+//                                error page
+//     order and quote writes     none (0): checkout.createOrder in the SDK,
+//                                quote accept and reject (services/quotes)
 //     configurator calls         15 s, line reads 2 s, reopen 45 s
 //                                (services/configurator-merchant-api)
 //   Geins auth and REST (SDK)    10 s, set inside the SDK
@@ -31,17 +38,10 @@ export const GEINS_REQUEST_TIMEOUT_MS = 20_000;
 export const TENANT_LOOKUP_TIMEOUT_MS = 20_000;
 
 /**
- * A CMS read every render waits on and that has a fallback when it fails.
- * Production's sampled CMS reads over 30 days: longest 0.29 s.
+ * One attempt at a menu, content area or page-link read, which every render
+ * waits on. Production's sampled CMS reads over 30 days: longest 0.29 s.
  */
-export const CMS_READ_TIMEOUT_MS = 3_000;
-
-/**
- * A write on the order or quote path: not cut off by the portal until its
- * duration is measured, because an abort after Geins applied the write tells
- * the buyer it failed. Undici's own header limit, so no change from before.
- */
-export const WRITE_TIMEOUT_MS = 300_000;
+export const CMS_READ_TIMEOUT_MS = 5_000;
 
 /**
  * The configurator's 2 s line reads: past it, a cart or an order answers

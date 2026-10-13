@@ -14,7 +14,6 @@ const {
   CMS_READ_TIMEOUT_MS,
   GEINS_REQUEST_TIMEOUT_MS,
   TENANT_LOOKUP_TIMEOUT_MS,
-  WRITE_TIMEOUT_MS,
   geinsRequestConfig,
 } = await import('../../../server/utils/outbound-timeouts');
 
@@ -124,9 +123,8 @@ describe('outbound timeouts', () => {
     },
   );
 
-  it('keeps a write unbounded by us and a CMS read short', () => {
-    expect(WRITE_TIMEOUT_MS).toBe(300_000);
-    expect(CMS_READ_TIMEOUT_MS).toBe(3_000);
+  it('keeps a CMS read short', () => {
+    expect(CMS_READ_TIMEOUT_MS).toBe(5_000);
   });
 
   it('reports nothing for any other failed call', () => {

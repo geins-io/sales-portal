@@ -38,6 +38,9 @@ vi.stubGlobal('getRequestHeader', vi.fn().mockReturnValue(undefined));
 
 const { getContentArea, getPage, getMenu } =
   await import('../../../server/services/cms');
+const { CMS_READ_TIMEOUT_MS } =
+  await import('../../../server/utils/outbound-timeouts');
+const CMS_READ = { timeoutMs: CMS_READ_TIMEOUT_MS };
 
 const mockEvent = {} as H3Event;
 
@@ -64,6 +67,7 @@ describe('CMS service preview injection', () => {
             preview: true,
           },
           undefined,
+          CMS_READ,
         );
       }
     });
@@ -84,6 +88,7 @@ describe('CMS service preview injection', () => {
             displaySetting,
           },
           undefined,
+          CMS_READ,
         );
       }
     });
@@ -130,6 +135,7 @@ describe('CMS service preview injection', () => {
           preview: true,
         },
         undefined,
+        CMS_READ,
       );
     });
 
@@ -143,6 +149,7 @@ describe('CMS service preview injection', () => {
           ...channelVars,
         },
         undefined,
+        CMS_READ,
       );
     });
   });

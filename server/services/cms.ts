@@ -13,19 +13,74 @@ import {
 } from './_sdk';
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
-import { getRequestIdentity } from '../utils/request-identity';
+import {
+  ANONYMOUS_IDENTITY,
+  getRequestIdentity,
+} from '../utils/request-identity';
 import { hasPageTag } from '#shared/utils/cms-tags';
 import { mergeContainersByVisibility } from '#shared/utils/cms-visibility';
 import { isSafeInternalPath } from '#shared/utils/redirect';
 import type { CmsAreaContext, CmsContentArea } from '#shared/types/cms';
 import { CMS_AREA_MAX_CATEGORY_IDS } from '../schemas/api-input';
 import { CMS_READ_TIMEOUT_MS } from '../utils/outbound-timeouts';
+import { logger } from '../utils/logger';
+import { isSdkTimeout } from '../utils/sdk-error';
 
 // =============================================================================
 // Cache Configuration
 // =============================================================================
 
 const CACHE_TTL_MS = 60 * 1000; // 1 minute — short TTL for multi-locale correctness
+
+/** A menu or content area: part of every page, so a slow read costs seconds. */
+const CMS_READ = { timeoutMs: CMS_READ_TIMEOUT_MS };
+
+/**
+ * The last menu and area copies that answered, kept past the cache TTL: a read
+ * that fails serves these instead of a page without its menu. Never filled or
+ * read for preview.
+ *
+ * Anonymous copies, which every public render needs, have their own maps, so
+ * signed-in sessions (a new identity on every renewal) cannot evict them. Each
+ * map is bounded by the JSON size of its entries, not their count: measured on
+ * the team tenant, a main menu is 2.4 kB as JSON and 3.1 kB on the heap, a
+ * front-page area 0.5 kB and 0.8 kB, but a customer's can be far larger. At
+ * the 1.6 heap-to-JSON ratio of the area, the 10 MB below is about 16 MB.
+ */
+function lastGoodCopies<V extends object>(maxSize: number) {
+  return new LRUCache<string, V>({
+    maxSize,
+    sizeCalculation: (value) => JSON.stringify(value).length,
+  });
+}
+const MB = 1024 * 1024;
+const lastGoodMenu = {
+  anonymous: lastGoodCopies<MenuType>(3 * MB),
+  signedIn: lastGoodCopies<MenuType>(1 * MB),
+};
+const lastGoodArea = {
+  anonymous: lastGoodCopies<CmsContentArea>(4 * MB),
+  signedIn: lastGoodCopies<CmsContentArea>(2 * MB),
+};
+
+function lastGoodFor<V>(
+  copies: { anonymous: V; signedIn: V },
+  event: H3Event,
+): V {
+  return getRequestIdentity(event) === ANONYMOUS_IDENTITY
+    ? copies.anonymous
+    : copies.signedIn;
+}
+
+/** A read the timeout cut off is sent once more; any other failure is not. */
+async function retryOnTimeout<T>(read: () => Promise<T>): Promise<T> {
+  try {
+    return await read();
+  } catch (error) {
+    if (!isSdkTimeout(error)) throw error;
+    return read();
+  }
+}
 
 const menuCache = new LRUCache<string, MenuType>({
   max: 200,
@@ -91,16 +146,36 @@ export async function getMenu(
   event: H3Event,
 ): Promise<MenuType> {
   const preview = getPreviewCookie(event);
-  const isCacheable = !preview;
-  const cacheKey = `${buildCachePrefix(event)}::menu::${args.menuLocationId}`;
+  if (preview) return readMenu(args, event, true);
 
-  if (isCacheable) {
-    const cached = menuCache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
+  const cacheKey = `${buildCachePrefix(event)}::menu::${args.menuLocationId}`;
+  const cached = menuCache.get(cacheKey);
+  if (cached) {
+    return cached;
   }
 
+  const copies = lastGoodFor(lastGoodMenu, event);
+  let result: MenuType;
+  try {
+    result = await readMenu(args, event, false);
+    copies.set(cacheKey, result);
+  } catch (error) {
+    const lastGood = copies.get(cacheKey);
+    if (!lastGood) throw error;
+    logger.warn('[cms] menu read failed; serving the last good copy', {
+      menuLocationId: args.menuLocationId,
+    });
+    result = lastGood;
+  }
+  menuCache.set(cacheKey, result, { ttl: CACHE_TTL_MS });
+  return result;
+}
+
+async function readMenu(
+  args: { menuLocationId: string },
+  event: H3Event,
+  preview: boolean,
+): Promise<MenuType> {
   const sdk = await getTenantSDK(event);
   const channelVars = getRequestChannelVariables(sdk, event);
   const ctx = buildRequestContext(event);
@@ -109,7 +184,10 @@ export async function getMenu(
   if (preview) {
     try {
       return (await wrapServiceCall(
-        () => sdk.cms.menu.get({ ...queryArgs, preview: true }, ctx),
+        () =>
+          retryOnTimeout(() =>
+            sdk.cms.menu.get({ ...queryArgs, preview: true }, ctx, CMS_READ),
+          ),
         'cms',
       )) as MenuType;
     } catch {
@@ -118,7 +196,7 @@ export async function getMenu(
   }
 
   let result = (await wrapServiceCall(
-    () => sdk.cms.menu.get(queryArgs, ctx),
+    () => retryOnTimeout(() => sdk.cms.menu.get(queryArgs, ctx, CMS_READ)),
     'cms',
   )) as MenuType;
 
@@ -139,7 +217,13 @@ export async function getMenu(
       try {
         const pResult = (await wrapServiceCall(
           () =>
-            sdk.cms.menu.get({ ...fallbackBase, preview: true }, fallbackCtx),
+            retryOnTimeout(() =>
+              sdk.cms.menu.get(
+                { ...fallbackBase, preview: true },
+                fallbackCtx,
+                CMS_READ,
+              ),
+            ),
           'cms',
         )) as MenuType;
         if (pResult?.menuItems?.length) {
@@ -152,17 +236,16 @@ export async function getMenu(
 
     if (!result?.menuItems?.length) {
       const fbResult = (await wrapServiceCall(
-        () => sdk.cms.menu.get(fallbackBase, fallbackCtx),
+        () =>
+          retryOnTimeout(() =>
+            sdk.cms.menu.get(fallbackBase, fallbackCtx, CMS_READ),
+          ),
         'cms',
       )) as MenuType;
       if (fbResult?.menuItems?.length) {
         result = fbResult;
       }
     }
-  }
-
-  if (isCacheable) {
-    menuCache.set(cacheKey, result, { ttl: CACHE_TTL_MS });
   }
 
   return result;
@@ -294,10 +377,14 @@ async function fetchAreaLeg(
     try {
       const previewResult = (await wrapServiceCall(
         () =>
-          sdk.cms.area.get(
-            { ...queryArgs, preview: true },
-            ctx,
-          ) as Promise<ContentAreaType>,
+          retryOnTimeout(
+            () =>
+              sdk.cms.area.get(
+                { ...queryArgs, preview: true },
+                ctx,
+                CMS_READ,
+              ) as Promise<ContentAreaType>,
+          ),
         'cms',
       )) as ContentAreaType;
       if (hasContent(previewResult)) return previewResult;
@@ -307,7 +394,15 @@ async function fetchAreaLeg(
   }
 
   return (await wrapServiceCall(
-    () => sdk.cms.area.get(queryArgs, ctx) as Promise<ContentAreaType>,
+    () =>
+      retryOnTimeout(
+        () =>
+          sdk.cms.area.get(
+            queryArgs,
+            ctx,
+            CMS_READ,
+          ) as Promise<ContentAreaType>,
+      ),
     'cms',
   )) as ContentAreaType;
 }
@@ -322,7 +417,6 @@ export async function getContentArea(
   event: H3Event,
 ): Promise<CmsContentArea> {
   const preview = getPreviewCookie(event);
-  const isCacheable = !preview;
   const filters = buildAreaFilters(args.context);
   // customerType is a query argument that changes the response, so it belongs
   // in the key beside family and areaName, even though it is decoded from the
@@ -334,13 +428,43 @@ export async function getContentArea(
   // other PDP for the whole TTL.
   const cacheKey = `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}::${args.customerType ?? 'any'}::${filtersCacheSegment(filters)}`;
 
-  if (isCacheable) {
-    const cached = areaCache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
+  if (preview) return (await readArea(args, filters, event, true)).area;
+
+  const cached = areaCache.get(cacheKey);
+  if (cached) {
+    return cached;
   }
 
+  const copies = lastGoodFor(lastGoodArea, event);
+  let result: CmsContentArea;
+  try {
+    const read = await readArea(args, filters, event, false);
+    result = read.area;
+    // An area that lost its mobile leg is served, but is no copy to fall back on.
+    if (read.complete) copies.set(cacheKey, result);
+  } catch (error) {
+    const lastGood = copies.get(cacheKey);
+    if (!lastGood) throw error;
+    logger.warn('[cms] area read failed; serving the last good copy', {
+      family: args.family,
+      areaName: args.areaName,
+    });
+    result = lastGood;
+  }
+  areaCache.set(cacheKey, result, { ttl: CACHE_TTL_MS });
+  return result;
+}
+
+async function readArea(
+  args: {
+    family: string;
+    areaName: string;
+    customerType?: GeinsCustomerType;
+  },
+  filters: CmsWidgetFilter[] | undefined,
+  event: H3Event,
+  preview: boolean,
+): Promise<{ area: CmsContentArea; complete: boolean }> {
   const sdk = await getTenantSDK(event);
   const channelVars = getRequestChannelVariables(sdk, event);
   const ctx = buildRequestContext(event);
@@ -370,19 +494,16 @@ export async function getContentArea(
     ),
   ]);
 
-  const result: CmsContentArea = {
-    ...desktopArea,
-    containers: mergeContainersByVisibility(
-      desktopArea?.containers ?? [],
-      mobileArea?.containers ?? [],
-    ),
+  return {
+    area: {
+      ...desktopArea,
+      containers: mergeContainersByVisibility(
+        desktopArea?.containers ?? [],
+        mobileArea?.containers ?? [],
+      ),
+    },
+    complete: mobileArea !== null,
   };
-
-  if (isCacheable) {
-    areaCache.set(cacheKey, result, { ttl: CACHE_TTL_MS });
-  }
-
-  return result;
 }
 
 /**

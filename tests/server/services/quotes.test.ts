@@ -445,9 +445,7 @@ describe('quotes service', () => {
   // acceptQuote
   // -------------------------------------------------------------------------
   describe('acceptQuote', () => {
-    it('is not cut off by the default limit: a write may finish upstream', async () => {
-      const { WRITE_TIMEOUT_MS } =
-        await import('../../../server/utils/outbound-timeouts');
+    it('asks for no timeout: a write may finish upstream after a cut', async () => {
       mockGraphqlMutation.mockResolvedValueOnce({
         acceptQuotation: makeRawQuotationCart(),
       });
@@ -455,7 +453,7 @@ describe('quotes service', () => {
       await quotesService.acceptQuote('cart-001', mockEvent);
 
       expect(mockGraphqlMutation.mock.calls[0]![0]).toMatchObject({
-        requestOptions: { context: { timeoutMs: WRITE_TIMEOUT_MS } },
+        requestOptions: { context: { timeoutMs: 0 } },
       });
     });
 
@@ -484,9 +482,7 @@ describe('quotes service', () => {
   // rejectQuote
   // -------------------------------------------------------------------------
   describe('rejectQuote', () => {
-    it('is not cut off by the default limit: a write may finish upstream', async () => {
-      const { WRITE_TIMEOUT_MS } =
-        await import('../../../server/utils/outbound-timeouts');
+    it('asks for no timeout: a write may finish upstream after a cut', async () => {
       mockGraphqlMutation.mockResolvedValueOnce({
         rejectQuotation: makeRawQuotationCart(),
       });
@@ -494,7 +490,7 @@ describe('quotes service', () => {
       await quotesService.rejectQuote('cart-001', mockEvent);
 
       expect(mockGraphqlMutation.mock.calls[0]![0]).toMatchObject({
-        requestOptions: { context: { timeoutMs: WRITE_TIMEOUT_MS } },
+        requestOptions: { context: { timeoutMs: 0 } },
       });
     });
 

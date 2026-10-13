@@ -14,7 +14,7 @@ import {
 import { GeinsOMS } from '@geins/oms';
 import { RuntimeContext } from '@geins/types';
 import { ErrorCode, wrapServiceCall } from '../../server/utils/errors';
-import { isSdkLoginRequired } from '../../server/utils/sdk-error';
+import { isSdkLoginRequired, isSdkTimeout } from '../../server/utils/sdk-error';
 import { logger } from '../../server/utils/logger';
 
 vi.mock('../../server/utils/logger', () => ({
@@ -636,5 +636,51 @@ describe('wrapServiceCall with errors from the real Geins SDK', () => {
         wrapServiceCall(rejecting(original), 'checkout', CheckoutError),
       ).rejects.toBe(original);
     });
+  });
+});
+
+describe('isSdkTimeout', () => {
+  const timeout = new TimeoutError('r-1', 5_000);
+
+  it('knows the timeout itself, as Apollo carries it and as a service rewraps it', () => {
+    expect(isSdkTimeout(timeout)).toBe(true);
+    expect(isSdkTimeout({ networkError: timeout })).toBe(true);
+    expect(
+      isSdkTimeout(
+        new CartError(
+          'Error getting cart',
+          GeinsErrorCode.CART_OPERATION_FAILED,
+          {
+            networkError: timeout,
+          },
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it('is false for any other failure', () => {
+    expect(isSdkTimeout(new Error('fetch failed'))).toBe(false);
+    expect(
+      isSdkTimeout(
+        new GeinsError('GraphQL errors', GeinsErrorCode.GRAPHQL_ERROR),
+      ),
+    ).toBe(false);
+    expect(isSdkTimeout({ networkError: new Error('socket hang up') })).toBe(
+      false,
+    );
+    expect(isSdkTimeout(null)).toBe(false);
+    expect(isSdkTimeout('REQUEST_TIMEOUT')).toBe(false);
+  });
+
+  it('looks three wrappers deep and no further, and ends on an error that holds itself', () => {
+    const wrapped = (inner: unknown, levels: number): unknown =>
+      levels === 0 ? inner : wrapped({ cause: inner }, levels - 1);
+    expect(isSdkTimeout(wrapped(timeout, 3))).toBe(true);
+    expect(isSdkTimeout(wrapped(timeout, 4))).toBe(false);
+
+    const loop: { cause?: unknown; networkError?: unknown } = {};
+    loop.cause = loop;
+    loop.networkError = loop;
+    expect(isSdkTimeout(loop)).toBe(false);
   });
 });
