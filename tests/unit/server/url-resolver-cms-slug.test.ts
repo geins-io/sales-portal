@@ -57,9 +57,10 @@ let resolver: typeof import('../../../server/services/url-resolver');
  * event.context.resolvedLocaleMarket internally. We expose that field here so
  * per-locale tests can assert the event is forwarded as-is.
  */
-function makeEvent(
-  resolvedLocaleMarket?: { market: string; locale: string },
-): H3Event {
+function makeEvent(resolvedLocaleMarket?: {
+  market: string;
+  locale: string;
+}): H3Event {
   return {
     context: {
       tenant: { tenantId: 't1', hostname: 'test.example.com' },
@@ -233,10 +234,7 @@ describe('resolveEntityUrl: semantic CMS-slug branch', () => {
   });
 
   it('skips the semantic branch for an empty alias', async () => {
-    await resolver.resolveEntityUrl(
-      { path: '/', alias: '' },
-      makeEvent(),
-    );
+    await resolver.resolveEntityUrl({ path: '/', alias: '' }, makeEvent());
 
     expect(mockGetPageLinkByTag).not.toHaveBeenCalled();
   });
@@ -259,6 +257,18 @@ describe('resolveEntityUrl: semantic CMS-slug branch', () => {
     // Entity lookup ran normally despite the CMS error.
     expect(result).toMatchObject({ type: 'product' });
     expect(mockGetProduct).toHaveBeenCalled();
+  });
+
+  it('throws the CMS failure when nothing else matched, so it is not cached as a 404', async () => {
+    const timedOut = new Error('Error communicating with cms');
+    mockGetPageLinkByTag.mockRejectedValue(timedOut);
+
+    await expect(
+      resolver.resolveEntityUrl(
+        { path: '/se/sv/terms', alias: 'terms' },
+        makeEvent(),
+      ),
+    ).rejects.toBe(timedOut);
   });
 
   // -------------------------------------------------------------------------

@@ -115,6 +115,7 @@ export async function resolveEntityUrl(
   // what the CMS service returns.
   // ---------------------------------------------------------------------------
   const tag = cmsTagForSlug(args.alias);
+  const failures: unknown[] = [];
   if (tag !== null) {
     try {
       const link = await getPageLinkByTag({ tag }, event);
@@ -127,8 +128,9 @@ export async function resolveEntityUrl(
         // Clean paths are equal (loop) or link is unsafe: fall through.
       }
       // link is null: no tagged page found, fall through to entity lookups.
-    } catch {
-      // CMS error: treat as a miss and let entity/urlHistory recovery proceed.
+    } catch (error) {
+      // The entity lookups may still match; if none does, this is thrown below.
+      failures.push(error);
     }
   }
 
@@ -153,8 +155,10 @@ export async function resolveEntityUrl(
 
   // An unknown alias answers null; a lookup that threw did not answer at all,
   // and a null from here would be cached as a 404 for that URL.
-  const failed = settled.find((result) => result.status === 'rejected');
-  if (failed) throw failed.reason;
+  for (const result of settled) {
+    if (result.status === 'rejected') failures.push(result.reason);
+  }
+  if (failures.length > 0) throw failures[0];
 
   // No entity matched the alias: try Geins urlHistory for a renamed slug.
   const sdk = await getTenantSDK(event);
