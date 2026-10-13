@@ -53,8 +53,18 @@ const {
 // shape (canonicalAppPath / redirect), the loop guard, the open-redirect guard
 // and the terminal fatal 404, so it either redirects or throws on every path.
 // Gated behind the CMS miss so CMS hits never trigger it.
+// Only a page the CMS says it does not have is a miss: a failed read (a
+// timeout answers 502) would otherwise 301 the buyer to a same-named entity.
+const cmsError = error.value;
+if (cmsError && cmsError.statusCode !== 404) {
+  throw createError({
+    statusCode: cmsError.statusCode ?? 500,
+    statusMessage: cmsError.statusMessage,
+    fatal: true,
+  });
+}
 const cmsMissed =
-  Boolean(error.value) || (!page.value?.id && !page.value?.containers?.length);
+  Boolean(cmsError) || (!page.value?.id && !page.value?.containers?.length);
 
 if (cmsMissed) {
   // useFetch (inside recoverEntityUrl) auto-forwards cookie + host for

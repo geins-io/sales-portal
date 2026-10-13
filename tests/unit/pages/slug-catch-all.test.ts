@@ -386,6 +386,62 @@ describe('[...slug] page: entity-url fallback', () => {
   );
 
   it(
+    'recovers a CMS read that answered 404',
+    async () => {
+      mockCmsError.value = { statusCode: 404 };
+      mockResolveData.value = {
+        type: 'category',
+        canonicalAppPath: '/se/sv/c/material/grenror',
+      };
+
+      await mountCatchAll();
+
+      expect(recoverEntityUrlMock).toHaveBeenCalledTimes(1);
+    },
+    MOUNT_TIMEOUT,
+  );
+
+  it(
+    'shows the error page, not a redirect, when the CMS read failed',
+    async () => {
+      // A timed-out read answers 502; the resolver would still find a
+      // same-named category and send the buyer there for good with a 301.
+      mockCmsError.value = { statusCode: 502, statusMessage: 'Bad Gateway' };
+      mockResolveData.value = {
+        type: 'category',
+        canonicalAppPath: '/se/sv/c/material/grenror',
+      };
+
+      await mountCatchAll();
+
+      expect(recoverEntityUrlMock).not.toHaveBeenCalled();
+      expect(navigateToMock).not.toHaveBeenCalled();
+      expect(createErrorMock).toHaveBeenCalledTimes(1);
+      expect(createErrorMock.mock.calls[0]?.[0]).toMatchObject({
+        statusCode: 502,
+        fatal: true,
+      });
+    },
+    MOUNT_TIMEOUT,
+  );
+
+  it(
+    'shows the error page for a CMS failure that carries no status',
+    async () => {
+      mockCmsError.value = new Error('fetch failed');
+
+      await mountCatchAll();
+
+      expect(recoverEntityUrlMock).not.toHaveBeenCalled();
+      expect(createErrorMock.mock.calls[0]?.[0]).toMatchObject({
+        statusCode: 500,
+        fatal: true,
+      });
+    },
+    MOUNT_TIMEOUT,
+  );
+
+  it(
     'does not call recovery and renders when the CMS page exists',
     async () => {
       mockCmsData.value = {
