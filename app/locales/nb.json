@@ -106,6 +106,8 @@
     "add_failed": "Mislyktes",
     "add": "Legg til",
     "empty_cart": "Handlekurven din er tom",
+    "load_failed": "Vi kunne ikke hente handlekurven din.",
+    "refresh_failed": "Vi kunne ikke oppdatere handlekurven din. Det du ser, kan være utdatert.",
     "sign_in_to_see_cart": "Logg inn for å se handlekurven din",
     "empty_cart_message": "Det ser ut som du ikke har lagt noe i handlekurven ennå.",
     "continue_shopping": "Fortsett å handle",

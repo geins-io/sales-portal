@@ -106,6 +106,8 @@
     "add_failed": "Epäonnistui",
     "add": "Lisää",
     "empty_cart": "Ostoskorisi on tyhjä",
+    "load_failed": "Ostoskoria ei voitu ladata.",
+    "refresh_failed": "Ostoskoria ei voitu päivittää. Näkemäsi tiedot voivat olla vanhentuneita.",
     "sign_in_to_see_cart": "Kirjaudu sisään nähdäksesi ostoskorisi",
     "empty_cart_message": "Näyttää siltä, ettet ole vielä lisännyt mitään ostoskoriin.",
     "continue_shopping": "Jatka ostoksia",

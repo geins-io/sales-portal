@@ -106,6 +106,8 @@
     "add_failed": "Misslyckades",
     "add": "Lägg till",
     "empty_cart": "Din varukorg är tom",
+    "load_failed": "Vi kunde inte hämta din varukorg.",
+    "refresh_failed": "Vi kunde inte uppdatera din varukorg. Det du ser kan vara inaktuellt.",
     "sign_in_to_see_cart": "Logga in för att se din varukorg",
     "empty_cart_message": "Det ser ut som att du inte har lagt till något i varukorgen ännu.",
     "continue_shopping": "Fortsätt handla",

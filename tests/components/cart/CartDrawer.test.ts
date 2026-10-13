@@ -127,6 +127,51 @@ describe('CartDrawer', () => {
     expect(wrapper.find('[data-testid="cart-empty"]').exists()).toBe(false);
   });
 
+  describe('a cart that could not be read', () => {
+    const stubs = {
+      Sheet: { template: '<div><slot /></div>', props: ['open'] },
+      SheetContent: { template: '<div><slot /></div>' },
+      SheetHeader: { template: '<div><slot /></div>' },
+      SheetTitle: { template: '<div><slot /></div>' },
+      SheetDescription: { template: '<div><slot /></div>' },
+      SheetFooter: { template: '<div><slot /></div>' },
+      CartLoadFailedNotice: { template: '<div data-testid="load-failed" />' },
+      CartItem: { template: '<div data-testid="cart-line" />' },
+      CartPromoCodeInput: true,
+    };
+
+    it('says so in place of the empty state when there are no lines to show', () => {
+      const store = useCartStore();
+      store.isOpen = true;
+      store.loadFailed = true;
+
+      const wrapper = shallowMountComponent(CartDrawer, {
+        global: { stubs },
+      });
+
+      expect(wrapper.find('[data-testid="load-failed"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="cart-empty"]').exists()).toBe(false);
+    });
+
+    it('says so above the lines it still shows', () => {
+      const store = useCartStore();
+      store.isOpen = true;
+      store.loadFailed = true;
+      store.cart = {
+        id: 'cart-1',
+        items: [{ id: 'line-1', quantity: 1 }],
+      } as unknown as CartType;
+
+      const html = shallowMountComponent(CartDrawer, {
+        global: { stubs },
+      }).html();
+
+      const notice = html.indexOf('data-testid="load-failed"');
+      expect(notice).toBeGreaterThan(-1);
+      expect(notice).toBeLessThan(html.indexOf('data-testid="cart-line"'));
+    });
+  });
+
   it('renders empty state when cart is empty', () => {
     const store = useCartStore();
     store.isOpen = true;

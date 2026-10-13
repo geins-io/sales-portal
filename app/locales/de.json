@@ -106,6 +106,8 @@
     "add_failed": "Fehlgeschlagen",
     "add": "Hinzufügen",
     "empty_cart": "Ihr Warenkorb ist leer",
+    "load_failed": "Ihr Warenkorb konnte nicht geladen werden.",
+    "refresh_failed": "Ihr Warenkorb konnte nicht aktualisiert werden. Was Sie sehen, ist möglicherweise nicht aktuell.",
     "sign_in_to_see_cart": "Melden Sie sich an, um Ihren Warenkorb zu sehen",
     "empty_cart_message": "Sie haben noch nichts in Ihren Warenkorb gelegt.",
     "continue_shopping": "Weiter einkaufen",

@@ -106,6 +106,8 @@
     "add_failed": "Failed",
     "add": "Add",
     "empty_cart": "Your cart is empty",
+    "load_failed": "We couldn't load your cart.",
+    "refresh_failed": "We couldn't update your cart. What you see may be out of date.",
     "sign_in_to_see_cart": "Sign in to see your cart",
     "empty_cart_message": "Looks like you haven't added anything to your cart yet.",
     "continue_shopping": "Continue Shopping",

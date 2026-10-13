@@ -123,6 +123,9 @@ function goToCheckout() {
         </p>
       </SheetHeader>
 
+      <!-- A failed read keeps the cart; it says so above whatever is shown -->
+      <CartLoadFailedNotice class="mx-6 mt-4" />
+
       <!-- Loading state -->
       <div
         v-if="cartStore.isLoading && !cartStore.cart"
@@ -138,7 +141,7 @@ function goToCheckout() {
       />
 
       <!-- Empty state; a bulk add that added nothing still says why -->
-      <template v-else-if="cartStore.isEmpty">
+      <template v-else-if="cartStore.isEmpty && !cartStore.loadFailed">
         <CartSkippedNote class="mx-6 mt-4" />
         <div
           class="flex flex-1 flex-col items-center justify-center gap-3 px-4"
@@ -152,7 +155,7 @@ function goToCheckout() {
       </template>
 
       <!-- The lines scroll; the summary stays at the bottom, whatever their number -->
-      <template v-else>
+      <template v-else-if="!cartStore.isEmpty">
         <!-- Promo-code field is hidden per Figma; the feature stays in the
              store/API so re-enabling is a single re-render of
              `<PromoCodeInput>` once design wants it back. -->

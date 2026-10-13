@@ -103,6 +103,21 @@ describe('useCartStore', () => {
       expect(store.itemCount).toBe(2);
     });
 
+    it('is loading while the read is on its way, and not after', async () => {
+      mockCartIdRef.value = 'cart-123';
+      const store = useCartStore();
+      let loadingDuring: boolean | undefined;
+      mockFetch.mockImplementationOnce(async () => {
+        loadingDuring = store.isLoading;
+        return mockCart;
+      });
+
+      await store.fetchCart();
+
+      expect(loadingDuring).toBe(true);
+      expect(store.isLoading).toBe(false);
+    });
+
     it('is loading while a removal is on its way, and not after', async () => {
       mockCartIdRef.value = 'cart-123';
       const store = useCartStore();
@@ -144,16 +159,110 @@ describe('useCartStore', () => {
       expect(store.isLoading).toBe(false);
     });
 
-    it('clears cartId on error', async () => {
+    it('keeps the cart id when a read fails, and says so by loadFailed alone', async () => {
       mockCartIdRef.value = 'cart-123';
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
       const store = useCartStore();
       await store.fetchCart();
 
-      expect(store.error).toBe('Failed to load cart');
+      expect(store.error).toBeNull();
+      expect(store.loadFailed).toBe(true);
       expect(store.cart).toBeNull();
+      expect(mockCartIdRef.value).toBe('cart-123');
+      expect(store.isLoading).toBe(false);
+    });
+
+    it('keeps the cart it showed when a later read fails', async () => {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch.mockResolvedValueOnce(mockCart);
+      const store = useCartStore();
+      await store.fetchCart();
+
+      mockFetch.mockRejectedValueOnce(new Error('502'));
+      await store.fetchCart();
+
+      expect(store.cart).toEqual(mockCart);
+      expect(store.loadFailed).toBe(true);
+      expect(mockCartIdRef.value).toBe('cart-123');
+    });
+
+    it('is no longer failed once a read answers the cart', async () => {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch.mockRejectedValueOnce(new Error('502'));
+      const store = useCartStore();
+      await store.fetchCart();
+
+      mockFetch.mockResolvedValueOnce(mockCart);
+      await store.fetchCart();
+
+      expect(store.loadFailed).toBe(false);
+      expect(store.error).toBeNull();
+      expect(store.cart).toEqual(mockCart);
+    });
+
+    it.each([
+      [
+        'a quantity change',
+        (store: ReturnType<typeof useCartStore>) =>
+          store.updateQuantity('item-1', 3),
+      ],
+      [
+        'a removal',
+        (store: ReturnType<typeof useCartStore>) =>
+          store.updateQuantity('item-1', 0),
+      ],
+      [
+        'an add',
+        (store: ReturnType<typeof useCartStore>) => store.addItem(100, 1),
+      ],
+    ])('is no longer failed once %s answers the cart', async (_name, write) => {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch.mockRejectedValueOnce(new Error('502'));
+      const store = useCartStore();
+      await store.fetchCart();
+
+      mockFetch.mockResolvedValueOnce(mockCart);
+      await write(store);
+
+      expect(store.loadFailed).toBe(false);
+      expect(store.cart).toEqual(mockCart);
+    });
+
+    it('is no longer failed once a configured add answers the cart', async () => {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch.mockRejectedValueOnce(new Error('502'));
+      const store = useCartStore();
+      await store.fetchCart();
+
+      mockFetch.mockResolvedValueOnce({ cart: mockCart, itemId: 'item-1' });
+      await store.addConfiguredItem('committed-1', 1652, 1);
+
+      expect(store.loadFailed).toBe(false);
+    });
+
+    it('is not failed for another cart', async () => {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch.mockRejectedValueOnce(new Error('502'));
+      const store = useCartStore();
+      await store.fetchCart();
+
+      mockCartIdRef.value = 'cart-456';
+
+      expect(store.loadFailed).toBe(false);
+    });
+
+    it('drops the cart id when the read answers the cart completed', async () => {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch.mockResolvedValueOnce({ ...mockCart, completed: true });
+
+      const store = useCartStore();
+      await store.fetchCart();
+
       expect(mockCartIdRef.value).toBeNull();
+      expect(store.cart).toBeNull();
+      expect(store.loadFailed).toBe(false);
+      expect(store.error).toBeNull();
     });
   });
 
@@ -179,23 +288,25 @@ describe('useCartStore', () => {
 
       expect(mockCartIdRef.value).toBe('cart-123');
       expect(store.needsSignIn).toBe(true);
+      expect(store.loadFailed).toBe(false);
       expect(store.cart).toBeNull();
       expect(store.error).toBeNull();
       expect(store.isLoading).toBe(false);
     });
 
-    it('drops the cart id on any other 401, as on any other failure', async () => {
+    it('keeps the cart id on any other 401, as on any other failure', async () => {
       mockCartIdRef.value = 'cart-123';
       mockFetch.mockRejectedValueOnce(refused('UNAUTHORIZED'));
       const store = useCartStore();
       await store.fetchCart();
 
-      expect(mockCartIdRef.value).toBeNull();
+      expect(mockCartIdRef.value).toBe('cart-123');
       expect(store.needsSignIn).toBe(false);
-      expect(store.error).toBe('Failed to load cart');
+      expect(store.loadFailed).toBe(true);
+      expect(store.error).toBeNull();
     });
 
-    it('drops the cart id on a failure with no code to read', async () => {
+    it('keeps the cart id on a failure with no code to read', async () => {
       const store = useCartStore();
       for (const failure of [
         undefined,
@@ -208,8 +319,9 @@ describe('useCartStore', () => {
 
         await store.fetchCart();
 
-        expect(mockCartIdRef.value).toBeNull();
+        expect(mockCartIdRef.value).toBe('cart-123');
         expect(store.needsSignIn).toBe(false);
+        expect(store.loadFailed).toBe(true);
       }
     });
 
@@ -359,6 +471,23 @@ describe('useCartStore', () => {
       expect(store.cart).toEqual(mockCart);
       expect(store.isOpen).toBe(true);
       expect(store.isLoading).toBe(false);
+    });
+
+    it('keeps the lines it showed and says the read failed when the add went through and its read-back did not', async () => {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch.mockResolvedValueOnce(mockCart);
+      const store = useCartStore();
+      await store.fetchCart();
+      mockFetch
+        .mockResolvedValueOnce({ cart: null, itemId: 'item-2' }) // POST the configured line
+        .mockRejectedValueOnce(new Error('502')); // GET /api/cart
+
+      await store.addConfiguredItem(COMMITTED_ID, 1652, 1);
+
+      expect(store.cart).toEqual(mockCart);
+      expect(store.loadFailed).toBe(true);
+      expect(mockCartIdRef.value).toBe('cart-123');
+      expect(store.isOpen).toBe(true);
     });
 
     it('reads the cart itself when the add went through without one, and opens the drawer', async () => {

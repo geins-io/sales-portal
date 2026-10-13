@@ -195,6 +195,43 @@ describe('CartPage', () => {
     );
   });
 
+  describe('a cart that could not be read', () => {
+    const stubs = {
+      ...defaultStubs,
+      CartLoadFailedNotice: { template: '<div data-testid="load-failed" />' },
+    };
+
+    it('says so in place of the empty state when there are no lines to show', () => {
+      useCartStore().loadFailed = true;
+
+      const wrapper = shallowMountComponent(CartPage, {
+        global: { stubs },
+      });
+
+      expect(wrapper.find('[data-testid="load-failed"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="cart-page-empty"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.find('[data-testid="cart-order-summary"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('says so above the lines it still shows', () => {
+      const store = useCartStore();
+      store.cart = mockCart;
+      store.loadFailed = true;
+
+      const html = shallowMountComponent(CartPage, {
+        global: { stubs },
+      }).html();
+
+      const notice = html.indexOf('data-testid="load-failed"');
+      expect(notice).toBeGreaterThan(-1);
+      expect(notice).toBeLessThan(html.indexOf('data-testid="cart-item"'));
+    });
+  });
+
   it('renders the page title with item count', () => {
     const store = useCartStore();
     store.cart = mockCart;

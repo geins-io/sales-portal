@@ -125,6 +125,9 @@ function goToCheckout() {
         </p>
       </div>
 
+      <!-- A failed read keeps the cart; it says so above whatever is shown -->
+      <CartLoadFailedNotice class="mx-6 mb-4" />
+
       <!-- Loading state -->
       <CartPageSkeleton
         v-if="cartStore.isLoading && !cartStore.cart"
@@ -139,14 +142,14 @@ function goToCheckout() {
       />
 
       <!-- Empty state -->
-      <template v-else-if="cartStore.isEmpty">
+      <template v-else-if="cartStore.isEmpty && !cartStore.loadFailed">
         <CartSkippedNote class="mx-6" />
         <CartEmptyState data-testid="cart-page-empty" />
       </template>
 
       <!-- The lines, and under them the summary, pinned to the bottom of the
            window while the lines scroll past -->
-      <template v-else>
+      <template v-else-if="!cartStore.isEmpty">
         <div class="px-6">
           <CartSkippedNote class="mb-2" />
           <ErrorBoundary section="cart-items">

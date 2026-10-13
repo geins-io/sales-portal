@@ -39,11 +39,17 @@ export const useCartStore = defineStore('cart', () => {
    * read's answer alone.
    */
   const needsSignIn = ref(false);
+  /**
+   * The last read of this cart failed. The id is kept: the lines are still in
+   * Geins, and a new cart would orphan them.
+   */
+  const loadFailed = ref(false);
   watch(
     cartId,
     () => {
       skippedConfigurable.value = 0;
       needsSignIn.value = false;
+      loadFailed.value = false;
     },
     { flush: 'sync' },
   );
@@ -69,6 +75,12 @@ export const useCartStore = defineStore('cart', () => {
     () => cart.value?.summary?.fixedAmountDiscountIncVat ?? 0,
   );
 
+  /** A cart the server just answered: whatever failed before, it is current now. */
+  function answered(next: CartType) {
+    cart.value = next;
+    loadFailed.value = false;
+  }
+
   const visibleCartCampaigns = computed(() =>
     filterVisibleCampaigns(cart.value?.appliedCampaigns ?? []),
   );
@@ -78,18 +90,24 @@ export const useCartStore = defineStore('cart', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      cart.value = await internalFetch<CartType>('/api/cart', {
+      const answer = await internalFetch<CartType>('/api/cart', {
         query: { cartId: cartId.value },
       });
       needsSignIn.value = false;
+      // Geins answers any id with a cart, so only a completed one is gone.
+      if (answer.completed) {
+        cart.value = null;
+        cartId.value = null;
+        return;
+      }
+      answered(answer);
     } catch (failure) {
-      cart.value = null;
       if (errorCodeOf(failure) === 'CART_LOGIN_REQUIRED') {
+        cart.value = null;
         needsSignIn.value = true;
         return;
       }
-      error.value = 'Failed to load cart';
-      cartId.value = null;
+      loadFailed.value = true;
     } finally {
       isLoading.value = false;
     }
@@ -109,10 +127,12 @@ export const useCartStore = defineStore('cart', () => {
         const newCart = await $fetch<CartType>('/api/cart', { method: 'POST' });
         cartId.value = newCart.id;
       }
-      cart.value = await $fetch<CartType>('/api/cart/items', {
-        method: 'POST',
-        body: { cartId: cartId.value, skuId, quantity },
-      });
+      answered(
+        await $fetch<CartType>('/api/cart/items', {
+          method: 'POST',
+          body: { cartId: cartId.value, skuId, quantity },
+        }),
+      );
       isOpen.value = true;
     } catch {
       error.value = 'Failed to add item';
@@ -151,7 +171,7 @@ export const useCartStore = defineStore('cart', () => {
         body: { cartId: id, skuId, quantity },
       });
       // The line is in even when the route could not read the cart back.
-      if (answer.cart) cart.value = answer.cart;
+      if (answer.cart) answered(answer.cart);
       else await fetchCart();
       isOpen.value = true;
       return answer.itemId ? { cartId: id, itemId: answer.itemId } : null;
@@ -179,7 +199,7 @@ export const useCartStore = defineStore('cart', () => {
         body: line,
       });
       // The line is swapped even when the route could not read the cart back.
-      if (answer.cart) cart.value = answer.cart;
+      if (answer.cart) answered(answer.cart);
       else await fetchCart();
       isOpen.value = true;
       return { cartId: line.cartId, itemId: answer.itemId };
@@ -253,10 +273,12 @@ export const useCartStore = defineStore('cart', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      cart.value = await $fetch<CartType>('/api/cart/items', {
-        method: 'PUT',
-        body: { cartId: cartId.value, itemId, quantity },
-      });
+      answered(
+        await $fetch<CartType>('/api/cart/items', {
+          method: 'PUT',
+          body: { cartId: cartId.value, itemId, quantity },
+        }),
+      );
     } catch {
       quantityFailed.value.add(itemId);
     } finally {
@@ -268,10 +290,12 @@ export const useCartStore = defineStore('cart', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      cart.value = await $fetch<CartType>('/api/cart/items', {
-        method: 'DELETE',
-        query: { cartId: cartId.value, itemId },
-      });
+      answered(
+        await $fetch<CartType>('/api/cart/items', {
+          method: 'DELETE',
+          query: { cartId: cartId.value, itemId },
+        }),
+      );
     } catch {
       error.value = 'Failed to update item';
     } finally {
@@ -288,10 +312,12 @@ export const useCartStore = defineStore('cart', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      cart.value = await $fetch<CartType>('/api/cart/promo', {
-        method: 'POST',
-        body: { cartId: cartId.value, promoCode: code },
-      });
+      answered(
+        await $fetch<CartType>('/api/cart/promo', {
+          method: 'POST',
+          body: { cartId: cartId.value, promoCode: code },
+        }),
+      );
     } catch {
       error.value = 'Invalid promo code';
     } finally {
@@ -304,10 +330,12 @@ export const useCartStore = defineStore('cart', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      cart.value = await $fetch<CartType>('/api/cart/promo', {
-        method: 'DELETE',
-        query: { cartId: cartId.value },
-      });
+      answered(
+        await $fetch<CartType>('/api/cart/promo', {
+          method: 'DELETE',
+          query: { cartId: cartId.value },
+        }),
+      );
     } catch {
       error.value = 'Failed to remove promo code';
     } finally {
@@ -323,6 +351,7 @@ export const useCartStore = defineStore('cart', () => {
     error,
     skippedConfigurable,
     needsSignIn,
+    loadFailed,
     pendingQuantities,
     updatingItems,
     quantityFailed,
