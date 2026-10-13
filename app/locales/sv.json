@@ -628,7 +628,13 @@
         "delivered": "Levererad",
         "processing": "Behandlas",
         "shipped": "Skickad",
-        "cancelled": "Avbruten"
+        "cancelled": "Avbruten",
+        "on_hold": "Pausad",
+        "inactive": "Inaktiv",
+        "refunded": "Återbetald",
+        "partial": "Delvis levererad",
+        "backorder": "Restorder",
+        "completed": "Slutförd"
       },
       "view": "Visa",
       "type_web": "Webbeställning",

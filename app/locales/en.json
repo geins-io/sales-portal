@@ -628,7 +628,13 @@
         "delivered": "Delivered",
         "processing": "Processing",
         "shipped": "Shipped",
-        "cancelled": "Cancelled"
+        "cancelled": "Cancelled",
+        "on_hold": "On hold",
+        "inactive": "Inactive",
+        "refunded": "Refunded",
+        "partial": "Partially delivered",
+        "backorder": "Backordered",
+        "completed": "Completed"
       },
       "view": "View",
       "type_web": "Web order",

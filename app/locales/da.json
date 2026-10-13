@@ -628,7 +628,13 @@
         "delivered": "Leveret",
         "processing": "Behandles",
         "shipped": "Afsendt",
-        "cancelled": "Annulleret"
+        "cancelled": "Annulleret",
+        "on_hold": "På hold",
+        "inactive": "Inaktiv",
+        "refunded": "Refunderet",
+        "partial": "Delvist leveret",
+        "backorder": "Restordre",
+        "completed": "Gennemført"
       },
       "view": "Vis",
       "type_web": "Webordre",

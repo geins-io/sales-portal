@@ -628,7 +628,13 @@
         "delivered": "Geliefert",
         "processing": "In Bearbeitung",
         "shipped": "Versendet",
-        "cancelled": "Storniert"
+        "cancelled": "Storniert",
+        "on_hold": "Zurückgestellt",
+        "inactive": "Inaktiv",
+        "refunded": "Erstattet",
+        "partial": "Teilweise geliefert",
+        "backorder": "Lieferrückstand",
+        "completed": "Abgeschlossen"
       },
       "view": "Ansehen",
       "type_web": "Webbestellung",

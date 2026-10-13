@@ -1,4 +1,40 @@
 /**
+ * Order statuses with a label under `portal.orders.status`. The first eight
+ * are what Geins lists at `/API/Order/Statuses`; the last four predate that
+ * list and are kept for accounts not yet read.
+ */
+export const ORDER_STATUSES = [
+  'cancelled',
+  'on-hold',
+  'inactive',
+  'refunded',
+  'partial',
+  'backorder',
+  'completed',
+  'pending',
+  'placed',
+  'delivered',
+  'processing',
+  'shipped',
+] as const;
+
+/**
+ * Display label for an order status. A status without a locale key is shown
+ * as readable text ("on-hold" → "On hold") rather than a key path.
+ */
+export function getOrderStatusLabel(
+  status: string | null | undefined,
+  t: (key: string) => string,
+): string {
+  const normalized = (status ?? '').toLowerCase();
+  if ((ORDER_STATUSES as readonly string[]).includes(normalized)) {
+    return t(`portal.orders.status.${normalized.replace(/-/g, '_')}`);
+  }
+  const words = normalized.replace(/[-_]+/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
  * Tailwind class string for the order status pill.
  *
  * Theme-aware where possible: success follows tenant `--primary`, error

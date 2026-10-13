@@ -5,7 +5,10 @@ import type { QuoteAddress } from '#shared/types/quote';
 import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
 import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
-import { getOrderStatusPillClass } from '~/utils/order-status';
+import {
+  getOrderStatusLabel,
+  getOrderStatusPillClass,
+} from '~/utils/order-status';
 import { reorderLines } from '~/utils/reorder';
 import { productPath } from '#shared/utils/route-helpers';
 import { replayLineHref } from '~/utils/configurator-replay';
@@ -501,7 +504,7 @@ const orderTotals = computed<PortalItemTotal[]>(() => {
                 class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
                 :class="getOrderStatusPillClass(order?.status)"
               >
-                {{ t(`portal.orders.status.${order?.status}`) }}
+                {{ getOrderStatusLabel(order?.status, t) }}
               </span>
             </div>
 

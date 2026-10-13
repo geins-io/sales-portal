@@ -209,6 +209,21 @@ describe('PortalOrdersTable', () => {
     expect(wrapper.text()).toContain('portal.orders.status.cancelled');
   });
 
+  it('translates a Geins status outside the original six', () => {
+    const wrapper = mountComponent(PortalOrdersTable, {
+      props: { orders: [{ ...mockOrders[0], status: 'backorder' }] },
+    });
+    expect(wrapper.text()).toContain('portal.orders.status.backorder');
+  });
+
+  it('shows an unknown status as readable text, not a key path', () => {
+    const wrapper = mountComponent(PortalOrdersTable, {
+      props: { orders: [{ ...mockOrders[0], status: 'ready-for-pickup' }] },
+    });
+    expect(wrapper.text()).toContain('Ready for pickup');
+    expect(wrapper.text()).not.toContain('portal.orders.status.');
+  });
+
   describe('follows the VAT choice', () => {
     function totals() {
       const wrapper = mountComponent(PortalOrdersTable, {

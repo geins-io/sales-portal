@@ -470,6 +470,24 @@ describe('OrderDetail', () => {
 
       expect(wrapper.find('[data-testid="portal-shell"]').exists()).toBe(true);
     });
+
+    function statusBadgeText(status: string): string {
+      mockData.value = makeOrder({ status });
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+      return wrapper.find('[data-testid="status-badge"]').text();
+    }
+
+    it('translates a Geins status outside the original six', () => {
+      expect(statusBadgeText('backorder')).toBe(
+        'portal.orders.status.backorder',
+      );
+    });
+
+    it('shows an unknown status as readable text, not a key path', () => {
+      expect(statusBadgeText('ready-for-pickup')).toBe('Ready for pickup');
+    });
   });
 
   describe('back link', () => {

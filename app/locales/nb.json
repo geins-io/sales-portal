@@ -628,7 +628,13 @@
         "delivered": "Levert",
         "processing": "Behandles",
         "shipped": "Sendt",
-        "cancelled": "Kansellert"
+        "cancelled": "Kansellert",
+        "on_hold": "Pauset",
+        "inactive": "Inaktiv",
+        "refunded": "Refundert",
+        "partial": "Delvis levert",
+        "backorder": "Restordre",
+        "completed": "Fullført"
       },
       "view": "Vis",
       "type_web": "Nettordre",
