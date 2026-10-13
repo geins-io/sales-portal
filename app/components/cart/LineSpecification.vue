@@ -37,34 +37,19 @@ const rows = computed(() =>
   committedSpecificationRows(configuration.sections ?? []),
 );
 
-const base = computed(() =>
-  showPrice.value ? lineBasePrice(configuration, unitPrice) : null,
-);
-
 const currency = computed(() => currencyCode(totalPrice ?? unitPrice));
-const { money } = useSpecificationFormat(currency);
+const { priceLines, showIncVat } = useSpecificationFormat(currency);
 
-const totals = computed(() => lineSpecificationTotals(unitPrice, totalPrice));
-
-const supportingRows = computed(() =>
-  totals.value
-    ? [
-        {
-          label:
-            totals.value.ratePercent === null
-              ? t('configurator.panel.vat_no_rate')
-              : t('configurator.panel.vat', {
-                  rate: totals.value.ratePercent,
-                }),
-          amount: money(totals.value.vat),
-        },
-        {
-          label: t('configurator.panel.inc_vat'),
-          amount: money(totals.value.incVat),
-        },
-      ]
-    : [],
+const base = computed(() =>
+  showPrice.value
+    ? lineBasePrice(configuration, unitPrice, showIncVat.value)
+    : null,
 );
+
+const lines = computed(() => {
+  const totals = lineSpecificationTotals(totalPrice);
+  return totals ? priceLines(totals) : null;
+});
 </script>
 
 <template>
@@ -118,13 +103,13 @@ const supportingRows = computed(() =>
       {{ t('cart.default_configuration') }}
     </p>
 
-    <template v-if="showPrice && totals" #footer>
+    <template v-if="showPrice && lines" #footer>
       <SpecificationPrice
         prefix="line-specification"
         size="sheet"
         :quantity="quantity"
-        :net="money(totals.net)"
-        :rows="supportingRows"
+        :price="lines.price"
+        :rows="lines.rows"
       />
     </template>
   </SpecificationSheet>

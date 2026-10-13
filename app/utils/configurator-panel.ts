@@ -14,8 +14,8 @@ import type {
 import {
   exVatAmount,
   incVatAmount,
+  sideAmount,
   vatAmount,
-  vatRatePercent,
 } from '#shared/utils/configurator-price';
 import {
   isGroupUnmet,
@@ -436,38 +436,56 @@ function cents(amount: number): number {
   return Math.round(amount * 100);
 }
 
-function valueCents(value: SpecificationValue): number {
-  return Math.round(cents(exVatAmount(value.price)) * (value.quantity ?? 1));
+function valueCents(value: SpecificationValue, inc: boolean): number {
+  return Math.round(
+    cents(sideAmount(value.price, inc)) * (value.quantity ?? 1),
+  );
 }
 
 /**
- * What a row's value costs for one configured unit: the option's price as
- * shown, times how many of it, rounded to the cent. A quantity can be a
- * fraction of a part.
+ * What a row's value costs for one configured unit, on the side of the
+ * buyer's VAT choice: the option's price as shown, times how many of it,
+ * rounded to the cent. A quantity can be a fraction of a part.
  */
-export function valueAmount(value: SpecificationValue): number {
-  return valueCents(value) / 100;
+export function valueAmount(value: SpecificationValue, inc: boolean): number {
+  return valueCents(value, inc) / 100;
+}
+
+/** One unit less the rows, each as it is shown, in cents. */
+function remainderCents(
+  unitPrice: PriceType,
+  rows: SpecificationRow[],
+  inc: boolean,
+): number {
+  const shown = rows
+    .flatMap((row) => row.values)
+    .reduce((sum, value) => sum + valueCents(value, inc), 0);
+  return cents(sideAmount(unitPrice, inc)) - shown;
 }
 
 /**
- * What one unit costs beyond the options the rows show, zero included. The
- * provider sends no base price, only the options and the total, so this
- * remainder is the only way the rows on screen add up to it.
+ * What one unit costs beyond the options the rows show, zero included, on
+ * the side the rows are shown on. The provider sends no base price, only the
+ * options and the total, so this remainder is the only way the rows on screen
+ * add up to it.
  *
  * Subtracts each row as it is shown, so a remainder made of rounding is zero.
- * A negative one is a line that kept a stale price, not a base price, and is
- * `null`, as is a price that is not there.
+ * Whether there is a row at all is decided before VAT on both sides: a
+ * negative remainder there is a line that kept a stale price, not a base
+ * price, and is `null`, as is a price that is not there. With VAT each option
+ * is rounded on its own, so the rows can pass the unit by a few cents; the row
+ * then reads zero.
  */
 export function basePrice(
   unitPrice: PriceType | undefined,
   rows: SpecificationRow[],
+  inc: boolean,
 ): number | null {
   if (!unitPrice) return null;
-  const shown = rows
-    .flatMap((row) => row.values)
-    .reduce((sum, value) => sum + valueCents(value), 0);
-  const remainder = cents(exVatAmount(unitPrice)) - shown;
-  return remainder >= 0 ? remainder / 100 : null;
+  const exVat = remainderCents(unitPrice, rows, false);
+  if (exVat < 0) return null;
+  if (!inc) return exVat / 100;
+  return Math.max(0, remainderCents(unitPrice, rows, true)) / 100;
 }
 
 /**
@@ -479,35 +497,26 @@ export function basePrice(
 export function lineBasePrice(
   configuration: LineConfigurationSummary,
   unitPrice: PriceType | undefined,
+  inc: boolean,
 ): number | null {
   if (!configuration.sections) return null;
   const rows = committedSpecificationRows(configuration.sections);
   if (!rows.length && configuration.summary.length) return null;
-  return basePrice(unitPrice, rows);
-}
-
-export interface LineSpecificationTotals {
-  net: number;
-  vat: number;
-  incVat: number;
-  /** `null` where the unit price has nothing to divide by. */
-  ratePercent: number | null;
+  return basePrice(unitPrice, rows, inc);
 }
 
 /**
  * The price rows under a line's specification: the line's own total, as the
- * cart and the order show it, and the rate of one unit, which is the row's own.
+ * cart and the order show it.
  */
 export function lineSpecificationTotals(
-  unitPrice: PriceType | undefined,
   totalPrice: PriceType | undefined,
-): LineSpecificationTotals | null {
+): PriceTotals | null {
   if (!totalPrice) return null;
   return {
     net: exVatAmount(totalPrice),
     vat: vatAmount(totalPrice),
     incVat: incVatAmount(totalPrice),
-    ratePercent: vatRatePercent(unitPrice),
   };
 }
 
@@ -580,17 +589,36 @@ export function specificationText(input: SpecificationTextInput): string {
   return lines.join('\n');
 }
 
-export interface PanelTotals {
+export interface PriceTotals {
   net: number;
   vat: number;
   incVat: number;
+}
+
+export interface PriceBlock {
+  /** What the block leads with: net on the ex side, with VAT on the inc side. */
+  price: number;
+  vat: number;
+  /** The amount with VAT under an ex-VAT price; `null` on the inc side. */
+  totalIncVat: number | null;
+}
+
+/**
+ * The price block on the side of the buyer's VAT choice, as the cart's
+ * summary has it: the inc side's price already holds the VAT, so it needs no
+ * third line.
+ */
+export function priceBlock(totals: PriceTotals, inc: boolean): PriceBlock {
+  return inc
+    ? { price: totals.incVat, vat: totals.vat, totalIncVat: null }
+    : { price: totals.net, vat: totals.vat, totalIncVat: totals.incVat };
 }
 
 /**
  * The price rows for the whole quantity, as the cart line's total is built:
  * each unit amount as sent, times the quantity, unrounded.
  */
-export function panelTotals(config: Configuration | null): PanelTotals | null {
+export function panelTotals(config: Configuration | null): PriceTotals | null {
   const unit = config?.unitPrice;
   if (!config || !unit) return null;
   return {

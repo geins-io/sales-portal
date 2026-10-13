@@ -2,13 +2,22 @@ import { toValue, type MaybeRefOrGetter } from 'vue';
 import { formatPrice } from '#shared/types/commerce';
 import { optionPricePrefix } from '~/utils/configurator-form';
 import {
+  priceBlock,
   valueAmount,
+  type PriceTotals,
   type SpecificationValue,
 } from '~/utils/configurator-panel';
 
+export interface PriceLines {
+  price: string;
+  /** VAT, then on the ex side the amount with VAT. */
+  rows: { label: string; amount: string }[];
+}
+
 /**
  * How a specification writes its values and prices, so the PDP's panel, a
- * line's panel and the copied text read the same.
+ * line's panel and the copied text read the same, on the side of the buyer's
+ * VAT choice.
  */
 export function useSpecificationFormat(
   currency: MaybeRefOrGetter<string | undefined>,
@@ -16,9 +25,10 @@ export function useSpecificationFormat(
   const { t } = useI18n();
   const { formatLocale } = useFormatLocale();
   const { showPrice } = usePriceVisibility();
+  const { showIncVat } = useVatDisplay();
 
-  function money(net: number): string {
-    return formatPrice(net, toValue(currency), formatLocale.value);
+  function money(amount: number): string {
+    return formatPrice(amount, toValue(currency), formatLocale.value);
   }
 
   /**
@@ -60,11 +70,29 @@ export function useSpecificationFormat(
    */
   function valuePrice(value: SpecificationValue): string | null {
     if (!showPrice.value || !value.price) return null;
-    const net = valueAmount(value);
-    const prefix = optionPricePrefix(net);
+    const amount = valueAmount(value, showIncVat.value);
+    const prefix = optionPricePrefix(amount);
     if (prefix === null) return null;
-    return `${prefix}${money(net)}`;
+    return `${prefix}${money(amount)}`;
   }
 
-  return { money, valueText, valuePrice };
+  /** The price block's lines, written and labelled. */
+  function priceLines(totals: PriceTotals): PriceLines {
+    const block = priceBlock(totals, showIncVat.value);
+    const rows = [
+      {
+        label: t(showIncVat.value ? 'common.vat_included' : 'common.vat'),
+        amount: money(block.vat),
+      },
+    ];
+    if (block.totalIncVat !== null) {
+      rows.push({
+        label: t('configurator.panel.total_inc_vat'),
+        amount: money(block.totalIncVat),
+      });
+    }
+    return { price: money(block.price), rows };
+  }
+
+  return { money, valueText, valuePrice, priceLines, showIncVat };
 }

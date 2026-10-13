@@ -3,8 +3,8 @@ import {
   currencyCode,
   exVatAmount,
   incVatAmount,
+  sideAmount,
   vatAmount,
-  vatRatePercent,
 } from '../../../shared/utils/configurator-price';
 
 describe('exVatAmount', () => {
@@ -57,28 +57,19 @@ describe('vatAmount', () => {
   });
 });
 
-describe('vatRatePercent', () => {
-  it('restates the VAT amount as a percentage of the price before VAT', () => {
-    expect(vatRatePercent({ sellingPriceExVat: 3200, vat: 800 })).toBe(25);
+describe('sideAmount', () => {
+  const price = { sellingPriceExVat: 150, sellingPriceIncVat: 187.5 };
+
+  it('reads the price before VAT on the ex side', () => {
+    expect(sideAmount(price, false)).toBe(150);
   });
 
-  it('rounds to a whole percentage', () => {
-    expect(vatRatePercent({ sellingPriceExVat: 99.99, vat: 12.5 })).toBe(13);
-    expect(vatRatePercent({ sellingPriceExVat: 100, vat: 12.4 })).toBe(12);
+  it('reads the price with VAT on the inc side', () => {
+    expect(sideAmount(price, true)).toBe(187.5);
   });
 
-  it('has no rate for a price of zero', () => {
-    // Parts the provider includes arrive at 0.00, and 0 / 0 is no rate.
-    expect(vatRatePercent({ sellingPriceExVat: 0, vat: 0 })).toBeNull();
-  });
-
-  it('has no rate when the price or its VAT is absent', () => {
-    expect(vatRatePercent(undefined)).toBeNull();
-    expect(vatRatePercent({ sellingPriceExVat: 100 })).toBeNull();
-    expect(vatRatePercent({ vat: 25 })).toBeNull();
-  });
-
-  it('reads a VAT-free price as zero percent', () => {
-    expect(vatRatePercent({ sellingPriceExVat: 100, vat: 0 })).toBe(0);
+  it('reads an absent price as zero on both sides', () => {
+    expect(sideAmount(undefined, false)).toBe(0);
+    expect(sideAmount(undefined, true)).toBe(0);
   });
 });

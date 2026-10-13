@@ -2,7 +2,7 @@
 import { CheckCircle2 } from 'lucide-vue-next';
 import { formatPrice, type PriceType } from '#shared/types/commerce';
 import type { CommittedConfiguration } from '#shared/types/configurator';
-import { currencyCode, exVatAmount } from '#shared/utils/configurator-price';
+import { currencyCode, sideAmount } from '#shared/utils/configurator-price';
 
 /**
  * What the buyer ends with: the committed configuration, read-only.
@@ -16,10 +16,12 @@ const { committed } = defineProps<{ committed: CommittedConfiguration }>();
 const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
 const { showPrice } = usePriceVisibility();
+const { showIncVat } = useVatDisplay();
 
+/** On the side of the buyer's VAT choice. */
 function money(price: PriceType): string {
   return formatPrice(
-    exVatAmount(price),
+    sideAmount(price, showIncVat.value),
     currencyCode(price),
     formatLocale.value,
   );

@@ -1,35 +1,28 @@
 <script setup lang="ts">
 /**
- * The price under a specification: net leads, VAT and the total support it,
- * as the prototype. Every amount arrives written, so the PDP's panel and a
- * configured line each say where theirs come from.
+ * A specification's price block: the price on the side of the buyer's VAT
+ * choice leads, the VAT rows support it. Every amount arrives written, so the
+ * PDP's panel and a configured line each say where theirs come from.
  */
 const {
   prefix,
   size,
   quantity,
-  net,
+  price,
   rows,
   dimmed = false,
 } = defineProps<{
   /** The test id prefix of the block, one per place it is shown. */
   prefix: string;
-  size: 'summary' | 'foot' | 'sheet';
+  size: 'summary' | 'sheet';
   quantity: number;
-  net: string;
-  /** VAT and the total, in that order. */
+  price: string;
   rows: { label: string; amount: string }[];
-  /** The net is being recomputed. */
+  /** The price is being recomputed. */
   dimmed?: boolean;
 }>();
 
 const { t } = useI18n();
-
-const netClass = {
-  summary: 'text-xl',
-  foot: 'text-base',
-  sheet: 'text-xl',
-} as const;
 </script>
 
 <template>
@@ -38,7 +31,7 @@ const netClass = {
     :data-testid="`${prefix}-price-row`"
   >
     <span class="text-muted-foreground text-xs">
-      {{ t('configurator.panel.net_price') }}
+      {{ t('configurator.panel.price') }}
       <template v-if="quantity > 1">
         ·
         {{
@@ -49,11 +42,11 @@ const netClass = {
       </template>
     </span>
     <span
-      class="font-semibold tabular-nums transition-opacity"
-      :class="[netClass[size], dimmed ? 'opacity-40' : '']"
+      class="text-xl font-semibold tabular-nums transition-opacity"
+      :class="dimmed ? 'opacity-40' : ''"
       :data-testid="`${prefix}-net`"
     >
-      {{ net }}
+      {{ price }}
     </span>
   </div>
   <div

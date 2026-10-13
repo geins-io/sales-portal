@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mountComponent } from '../../../utils/component';
 import ConfiguratorOptionChooser from '../../../../app/components/product/configurator/ConfiguratorOptionChooser.vue';
 import ConfiguratorOptionGroup from '../../../../app/components/product/configurator/ConfiguratorOptionGroup.vue';
@@ -15,6 +15,7 @@ import {
   makeInvalidConfiguration,
   makeNestedGroupConfiguration,
 } from '../../../fixtures/configurator';
+import { mockShowIncVat } from '../../../setup-components';
 
 // Stub the sheet primitives so the panel's content can be asserted inline
 // instead of in a portal, mirroring PortalItemRowsSheet.test.ts. The stub keeps
@@ -89,6 +90,10 @@ function oneOption(groupId: string): ConfigurationOptionGroup {
 }
 
 describe('ConfiguratorOptionGroup', () => {
+  beforeEach(() => {
+    mockShowIncVat.value = false;
+  });
+
   it('renders a single-choice group of one as a radio group', () => {
     const wrapper = mountGroup(oneOption('top'));
 
@@ -575,6 +580,21 @@ describe('ConfiguratorOptionGroup', () => {
     // On the row's own line, and followed only by the chevron.
     expect(price.parentElement).toBe(chooser);
     expect(price.nextElementSibling).toBe(chooser.lastElementChild);
+  });
+
+  it('shows the chosen price with VAT in the chooser on the inc side', () => {
+    mockShowIncVat.value = true;
+    const workbench = makeInitialConfiguration();
+    findOption(workbench, 'ral-7016').selected = true;
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'color'));
+
+    expect(
+      wrapper
+        .find(CHOOSER)
+        .find('[data-testid="configurator-option-price"]')
+        .text(),
+    ).toMatch(/^\+.*187\.50/);
   });
 
   it('shows no price in the chooser for a chosen row that adds nothing', () => {

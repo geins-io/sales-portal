@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { mountComponent } from '../../../utils/component';
 import ConfiguratorOptionRow from '../../../../app/components/product/configurator/ConfiguratorOptionRow.vue';
 import type { ConfigurationOption } from '#shared/types/configurator';
@@ -8,6 +8,7 @@ import {
   makeCascadedConfiguration,
   makeInitialConfiguration,
 } from '../../../fixtures/configurator';
+import { mockShowIncVat } from '../../../setup-components';
 
 function mountRow(
   option: ConfigurationOption,
@@ -33,6 +34,10 @@ function withImage(option: ConfigurationOption, fileName: string) {
 }
 
 describe('ConfiguratorOptionRow', () => {
+  beforeEach(() => {
+    mockShowIncVat.value = false;
+  });
+
   it('renders the embedded product rather than looking one up', () => {
     const workbench = makeInitialConfiguration();
 
@@ -87,6 +92,19 @@ describe('ConfiguratorOptionRow', () => {
       .text();
 
     expect(stepped).toBe(plain);
+  });
+
+  it('renders the row price with VAT when the buyer chose prices with VAT', () => {
+    mockShowIncVat.value = true;
+    const workbench = makeInitialConfiguration();
+
+    const price = mountRow(findOption(workbench, 'top-wood')).find(
+      '[data-testid="configurator-option-price"]',
+    );
+
+    // 1,400 net at the seed's 25 %.
+    expect(price.text()).toMatch(/^\+.*1,750\.00/);
+    expect(price.text()).not.toContain('1,400');
   });
 
   it('shows no price on a row that adds nothing', () => {

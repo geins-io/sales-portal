@@ -9,7 +9,7 @@ import {
 } from 'lucide-vue-next';
 import { useClipboard } from '@vueuse/core';
 import type { Configuration } from '#shared/types/configurator';
-import { currencyCode, vatRatePercent } from '#shared/utils/configurator-price';
+import { currencyCode } from '#shared/utils/configurator-price';
 import type { ConfiguratorSessionStatus } from '~/composables/useConfiguratorSession';
 import { Button } from '~/components/ui/button';
 import {
@@ -27,11 +27,12 @@ import {
 
 /**
  * The configuration as a specification rather than a receipt: what has been
- * chosen, grouped by the section it was chosen in, with the price built up
- * underneath. What is still missing is listed under the section rail.
+ * chosen, grouped by the section it was chosen in. What is still missing is
+ * listed under the section rail.
  *
  * The price leads and the specification follows, scrolling inside its own
- * block, as the prototype; the default slot is where the page puts the action
+ * block, as the prototype; the price block stands once, above it, and the
+ * sheet repeats it in its footer; the default slot is where the page puts the action
  * and the session, between the two. The page owns them because the action is
  * replaced wholesale in a later milestone.
  *
@@ -65,36 +66,23 @@ const rows = computed(() =>
   configuration ? specificationRows(configuration) : [],
 );
 
+const currency = computed(() => currencyCode(configuration?.unitPrice));
+const { money, valueText, valuePrice, priceLines, showIncVat } =
+  useSpecificationFormat(currency);
+
 const base = computed(() =>
-  showPrice.value ? basePrice(configuration?.unitPrice, rows.value) : null,
+  showPrice.value
+    ? basePrice(configuration?.unitPrice, rows.value, showIncVat.value)
+    : null,
 );
 
-const currency = computed(() => currencyCode(configuration?.unitPrice));
-const { money, valueText, valuePrice } = useSpecificationFormat(currency);
-
 /**
- * Net leads and VAT and the total support it, as the prototype. Every figure is
- * for the whole quantity, from the unit price as sent, already net of any
- * discount; none is derived from another.
+ * Every figure is for the whole quantity, from the unit price as sent, already
+ * net of any discount; none is derived from another.
  */
-const totals = computed(() => panelTotals(configuration));
-
-const price = computed(() => money(totals.value?.net ?? 0));
-
-const vatLabel = computed(() => {
-  const rate = vatRatePercent(configuration?.unitPrice);
-  return rate === null
-    ? t('configurator.panel.vat_no_rate')
-    : t('configurator.panel.vat', { rate });
-});
-
-const supportingRows = computed(() => [
-  { label: vatLabel.value, amount: money(totals.value?.vat ?? 0) },
-  {
-    label: t('configurator.panel.inc_vat'),
-    amount: money(totals.value?.incVat ?? 0),
-  },
-]);
+const lines = computed(() =>
+  priceLines(panelTotals(configuration) ?? { net: 0, vat: 0, incVat: 0 }),
+);
 
 const asText = computed(() =>
   specificationText({
@@ -118,8 +106,11 @@ const asText = computed(() =>
       ? {
           price: {
             lines: [
-              { label: t('configurator.panel.net_price'), amount: price.value },
-              ...supportingRows.value,
+              {
+                label: t('configurator.panel.price'),
+                amount: lines.value.price,
+              },
+              ...lines.value.rows,
             ],
             note: t('configurator.panel.indicative'),
           },
@@ -189,8 +180,8 @@ const quantity = computed(() => configuration?.quantity ?? 1);
           prefix="configurator-panel"
           size="summary"
           :quantity="quantity"
-          :net="price"
-          :rows="supportingRows"
+          :price="lines.price"
+          :rows="lines.rows"
           :dimmed="busy"
         />
       </div>
@@ -198,10 +189,13 @@ const quantity = computed(() => configuration?.quantity ?? 1);
 
     <!-- While the session starts, the space the price, the action and the
          session will take (each block carries the divider under it), so the
-         specification header is already where it will stay. -->
+         specification header is already where it will stay. The inc block
+         has no third line: 73.5 against 90. -->
     <div
       v-if="!configuration"
-      :class="showPrice ? 'h-[212px]' : 'h-[122px]'"
+      :class="
+        !showPrice ? 'h-[122px]' : showIncVat ? 'h-[195.5px]' : 'h-[212px]'
+      "
       class="shrink-0"
       data-testid="configurator-card-top-empty"
     />
@@ -265,16 +259,18 @@ const quantity = computed(() => configuration?.quantity ?? 1);
         </div>
       </header>
 
-      <!-- Under the header an empty body as tall as the loaded rows and price
-           (Bookcase, 1440 wide: 265 and 85), so nothing moves when the
-           document arrives. From lg it is held inside the box's cap: 192
-           offset, 16 air, the card's borders, the top space, the header. -->
+      <!-- Under the header an empty body as tall as the loaded rows
+           (Bookcase, 1440 wide: 265), so nothing moves when the document
+           arrives. From lg it is held inside the box's cap: 192 offset, 16
+           air, the card's borders, the top space, the header. -->
       <div
         v-if="!configuration"
         :class="
-          showPrice
-            ? 'min-h-[350px] lg:min-h-[min(350px,calc(100vh-467px))]'
-            : 'min-h-[265px] lg:min-h-[min(265px,calc(100vh-377px))]'
+          !showPrice
+            ? 'min-h-[265px] lg:min-h-[min(265px,calc(100vh-377px))]'
+            : showIncVat
+              ? 'min-h-[265px] lg:min-h-[min(265px,calc(100vh-450.5px))]'
+              : 'min-h-[265px] lg:min-h-[min(265px,calc(100vh-467px))]'
         "
         data-testid="configurator-card-empty"
       />
@@ -292,21 +288,6 @@ const quantity = computed(() => configuration?.quantity ?? 1);
             :large="false"
             :currency="currency"
             :base-price="base"
-          />
-        </div>
-
-        <div
-          v-if="showPrice"
-          class="border-border shrink-0 border-t px-4 py-3"
-          data-testid="configurator-spec-price"
-        >
-          <SpecificationPrice
-            prefix="configurator-spec"
-            size="foot"
-            :quantity="quantity"
-            :net="price"
-            :rows="supportingRows"
-            :dimmed="busy"
           />
         </div>
       </template>
@@ -331,8 +312,8 @@ const quantity = computed(() => configuration?.quantity ?? 1);
           prefix="configurator-sheet"
           size="sheet"
           :quantity="quantity"
-          :net="price"
-          :rows="supportingRows"
+          :price="lines.price"
+          :rows="lines.rows"
         />
       </template>
     </SpecificationSheet>

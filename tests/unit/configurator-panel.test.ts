@@ -15,6 +15,7 @@ import {
   lineBasePrice,
   lineSpecificationTotals,
   panelTotals,
+  priceBlock,
   specificationRows,
   specificationText,
   unnamedBlockingMessages,
@@ -977,30 +978,47 @@ describe('valueAmount', () => {
 
   it('is the price times the quantity', () => {
     expect(
-      valueAmount({ text: 'Battery', quantity: 4, price: net(76.2) }),
+      valueAmount({ text: 'Battery', quantity: 4, price: net(76.2) }, false),
     ).toBe(304.8);
   });
 
   it('takes a fractional quantity, rounded to the cent', () => {
     // 619.49 × 0.073 = 45.22277.
     expect(
-      valueAmount({ text: 'Steel', quantity: 0.073, price: net(619.49) }),
+      valueAmount(
+        { text: 'Steel', quantity: 0.073, price: net(619.49) },
+        false,
+      ),
     ).toBe(45.22);
   });
 
   it('rounds the price to the cent before multiplying', () => {
     // 100.006 is 100.01 as shown; unrounded twice it would be 200.01.
-    expect(valueAmount({ text: 'A', quantity: 2, price: net(100.006) })).toBe(
-      200.02,
-    );
+    expect(
+      valueAmount({ text: 'A', quantity: 2, price: net(100.006) }, false),
+    ).toBe(200.02);
   });
 
   it('counts a value without a quantity once', () => {
-    expect(valueAmount({ text: 'A', price: net(400) })).toBe(400);
+    expect(valueAmount({ text: 'A', price: net(400) }, false)).toBe(400);
   });
 
   it('is nothing for a value without a price', () => {
-    expect(valueAmount({ number: 1200 })).toBe(0);
+    expect(valueAmount({ number: 1200 }, false)).toBe(0);
+  });
+
+  it('reads the price with VAT on the inc side, by the same rule', () => {
+    const price: PriceType = {
+      sellingPriceExVat: 619.49,
+      sellingPriceIncVat: 774.36,
+    };
+    // 774.36 × 0.073 = 56.52828.
+    expect(valueAmount({ text: 'Steel', quantity: 0.073, price }, true)).toBe(
+      56.53,
+    );
+    expect(valueAmount({ text: 'Steel', quantity: 0.073, price }, false)).toBe(
+      45.22,
+    );
   });
 });
 
@@ -1018,61 +1036,83 @@ describe('basePrice', () => {
   it('is the unit price less the options shown', () => {
     // A CPQ product measured 2026-10-08: unit 21 405,02, options 3 402,70.
     expect(
-      basePrice(net(21405.02), [
-        row([{ text: 'A', quantity: 1, price: net(1944.4) }]),
-        row([{ text: 'B', quantity: 1, price: net(1458.3) }]),
-      ]),
+      basePrice(
+        net(21405.02),
+        [
+          row([{ text: 'A', quantity: 1, price: net(1944.4) }]),
+          row([{ text: 'B', quantity: 1, price: net(1458.3) }]),
+        ],
+        false,
+      ),
     ).toBe(18002.32);
   });
 
   it('is the whole unit price where no option is priced', () => {
     expect(
-      basePrice(net(18002.32), [row([{ text: 'Included', price: net(0) }])]),
+      basePrice(
+        net(18002.32),
+        [row([{ text: 'Included', price: net(0) }])],
+        false,
+      ),
     ).toBe(18002.32);
-    expect(basePrice(net(18002.32), [])).toBe(18002.32);
+    expect(basePrice(net(18002.32), [], false)).toBe(18002.32);
   });
 
   it('subtracts an option once per unit of it, fractional quantities too', () => {
     expect(
-      basePrice(net(1000), [
-        row([{ text: 'Teeth', quantity: 4, price: net(100) }]),
-        row([{ text: 'Steel', quantity: 0.073, price: net(1000) }]),
-      ]),
+      basePrice(
+        net(1000),
+        [
+          row([{ text: 'Teeth', quantity: 4, price: net(100) }]),
+          row([{ text: 'Steel', quantity: 0.073, price: net(1000) }]),
+        ],
+        false,
+      ),
     ).toBe(527);
   });
 
   it('counts a committed option without a quantity once', () => {
-    expect(basePrice(net(1000), [row([{ text: 'A', price: net(400) }])])).toBe(
-      600,
-    );
+    expect(
+      basePrice(net(1000), [row([{ text: 'A', price: net(400) }])], false),
+    ).toBe(600);
   });
 
   it('ignores a value with no price, a measurement or "nothing chosen"', () => {
     expect(
-      basePrice(net(1000), [
-        row([{ number: 1200, unit: 'mm' }]),
-        row([{ none: true }]),
-        row([{ text: 'A', quantity: 1, price: net(250) }]),
-      ]),
+      basePrice(
+        net(1000),
+        [
+          row([{ number: 1200, unit: 'mm' }]),
+          row([{ none: true }]),
+          row([{ text: 'A', quantity: 1, price: net(250) }]),
+        ],
+        false,
+      ),
     ).toBe(750);
   });
 
   it('is zero where the options add up to the unit price', () => {
     // A CPQ product measured 2026-10-08 whose options make up its price.
     expect(
-      basePrice(net(2118.94), [
-        row([{ text: 'A', quantity: 1, price: net(894.49) }]),
-        row([{ text: 'B', quantity: 1, price: net(1224.45) }]),
-      ]),
+      basePrice(
+        net(2118.94),
+        [
+          row([{ text: 'A', quantity: 1, price: net(894.49) }]),
+          row([{ text: 'B', quantity: 1, price: net(1224.45) }]),
+        ],
+        false,
+      ),
     ).toBe(0);
   });
 
   it('is nothing where the options exceed the unit price', () => {
     // A line that kept a stale price: 236.82 against 1870.20 of options.
     expect(
-      basePrice(net(236.82), [
-        row([{ text: 'A', quantity: 1, price: net(1870.2) }]),
-      ]),
+      basePrice(
+        net(236.82),
+        [row([{ text: 'A', quantity: 1, price: net(1870.2) }])],
+        false,
+      ),
     ).toBeNull();
   });
 
@@ -1080,20 +1120,26 @@ describe('basePrice', () => {
     // A committed line measured 2026-10-08: the raw remainder is 0.0054,
     // the rows as shown add up exactly.
     expect(
-      basePrice(net(4709.514), [
-        row([{ text: 'A', quantity: 1, price: net(894.4886) }]),
-        row([{ text: 'B', quantity: 1, price: net(1224.45) }]),
-        row([{ text: 'C', quantity: 1, price: net(2590.57) }]),
-      ]),
+      basePrice(
+        net(4709.514),
+        [
+          row([{ text: 'A', quantity: 1, price: net(894.4886) }]),
+          row([{ text: 'B', quantity: 1, price: net(1224.45) }]),
+          row([{ text: 'C', quantity: 1, price: net(2590.57) }]),
+        ],
+        false,
+      ),
     ).toBe(0);
   });
 
   it('rounds each shown amount to the cent before subtracting', () => {
     // 100.006 shows as 100.01, twice; unrounded the remainder would be 99.99.
     expect(
-      basePrice(net(300), [
-        row([{ text: 'A', quantity: 2, price: net(100.006) }]),
-      ]),
+      basePrice(
+        net(300),
+        [row([{ text: 'A', quantity: 2, price: net(100.006) }])],
+        false,
+      ),
     ).toBe(99.98);
   });
 
@@ -1101,20 +1147,103 @@ describe('basePrice', () => {
     // Each row is 10 × 0.0005 = 0.005, shown as 0.01; unrounded the two would
     // take one cent, not two.
     expect(
-      basePrice(net(1), [
-        row([{ text: 'A', quantity: 0.0005, price: net(10) }]),
-        row([{ text: 'B', quantity: 0.0005, price: net(10) }]),
-      ]),
+      basePrice(
+        net(1),
+        [
+          row([{ text: 'A', quantity: 0.0005, price: net(10) }]),
+          row([{ text: 'B', quantity: 0.0005, price: net(10) }]),
+        ],
+        false,
+      ),
     ).toBe(0.98);
   });
 
   it('is nothing without a unit price, even where an option takes money off', () => {
-    expect(basePrice(undefined, [])).toBeNull();
+    expect(basePrice(undefined, [], false)).toBeNull();
     expect(
-      basePrice(undefined, [
-        row([{ text: 'Trade-in', quantity: 1, price: net(-100) }]),
-      ]),
+      basePrice(
+        undefined,
+        [row([{ text: 'Trade-in', quantity: 1, price: net(-100) }])],
+        false,
+      ),
     ).toBeNull();
+  });
+});
+
+describe('basePrice on the inc side', () => {
+  // A unit of 21 405,02 net at 19 %: 25 471,97 with VAT. Options at 19 %.
+  const price = (exVat: number, incVat: number): PriceType => ({
+    sellingPriceExVat: exVat,
+    sellingPriceIncVat: incVat,
+  });
+  const rows: SpecificationRow[] = [
+    {
+      id: 'group:a',
+      group: 'Machine',
+      label: 'A',
+      values: [{ text: 'A', quantity: 1, price: price(1944.4, 2313.84) }],
+    },
+    {
+      id: 'group:b',
+      group: 'Machine',
+      label: 'B',
+      values: [{ text: 'B', quantity: 0.073, price: price(619.49, 737.19) }],
+    },
+  ];
+  const unit = price(21405.02, 25471.97);
+
+  it('is the unit price with VAT less the options with VAT', () => {
+    // 25 471,97 − 2 313,84 − 53,81 (737,19 × 0,073).
+    expect(basePrice(unit, rows, true)).toBe(23104.32);
+    expect(basePrice(unit, rows, false)).toBe(19415.4);
+  });
+
+  it('shows the row at zero on the inc side where per-option rounding passes the unit by a few cents', () => {
+    // 3 × 10,03 net is the unit's 30,09; at 19 % each option rounds to 11,94,
+    // 35,82 together, against a unit of 35,81.
+    const option = price(10.03, 11.94);
+    const three: SpecificationRow[] = ['a', 'b', 'c'].map((id) => ({
+      id: `group:${id}`,
+      group: 'Machine',
+      label: id,
+      values: [{ text: id, quantity: 1, price: option }],
+    }));
+    const unit = price(30.09, 35.81);
+
+    expect(basePrice(unit, three, false)).toBe(0);
+    expect(basePrice(unit, three, true)).toBe(0);
+  });
+
+  it('hides the row on both sides where the options pass the unit before VAT', () => {
+    // A stale line: −0,01 before VAT, though the inc amounts leave a remainder.
+    const stale: SpecificationRow[] = [
+      {
+        id: 'group:a',
+        group: 'Machine',
+        label: 'A',
+        values: [{ text: 'A', quantity: 1, price: price(100.01, 124) }],
+      },
+    ];
+    const unit = price(100, 125);
+
+    expect(basePrice(unit, stale, false)).toBeNull();
+    expect(basePrice(unit, stale, true)).toBeNull();
+  });
+
+  it('adds up with the rows to the unit price on each side, to the cent', () => {
+    for (const inc of [false, true]) {
+      const shown = rows
+        .flatMap((row) => row.values)
+        .reduce(
+          (sum, value) => sum + Math.round(valueAmount(value, inc) * 100),
+          0,
+        );
+      const base = basePrice(unit, rows, inc);
+      expect(base).not.toBeNull();
+      expect(Math.round(base! * 100) + shown).toBe(
+        Math.round((inc ? 25471.97 : 21405.02) * 100),
+      );
+    }
   });
 });
 
@@ -1122,7 +1251,9 @@ describe('lineBasePrice', () => {
   const unit: PriceType = { sellingPriceExVat: 18002.32 };
 
   it('is the whole unit price where the recorded sections are empty', () => {
-    expect(lineBasePrice({ summary: [], sections: [] }, unit)).toBe(18002.32);
+    expect(lineBasePrice({ summary: [], sections: [] }, unit, false)).toBe(
+      18002.32,
+    );
   });
 
   it('is nothing where the sections hold no choice but the summary names some', () => {
@@ -1130,12 +1261,13 @@ describe('lineBasePrice', () => {
       lineBasePrice(
         { summary: [{ label: 'Adapter', value: 'S45' }], sections: [] },
         unit,
+        false,
       ),
     ).toBeNull();
   });
 
   it('is nothing on a line committed before its sections were recorded', () => {
-    expect(lineBasePrice({ summary: [] }, unit)).toBeNull();
+    expect(lineBasePrice({ summary: [] }, unit, false)).toBeNull();
   });
 
   it('subtracts the committed options', () => {
@@ -1168,39 +1300,119 @@ describe('lineBasePrice', () => {
           ],
         },
         unit,
+        false,
       ),
     ).toBe(16002.32);
   });
 });
 
 describe('lineSpecificationTotals', () => {
-  it("reads the amounts from the line's total and the rate from one unit", () => {
+  it("reads the amounts from the line's total", () => {
     expect(
-      lineSpecificationTotals(
-        { sellingPriceExVat: 2118.94, vat: 402.6, sellingPriceIncVat: 2521.54 },
-        {
-          sellingPriceExVat: 6356.82,
-          vat: 1207.8,
-          sellingPriceIncVat: 7564.62,
-        },
-      ),
-    ).toEqual({ net: 6356.82, vat: 1207.8, incVat: 7564.62, ratePercent: 19 });
-  });
-
-  it('answers no rate where the unit has nothing to divide by', () => {
-    expect(
-      lineSpecificationTotals(
-        { sellingPriceExVat: 0, vat: 0 },
-        { sellingPriceExVat: 0, vat: 0, sellingPriceIncVat: 0 },
-      )?.ratePercent,
-    ).toBeNull();
+      lineSpecificationTotals({
+        sellingPriceExVat: 6356.82,
+        vat: 1207.8,
+        sellingPriceIncVat: 7564.62,
+      }),
+    ).toEqual({ net: 6356.82, vat: 1207.8, incVat: 7564.62 });
   });
 
   it('answers nothing for a line without a total', () => {
-    expect(lineSpecificationTotals(undefined, undefined)).toBeNull();
+    expect(lineSpecificationTotals(undefined)).toBeNull();
+  });
+});
+
+describe('lineBasePrice on the inc side', () => {
+  const option = {
+    name: 'A',
+    quantity: 1,
+    unitPrice: { sellingPriceExVat: 10.03, sellingPriceIncVat: 11.94 },
+  };
+  const threeOptions = {
+    summary: [],
+    sections: [
+      {
+        name: 'Configuration',
+        sortIndex: 0,
+        variables: [],
+        optionGroups: ['a', 'b', 'c'].map((id, index) => ({
+          id,
+          name: id,
+          sortIndex: index,
+          options: [option],
+          optionGroups: [],
+        })),
+        sections: [],
+      },
+    ],
+  };
+
+  it('shows the row at zero where per-option rounding passes the unit by a few cents', () => {
     expect(
-      lineSpecificationTotals({ sellingPriceExVat: 1, vat: 0.25 }, undefined),
-    ).toBeNull();
+      lineBasePrice(
+        threeOptions,
+        { sellingPriceExVat: 30.09, sellingPriceIncVat: 35.81 },
+        true,
+      ),
+    ).toBe(0);
+  });
+
+  it('subtracts the committed options with VAT from the unit with VAT', () => {
+    expect(
+      lineBasePrice(
+        {
+          summary: [],
+          sections: [
+            {
+              name: 'Configuration',
+              sortIndex: 0,
+              variables: [],
+              optionGroups: [
+                {
+                  id: 'g',
+                  name: 'Licence',
+                  sortIndex: 1,
+                  options: [
+                    {
+                      name: 'A',
+                      quantity: 2,
+                      unitPrice: {
+                        sellingPriceExVat: 1000,
+                        sellingPriceIncVat: 1250,
+                      },
+                    },
+                  ],
+                  optionGroups: [],
+                },
+              ],
+              sections: [],
+            },
+          ],
+        },
+        { sellingPriceExVat: 18002.32, sellingPriceIncVat: 22502.9 },
+        true,
+      ),
+    ).toBe(20002.9);
+  });
+});
+
+describe('priceBlock', () => {
+  const totals = { net: 9600, vat: 2400, incVat: 12000 };
+
+  it('leads with the net on the ex side, then VAT, then the total with VAT', () => {
+    expect(priceBlock(totals, false)).toEqual({
+      price: 9600,
+      vat: 2400,
+      totalIncVat: 12000,
+    });
+  });
+
+  it('leads with the amount with VAT on the inc side, then the VAT in it, and no third line', () => {
+    expect(priceBlock(totals, true)).toEqual({
+      price: 12000,
+      vat: 2400,
+      totalIncVat: null,
+    });
   });
 });
 

@@ -15,6 +15,7 @@ import { mountComponent } from '../../utils/component';
 import ConfigurationPanel from '../../../app/components/product/configurator/ConfigurationPanel.vue';
 import { useTenant } from '../../../app/composables/useTenant';
 import { useAuthStore } from '../../../app/stores/auth';
+import { mockShowIncVat } from '../../setup-components';
 import {
   findOption,
   findOptionGroup,
@@ -103,6 +104,7 @@ function mountPanel(
 describe('ConfigurationPanel', () => {
   beforeEach(() => {
     setFeatures({});
+    mockShowIncVat.value = false;
     // The Pinia store is shared across this file's tests.
     useAuthStore().user = null;
   });
@@ -146,6 +148,18 @@ describe('ConfigurationPanel', () => {
       expect(spec.element.contains(top(shown)[0]!.element)).toBe(false);
     });
 
+    it('holds the shorter price block of the inc side, which has no third line', () => {
+      // Measured on the loaded box: the inc block is 73.5 against 90.
+      mockShowIncVat.value = true;
+      const wrapper = mountPanel({ configuration: null, status: 'idle' });
+
+      expect(top(wrapper)[0]!.classes()).toEqual(['h-[195.5px]', 'shrink-0']);
+      expect(empty(wrapper)[0]!.classes()).toEqual([
+        'min-h-[265px]',
+        'lg:min-h-[min(265px,calc(100vh-450.5px))]',
+      ]);
+    });
+
     it('holds no top space once the document is there, nor for an expired session', () => {
       expect(top(mountPanel())).toHaveLength(0);
       expect(
@@ -159,12 +173,12 @@ describe('ConfigurationPanel', () => {
       const hidden = mountPanel({ configuration: null, status: 'idle' });
 
       // Bookcase, 1440 wide: the loaded specification is its 45 px header
-      // over 265 of rows and an 85 px price. From lg the box is capped under
-      // the sticky offset, so the body is too: 192 offset, 16 air, the card's
-      // two borders, the top space and the header.
+      // over 265 of rows. From lg the box is capped under the sticky offset,
+      // so the body is too: 192 offset, 16 air, the card's two borders, the
+      // top space and the header.
       expect(empty(shown)[0]!.classes()).toEqual([
-        'min-h-[350px]',
-        'lg:min-h-[min(350px,calc(100vh-467px))]',
+        'min-h-[265px]',
+        'lg:min-h-[min(265px,calc(100vh-467px))]',
       ]);
       expect(empty(hidden)[0]!.classes()).toEqual([
         'min-h-[265px]',
@@ -217,35 +231,29 @@ describe('ConfigurationPanel', () => {
       expect(follows(header.element, rows.element)).toBe(true);
     });
 
-    it('repeats the price at the foot of the specification, smaller', () => {
+    it('shows one price block, above the specification and none under it', () => {
       const wrapper = mountPanel();
       const spec = wrapper.find('[data-testid="configurator-panel-spec"]');
-      const foot = spec.find('[data-testid="configurator-spec-price"]');
-      const rows = spec.find('[data-testid="configurator-panel-rows"]');
 
-      expect(follows(rows.element, foot.element)).toBe(true);
-      expect(foot.classes()).toContain('shrink-0');
-      expect(plainText(foot.text())).toContain('SEK 3,200.00');
       expect(
-        wrapper.find('[data-testid="configurator-panel-net"]').classes(),
-      ).toContain('text-xl');
-      expect(
-        foot.find('[data-testid="configurator-spec-net"]').classes(),
-      ).toContain('text-base');
-      // The summary on top stays outside the specification.
+        wrapper.findAll('[data-testid="configurator-panel-price"]'),
+      ).toHaveLength(1);
       expect(
         spec.find('[data-testid="configurator-panel-price"]').exists(),
       ).toBe(false);
+      expect(
+        wrapper.find('[data-testid="configurator-spec-price"]').exists(),
+      ).toBe(false);
+      expect(
+        wrapper.find('[data-testid="configurator-panel-net"]').classes(),
+      ).toContain('text-xl');
     });
 
-    it('drops both prices where the buyer may not see one', () => {
+    it('drops the price where the buyer may not see one', () => {
       setFeatures({ priceVisibility: { enabled: false } });
       const wrapper = mountPanel();
       expect(
         wrapper.find('[data-testid="configurator-panel-price"]').exists(),
-      ).toBe(false);
-      expect(
-        wrapper.find('[data-testid="configurator-spec-price"]').exists(),
       ).toBe(false);
     });
 
@@ -317,6 +325,22 @@ describe('ConfigurationPanel', () => {
       expect(
         sheet.findAll('[data-testid="configurator-sheet-price-row"]'),
       ).toHaveLength(3);
+    });
+
+    it('writes the sheet footer on the side the buyer chose', async () => {
+      mockShowIncVat.value = true;
+      const wrapper = mountPanel();
+      await wrapper
+        .find('[data-testid="configurator-panel-expand"]')
+        .trigger('click');
+      const sheet = wrapper.find('[data-testid="configurator-spec-sheet"]');
+
+      expect(
+        plainText(sheet.find('[data-testid="configurator-sheet-net"]').text()),
+      ).toBe('SEK 4,000.00');
+      expect(
+        sheet.findAll('[data-testid="configurator-sheet-price-row"]'),
+      ).toHaveLength(2);
     });
 
     it('writes the sheet larger than the column, group headings on a muted band', async () => {
@@ -413,6 +437,19 @@ describe('ConfigurationPanel', () => {
       expect(plainText(rows.text())).not.toContain('SEK 0.00');
     });
 
+    it('annotates a choice with its price with VAT on the inc side', () => {
+      mockShowIncVat.value = true;
+      const config = makeValidConfiguration();
+      findOption(config, 'legs-fixed').selected = false;
+      findOption(config, 'legs-electric').selected = true;
+
+      const rows = mountPanel({ configuration: config }).find(
+        '[data-testid="configurator-panel-rows"]',
+      );
+      expect(plainText(rows.text())).toContain('+SEK 5,250.00');
+      expect(plainText(rows.text())).not.toContain('4,200');
+    });
+
     it('states how many of an option were chosen, above one', () => {
       const config = makeValidConfiguration();
       const power = findOption(config, 'acc-power');
@@ -493,6 +530,26 @@ describe('ConfigurationPanel', () => {
         'configurator-panel-rows',
       );
       expect(plainText(base.text())).toContain('SEK 3,200.00');
+    });
+
+    it('subtracts the options with VAT from the unit with VAT on the inc side', () => {
+      mockShowIncVat.value = true;
+      const config = makeValidConfiguration();
+      findOption(config, 'legs-fixed').selected = false;
+      findOption(config, 'legs-electric').selected = true;
+      config.unitPrice = {
+        ...config.unitPrice,
+        sellingPriceExVat: 7400,
+        sellingPriceIncVat: 9250,
+        vat: 1850,
+      };
+
+      const base = baseIn(
+        mountPanel({ configuration: config }),
+        'configurator-panel-rows',
+      );
+      // 9 250 − 5 250, so the row and the base add up to the price shown.
+      expect(plainText(base.text())).toContain('SEK 4,000.00');
     });
 
     it('stays per unit at a quantity above one', () => {
@@ -603,28 +660,42 @@ describe('ConfigurationPanel', () => {
       expect(wrapper.find('.line-through').exists()).toBe(false);
     });
 
-    it('writes net, VAT and the total in that order, as the prototype', () => {
-      const wrapper = mountPanel();
-
-      const rows = wrapper
+    const priceRows = (wrapper: ReturnType<typeof mountPanel>) =>
+      wrapper
         .findAll('[data-testid="configurator-panel-price-row"]')
-        .map((row) => plainText(row.text()));
+        .map((row) =>
+          plainText(
+            row
+              .findAll(':scope > span')
+              .map((part) => part.text())
+              .join(' '),
+          ).replace(/\s+/g, ' '),
+        );
 
-      expect(rows).toHaveLength(3);
-      expect(rows[0]).toContain('configurator.panel.net_price');
-      expect(rows[0]).toContain('SEK 3,200.00');
-      expect(rows[1]).toContain('configurator.panel.vat 25');
-      expect(rows[1]).toContain('SEK 800.00');
-      expect(rows[2]).toContain('configurator.panel.inc_vat');
-      expect(rows[2]).toContain('SEK 4,000.00');
+    it('writes the price, VAT and the total with VAT on the ex side', () => {
+      expect(priceRows(mountPanel())).toEqual([
+        'configurator.panel.price SEK 3,200.00',
+        'common.vat SEK 800.00',
+        'configurator.panel.total_inc_vat SEK 4,000.00',
+      ]);
     });
 
-    it('leads with the net figure', () => {
-      expect(
+    it('writes the price with VAT, then the VAT in it, on the inc side', () => {
+      mockShowIncVat.value = true;
+      expect(priceRows(mountPanel())).toEqual([
+        'configurator.panel.price SEK 4,000.00',
+        'common.vat_included SEK 800.00',
+      ]);
+    });
+
+    it('leads with the figure of the side the buyer chose', () => {
+      const lead = () =>
         plainText(
           mountPanel().find('[data-testid="configurator-panel-net"]').text(),
-        ),
-      ).toBe('SEK 3,200.00');
+        );
+      expect(lead()).toBe('SEK 3,200.00');
+      mockShowIncVat.value = true;
+      expect(lead()).toBe('SEK 4,000.00');
     });
 
     it('reads every row from the price as sent, never from each other', () => {
@@ -637,14 +708,11 @@ describe('ConfigurationPanel', () => {
         currency: { code: 'SEK' },
       };
 
-      const rows = mountPanel({ configuration: config })
-        .findAll('[data-testid="configurator-panel-price-row"]')
-        .map((row) => plainText(row.text()));
-
-      expect(rows[0]).toContain('SEK 1,000.00');
-      expect(rows[1]).toContain('configurator.panel.vat 12');
-      expect(rows[1]).toContain('SEK 120.00');
-      expect(rows[2]).toContain('SEK 1,300.00');
+      expect(priceRows(mountPanel({ configuration: config }))).toEqual([
+        'configurator.panel.price SEK 1,000.00',
+        'common.vat SEK 120.00',
+        'configurator.panel.total_inc_vat SEK 1,300.00',
+      ]);
     });
 
     describe('at a quantity above one', () => {
@@ -664,7 +732,7 @@ describe('ConfigurationPanel', () => {
         expect(rows).toHaveLength(3);
         expect(rows[0]).toContain('configurator.panel.quantity_suffix 3');
         expect(rows[0]).toContain('SEK 9,600.00');
-        expect(rows[1]).toContain('configurator.panel.vat 25');
+        expect(rows[1]).toContain('common.vat');
         expect(rows[1]).toContain('SEK 2,400.00');
         expect(rows[2]).toContain('SEK 12,000.00');
       }
@@ -678,10 +746,16 @@ describe('ConfigurationPanel', () => {
         );
       });
 
-      it('writes the totals for the quantity at the foot of the specification', () => {
-        expectTotalsForThree(
-          rowsIn(mountPanel({ configuration: atThree() }), 'configurator-spec'),
+      it('writes the totals for the quantity with VAT on the inc side', () => {
+        mockShowIncVat.value = true;
+        const rows = rowsIn(
+          mountPanel({ configuration: atThree() }),
+          'configurator-panel',
         );
+        expect(rows).toHaveLength(2);
+        expect(rows[0]).toContain('SEK 12,000.00');
+        expect(rows[1]).toContain('common.vat_included');
+        expect(rows[1]).toContain('SEK 2,400.00');
       });
 
       it('writes the totals for the quantity in the sheet', async () => {
@@ -704,7 +778,7 @@ describe('ConfigurationPanel', () => {
       });
     });
 
-    it('writes all three rows at zero for a price of zero, VAT without a rate', () => {
+    it('writes all three rows at zero for a price of zero', () => {
       const config = makeValidConfiguration();
       config.unitPrice = {
         sellingPriceExVat: 0,
@@ -719,8 +793,7 @@ describe('ConfigurationPanel', () => {
 
       expect(rows).toHaveLength(3);
       expect(rows.every((row) => row.includes('SEK 0.00'))).toBe(true);
-      expect(rows[1]).toContain('configurator.panel.vat_no_rate');
-      expect(rows[1]).not.toContain('configurator.panel.vat ');
+      expect(rows[1]).toContain('common.vat');
     });
   });
 
@@ -884,10 +957,12 @@ describe('ConfigurationPanel', () => {
       expect(copied).toContain('Black (RAL 9005)');
       // The same three price lines the panel shows, in its order.
       const lines = copied.split('\n').map(plainText);
-      const net = lines.indexOf('configurator.panel.net_price: SEK 3,200.00');
+      const net = lines.indexOf('configurator.panel.price: SEK 3,200.00');
       expect(net).toBeGreaterThanOrEqual(0);
-      expect(lines[net + 1]).toBe('configurator.panel.vat 25: SEK 800.00');
-      expect(lines[net + 2]).toBe('configurator.panel.inc_vat: SEK 4,000.00');
+      expect(lines[net + 1]).toBe('common.vat: SEK 800.00');
+      expect(lines[net + 2]).toBe(
+        'configurator.panel.total_inc_vat: SEK 4,000.00',
+      );
       expect(lines[net + 3]).toBe('configurator.panel.indicative');
     });
 
@@ -962,10 +1037,64 @@ describe('ConfigurationPanel', () => {
         .split('\n')
         .map(plainText);
       expect(lines).toContain('configurator.panel.copy_quantity 3');
-      const net = lines.indexOf('configurator.panel.net_price: SEK 9,600.00');
+      const net = lines.indexOf('configurator.panel.price: SEK 9,600.00');
       expect(net).toBeGreaterThanOrEqual(0);
-      expect(lines[net + 1]).toBe('configurator.panel.vat 25: SEK 2,400.00');
-      expect(lines[net + 2]).toBe('configurator.panel.inc_vat: SEK 12,000.00');
+      expect(lines[net + 1]).toBe('common.vat: SEK 2,400.00');
+      expect(lines[net + 2]).toBe(
+        'configurator.panel.total_inc_vat: SEK 12,000.00',
+      );
+    });
+
+    it('copies a base price of zero on the inc side where per-option rounding passes the unit', async () => {
+      mockShowIncVat.value = true;
+      const writeText = grantClipboard();
+      const config = makeValidConfiguration();
+      for (const id of ['legs-fixed', 'top-laminate', 'ral-9005']) {
+        findOption(config, id).unitPrice = {
+          sellingPriceExVat: 10.03,
+          sellingPriceIncVat: 11.94,
+          currency: { code: 'SEK' },
+        };
+      }
+      config.unitPrice = {
+        sellingPriceExVat: 30.09,
+        sellingPriceIncVat: 35.81,
+        vat: 5.72,
+        currency: { code: 'SEK' },
+      };
+
+      await copyText(mountPanel({ configuration: config }));
+
+      const lines = (writeText.mock.calls[0]?.[0] as string)
+        .split('\n')
+        .map(plainText);
+      expect(lines).toContain('configurator.panel.base_price: SEK 0.00');
+    });
+
+    it('copies every price on the inc side when the buyer chose it', async () => {
+      mockShowIncVat.value = true;
+      const writeText = grantClipboard();
+      const config = makeValidConfiguration();
+      findOption(config, 'legs-fixed').selected = false;
+      findOption(config, 'legs-electric').selected = true;
+      config.unitPrice = {
+        ...config.unitPrice,
+        sellingPriceExVat: 7400,
+        sellingPriceIncVat: 9250,
+        vat: 1850,
+      };
+
+      await copyText(mountPanel({ configuration: config }));
+
+      const lines = (writeText.mock.calls[0]?.[0] as string)
+        .split('\n')
+        .map(plainText);
+      expect(lines).toContain('configurator.panel.base_price: SEK 4,000.00');
+      expect(lines).toContain('    Electric height legs  (+SEK 5,250.00)');
+      const lead = lines.indexOf('configurator.panel.price: SEK 9,250.00');
+      expect(lead).toBeGreaterThanOrEqual(0);
+      expect(lines[lead + 1]).toBe('common.vat_included: SEK 1,850.00');
+      expect(lines[lead + 2]).toBe('configurator.panel.indicative');
     });
 
     // As the prototype's "Ytbehandling": the group is specified by its

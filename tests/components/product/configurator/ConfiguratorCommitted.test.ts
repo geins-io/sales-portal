@@ -4,6 +4,7 @@ import { mountComponent } from '../../../utils/component';
 import ConfiguratorCommitted from '../../../../app/components/product/configurator/ConfiguratorCommitted.vue';
 import type { CommittedConfiguration } from '../../../../shared/types/configurator';
 import { useTenant } from '../../../../app/composables/useTenant';
+import { mockShowIncVat } from '../../../setup-components';
 
 // The committed summary is the end of the flow: what was built, and what it
 // costs. It renders no control, and nothing here leads to a cart.
@@ -27,13 +28,21 @@ function makeCommitted(
     configurationId: 'session-1',
     articleNumber: '1101',
     quantity: 1,
-    unitPrice: { sellingPriceExVat: 4100, currency: { code: 'SEK' } },
+    unitPrice: {
+      sellingPriceExVat: 4100,
+      sellingPriceIncVat: 5125,
+      currency: { code: 'SEK' },
+    },
     discountPercent: 0,
     summary: [
       {
         label: 'Steel top',
         value: '1',
-        price: { sellingPriceExVat: 900, currency: { code: 'SEK' } },
+        price: {
+          sellingPriceExVat: 900,
+          sellingPriceIncVat: 1125,
+          currency: { code: 'SEK' },
+        },
       },
       { label: 'Width', value: '1400 mm' },
     ],
@@ -55,6 +64,23 @@ function plainText(text: string): string {
 describe('ConfiguratorCommitted', () => {
   beforeEach(() => {
     setFeatures({});
+    mockShowIncVat.value = false;
+  });
+
+  it('renders every price with VAT when the buyer chose prices with VAT', () => {
+    mockShowIncVat.value = true;
+    const wrapper = mountCommitted();
+
+    expect(
+      plainText(
+        wrapper.find('[data-testid="configurator-committed-price"]').text(),
+      ),
+    ).toContain('SEK 5,125.00');
+    const summary = plainText(
+      wrapper.find('[data-testid="configurator-summary"]').text(),
+    );
+    expect(summary).toContain('SEK 1,125.00');
+    expect(summary).not.toContain('900');
   });
 
   it('renders one row per summary line', () => {

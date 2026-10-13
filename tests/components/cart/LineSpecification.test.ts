@@ -8,6 +8,7 @@ import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { mountComponent } from '../../utils/component';
 import LineSpecification from '../../../app/components/cart/LineSpecification.vue';
 import { useTenant } from '../../../app/composables/useTenant';
+import { mockShowIncVat } from '../../setup-components';
 
 // Parameters appended, so a count or a rate can be read off the text.
 vi.mock('vue-i18n', () => ({
@@ -126,6 +127,7 @@ async function opened(props: Record<string, unknown> = {}) {
 describe('LineSpecification', () => {
   beforeEach(() => {
     setFeatures({});
+    mockShowIncVat.value = false;
   });
 
   it('shows a button that opens the specification, and no sheet before it is pressed', () => {
@@ -213,30 +215,46 @@ describe('LineSpecification', () => {
     );
   });
 
-  it("totals the line from its own total, with the unit's VAT rate", async () => {
-    const wrapper = await opened();
-
-    const rows = sheet(wrapper)
+  const priceRows = (wrapper: ReturnType<typeof mountLine>) =>
+    sheet(wrapper)
       .findAll('[data-testid="line-specification-price-row"]')
-      .map((row) => plain(row.text()).replace(/\s+/g, ' '));
+      .map((row) =>
+        plain(
+          row
+            .findAll(':scope > span')
+            .map((part) => part.text())
+            .join(' '),
+        ).replace(/\s+/g, ' '),
+      );
+
+  it('totals the line from its own total on the ex side: price, VAT, total with VAT', async () => {
+    const rows = priceRows(await opened());
+
     expect(rows).toHaveLength(3);
     expect(rows[0]).toMatch(
-      /^configurator\.panel\.net_price · configurator\.panel\.quantity_suffix 2\s*.*5,422\.16$/,
+      /^configurator\.panel\.price · configurator\.panel\.quantity_suffix 2 SEK 5,422\.16$/,
     );
-    expect(rows[1]).toMatch(/^configurator\.panel\.vat 25\s*.*1,355\.54$/);
-    expect(rows[2]).toMatch(/^configurator\.panel\.inc_vat\s*.*6,777\.70$/);
+    expect(rows[1]).toBe('common.vat SEK 1,355.54');
+    expect(rows[2]).toBe('configurator.panel.total_inc_vat SEK 6,777.70');
   });
 
-  it('says there is no rate where the unit price has none to give', async () => {
-    const wrapper = await opened({
-      unitPrice: { sellingPriceExVat: 0, vat: 0, currency: SEK },
-    });
+  it('leads with the total with VAT on the inc side, then the VAT in it', async () => {
+    mockShowIncVat.value = true;
+    const rows = priceRows(await opened());
 
-    expect(
-      sheet(wrapper)
-        .findAll('[data-testid="line-specification-price-row"]')[1]
-        ?.text(),
-    ).toContain('configurator.panel.vat_no_rate');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatch(
+      /^configurator\.panel\.price · configurator\.panel\.quantity_suffix 2 SEK 6,777\.70$/,
+    );
+    expect(rows[1]).toBe('common.vat_included SEK 1,355.54');
+  });
+
+  it('writes no VAT rate on either side', async () => {
+    const ex = priceRows(await opened());
+    mockShowIncVat.value = true;
+    const inc = priceRows(await opened());
+
+    expect([...ex, ...inc].join(' ')).not.toMatch(/%|25 /);
   });
 
   it('shows no price at all where the buyer may not see prices', async () => {
@@ -340,6 +358,56 @@ describe('LineSpecification', () => {
         base(wrapper).element.compareDocumentPosition(heading.element) &
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
+    });
+
+    it('writes the rows and the remainder with VAT on the inc side, adding up to the unit', async () => {
+      mockShowIncVat.value = true;
+      const machine = WITH_SECTIONS.sections![1]!;
+      const adapter = machine.optionGroups[0]!;
+      const withVat: LineConfigurationSummary = {
+        ...WITH_SECTIONS,
+        sections: [
+          WITH_SECTIONS.sections![0]!,
+          {
+            ...machine,
+            optionGroups: [
+              {
+                ...adapter,
+                options: [
+                  {
+                    ...adapter.options[0]!,
+                    unitPrice: {
+                      sellingPriceExVat: 1870.2,
+                      sellingPriceIncVat: 2337.75,
+                      currency: SEK,
+                    },
+                  },
+                  {
+                    ...adapter.options[1]!,
+                    unitPrice: {
+                      sellingPriceExVat: 619.49,
+                      sellingPriceIncVat: 774.36,
+                      currency: SEK,
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      const wrapper = await opened({
+        configuration: withVat,
+        unitPrice: GAP_UNIT,
+      });
+
+      // 6250 − 2337.75 − 4 × 774.36 = 814.81.
+      expect(plain(base(wrapper).text())).toContain('SEK 814.81');
+      const values = sheet(wrapper)
+        .findAll('dd')
+        .map((dd) => plain(dd.text()));
+      expect(values[0]).toMatch(/\+SEK 2,337\.75$/);
+      expect(values[1]).toMatch(/\+SEK 3,097\.44$/);
     });
 
     it('shows the row at zero where the options make up the unit price', async () => {

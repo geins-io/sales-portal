@@ -28,14 +28,7 @@ export function vatAmount(price: PriceType | undefined): number {
   return price?.vat ?? 0;
 }
 
-/**
- * The provider's own VAT amount restated as a whole percentage of the price
- * before VAT. `null` where there is nothing to divide by: included parts
- * arrive at 0.00.
- */
-export function vatRatePercent(price: PriceType | undefined): number | null {
-  const exVat = price?.sellingPriceExVat;
-  const vat = price?.vat;
-  if (!exVat || typeof vat !== 'number') return null;
-  return Math.round((vat / exVat) * 100);
+/** The selling price on the side of the buyer's inc/ex VAT choice. */
+export function sideAmount(price: PriceType | undefined, inc: boolean): number {
+  return inc ? incVatAmount(price) : exVatAmount(price);
 }

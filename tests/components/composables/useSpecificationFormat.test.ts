@@ -3,6 +3,7 @@ import { defineComponent } from 'vue';
 import { mountComponent } from '../../utils/component';
 import { useSpecificationFormat } from '../../../app/composables/useSpecificationFormat';
 import { useTenant } from '../../../app/composables/useTenant';
+import { mockShowIncVat } from '../../setup-components';
 
 const { tenant } = useTenant();
 
@@ -26,6 +27,7 @@ describe('useSpecificationFormat', () => {
   beforeEach(() => {
     assert.isDefined(tenant.value);
     tenant.value.features = {};
+    mockShowIncVat.value = false;
   });
 
   describe('valueText', () => {
@@ -107,6 +109,27 @@ describe('useSpecificationFormat', () => {
       ).toBeNull();
     });
 
+    it('writes the price with VAT on the inc side, times the quantity', () => {
+      mockShowIncVat.value = true;
+      expect(
+        plain(
+          format('SEK').valuePrice({
+            quantity: 4,
+            price: { sellingPriceExVat: 76.2, sellingPriceIncVat: 95.25 },
+          }),
+        ),
+      ).toBe('+SEK 381.00');
+    });
+
+    it('writes nothing on the inc side for an option that is free with VAT', () => {
+      mockShowIncVat.value = true;
+      expect(
+        format().valuePrice({
+          price: { sellingPriceExVat: 0, sellingPriceIncVat: 0 },
+        }),
+      ).toBeNull();
+    });
+
     it('reads a value without a price as having none', () => {
       const { valuePrice } = format();
 
@@ -114,6 +137,30 @@ describe('useSpecificationFormat', () => {
       expect(plain(valuePrice({ price: { sellingPriceExVat: 10 } }))).toBe(
         '+SEK 10.00',
       );
+    });
+  });
+
+  describe('priceLines', () => {
+    const totals = { net: 9600, vat: 2400, incVat: 12000 };
+
+    it('leads with the net on the ex side, then VAT and the total with VAT', () => {
+      const { price, rows } = format('SEK').priceLines(totals);
+
+      expect(plain(price)).toBe('SEK 9,600.00');
+      expect(rows.map((row) => [row.label, plain(row.amount)])).toEqual([
+        ['common.vat', 'SEK 2,400.00'],
+        ['configurator.panel.total_inc_vat', 'SEK 12,000.00'],
+      ]);
+    });
+
+    it('leads with the amount with VAT on the inc side, then the VAT in it', () => {
+      mockShowIncVat.value = true;
+      const { price, rows } = format('SEK').priceLines(totals);
+
+      expect(plain(price)).toBe('SEK 12,000.00');
+      expect(rows.map((row) => [row.label, plain(row.amount)])).toEqual([
+        ['common.vat_included', 'SEK 2,400.00'],
+      ]);
     });
   });
 });
