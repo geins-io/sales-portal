@@ -239,6 +239,29 @@ describe('resolveEntityUrl', () => {
     });
   });
 
+  it('throws when nothing matched and a lookup failed, so the miss is not cached as a 404', async () => {
+    const timedOut = new Error('Error communicating with products');
+    mockGetProduct.mockRejectedValue(timedOut);
+    mockGetCategoryPage.mockResolvedValue(null);
+    mockGetBrandPage.mockResolvedValue(null);
+
+    await expect(
+      resolver.resolveEntityUrl(ARGS, createMockEvent()),
+    ).rejects.toBe(timedOut);
+    expect(mockGraphqlQuery).not.toHaveBeenCalled();
+  });
+
+  it('throws the first failure when every lookup failed', async () => {
+    const first = new Error('products down');
+    mockGetProduct.mockRejectedValue(first);
+    mockGetCategoryPage.mockRejectedValue(new Error('lists down'));
+    mockGetBrandPage.mockRejectedValue(new Error('lists down'));
+
+    await expect(
+      resolver.resolveEntityUrl(ARGS, createMockEvent()),
+    ).rejects.toBe(first);
+  });
+
   // ---------------------------------------------------------------------------
   // urlHistory (renamed slugs)
   // ---------------------------------------------------------------------------

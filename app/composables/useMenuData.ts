@@ -21,6 +21,8 @@ export function useMenuData(menuLocationId: string) {
       ...localeQuery.value,
     })),
     dedupe: 'defer',
+    // A render waits on this read; a retry after a timeout doubles the wait.
+    retry: 0,
   });
 
   return { menu, pending, error };

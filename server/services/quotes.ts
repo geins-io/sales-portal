@@ -14,6 +14,7 @@ import {
 } from './_sdk';
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
+import { WRITE_TIMEOUT_MS } from '../utils/outbound-timeouts';
 
 // ---------------------------------------------------------------------------
 // GraphQL response types (raw Geins API shapes)
@@ -353,6 +354,7 @@ export async function acceptQuote(
           languageId,
         },
         userToken: requestContext?.userToken,
+        requestOptions: { context: { timeoutMs: WRITE_TIMEOUT_MS } },
       }),
     'quotes',
   );
@@ -380,6 +382,7 @@ export async function rejectQuote(
           languageId,
         },
         userToken: requestContext?.userToken,
+        requestOptions: { context: { timeoutMs: WRITE_TIMEOUT_MS } },
       }),
     'quotes',
   );

@@ -11,6 +11,8 @@ import { logger } from './logger';
 //
 //   Geins GraphQL (SDK)          GEINS_REQUEST_TIMEOUT_MS, below; a call may
 //                                ask for its own limit, which wins
+//     CMS page-link read         CMS_READ_TIMEOUT_MS (services/cms)
+//     quote accept and reject    WRITE_TIMEOUT_MS (services/quotes)
 //     configurator calls         15 s, line reads 2 s, reopen 45 s
 //                                (services/configurator-merchant-api)
 //   Geins auth and REST (SDK)    10 s, set inside the SDK
@@ -28,6 +30,28 @@ export const GEINS_REQUEST_TIMEOUT_MS = 20_000;
 /** Measured up to 9.6 s on dev. A lookup past this answers the 503 page. */
 export const TENANT_LOOKUP_TIMEOUT_MS = 20_000;
 
+/**
+ * A CMS read every render waits on and that has a fallback when it fails.
+ * Production's sampled CMS reads over 30 days: longest 0.29 s.
+ */
+export const CMS_READ_TIMEOUT_MS = 3_000;
+
+/**
+ * A write on the order or quote path: not cut off by the portal until its
+ * duration is measured, because an abort after Geins applied the write tells
+ * the buyer it failed. Undici's own header limit, so no change from before.
+ */
+export const WRITE_TIMEOUT_MS = 300_000;
+
+/**
+ * The configurator's 2 s line reads: past it, a cart or an order answers
+ * without its configurations by design, so the limit is not a failure.
+ */
+const EXPECTED_TIMEOUTS: ReadonlySet<string> = new Set([
+  'getConfiguredCartLines',
+  'getConfiguredOrderLineChoices',
+]);
+
 interface GeinsTenant {
   accountName: string;
   channel: string;
@@ -43,6 +67,7 @@ interface GeinsTenant {
 function reportTimeout(context: GeinsErrorContext, tenant: GeinsTenant) {
   const { error } = context;
   if (Reflect.get(error, 'code') !== 'REQUEST_TIMEOUT') return;
+  if (EXPECTED_TIMEOUTS.has(context.operationName)) return;
   const timeoutMs: unknown = Reflect.get(error, 'timeoutMs');
   logger.error(`[geins] request timed out: ${context.operationName}`, error, {
     tenantId: tenant.accountName,

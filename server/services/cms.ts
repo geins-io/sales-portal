@@ -19,6 +19,7 @@ import { mergeContainersByVisibility } from '#shared/utils/cms-visibility';
 import { isSafeInternalPath } from '#shared/utils/redirect';
 import type { CmsAreaContext, CmsContentArea } from '#shared/types/cms';
 import { CMS_AREA_MAX_CATEGORY_IDS } from '../schemas/api-input';
+import { CMS_READ_TIMEOUT_MS } from '../utils/outbound-timeouts';
 
 // =============================================================================
 // Cache Configuration
@@ -428,6 +429,7 @@ export async function getPageLinkByTag(
       sdk.core.graphql.query({
         queryAsString: loadQuery('cms/page-by-tag.graphql'),
         variables: { includeTags, ...channelVars },
+        requestOptions: { context: { timeoutMs: CMS_READ_TIMEOUT_MS } },
       }),
     'cms',
   );

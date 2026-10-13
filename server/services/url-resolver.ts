@@ -151,6 +151,11 @@ export async function resolveEntityUrl(
     }
   }
 
+  // An unknown alias answers null; a lookup that threw did not answer at all,
+  // and a null from here would be cached as a 404 for that URL.
+  const failed = settled.find((result) => result.status === 'rejected');
+  if (failed) throw failed.reason;
+
   // No entity matched the alias: try Geins urlHistory for a renamed slug.
   const sdk = await getTenantSDK(event);
   const result = await wrapServiceCall(

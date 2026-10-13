@@ -11,8 +11,10 @@ vi.mock('../../../server/utils/logger', () => ({
 vi.mock('@sentry/nuxt', () => ({ captureException: mockCaptureException }));
 
 const {
+  CMS_READ_TIMEOUT_MS,
   GEINS_REQUEST_TIMEOUT_MS,
   TENANT_LOOKUP_TIMEOUT_MS,
+  WRITE_TIMEOUT_MS,
   geinsRequestConfig,
 } = await import('../../../server/utils/outbound-timeouts');
 
@@ -93,6 +95,40 @@ describe('outbound timeouts', () => {
     });
   });
 
+  it("reports a timeout at a call's own limit too", () => {
+    const onError = geinsRequestConfig(TENANT).interceptors?.onError;
+    onError?.({
+      ...errorContext(Object.assign(timedOut(), { timeoutMs: 3_000 })),
+      operationName: 'cmsPages',
+    });
+
+    expect(mockLoggerError).toHaveBeenCalledOnce();
+    expect(mockLoggerError.mock.calls[0]![2]).toMatchObject({
+      operationName: 'cmsPages',
+      timeoutMs: 3_000,
+    });
+    expect(mockCaptureException).toHaveBeenCalledOnce();
+  });
+
+  it.each(['getConfiguredCartLines', 'getConfiguredOrderLineChoices'])(
+    "reports nothing for the configurator's line read %s, which answers without its lines by design",
+    (operationName) => {
+      const onError = geinsRequestConfig(TENANT).interceptors?.onError;
+      onError?.({
+        ...errorContext(Object.assign(timedOut(), { timeoutMs: 2_000 })),
+        operationName,
+      });
+
+      expect(mockLoggerError).not.toHaveBeenCalled();
+      expect(mockCaptureException).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps a write unbounded by us and a CMS read short', () => {
+    expect(WRITE_TIMEOUT_MS).toBe(300_000);
+    expect(CMS_READ_TIMEOUT_MS).toBe(3_000);
+  });
+
   it('reports nothing for any other failed call', () => {
     for (const error of [
       Object.assign(new Error('Too many requests'), {
@@ -100,6 +136,10 @@ describe('outbound timeouts', () => {
       }),
       new Error('fetch failed'),
       Object.assign(new Error('timed out'), { name: 'TimeoutError' }),
+      Object.assign(new Error('fetch failed'), {
+        code: 'NETWORK_ERROR',
+        timeoutMs: 20_000,
+      }),
     ]) {
       report(error);
     }
