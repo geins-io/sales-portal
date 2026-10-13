@@ -13,6 +13,7 @@ const frontpageSlot = useCmsSlot(CMS_SLOTS.FRONTPAGE_CONTENT);
 // v-else handles both the unconfigured-slot case and the fetch-error
 // case uniformly — we don't branch on error state separately.
 const { data: area, status } = useFetch<ContentAreaType>('/api/cms/area', {
+  retry: 0,
   query: computed(() =>
     frontpageSlot.value
       ? {

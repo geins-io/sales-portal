@@ -19,6 +19,7 @@ import type { CmsSlotConfig, CmsSlotKey } from '#shared/types/cms-slots';
  *       : undefined,
  *     ),
  *     immediate: !!slot.value,
+ *     retry: 0,
  *   });
  */
 export function useCmsSlot(key: CmsSlotKey): ComputedRef<CmsSlotConfig | null> {

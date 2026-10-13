@@ -331,6 +331,7 @@ const pdpCmsContext = computed(() => ({
 }));
 
 const { data: pdpCmsArea } = useFetch<ContentAreaType>('/api/cms/area', {
+  retry: 0,
   query: computed(() =>
     pdpSlot.value
       ? {

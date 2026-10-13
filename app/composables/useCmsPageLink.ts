@@ -26,6 +26,7 @@ export function useCmsPageLink(tag: string) {
     {
       query: computed(() => ({ tag, ...localeQuery.value })),
       dedupe: 'defer',
+      retry: 0,
     },
   );
 

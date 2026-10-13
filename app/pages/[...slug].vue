@@ -41,6 +41,7 @@ const {
   error,
   status,
 } = await useFetch<ContentPageType>(() => `/api/cms/page/${pageSlug.value}`, {
+  retry: 0,
   query: localeQuery,
   dedupe: 'defer',
 });

@@ -31,6 +31,7 @@ const favoritesStore = useFavoritesStore();
 // and render no hero at all. See docs/patterns/cms-slots.md.
 const heroSlot = useCmsSlot(CMS_SLOTS.PORTAL_HERO);
 const { data: heroArea } = useFetch<ContentAreaType>('/api/cms/area', {
+  retry: 0,
   query: computed(() =>
     heroSlot.value
       ? {
@@ -131,7 +132,6 @@ function isActiveTab(tab: PortalTab): boolean {
   }
   return route.path.startsWith(prefixedPath);
 }
-
 </script>
 
 <template>

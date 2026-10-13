@@ -397,6 +397,7 @@ function buildAreaQuery(slot: typeof topSlot) {
 }
 
 const { data: topArea } = useFetch<ContentAreaType>('/api/cms/area', {
+  retry: 0,
   query: buildAreaQuery(topSlot),
   immediate: !!topSlot.value,
   dedupe: 'defer',
@@ -404,6 +405,7 @@ const { data: topArea } = useFetch<ContentAreaType>('/api/cms/area', {
 });
 
 const { data: bottomArea } = useFetch<ContentAreaType>('/api/cms/area', {
+  retry: 0,
   query: buildAreaQuery(bottomSlot),
   immediate: !!bottomSlot.value,
   dedupe: 'defer',
