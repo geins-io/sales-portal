@@ -30,6 +30,7 @@
     "vat": "MwSt.",
     "vat_included": "Davon MwSt.",
     "to_pay_inc_vat": "Zu zahlen inkl. MwSt.",
+    "total_inc_vat": "Gesamt inkl. MwSt.",
     "shipping_may_apply": "Kann anfallen"
   },
   "auth": {

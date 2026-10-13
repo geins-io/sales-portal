@@ -576,9 +576,73 @@ describe('PortalQuotationDetail', () => {
         tax: '50,00 kr',
         total: '200,00 kr',
         sheetRows: [['80,00 kr', '160,00 kr']],
-        sheetTotals: ['160,00 kr', '80,00 kr', '50,00 kr', '200,00 kr'],
+        sheetTotals: [
+          '160,00 kr',
+          '80,00 kr',
+          '50,00 kr',
+          '200,00 kr',
+          '250,00 kr',
+        ],
       });
     });
+  });
+
+  describe('the inc-VAT total under an ex-VAT total', () => {
+    async function read(overrides: Partial<Quote> = {}) {
+      mockData.value = { quote: makeQuote(overrides) };
+      const { wrapper } = await mountDetailPage();
+      const value = wrapper.find('[data-testid="quote-summary-total-inc-vat"]');
+      const sheet = wrapper.findComponent({ name: 'PortalItemRowsSheet' });
+      const totals = sheet.props('totals') as {
+        label: string;
+        value?: string;
+      }[];
+      return {
+        wrapper,
+        rows: {
+          card: value.exists()
+            ? [
+                value.element.previousElementSibling?.textContent?.trim(),
+                value.text(),
+              ]
+            : null,
+          // No shipping in the fixture: subtotal, VAT, total, then this row.
+          sheet: totals.slice(3).map((r) => [r.label, r.value]),
+        },
+      };
+    }
+
+    it('shows "Totalt inkl. moms" under the total on the card and the sheet in ex mode', async () => {
+      mockShowIncVat.value = false;
+      const row = ['common.total_inc_vat', '250,00 kr'];
+
+      expect((await read()).rows).toEqual({ card: row, sheet: [row] });
+    });
+
+    it('adds no row in inc mode', async () => {
+      mockShowIncVat.value = true;
+      const { wrapper, rows } = await read();
+
+      expect(rows).toEqual({ card: null, sheet: [] });
+      expect(wrapper.text()).not.toContain('common.total_inc_vat');
+    });
+
+    it.each([
+      ['missing', { totalFormatted: '' }],
+      ['0', { total: 0, totalFormatted: '0,00 kr' }],
+    ])(
+      'hides the row when the inc amount is %s, and never puts the ex amount under the inc label',
+      async (_, overrides) => {
+        mockShowIncVat.value = false;
+        const { wrapper, rows } = await read(overrides);
+
+        expect(rows).toEqual({ card: null, sheet: [] });
+        expect(wrapper.text()).not.toContain('common.total_inc_vat');
+        expect(wrapper.find('[data-testid="quote-summary-total"]').text()).toBe(
+          '200,00 kr',
+        );
+      },
+    );
   });
 
   describe('header title (D1)', () => {

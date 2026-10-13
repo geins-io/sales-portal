@@ -30,6 +30,7 @@
     "vat": "Moms",
     "vat_included": "Heraf moms",
     "to_pay_inc_vat": "At betale inkl. moms",
+    "total_inc_vat": "I alt inkl. moms",
     "shipping_may_apply": "Kan tilkomme"
   },
   "auth": {

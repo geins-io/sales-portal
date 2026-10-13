@@ -63,6 +63,7 @@ const itemCount = computed(() => order.value?.cart?.items?.length ?? 0);
 const { showIncVat } = useVatDisplay();
 
 type Side = {
+  sellingPriceIncVat?: number | null;
   sellingPriceIncVatFormatted?: string | null;
   sellingPriceExVatFormatted?: string | null;
 } | null;
@@ -73,6 +74,13 @@ function sideOf(price: Side | undefined): string | undefined {
       ? price?.sellingPriceIncVatFormatted
       : price?.sellingPriceExVatFormatted) ?? undefined
   );
+}
+
+// The inc amount under an ex-VAT total; never a 0.
+function incOf(price: Side | undefined): string | undefined {
+  return (price?.sellingPriceIncVat ?? 0) > 0
+    ? price?.sellingPriceIncVatFormatted || undefined
+    : undefined;
 }
 
 const amounts = computed(() => {
@@ -88,6 +96,9 @@ const amounts = computed(() => {
       order.value?.vat?.sellingPriceIncVatFormatted ??
       undefined,
     total: sideOf(summary?.total) ?? sideOf(order.value?.orderTotal),
+    totalIncVat: showIncVat.value
+      ? undefined
+      : (incOf(summary?.total) ?? incOf(order.value?.orderTotal)),
   };
 });
 
@@ -213,27 +224,36 @@ const orderItemRows = computed<PortalItemRow[]>(() =>
   })),
 );
 
-const orderTotals = computed<PortalItemTotal[]>(() => [
-  {
-    label: t('portal.orders.detail.summary.subtotal_with_count', {
-      count: itemCount.value,
-    }),
-    value: amounts.value.subtotal,
-  },
-  {
-    label: t('portal.orders.detail.summary.shipping'),
-    value: amounts.value.shipping,
-  },
-  {
-    label: t(showIncVat.value ? 'common.vat_included' : 'common.vat'),
-    value: amounts.value.tax,
-  },
-  {
-    label: t('portal.orders.detail.summary.total'),
-    value: amounts.value.total,
-    emphasis: true,
-  },
-]);
+const orderTotals = computed<PortalItemTotal[]>(() => {
+  const rows: PortalItemTotal[] = [
+    {
+      label: t('portal.orders.detail.summary.subtotal_with_count', {
+        count: itemCount.value,
+      }),
+      value: amounts.value.subtotal,
+    },
+    {
+      label: t('portal.orders.detail.summary.shipping'),
+      value: amounts.value.shipping,
+    },
+    {
+      label: t(showIncVat.value ? 'common.vat_included' : 'common.vat'),
+      value: amounts.value.tax,
+    },
+    {
+      label: t('portal.orders.detail.summary.total'),
+      value: amounts.value.total,
+      emphasis: true,
+    },
+  ];
+  if (amounts.value.totalIncVat) {
+    rows.push({
+      label: t('common.total_inc_vat'),
+      value: amounts.value.totalIncVat,
+    });
+  }
+  return rows;
+});
 </script>
 
 <template>
@@ -441,6 +461,20 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                       {{ amounts.total }}
                     </td>
                   </tr>
+                  <tr v-if="amounts.totalIncVat">
+                    <td
+                      colspan="4"
+                      class="text-muted-foreground px-4 pb-5 text-right text-sm"
+                    >
+                      {{ t('common.total_inc_vat') }}
+                    </td>
+                    <td
+                      data-testid="order-items-footer-total-inc-vat"
+                      class="text-muted-foreground px-4 pb-5 text-right text-sm"
+                    >
+                      {{ amounts.totalIncVat }}
+                    </td>
+                  </tr>
                 </tfoot>
               </table>
             </div>
@@ -507,6 +541,15 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                   <span>{{ t('portal.orders.detail.summary.total') }}</span>
                   <span data-testid="order-summary-total">{{
                     amounts.total
+                  }}</span>
+                </div>
+                <div
+                  v-if="amounts.totalIncVat"
+                  class="text-muted-foreground flex justify-between text-sm"
+                >
+                  <span>{{ t('common.total_inc_vat') }}</span>
+                  <span data-testid="order-summary-total-inc-vat">{{
+                    amounts.totalIncVat
                   }}</span>
                 </div>
               </div>

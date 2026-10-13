@@ -99,6 +99,11 @@ const amounts = computed(() => {
       ? q?.shippingFormatted
       : q?.shippingExVatFormatted,
     total: showIncVat.value ? q?.totalFormatted : q?.totalExVatFormatted,
+    // The inc amount under an ex-VAT total; never a 0.
+    totalIncVat:
+      !showIncVat.value && (q?.total ?? 0) > 0
+        ? q?.totalFormatted || undefined
+        : undefined,
   };
 });
 
@@ -142,6 +147,12 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
     value: amounts.value.total,
     emphasis: true,
   });
+  if (amounts.value.totalIncVat) {
+    rows.push({
+      label: t('common.total_inc_vat'),
+      value: amounts.value.totalIncVat,
+    });
+  }
   return rows;
 });
 </script>
@@ -324,6 +335,15 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
                   <span>{{ t('portal.quotations.grand_total') }}</span>
                   <span data-testid="quote-summary-total">{{
                     amounts.total
+                  }}</span>
+                </div>
+                <div
+                  v-if="amounts.totalIncVat"
+                  class="text-muted-foreground flex justify-between text-sm"
+                >
+                  <span>{{ t('common.total_inc_vat') }}</span>
+                  <span data-testid="quote-summary-total-inc-vat">{{
+                    amounts.totalIncVat
                   }}</span>
                 </div>
               </div>

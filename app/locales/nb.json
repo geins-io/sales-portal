@@ -30,6 +30,7 @@
     "vat": "Mva.",
     "vat_included": "Herav mva.",
     "to_pay_inc_vat": "Å betale inkl. mva.",
+    "total_inc_vat": "Totalt inkl. mva.",
     "shipping_may_apply": "Kan tilkomme"
   },
   "auth": {

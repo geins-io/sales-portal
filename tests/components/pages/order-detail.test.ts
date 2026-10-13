@@ -1067,7 +1067,13 @@ describe('OrderDetail', () => {
           ['120,00 kr', '360,00 kr'],
           ['160,00 kr', '160,00 kr'],
         ],
-        totals: ['520,00 kr', '39,20 kr', '139,80 kr', '559,20 kr'],
+        totals: [
+          '520,00 kr',
+          '39,20 kr',
+          '139,80 kr',
+          '559,20 kr',
+          '699,00 kr',
+        ],
       });
     });
 
@@ -1095,6 +1101,144 @@ describe('OrderDetail', () => {
         '559,20 kr',
       );
     });
+  });
+
+  describe('the inc-VAT total under an ex-VAT total', () => {
+    type Total = {
+      sellingPriceIncVat?: number;
+      sellingPriceIncVatFormatted?: string;
+      sellingPriceExVat?: number;
+      sellingPriceExVatFormatted?: string;
+    };
+
+    function mountWith(totals?: { summary?: Total; order?: Total }) {
+      const base = makeOrder().order;
+      mockData.value = totals
+        ? makeOrder({
+            cart: {
+              ...base.cart,
+              summary: {
+                ...base.cart.summary,
+                total: { vatFormatted: '139,80 kr', ...totals.summary },
+              },
+            },
+            orderTotal: totals.order,
+          })
+        : makeOrder();
+      return shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+    }
+
+    function read(wrapper: ReturnType<typeof mountWith>) {
+      const row = (id: string) => {
+        const value = wrapper.find(`[data-testid="${id}"]`);
+        return value.exists()
+          ? [
+              value.element.previousElementSibling?.textContent?.trim(),
+              value.text(),
+            ]
+          : null;
+      };
+      const sheet = wrapper.findComponent({ name: 'PortalItemRowsSheet' });
+      const totals = sheet.props('totals') as {
+        label: string;
+        value?: string;
+      }[];
+      return {
+        card: row('order-summary-total-inc-vat'),
+        table: row('order-items-footer-total-inc-vat'),
+        sheet: totals.slice(4).map((r) => [r.label, r.value]),
+      };
+    }
+
+    const NONE = { card: null, table: null, sheet: [] };
+
+    it('shows "Totalt inkl. moms" under the total on the card, the table and the sheet in ex mode', () => {
+      mockShowIncVat.value = false;
+      const row = ['common.total_inc_vat', '699,00 kr'];
+
+      expect(read(mountWith())).toEqual({
+        card: row,
+        table: row,
+        sheet: [row],
+      });
+    });
+
+    it('adds no row in inc mode', () => {
+      mockShowIncVat.value = true;
+      const wrapper = mountWith();
+
+      expect(read(wrapper)).toEqual(NONE);
+      expect(wrapper.text()).not.toContain('common.total_inc_vat');
+    });
+
+    it('takes the order total when the summary has no inc amount', () => {
+      mockShowIncVat.value = false;
+      const row = ['common.total_inc_vat', '699,00 kr'];
+
+      expect(
+        read(
+          mountWith({
+            summary: {
+              sellingPriceExVat: 559.2,
+              sellingPriceExVatFormatted: '559,20 kr',
+            },
+            order: {
+              sellingPriceIncVat: 699,
+              sellingPriceIncVatFormatted: '699,00 kr',
+              sellingPriceExVat: 559.2,
+              sellingPriceExVatFormatted: '559,20 kr',
+            },
+          }),
+        ),
+      ).toEqual({ card: row, table: row, sheet: [row] });
+    });
+
+    it.each([
+      [
+        'missing',
+        {
+          summary: {
+            sellingPriceExVat: 559.2,
+            sellingPriceExVatFormatted: '559,20 kr',
+          },
+          order: {
+            sellingPriceExVat: 559.2,
+            sellingPriceExVatFormatted: '559,20 kr',
+          },
+        },
+      ],
+      [
+        '0',
+        {
+          summary: {
+            sellingPriceIncVat: 0,
+            sellingPriceIncVatFormatted: '0,00 kr',
+            sellingPriceExVat: 559.2,
+            sellingPriceExVatFormatted: '559,20 kr',
+          },
+          order: {
+            sellingPriceIncVat: 0,
+            sellingPriceIncVatFormatted: '0,00 kr',
+            sellingPriceExVat: 559.2,
+            sellingPriceExVatFormatted: '559,20 kr',
+          },
+        },
+      ],
+    ])(
+      'hides the row when the inc amount is %s, and never puts the ex amount under the inc label',
+      (_, totals) => {
+        mockShowIncVat.value = false;
+        const wrapper = mountWith(totals);
+
+        expect(read(wrapper)).toEqual(NONE);
+        expect(wrapper.text()).not.toContain('common.total_inc_vat');
+        expect(wrapper.find('[data-testid="order-summary-total"]').text()).toBe(
+          '559,20 kr',
+        );
+      },
+    );
   });
 
   describe('billing address', () => {

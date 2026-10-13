@@ -30,6 +30,7 @@
     "vat": "VAT",
     "vat_included": "Includes VAT",
     "to_pay_inc_vat": "To pay incl. VAT",
+    "total_inc_vat": "Total incl. VAT",
     "shipping_may_apply": "May apply"
   },
   "auth": {
