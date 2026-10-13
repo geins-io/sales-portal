@@ -1,5 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { createHash } from 'node:crypto';
+import { IncomingMessage, ServerResponse } from 'node:http';
+import { Socket } from 'node:net';
 import { ZodError } from 'zod';
+import { createEvent, handleCacheHeaders } from 'h3';
 import type { H3Event } from 'h3';
 
 // ---------------------------------------------------------------------------
@@ -16,6 +20,23 @@ vi.mock('../../../server/services/url-resolver', () => ({
 // and immediately returns the inner fn so the endpoint behaves normally.
 let capturedInnerHandler: ((event: H3Event) => Promise<unknown>) | null = null;
 let capturedGetKey: ((event: H3Event) => string) | null = null;
+type CachedCall = (
+  fn: (event: H3Event) => Promise<unknown>,
+  event: H3Event,
+) => Promise<unknown>;
+const runUncached: CachedCall = (fn, event) => fn(event);
+let cachedCall: CachedCall = runUncached;
+
+const mockLoggerError = vi.fn();
+const mockLoggerWarn = vi.fn();
+vi.mock('../../../server/utils/logger', () => ({
+  logger: {
+    error: (...args: unknown[]) => mockLoggerError(...args),
+    warn: (...args: unknown[]) => mockLoggerWarn(...args),
+    info: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
 
 // Stub Nitro auto-imports
 vi.stubGlobal(
@@ -27,19 +48,19 @@ vi.stubGlobal(
     capturedInnerHandler = fn;
     capturedGetKey = opts.getKey ?? null;
     // Return a thin wrapper that runs the inner fn directly (no real caching in tests).
-    return fn;
+    return (event: H3Event) => cachedCall(fn, event);
   },
 );
-vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) => fn());
-vi.stubGlobal(
-  'createAppError',
-  vi.fn((_code: string, msg: string) => {
-    const err: Error & { statusCode?: number } = new Error(msg);
-    err.statusCode = 404;
-    return err;
-  }),
-);
-vi.stubGlobal('ErrorCode', { NOT_FOUND: 'NOT_FOUND' });
+const passThroughErrorHandling = async (fn: () => Promise<unknown>) => fn();
+const stubCreateAppError = vi.fn((_code: string, msg: string) => {
+  const err: Error & { statusCode?: number } = new Error(msg);
+  err.statusCode = 404;
+  return err;
+});
+const stubErrorCode = { NOT_FOUND: 'NOT_FOUND' };
+vi.stubGlobal('withErrorHandling', passThroughErrorHandling);
+vi.stubGlobal('createAppError', stubCreateAppError);
+vi.stubGlobal('ErrorCode', stubErrorCode);
 vi.stubGlobal('getQuery', vi.fn());
 vi.stubGlobal('setResponseHeader', vi.fn());
 // defineEventHandler is no longer used by the endpoint (replaced by defineCachedEventHandler)
@@ -329,4 +350,102 @@ describe('GET /api/resolve-url', () => {
     expect(mockResolveEntityUrl).toHaveBeenCalledTimes(1);
     expect(mockResolveEntityUrl.mock.calls[0]![0].userToken).toBeUndefined();
   });
+});
+
+// A real h3 event over a real node request/response, so h3 itself ends the
+// response and sets event.handled.
+const createHttpEvent = (headers: Record<string, string> = {}): H3Event => {
+  const req = new IncomingMessage(new Socket());
+  req.method = 'GET';
+  req.url = '/api/resolve-url';
+  req.headers = headers;
+  const event = createEvent(req, new ServerResponse(req));
+  (event.context as Record<string, unknown>).tenant = {
+    tenantId: 't1',
+    hostname: 'test.example.com',
+  };
+  return event;
+};
+
+describe('GET /api/resolve-url: a revalidated request Nitro answers with 304', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    // What Nitro's cached handler does: compute the entry once, answer every
+    // request through h3's handleCacheHeaders, and return no value once that
+    // has ended the response with 304.
+    let entry: { body: unknown; etag: string; modifiedTime: Date } | undefined;
+    cachedCall = async (fn, event) => {
+      if (!entry) {
+        const body = await fn(event);
+        const digest = createHash('sha1')
+          .update(JSON.stringify(body))
+          .digest('hex');
+        entry = {
+          body,
+          etag: `W/"${digest.slice(0, 10)}"`,
+          modifiedTime: new Date(new Date().toUTCString()),
+        };
+      }
+      const { etag, modifiedTime } = entry;
+      if (handleCacheHeaders(event, { etag, modifiedTime })) return undefined;
+      return entry.body;
+    };
+    // The real error handling, so a crash shows up as the INTERNAL_ERROR log
+    // it produces in production.
+    const errors = await vi.importActual<
+      typeof import('../../../server/utils/errors')
+    >('../../../server/utils/errors');
+    vi.stubGlobal('withErrorHandling', errors.withErrorHandling);
+    vi.stubGlobal('createAppError', errors.createAppError);
+    vi.stubGlobal('ErrorCode', errors.ErrorCode);
+    vi.resetModules();
+    const mod = await import('../../../server/api/resolve-url.get');
+    handler = mod.default as (event: H3Event) => Promise<unknown>;
+  });
+
+  afterEach(() => {
+    cachedCall = runUncached;
+    vi.stubGlobal('withErrorHandling', passThroughErrorHandling);
+    vi.stubGlobal('createAppError', stubCreateAppError);
+    vi.stubGlobal('ErrorCode', stubErrorCode);
+  });
+
+  const paths = [
+    {
+      name: 'found',
+      path: '/se/sv/verktyg',
+      resolved: { type: 'category', canonicalAppPath: '/se/sv/c/verktyg' },
+    },
+    { name: 'not found', path: '/se/sv/terms', resolved: null },
+  ];
+  const conditions = [
+    { request: 'if-none-match', response: 'etag' },
+    { request: 'if-modified-since', response: 'last-modified' },
+  ];
+
+  it.each(paths.flatMap((p) => conditions.map((c) => ({ ...p, ...c }))))(
+    'leaves the 304 alone on a $name path revalidated with $request',
+    async ({ path, resolved, request, response }) => {
+      (getQuery as ReturnType<typeof vi.fn>).mockReturnValue({ path });
+      mockResolveEntityUrl.mockResolvedValue(resolved);
+
+      // First request: the answer the browser caches.
+      const firstEvent = createHttpEvent();
+      const first = handler(firstEvent);
+      if (resolved) {
+        await expect(first).resolves.toEqual(resolved);
+      } else {
+        await expect(first).rejects.toMatchObject({ statusCode: 404 });
+      }
+      const validator = firstEvent.node.res.getHeader(response);
+      expect(typeof validator).toBe('string');
+
+      // Revalidation with that validator: h3 ends the response with 304.
+      const event = createHttpEvent({ [request]: validator as string });
+      await expect(handler(event)).resolves.toBeUndefined();
+      expect(event.node.res.statusCode).toBe(304);
+      expect(event.handled).toBe(true);
+      expect(mockLoggerError).not.toHaveBeenCalled();
+    },
+  );
 });

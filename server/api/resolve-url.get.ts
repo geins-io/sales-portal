@@ -141,6 +141,9 @@ export default defineEventHandler(async (event) => {
   return withErrorHandling(
     async () => {
       const result = await cachedResolver(event);
+      // A matching If-None-Match / If-Modified-Since: Nitro has already sent
+      // 304 and returns no value.
+      if (event.handled) return;
       if ('notFound' in result) {
         throw createAppError(ErrorCode.NOT_FOUND, 'No entity for URL');
       }
