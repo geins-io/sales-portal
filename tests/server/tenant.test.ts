@@ -32,6 +32,7 @@ import type {
   StoreSettings,
 } from '../../server/schemas/store-settings';
 import { KV_STORAGE_KEYS } from '../../shared/constants/storage';
+import { TENANT_LOOKUP_TIMEOUT_MS } from '../../server/utils/outbound-timeouts';
 
 // Mock logger BEFORE importing tenant utils so the defensive-code
 // warn() calls go to our spy. vi.hoisted so the ref exists when
@@ -2072,6 +2073,24 @@ describe('Tenant utilities', () => {
       expect(result?.theme.colors.primary).toBe('oklch(0.7 0.2 300)');
       // Branding name inherited from live
       expect(result?.branding.name).toBe('Live Brand');
+    });
+
+    it('gives up on both lookups at the lookup limit', async () => {
+      const timeout = vi.spyOn(AbortSignal, 'timeout');
+      const fetchSpy = vi.fn(async () => okResponse(rawApiPayload()));
+      globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+      await resolvePreviewTenant('alpha.example');
+
+      expect(timeout).toHaveBeenCalledTimes(2);
+      expect(timeout).toHaveBeenCalledWith(TENANT_LOOKUP_TIMEOUT_MS);
+      const signals = fetchSpy.mock.calls.map(
+        (call) => (call as unknown[])[1] as RequestInit,
+      );
+      expect(signals.map((init) => init.signal)).toEqual(
+        timeout.mock.results.map((result) => result.value),
+      );
+      timeout.mockRestore();
     });
 
     it('fires both fetches in parallel', async () => {

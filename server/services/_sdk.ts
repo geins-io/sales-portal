@@ -9,6 +9,7 @@ import type {
 } from '@geins/types';
 import type { H3Event } from 'h3';
 import { LRUCache } from 'lru-cache';
+import { geinsRequestConfig } from '../utils/outbound-timeouts';
 import { storefrontCacheKey, storefrontKey } from '../utils/tenant';
 import { resolveConfiguratorBackendName } from './configurator-backend-name';
 import {
@@ -103,6 +104,7 @@ export function createTenantSDK(
     locale: effectiveLocale,
     market: geinsSettings.market,
     environment: mapEnvironment(geinsSettings.environment),
+    requestConfig: geinsRequestConfig(geinsSettings),
     ...(apiUrl ? { apiUrl } : {}),
   };
 

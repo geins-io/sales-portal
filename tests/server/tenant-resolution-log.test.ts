@@ -13,6 +13,7 @@ import {
   claimsHostname,
 } from '../../server/utils/tenant';
 import type { TenantResolutionTrace } from '../../server/utils/tenant';
+import { TENANT_LOOKUP_TIMEOUT_MS } from '../../server/utils/outbound-timeouts';
 import type { TenantConfig } from '#shared/types/tenant-config';
 
 // Same auto-import shims as tests/server/tenant.test.ts: the tenant utils
@@ -22,12 +23,16 @@ import type { TenantConfig } from '#shared/types/tenant-config';
 const {
   mockLoggerWarn,
   mockLoggerDebug,
+  mockLoggerError,
+  mockCaptureException,
   mockIsDevMode,
   mockUseRuntimeConfig,
   mockUseStorage,
 } = vi.hoisted(() => ({
   mockLoggerWarn: vi.fn(),
   mockLoggerDebug: vi.fn(),
+  mockLoggerError: vi.fn(),
+  mockCaptureException: vi.fn(),
   mockIsDevMode: vi.fn(() => true),
   mockUseRuntimeConfig: vi.fn(() => ({
     geins: { tenantApiUrl: 'https://merchant.example/store-settings' },
@@ -69,10 +74,11 @@ vi.mock('../../server/utils/logger', () => ({
   logger: {
     warn: mockLoggerWarn,
     debug: mockLoggerDebug,
-    error: vi.fn(),
+    error: mockLoggerError,
     info: vi.fn(),
   },
 }));
+vi.mock('@sentry/nuxt', () => ({ captureException: mockCaptureException }));
 vi.mock('../../server/utils/dev-mode', () => ({
   isDevMode: mockIsDevMode,
 }));
@@ -756,6 +762,117 @@ describe.sequential('fetchTenantConfig', () => {
     expect(t.api?.result).toBe(
       'ECONNREFUSED (connect ECONNREFUSED 127.0.0.1:1)',
     );
+  });
+
+  it('gives up on the merchant API at the lookup limit', async () => {
+    const host = 'fetch-bounded.example';
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    const spy = stubFetch(async () =>
+      httpResponse(200, rawApiPayload('bounded', host)),
+    );
+
+    await fetchTenantConfig(host);
+
+    expect(timeout).toHaveBeenCalledWith(TENANT_LOOKUP_TIMEOUT_MS);
+    const init = (spy.mock.calls[0] as unknown[])[1] as RequestInit | undefined;
+    expect(init?.signal).toBe(timeout.mock.results[0]!.value);
+    timeout.mockRestore();
+  });
+
+  describe('a merchant API that gives no answer', () => {
+    beforeEach(() => {
+      mockLoggerError.mockClear();
+      mockCaptureException.mockClear();
+      mockIsDevMode.mockReturnValue(false);
+    });
+
+    afterEach(() => {
+      mockIsDevMode.mockReturnValue(true);
+    });
+
+    function requestEvent() {
+      return {
+        context: { correlationId: 'cid-1234' },
+      } as unknown as Parameters<typeof fetchTenantConfig>[1];
+    }
+
+    it('is logged as an error with the correlation id and reported to Sentry, without the URL', async () => {
+      const host = 'fetch-stalled.example';
+      const timedOut = new DOMException(
+        'The operation was aborted due to timeout',
+        'TimeoutError',
+      );
+      stubFetch(async () => {
+        throw timedOut;
+      });
+      const t = trace(host);
+
+      await expect(
+        fetchTenantConfig(host, requestEvent(), t),
+      ).resolves.toBeNull();
+
+      expect(t.outcome).toBe('transport-failure');
+      expect(mockLoggerError).toHaveBeenCalledOnce();
+      const [message, error, context] = mockLoggerError.mock.calls[0]!;
+      expect(message).toBe(
+        `[tenant] merchant API gave no answer for ${host}: TimeoutError (The operation was aborted due to timeout)`,
+      );
+      expect(error).toBe(timedOut);
+      expect(context).toEqual({ correlationId: 'cid-1234', hostname: host });
+      expect(JSON.stringify(mockLoggerError.mock.calls)).not.toContain(API_URL);
+      expect(mockCaptureException).toHaveBeenCalledWith(timedOut, {
+        tags: { 'tenant.hostname': host },
+      });
+    });
+
+    it('counts an error status as no answer too', async () => {
+      const host = 'fetch-503.example';
+      stubFetch(async () => httpResponse(503));
+
+      await fetchTenantConfig(host, requestEvent(), trace(host));
+
+      expect(mockLoggerError).toHaveBeenCalledOnce();
+      const [message, error, context] = mockLoggerError.mock.calls[0]!;
+      expect(message).toBe(
+        `[tenant] merchant API gave no answer for ${host}: 503`,
+      );
+      expect((error as Error).message).toBe('The merchant API answered 503');
+      expect(context).toEqual({ correlationId: 'cid-1234', hostname: host });
+      expect(mockCaptureException).toHaveBeenCalledOnce();
+    });
+
+    it('answers null for an error status without a trace', async () => {
+      const host = 'fetch-503-quiet.example';
+      stubFetch(async () => httpResponse(503));
+
+      await expect(fetchTenantConfig(host)).resolves.toBeNull();
+      expect(mockLoggerError).toHaveBeenCalledOnce();
+    });
+
+    it('reports nothing for a hostname the merchant API does not know', async () => {
+      const host = 'fetch-unknown.example';
+      stubFetch(async () => httpResponse(404));
+
+      await fetchTenantConfig(host, requestEvent(), trace(host));
+
+      expect(mockLoggerError).not.toHaveBeenCalled();
+      expect(mockCaptureException).not.toHaveBeenCalled();
+    });
+
+    it('is reported without a request event as well', async () => {
+      const host = 'fetch-no-event.example';
+      stubFetch(async () => {
+        throw connectionRefused();
+      });
+
+      await fetchTenantConfig(host);
+
+      expect(mockLoggerError.mock.calls[0]![2]).toEqual({
+        correlationId: undefined,
+        hostname: host,
+      });
+      expect(mockCaptureException).toHaveBeenCalledOnce();
+    });
   });
 
   it('works without a trace', async () => {

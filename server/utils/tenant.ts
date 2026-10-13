@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nuxt';
 import type { H3Event } from 'h3';
 import type { FeatureAccess, TenantConfig } from '#shared/types/tenant-config';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
@@ -16,6 +17,7 @@ import {
 import { KV_STORAGE_KEYS } from '#shared/constants/storage';
 import { logger } from './logger';
 import { isDevMode } from './dev-mode';
+import { TENANT_LOOKUP_TIMEOUT_MS } from './outbound-timeouts';
 import {
   createDefaultTheme,
   generateTenantCss,
@@ -955,6 +957,24 @@ export function parseStoreSettingsResilient(
 }
 
 /**
+ * A lookup the merchant API did not answer is a 503 for the buyer, so it is
+ * logged in every build. Without the URL: the hostname and why are enough.
+ */
+function reportUnanswered(
+  hostname: string,
+  why: string,
+  error: Error,
+  event?: H3Event,
+): void {
+  logger.error(
+    `[tenant] merchant API gave no answer for ${hostname}: ${why}`,
+    error,
+    { correlationId: event?.context.correlationId, hostname },
+  );
+  Sentry.captureException(error, { tags: { 'tenant.hostname': hostname } });
+}
+
+/**
  * Fetches a hostname's settings from the merchant API. Returns null when
  * the hostname does not resolve, for whatever reason; the reason itself is
  * recorded on `trace` when one is passed, so `resolveTenant()` can tell an
@@ -974,12 +994,20 @@ export async function fetchTenantConfig(
       headers: {
         'Content-Type': 'application/json',
       },
+      signal: AbortSignal.timeout(TENANT_LOOKUP_TIMEOUT_MS),
     });
   } catch (error) {
+    const why = describeTransportError(error);
     if (trace) {
-      trace.api = { url, result: describeTransportError(error) };
+      trace.api = { url, result: why };
       trace.outcome = 'transport-failure';
     }
+    reportUnanswered(
+      hostname,
+      why,
+      error instanceof Error ? error : new Error(why),
+      event,
+    );
     return null;
   }
 
@@ -988,9 +1016,17 @@ export async function fetchTenantConfig(
   if (!response.ok) {
     // 404 is the merchant API saying "no such hostname". Any other error
     // status is the API failing to answer the question at all.
+    const unanswered = response.status !== 404;
     if (trace) {
-      trace.outcome =
-        response.status === 404 ? 'unknown-tenant' : 'transport-failure';
+      trace.outcome = unanswered ? 'transport-failure' : 'unknown-tenant';
+    }
+    if (unanswered) {
+      reportUnanswered(
+        hostname,
+        String(response.status),
+        new Error(`The merchant API answered ${response.status}`),
+        event,
+      );
     }
     return null;
   }
@@ -1056,9 +1092,14 @@ export async function resolvePreviewTenant(
   const baseUrl = `${runtimeConfig.geins.tenantApiUrl}?hostname=${hostname}`;
   const previewUrl = `${baseUrl}&previewKey=preview`;
 
+  const lookup = (url: string) =>
+    fetch(url, {
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(TENANT_LOOKUP_TIMEOUT_MS),
+    });
   const [liveResult, previewResult] = await Promise.allSettled([
-    fetch(baseUrl, { headers: { 'Content-Type': 'application/json' } }),
-    fetch(previewUrl, { headers: { 'Content-Type': 'application/json' } }),
+    lookup(baseUrl),
+    lookup(previewUrl),
   ]);
 
   async function adaptFulfilled(

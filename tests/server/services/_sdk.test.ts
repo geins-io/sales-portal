@@ -164,6 +164,23 @@ describe('server/services/_sdk', () => {
       );
     });
 
+    it('bounds every Geins call at the portal limit and reports a timeout', async () => {
+      const { GEINS_REQUEST_TIMEOUT_MS } =
+        await import('../../../server/utils/outbound-timeouts');
+      createTenantSDK(MOCK_GEINS_SETTINGS);
+
+      const settings = mockGeinsCore.mock.calls[0]![0] as {
+        requestConfig?: {
+          timeoutMs?: number;
+          interceptors?: { onError?: unknown };
+        };
+      };
+      expect(settings.requestConfig?.timeoutMs).toBe(GEINS_REQUEST_TIMEOUT_MS);
+      expect(settings.requestConfig?.interceptors?.onError).toBeTypeOf(
+        'function',
+      );
+    });
+
     it('should map production environment to prod', () => {
       createTenantSDK({ ...MOCK_GEINS_SETTINGS, environment: 'production' });
 
