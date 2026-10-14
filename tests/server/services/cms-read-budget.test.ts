@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { H3Event } from 'h3';
 
-// Every CMS read a render waits on has a fallback when it fails, so each one
-// asks the SDK for the short CMS budget instead of the client's 20 s.
+// A per-call budget measures our own event-loop delay as well as Geins, so an
+// overloaded server cut CMS reads that Geins answered in time. Every CMS read
+// takes the client's limit, the same as any other Geins call.
 
 vi.mock('../../../server/utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -36,17 +37,14 @@ vi.stubGlobal('getRequestHeader', vi.fn().mockReturnValue(undefined));
 
 const { getContentArea, getPage, getMenu } =
   await import('../../../server/services/cms');
-const { CMS_READ_TIMEOUT_MS } =
-  await import('../../../server/utils/outbound-timeouts');
-
-const BUDGET = { timeoutMs: CMS_READ_TIMEOUT_MS };
 const event = {} as H3Event;
 
-function budgets(mock: ReturnType<typeof vi.fn>): unknown[] {
-  return mock.mock.calls.map((call) => call[2]);
+/** How many arguments each call passed: a third one is a per-call limit. */
+function argCounts(mock: ReturnType<typeof vi.fn>): number[] {
+  return mock.mock.calls.map((call) => call.length);
 }
 
-describe('CMS reads ask for the CMS budget', () => {
+describe('CMS reads ask for no limit of their own', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getPreviewCookieMock.mockReturnValue(false);
@@ -58,7 +56,7 @@ describe('CMS reads ask for the CMS budget', () => {
   it('the menu read', async () => {
     await getMenu({ menuLocationId: 'budget-menu' }, event);
 
-    expect(budgets(mockMenuGet)).toEqual([BUDGET]);
+    expect(argCounts(mockMenuGet)).toEqual([2]);
   });
 
   it("the menu's language fallback read too", async () => {
@@ -66,7 +64,7 @@ describe('CMS reads ask for the CMS budget', () => {
 
     await getMenu({ menuLocationId: 'budget-menu-fallback' }, event);
 
-    expect(budgets(mockMenuGet)).toEqual([BUDGET, BUDGET]);
+    expect(argCounts(mockMenuGet)).toEqual([2, 2]);
   });
 
   it('the preview menu read too', async () => {
@@ -74,19 +72,18 @@ describe('CMS reads ask for the CMS budget', () => {
 
     await getMenu({ menuLocationId: 'budget-menu-preview' }, event);
 
-    expect(budgets(mockMenuGet)).toEqual([BUDGET]);
+    expect(argCounts(mockMenuGet)).toEqual([2]);
   });
 
-  it('but not the page read: without it the page is the error page', async () => {
+  it('the page read too', async () => {
     await getPage({ alias: 'budget-page' }, event);
 
-    expect(budgets(mockPageGet)).toEqual([undefined]);
-    expect(mockPageGet.mock.calls[0]).toHaveLength(2);
+    expect(argCounts(mockPageGet)).toEqual([2]);
   });
 
   it('both display-setting legs of an area read', async () => {
     await getContentArea({ family: 'Budget', areaName: 'Top' }, event);
 
-    expect(budgets(mockAreaGet)).toEqual([BUDGET, BUDGET]);
+    expect(argCounts(mockAreaGet)).toEqual([2, 2]);
   });
 });

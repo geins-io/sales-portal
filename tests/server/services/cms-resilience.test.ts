@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { H3Event } from 'h3';
 
-// A menu or content area is part of every page: a timed-out read is sent once
-// more, and a read that still fails serves the last copy that answered.
+// A menu or content area is part of every page: a read that fails, a timeout
+// included, is not sent again and serves the last copy that answered.
 
 const { mockLoggerWarn } = vi.hoisted(() => ({ mockLoggerWarn: vi.fn() }));
 vi.mock('../../../server/utils/logger', () => ({
@@ -53,7 +53,7 @@ const event = {} as H3Event;
 
 /** What the SDK throws for a read its timeout link cut off. */
 function timedOut(): Error {
-  return Object.assign(new Error('Request r-1 timed out after 5000ms'), {
+  return Object.assign(new Error('Request r-1 timed out after 20000ms'), {
     name: 'ApolloError',
     networkError: Object.assign(new Error('timed out'), {
       name: 'TimeoutError',
@@ -91,13 +91,14 @@ describe('CMS reads on every page', () => {
   });
 
   describe('the menu', () => {
-    it('sends a timed-out read once more', async () => {
-      mockMenuGet.mockRejectedValueOnce(timedOut()).mockResolvedValueOnce(MENU);
+    it('does not send a timed-out read again: a second wait would double it', async () => {
+      const timeout = timedOut();
+      mockMenuGet.mockRejectedValueOnce(timeout).mockResolvedValueOnce(MENU);
 
-      await expect(
-        getMenu({ menuLocationId: 'retry' }, event),
-      ).resolves.toEqual(MENU);
-      expect(mockMenuGet).toHaveBeenCalledTimes(2);
+      await expect(getMenu({ menuLocationId: 'retry' }, event)).rejects.toBe(
+        timeout,
+      );
+      expect(mockMenuGet).toHaveBeenCalledTimes(1);
     });
 
     it('does not send a read again for any other failure', async () => {
@@ -119,8 +120,8 @@ describe('CMS reads on every page', () => {
       await expect(
         getMenu({ menuLocationId: 'last-good' }, event),
       ).resolves.toEqual(MENU);
-      // Geins was asked again (the cache had expired) and timed out twice.
-      expect(mockMenuGet).toHaveBeenCalledTimes(3);
+      // Geins was asked again (the cache had expired) and timed out once.
+      expect(mockMenuGet).toHaveBeenCalledTimes(2);
       expect(mockLoggerWarn).toHaveBeenCalledWith(
         expect.stringContaining('last good'),
         { menuLocationId: 'last-good' },
@@ -232,7 +233,7 @@ describe('CMS reads on every page', () => {
   });
 
   describe('a content area', () => {
-    it('sends a timed-out read once more', async () => {
+    it('does not send a timed-out read again', async () => {
       mockAreaGet.mockImplementation(
         async (vars: { displaySetting: string }) => {
           if (
@@ -245,18 +246,15 @@ describe('CMS reads on every page', () => {
         },
       );
 
-      const area = await getContentArea(
-        { family: 'Retry', areaName: 'Top' },
-        event,
-      );
-
-      expect(area.containers).toHaveLength(1);
+      await expect(
+        getContentArea({ family: 'Retry', areaName: 'Top' }, event),
+      ).rejects.toThrow('timed out');
       expect(
         mockAreaGet.mock.calls.filter(
           ([vars]) =>
             (vars as { displaySetting: string }).displaySetting === 'desktop',
         ),
-      ).toHaveLength(2);
+      ).toHaveLength(1);
     });
 
     it('serves the last copy that answered when a read fails after the cache expired', async () => {
@@ -272,7 +270,8 @@ describe('CMS reads on every page', () => {
       await expect(
         getContentArea({ family: 'LastGood', areaName: 'Top' }, event),
       ).resolves.toEqual(first);
-      expect(mockAreaGet).toHaveBeenCalled();
+      // Once per display leg, neither sent again.
+      expect(mockAreaGet).toHaveBeenCalledTimes(2);
       expect(mockLoggerWarn).toHaveBeenCalledWith(
         expect.stringContaining('last good'),
         { family: 'LastGood', areaName: 'Top' },

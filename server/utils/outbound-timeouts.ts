@@ -12,12 +12,10 @@ import { logger } from './logger';
 //   Geins GraphQL (SDK)          GEINS_REQUEST_TIMEOUT_MS, below, for every
 //                                read and write; a call may ask for its own
 //                                limit, which wins
-//     menus and content areas    CMS_READ_TIMEOUT_MS per attempt, one more
-//                                attempt after a timeout, then the last good
-//                                copy (services/cms)
-//     CMS page-link read         CMS_READ_TIMEOUT_MS (services/cms)
-//     CMS page read              the default: without it the page is the
-//                                error page
+//     CMS reads                  the default and no second attempt, which
+//                                would double the wait; a failed menu or
+//                                content area serves its last good copy
+//                                (services/cms)
 //     order and quote writes     none (0): checkout.createOrder in the SDK,
 //                                quote accept and reject (services/quotes)
 //     configurator calls         15 s, line reads 2 s, reopen 45 s
@@ -36,12 +34,6 @@ export const GEINS_REQUEST_TIMEOUT_MS = 20_000;
 
 /** Measured up to 9.6 s on dev. A lookup past this answers the 503 page. */
 export const TENANT_LOOKUP_TIMEOUT_MS = 20_000;
-
-/**
- * One attempt at a menu, content area or page-link read, which every render
- * waits on. Production's sampled CMS reads over 30 days: longest 0.29 s.
- */
-export const CMS_READ_TIMEOUT_MS = 5_000;
 
 /**
  * The configurator's 2 s line reads: past it, a cart or an order answers

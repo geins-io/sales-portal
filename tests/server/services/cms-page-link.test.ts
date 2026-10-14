@@ -125,16 +125,12 @@ describe('getPageLinkByTag', () => {
     );
   });
 
-  it('gives up on the read at the CMS read budget, not the default limit', async () => {
-    const { CMS_READ_TIMEOUT_MS } =
-      await import('../../../server/utils/outbound-timeouts');
+  it('asks for no limit of its own, so the client limit applies', async () => {
     mockQuery.mockResolvedValue({ cmsPages: [] });
 
     await getPageLinkByTag({ tag: 'contact' }, mockEvent());
 
-    expect(mockQuery.mock.calls[0]![0]).toMatchObject({
-      requestOptions: { context: { timeoutMs: CMS_READ_TIMEOUT_MS } },
-    });
+    expect(mockQuery.mock.calls[0]![0]).not.toHaveProperty('requestOptions');
   });
 
   it('b. returns null when cmsPages is empty', async () => {
@@ -319,15 +315,7 @@ describe('getPageLinkByTag', () => {
     ];
     expect(rest).toHaveLength(0);
     expect(options).not.toHaveProperty('userToken');
-    expect(Object.keys(options).sort()).toEqual([
-      'queryAsString',
-      'requestOptions',
-      'variables',
-    ]);
-    // A time limit only: nothing in it identifies the caller.
-    expect(options.requestOptions).toEqual({
-      context: { timeoutMs: expect.any(Number) },
-    });
+    expect(Object.keys(options).sort()).toEqual(['queryAsString', 'variables']);
   });
 
   it('f. defensive fallback: uses the first page when no row matches the requested tag', async () => {

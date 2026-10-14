@@ -117,17 +117,3 @@ export function isSdkLoginRequired(error: unknown): boolean {
     (isObject(error) && carriesLoginRequired(Reflect.get(error, 'cause')))
   );
 }
-
-/**
- * True when the SDK's timeout link cut the call off: the TimeoutError itself,
- * Apollo's error carrying it as `networkError`, or a service error carrying
- * either as `cause`.
- */
-export function isSdkTimeout(error: unknown, depth = 0): boolean {
-  if (!isObject(error) || depth > 3) return false;
-  if (Reflect.get(error, 'code') === 'REQUEST_TIMEOUT') return true;
-  return (
-    isSdkTimeout(Reflect.get(error, 'networkError'), depth + 1) ||
-    isSdkTimeout(Reflect.get(error, 'cause'), depth + 1)
-  );
-}

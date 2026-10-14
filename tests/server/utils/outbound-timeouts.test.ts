@@ -11,7 +11,6 @@ vi.mock('../../../server/utils/logger', () => ({
 vi.mock('@sentry/nuxt', () => ({ captureException: mockCaptureException }));
 
 const {
-  CMS_READ_TIMEOUT_MS,
   GEINS_REQUEST_TIMEOUT_MS,
   TENANT_LOOKUP_TIMEOUT_MS,
   geinsRequestConfig,
@@ -122,10 +121,6 @@ describe('outbound timeouts', () => {
       expect(mockCaptureException).not.toHaveBeenCalled();
     },
   );
-
-  it('keeps a CMS read short', () => {
-    expect(CMS_READ_TIMEOUT_MS).toBe(5_000);
-  });
 
   it('reports nothing for any other failed call', () => {
     for (const error of [

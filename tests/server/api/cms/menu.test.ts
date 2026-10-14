@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CMS_READ_TIMEOUT_MS } from '../../../../server/utils/outbound-timeouts';
 
 type AnyFn = (...args: unknown[]) => unknown;
 
@@ -96,7 +95,6 @@ describe('GET /api/cms/menu', () => {
         marketId: 'se',
       },
       undefined,
-      { timeoutMs: CMS_READ_TIMEOUT_MS },
     );
     expect(result).toEqual(mockMenuData);
   });
@@ -119,7 +117,6 @@ describe('GET /api/cms/menu', () => {
         marketId: 'se',
       },
       undefined,
-      { timeoutMs: CMS_READ_TIMEOUT_MS },
     );
   });
 

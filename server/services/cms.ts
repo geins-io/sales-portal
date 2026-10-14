@@ -22,18 +22,13 @@ import { mergeContainersByVisibility } from '#shared/utils/cms-visibility';
 import { isSafeInternalPath } from '#shared/utils/redirect';
 import type { CmsAreaContext, CmsContentArea } from '#shared/types/cms';
 import { CMS_AREA_MAX_CATEGORY_IDS } from '../schemas/api-input';
-import { CMS_READ_TIMEOUT_MS } from '../utils/outbound-timeouts';
 import { logger } from '../utils/logger';
-import { isSdkTimeout } from '../utils/sdk-error';
 
 // =============================================================================
 // Cache Configuration
 // =============================================================================
 
 const CACHE_TTL_MS = 60 * 1000; // 1 minute — short TTL for multi-locale correctness
-
-/** A menu or content area: part of every page, so a slow read costs seconds. */
-const CMS_READ = { timeoutMs: CMS_READ_TIMEOUT_MS };
 
 /**
  * The last menu and area copies that answered, kept past the cache TTL: a read
@@ -70,16 +65,6 @@ function lastGoodFor<V>(
   return getRequestIdentity(event) === ANONYMOUS_IDENTITY
     ? copies.anonymous
     : copies.signedIn;
-}
-
-/** A read the timeout cut off is sent once more; any other failure is not. */
-async function retryOnTimeout<T>(read: () => Promise<T>): Promise<T> {
-  try {
-    return await read();
-  } catch (error) {
-    if (!isSdkTimeout(error)) throw error;
-    return read();
-  }
 }
 
 const menuCache = new LRUCache<string, MenuType>({
@@ -184,10 +169,7 @@ async function readMenu(
   if (preview) {
     try {
       return (await wrapServiceCall(
-        () =>
-          retryOnTimeout(() =>
-            sdk.cms.menu.get({ ...queryArgs, preview: true }, ctx, CMS_READ),
-          ),
+        () => sdk.cms.menu.get({ ...queryArgs, preview: true }, ctx),
         'cms',
       )) as MenuType;
     } catch {
@@ -196,7 +178,7 @@ async function readMenu(
   }
 
   let result = (await wrapServiceCall(
-    () => retryOnTimeout(() => sdk.cms.menu.get(queryArgs, ctx, CMS_READ)),
+    () => sdk.cms.menu.get(queryArgs, ctx),
     'cms',
   )) as MenuType;
 
@@ -217,13 +199,7 @@ async function readMenu(
       try {
         const pResult = (await wrapServiceCall(
           () =>
-            retryOnTimeout(() =>
-              sdk.cms.menu.get(
-                { ...fallbackBase, preview: true },
-                fallbackCtx,
-                CMS_READ,
-              ),
-            ),
+            sdk.cms.menu.get({ ...fallbackBase, preview: true }, fallbackCtx),
           'cms',
         )) as MenuType;
         if (pResult?.menuItems?.length) {
@@ -236,10 +212,7 @@ async function readMenu(
 
     if (!result?.menuItems?.length) {
       const fbResult = (await wrapServiceCall(
-        () =>
-          retryOnTimeout(() =>
-            sdk.cms.menu.get(fallbackBase, fallbackCtx, CMS_READ),
-          ),
+        () => sdk.cms.menu.get(fallbackBase, fallbackCtx),
         'cms',
       )) as MenuType;
       if (fbResult?.menuItems?.length) {
@@ -377,14 +350,10 @@ async function fetchAreaLeg(
     try {
       const previewResult = (await wrapServiceCall(
         () =>
-          retryOnTimeout(
-            () =>
-              sdk.cms.area.get(
-                { ...queryArgs, preview: true },
-                ctx,
-                CMS_READ,
-              ) as Promise<ContentAreaType>,
-          ),
+          sdk.cms.area.get(
+            { ...queryArgs, preview: true },
+            ctx,
+          ) as Promise<ContentAreaType>,
         'cms',
       )) as ContentAreaType;
       if (hasContent(previewResult)) return previewResult;
@@ -394,15 +363,7 @@ async function fetchAreaLeg(
   }
 
   return (await wrapServiceCall(
-    () =>
-      retryOnTimeout(
-        () =>
-          sdk.cms.area.get(
-            queryArgs,
-            ctx,
-            CMS_READ,
-          ) as Promise<ContentAreaType>,
-      ),
+    () => sdk.cms.area.get(queryArgs, ctx) as Promise<ContentAreaType>,
     'cms',
   )) as ContentAreaType;
 }
@@ -470,9 +431,7 @@ async function readArea(
   const ctx = buildRequestContext(event);
 
   // `context` is our own shape and must not reach the query — only the
-  // `filters` it was translated into. Putting filters in the leg args (rather
-  // than passing them separately) is what carries them through the language
-  // fallback, which rebuilds its variables from the same object.
+  // `filters` it was translated into.
   const legArgs = {
     family: args.family,
     areaName: args.areaName,
@@ -550,7 +509,6 @@ export async function getPageLinkByTag(
       sdk.core.graphql.query({
         queryAsString: loadQuery('cms/page-by-tag.graphql'),
         variables: { includeTags, ...channelVars },
-        requestOptions: { context: { timeoutMs: CMS_READ_TIMEOUT_MS } },
       }),
     'cms',
   );

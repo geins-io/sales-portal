@@ -39,9 +39,6 @@ vi.stubGlobal('getRequestHeader', vi.fn().mockReturnValue(undefined));
 
 const { getContentArea, getPage, getMenu } =
   await import('../../../server/services/cms');
-const { CMS_READ_TIMEOUT_MS } =
-  await import('../../../server/utils/outbound-timeouts');
-const CMS_READ = { timeoutMs: CMS_READ_TIMEOUT_MS };
 
 const mockEvent = {} as H3Event;
 
@@ -122,7 +119,6 @@ describe('CMS service customerType threading', () => {
             customerType: GeinsCustomerType.PersonType,
           },
           undefined,
-          CMS_READ,
         );
       }
     });
@@ -142,7 +138,6 @@ describe('CMS service customerType threading', () => {
             displaySetting,
           },
           undefined,
-          CMS_READ,
         );
       }
     });
@@ -158,7 +153,6 @@ describe('CMS service customerType threading', () => {
           ...channelVars,
         },
         undefined,
-        CMS_READ,
       );
     });
   });
