@@ -6,6 +6,7 @@ import {
   getMenuLabel,
   getVisibleItems,
   isExternalUrl,
+  splitLabelInTwo,
 } from '../../shared/utils/menu';
 import type { MenuItemType } from '../../shared/types/cms';
 
@@ -327,5 +328,45 @@ describe('stripGeinsPrefix category indicator', () => {
     expect(stripGeinsPrefix('/se/sv/c/batterier', 'brand')).toBe(
       '/c/batterier',
     );
+  });
+});
+
+describe('splitLabelInTwo', () => {
+  it('keeps a single word whole', () => {
+    expect(splitLabelInTwo('Valsverk')).toEqual(['Valsverk']);
+    expect(splitLabelInTwo('')).toEqual(['']);
+    expect(splitLabelInTwo(' Valsverk ')).toEqual(['Valsverk']);
+  });
+
+  it('puts two words on a line each', () => {
+    expect(splitLabelInTwo('Sonora Industri')).toEqual(['Sonora', 'Industri']);
+  });
+
+  it('splits where the longer line is shortest', () => {
+    expect(splitLabelInTwo('Rör och kopplingar')).toEqual([
+      'Rör och',
+      'kopplingar',
+    ]);
+    expect(splitLabelInTwo('Relining Connection 12')).toEqual([
+      'Relining',
+      'Connection 12',
+    ]);
+    expect(splitLabelInTwo('aa bb cc dd')).toEqual(['aa bb', 'cc dd']);
+  });
+
+  it('counts the spaces inside a line', () => {
+    // Without them "aaaa b" would weigh 5 and tie with "aaaa" / "b c d".
+    expect(splitLabelInTwo('aaaa b c d')).toEqual(['aaaa', 'b c d']);
+  });
+
+  it('gives a tie to the longer first line, as wrapping would', () => {
+    expect(splitLabelInTwo('aaa b ccc')).toEqual(['aaa b', 'ccc']);
+  });
+
+  it('ignores stray whitespace', () => {
+    expect(splitLabelInTwo('  Rör   och kopplingar ')).toEqual([
+      'Rör och',
+      'kopplingar',
+    ]);
   });
 });

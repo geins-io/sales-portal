@@ -160,6 +160,30 @@ export function getMenuLabel(item: Partial<MenuItemType>): string {
 }
 
 /**
+ * Split a label into at most two lines, at the word break that makes the longer
+ * line shortest (counted in characters); a tie goes to the longer first line,
+ * as wrapping would. Rendered as unbreakable halves, they keep a squeezed nav
+ * item at two lines instead of one word per line.
+ */
+export function splitLabelInTwo(label: string): [string] | [string, string] {
+  const words = label.trim().split(/\s+/);
+  if (words.length < 2) return [label.trim()];
+  let split = 1;
+  let longest = Infinity;
+  for (let i = 1; i < words.length; i++) {
+    const length = Math.max(
+      words.slice(0, i).join(' ').length,
+      words.slice(i).join(' ').length,
+    );
+    if (length <= longest) {
+      split = i;
+      longest = length;
+    }
+  }
+  return [words.slice(0, split).join(' '), words.slice(split).join(' ')];
+}
+
+/**
  * Filter hidden items and sort by order. Returns a new array.
  */
 export function getVisibleItems(
