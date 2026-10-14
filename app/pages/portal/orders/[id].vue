@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ArrowLeft, LoaderCircle, RotateCw } from 'lucide-vue-next';
-import type { AddressType, OrderDetailType } from '#shared/types/commerce';
-import type { QuoteAddress } from '#shared/types/quote';
+import type { OrderDetailType } from '#shared/types/commerce';
 import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
 import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
@@ -12,6 +11,7 @@ import {
 import { reorderLines } from '~/utils/reorder';
 import { productPath } from '#shared/utils/route-helpers';
 import { replayLineHref } from '~/utils/configurator-replay';
+import { orderAmounts, orderRows, orderTotalRows } from '~/utils/order-view';
 
 definePageMeta({
   middleware: ['auth', 'feature'],
@@ -113,100 +113,7 @@ const itemCount = computed(() => order.value?.cart?.items?.length ?? 0);
 // Every amount is the side of the buyer's VAT choice; VAT itself is one number.
 const { showIncVat } = useVatDisplay();
 
-type Side = {
-  sellingPriceIncVat?: number | null;
-  sellingPriceIncVatFormatted?: string | null;
-  sellingPriceExVatFormatted?: string | null;
-} | null;
-
-function sideOf(price: Side | undefined): string | undefined {
-  return (
-    (showIncVat.value
-      ? price?.sellingPriceIncVatFormatted
-      : price?.sellingPriceExVatFormatted) ?? undefined
-  );
-}
-
-// The inc amount under an ex-VAT total; never a 0.
-function incOf(price: Side | undefined): string | undefined {
-  return (price?.sellingPriceIncVat ?? 0) > 0
-    ? price?.sellingPriceIncVatFormatted || undefined
-    : undefined;
-}
-
-// A fee row only when the order carries the fee; a placed order has no
-// "may apply".
-function feeOf(
-  amount: number | null | undefined,
-  formatted: string | null | undefined,
-): string | undefined {
-  return (amount ?? 0) > 0 ? formatted || undefined : undefined;
-}
-
-const amounts = computed(() => {
-  const summary = order.value?.cart?.summary;
-  const shipping = summary?.shipping;
-  const shippingFee = order.value?.shippingFee;
-  const paymentFee = order.value?.paymentFee;
-  return {
-    subtotal: sideOf(summary?.subTotal),
-    // The cart summary's fee, the order's own for whatever that lacks.
-    shipping: showIncVat.value
-      ? feeOf(
-          shipping?.feeIncVat ?? shippingFee?.sellingPriceIncVat,
-          shipping?.feeIncVatFormatted ??
-            shippingFee?.sellingPriceIncVatFormatted,
-        )
-      : feeOf(
-          shipping?.feeExVat ?? shippingFee?.sellingPriceExVat,
-          shipping?.feeExVatFormatted ??
-            shippingFee?.sellingPriceExVatFormatted,
-        ),
-    paymentFee: showIncVat.value
-      ? feeOf(
-          paymentFee?.sellingPriceIncVat,
-          paymentFee?.sellingPriceIncVatFormatted,
-        )
-      : feeOf(
-          paymentFee?.sellingPriceExVat,
-          paymentFee?.sellingPriceExVatFormatted,
-        ),
-    tax:
-      summary?.total?.vatFormatted ??
-      order.value?.vat?.sellingPriceIncVatFormatted ??
-      undefined,
-    total: sideOf(summary?.total) ?? sideOf(order.value?.orderTotal),
-    totalIncVat: showIncVat.value
-      ? undefined
-      : (incOf(summary?.total) ?? incOf(order.value?.orderTotal)),
-  };
-});
-
-function mapAddress(
-  a: AddressType | null | undefined,
-): QuoteAddress | undefined {
-  if (!a) return undefined;
-  return {
-    company: a.company ?? undefined,
-    firstName: a.firstName ?? undefined,
-    lastName: a.lastName ?? undefined,
-    addressLine1: a.addressLine1 ?? undefined,
-    addressLine2: a.addressLine2 ?? undefined,
-    addressLine3: a.addressLine3 ?? undefined,
-    zip: a.zip ?? undefined,
-    city: a.city ?? undefined,
-    country: a.country ?? undefined,
-    phone: a.phone ?? a.mobile ?? undefined,
-  };
-}
-
-const billingAddress = computed<QuoteAddress | undefined>(() =>
-  mapAddress(order.value?.billingAddress),
-);
-
-const shippingAddress = computed<QuoteAddress | undefined>(() =>
-  mapAddress(order.value?.shippingAddress),
-);
+const amounts = computed(() => orderAmounts(order.value, showIncVat.value));
 
 useHead({
   title: computed(
@@ -250,25 +157,6 @@ function formatDate(iso?: string): string {
   });
 }
 
-const hasAdditionalInfo = computed(
-  () =>
-    !!(
-      order.value?.customerOrderNumber ||
-      order.value?.goodsLabel ||
-      order.value?.desiredDeliveryDate
-    ),
-);
-
-// Slices the YYYY-MM-DD portion from the ISO date string rather than using
-// toLocaleDateString, which would shift a pure calendar date under negative
-// UTC offsets.
-const deliveryDate = computed(() => {
-  const raw = order.value?.desiredDeliveryDate;
-  if (!raw) return '';
-  const match = /^\d{4}-\d{2}-\d{2}/.exec(raw);
-  return match ? match[0] : raw;
-});
-
 /**
  * A configured row's product page, with that row's choices replayed from the
  * order. The canonical path, never the alias: the page's redirect to its
@@ -285,65 +173,19 @@ function replayHref(
   });
 }
 
-// Normalised line items + totals for the mobile rows sheet (the desktop table
-// does not work on small screens).
+// One set of rows for the desktop table and the mobile sheet.
 const orderItemRows = computed<PortalItemRow[]>(() =>
-  (order.value?.cart?.items ?? []).map((item, index) => ({
-    // By position: two rows of an order can carry one SKU.
-    key: `row-${index}`,
-    name: item?.product?.name ?? '',
-    articleNumber: item?.product?.articleNumber ?? undefined,
-    quantity: item?.quantity ?? 0,
-    unitPriceFormatted: sideOf(item?.unitPrice),
-    totalPriceFormatted: sideOf(item?.totalPrice),
-    imageFileName: item?.product?.productImages?.[0]?.fileName ?? null,
-    alias: item?.product?.alias ?? null,
-    href: item?.configuration
-      ? replayHref(item.product?.canonicalUrl, index)
-      : undefined,
-    configuration: item?.configuration,
-    unitPrice: item?.unitPrice,
-    totalPrice: item?.totalPrice,
-  })),
+  orderRows(order.value, showIncVat.value, replayHref),
 );
 
-const orderTotals = computed<PortalItemTotal[]>(() => {
-  const rows: PortalItemTotal[] = [
-    {
-      label: t('portal.orders.detail.summary.subtotal_with_count', {
-        count: itemCount.value,
-      }),
-      value: amounts.value.subtotal,
-    },
-    ...(amounts.value.shipping
-      ? [
-          {
-            label: t('portal.orders.detail.summary.shipping'),
-            value: amounts.value.shipping,
-          },
-        ]
-      : []),
-    ...(amounts.value.paymentFee
-      ? [{ label: t('common.payment_fee'), value: amounts.value.paymentFee }]
-      : []),
-    {
-      label: t(showIncVat.value ? 'common.vat_included' : 'common.vat'),
-      value: amounts.value.tax,
-    },
-    {
-      label: t('portal.orders.detail.summary.total'),
-      value: amounts.value.total,
-      emphasis: true,
-    },
-  ];
-  if (amounts.value.totalIncVat) {
-    rows.push({
-      label: t('common.total_inc_vat'),
-      value: amounts.value.totalIncVat,
-    });
-  }
-  return rows;
-});
+const orderTotals = computed<PortalItemTotal[]>(() =>
+  orderTotalRows(
+    amounts.value,
+    itemCount.value,
+    showIncVat.value,
+    (key, named) => t(key, named ?? {}),
+  ),
+);
 </script>
 
 <template>
@@ -392,199 +234,11 @@ const orderTotals = computed<PortalItemTotal[]>(() => {
         <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
           <!-- Left: Order Items Table (desktop only; mobile uses the sheet) -->
           <div class="hidden lg:col-span-2 lg:block">
-            <h3 class="mb-3 text-base font-semibold">
-              {{ t('portal.orders.detail.items.title') }}
-            </h3>
-            <div class="border-border rounded-lg border">
-              <table data-testid="order-items-table" class="w-full text-sm">
-                <thead class="bg-muted/50">
-                  <tr>
-                    <th class="px-4 py-3 text-left font-medium">
-                      {{ t('portal.orders.detail.items.product') }}
-                    </th>
-                    <th class="px-4 py-3 text-left font-medium">
-                      {{ t('portal.orders.detail.items.article_number') }}
-                    </th>
-                    <th class="px-4 py-3 text-right font-medium">
-                      {{ t('portal.orders.detail.items.quantity') }}
-                    </th>
-                    <th class="px-4 py-3 text-right font-medium">
-                      {{ t('portal.orders.detail.items.unit_price') }}
-                    </th>
-                    <th class="px-4 py-3 text-right font-medium">
-                      {{ t('portal.orders.detail.items.total') }}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody class="divide-border divide-y">
-                  <tr
-                    v-for="(item, index) in order?.cart?.items"
-                    :key="index"
-                    :class="{ 'align-top': item?.configuration }"
-                    data-testid="order-item-row"
-                  >
-                    <td class="h-24 px-4 py-2">
-                      <div class="flex items-center gap-3">
-                        <ProductThumbnail
-                          :file-name="
-                            item?.product?.productImages?.[0]?.fileName ?? null
-                          "
-                          :alt="item?.product?.name ?? ''"
-                        />
-                        <div>
-                          <NuxtLink
-                            v-if="item?.product?.alias"
-                            :to="
-                              (item.configuration &&
-                                replayHref(item.product.canonicalUrl, index)) ||
-                              localePath(productPath(item.product.alias))
-                            "
-                            data-testid="order-item-name-link"
-                            class="font-medium hover:underline"
-                          >
-                            {{ item?.product?.name }}
-                          </NuxtLink>
-                          <span
-                            v-else
-                            data-testid="order-item-name"
-                            class="font-medium"
-                            >{{ item?.product?.name }}</span
-                          >
-                          <p
-                            v-if="item?.configuration"
-                            data-testid="order-item-configured"
-                            class="text-muted-foreground text-xs"
-                          >
-                            {{ t('cart.configured_product') }}
-                          </p>
-                        </div>
-                      </div>
-                      <div v-if="item?.configuration" class="mt-2 pl-13">
-                        <LineSpecification
-                          :id="`order-item-configuration-${index}`"
-                          :product-name="item.product?.name ?? ''"
-                          :quantity="item.quantity ?? 1"
-                          :configuration="item.configuration"
-                          :unit-price="item.unitPrice"
-                          :total-price="item.totalPrice"
-                        />
-                      </div>
-                    </td>
-                    <td
-                      data-testid="order-item-article-number"
-                      class="text-muted-foreground h-24 px-4 py-2"
-                    >
-                      {{ item?.product?.articleNumber }}
-                    </td>
-                    <td
-                      data-testid="order-item-quantity"
-                      class="h-24 px-4 py-2 text-right"
-                    >
-                      {{ item?.quantity }}
-                    </td>
-                    <td
-                      data-testid="order-item-unit-price"
-                      class="h-24 px-4 py-2 text-right"
-                    >
-                      {{ sideOf(item?.unitPrice) }}
-                    </td>
-                    <td
-                      data-testid="order-item-total-price"
-                      class="h-24 px-4 py-2 text-right font-medium"
-                    >
-                      {{ sideOf(item?.totalPrice) }}
-                    </td>
-                  </tr>
-                </tbody>
-                <tfoot
-                  data-testid="order-items-footer"
-                  class="border-border border-t"
-                >
-                  <tr>
-                    <td
-                      colspan="4"
-                      class="text-muted-foreground px-4 py-3 text-right text-sm"
-                    >
-                      {{
-                        t('portal.orders.detail.summary.subtotal_with_count', {
-                          count: itemCount,
-                        })
-                      }}
-                    </td>
-                    <td class="px-4 py-3 text-right text-sm">
-                      {{ amounts.subtotal }}
-                    </td>
-                  </tr>
-                  <tr v-if="amounts.shipping">
-                    <td
-                      colspan="4"
-                      class="text-muted-foreground px-4 py-3 text-right text-sm"
-                    >
-                      {{ t('portal.orders.detail.summary.shipping') }}
-                    </td>
-                    <td
-                      data-testid="order-items-footer-shipping"
-                      class="px-4 py-3 text-right text-sm"
-                    >
-                      {{ amounts.shipping }}
-                    </td>
-                  </tr>
-                  <tr v-if="amounts.paymentFee">
-                    <td
-                      colspan="4"
-                      class="text-muted-foreground px-4 py-3 text-right text-sm"
-                    >
-                      {{ t('common.payment_fee') }}
-                    </td>
-                    <td
-                      data-testid="order-items-footer-payment-fee"
-                      class="px-4 py-3 text-right text-sm"
-                    >
-                      {{ amounts.paymentFee }}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td
-                      colspan="4"
-                      class="text-muted-foreground px-4 py-3 text-right text-sm"
-                    >
-                      {{ t(showIncVat ? 'common.vat_included' : 'common.vat') }}
-                    </td>
-                    <td class="px-4 py-3 text-right text-sm">
-                      {{ amounts.tax }}
-                    </td>
-                  </tr>
-                  <tr class="border-border border-t">
-                    <td
-                      colspan="4"
-                      class="px-4 py-5 text-right text-sm font-semibold"
-                    >
-                      {{ t('portal.orders.detail.summary.total') }}
-                    </td>
-                    <td
-                      data-testid="order-items-footer-total"
-                      class="px-4 py-5 text-right text-sm font-semibold"
-                    >
-                      {{ amounts.total }}
-                    </td>
-                  </tr>
-                  <tr v-if="amounts.totalIncVat">
-                    <td
-                      colspan="4"
-                      class="text-muted-foreground px-4 pb-5 text-right text-sm"
-                    >
-                      {{ t('common.total_inc_vat') }}
-                    </td>
-                    <td
-                      data-testid="order-items-footer-total-inc-vat"
-                      class="text-muted-foreground px-4 pb-5 text-right text-sm"
-                    >
-                      {{ amounts.totalIncVat }}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+            <OrderItemsTable
+              :items="orderItemRows"
+              :amounts="amounts"
+              :item-count="itemCount"
+            />
           </div>
 
           <!-- Right: Order header + Summary + Addresses -->
@@ -613,68 +267,7 @@ const orderTotals = computed<PortalItemTotal[]>(() => {
             </div>
 
             <!-- Summary Card -->
-            <div data-testid="order-summary" class="bg-muted rounded-lg p-6">
-              <h3 class="mb-4 text-base font-semibold">
-                {{ t('portal.orders.detail.summary.title') }}
-              </h3>
-              <div class="space-y-3.5">
-                <div class="flex justify-between text-sm">
-                  <span class="text-muted-foreground">{{
-                    t('portal.orders.detail.summary.subtotal_with_count', {
-                      count: itemCount,
-                    })
-                  }}</span>
-                  <span data-testid="order-summary-subtotal">{{
-                    amounts.subtotal
-                  }}</span>
-                </div>
-                <div
-                  v-if="amounts.shipping"
-                  class="flex justify-between text-sm"
-                >
-                  <span class="text-muted-foreground">{{
-                    t('portal.orders.detail.summary.shipping')
-                  }}</span>
-                  <span data-testid="order-summary-shipping">{{
-                    amounts.shipping
-                  }}</span>
-                </div>
-                <div
-                  v-if="amounts.paymentFee"
-                  class="flex justify-between text-sm"
-                >
-                  <span class="text-muted-foreground">{{
-                    t('common.payment_fee')
-                  }}</span>
-                  <span data-testid="order-summary-payment-fee">{{
-                    amounts.paymentFee
-                  }}</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                  <span class="text-muted-foreground">{{
-                    t(showIncVat ? 'common.vat_included' : 'common.vat')
-                  }}</span>
-                  <span data-testid="order-summary-tax">{{ amounts.tax }}</span>
-                </div>
-                <div
-                  class="border-border mt-2 flex justify-between border-t pt-4 font-semibold"
-                >
-                  <span>{{ t('portal.orders.detail.summary.total') }}</span>
-                  <span data-testid="order-summary-total">{{
-                    amounts.total
-                  }}</span>
-                </div>
-                <div
-                  v-if="amounts.totalIncVat"
-                  class="text-muted-foreground flex justify-between text-sm"
-                >
-                  <span>{{ t('common.total_inc_vat') }}</span>
-                  <span data-testid="order-summary-total-inc-vat">{{
-                    amounts.totalIncVat
-                  }}</span>
-                </div>
-              </div>
-            </div>
+            <OrderSummaryCard :amounts="amounts" :item-count="itemCount" />
 
             <!-- Mobile: the broken desktop table is replaced by a sheet
                  opened from a "View order rows" trigger below the summary. -->
@@ -688,74 +281,13 @@ const orderTotals = computed<PortalItemTotal[]>(() => {
 
             <!-- Addresses: share one grey container per Figma 25361-102134.
                  Section headers dark not uppercase, company line muted. -->
-            <div
-              v-if="billingAddress || shippingAddress || hasAdditionalInfo"
-              class="bg-muted space-y-4 rounded-lg p-6"
-            >
-              <AddressBlock
-                v-if="billingAddress"
-                bare
-                label-style="header"
-                company-muted
-                data-testid="billing-address"
-                :label="t('portal.orders.detail.billing_address')"
-                :address="billingAddress"
-              />
-              <hr
-                v-if="billingAddress && (shippingAddress || hasAdditionalInfo)"
-                class="border-border"
-              />
-              <AddressBlock
-                v-if="shippingAddress"
-                bare
-                label-style="header"
-                company-muted
-                data-testid="shipping-address"
-                :label="t('portal.orders.detail.shipping_address')"
-                :address="shippingAddress"
-              />
-              <hr
-                v-if="shippingAddress && hasAdditionalInfo"
-                class="border-border"
-              />
-              <div
-                v-if="hasAdditionalInfo"
-                data-testid="order-additional-info"
-                class="space-y-1"
-              >
-                <p class="text-foreground text-sm font-semibold">
-                  {{ t('portal.orders.detail.additional_info.title') }}
-                </p>
-                <p
-                  v-if="order?.customerOrderNumber"
-                  data-testid="additional-your-reference"
-                  class="text-muted-foreground text-sm"
-                >
-                  {{
-                    t('portal.orders.detail.additional_info.your_reference')
-                  }}: {{ order?.customerOrderNumber }}
-                </p>
-                <p
-                  v-if="order?.goodsLabel"
-                  data-testid="additional-goods-label"
-                  class="text-muted-foreground text-sm"
-                >
-                  {{ t('portal.orders.detail.additional_info.goods_label') }}:
-                  {{ order?.goodsLabel }}
-                </p>
-                <p
-                  v-if="deliveryDate"
-                  data-testid="additional-delivery-date"
-                  class="text-muted-foreground text-sm"
-                >
-                  {{
-                    t(
-                      'portal.orders.detail.additional_info.desired_delivery_date',
-                    )
-                  }}: {{ deliveryDate }}
-                </p>
-              </div>
-            </div>
+            <OrderAddresses
+              :billing-address="order?.billingAddress"
+              :shipping-address="order?.shippingAddress"
+              :customer-order-number="order?.customerOrderNumber"
+              :goods-label="order?.goodsLabel"
+              :desired-delivery-date="order?.desiredDeliveryDate"
+            />
 
             <!-- Order message: shown only when the order carries one. Grey
                  box matching the summary and address cards. -->

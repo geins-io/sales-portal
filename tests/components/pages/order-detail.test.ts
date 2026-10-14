@@ -313,6 +313,10 @@ function makeOrder(overrides: Record<string, unknown> = {}) {
 }
 
 const defaultStubs = {
+  // Rendered for real: the page's rows, summary and addresses live in them.
+  OrderItemsTable: false,
+  OrderSummaryCard: false,
+  OrderAddresses: false,
   PortalShell: {
     template: '<div data-testid="portal-shell"><slot /></div>',
   },
