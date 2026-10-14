@@ -361,16 +361,34 @@ describe('GetCheckoutSchema', () => {
 // ---------------------------------------------------------------------------
 
 describe('CheckoutSummarySchema', () => {
-  it('accepts valid input', () => {
-    const result = CheckoutSummarySchema.safeParse({
-      orderId: 'order-001',
-      paymentMethod: 'klarna',
-    });
-    expect(result.success).toBe(true);
-  });
+  it.each(['AVARDA', 'GEINS_PAY', 'KLARNA', 'STANDARD', 'SVEA', 'WALLEY'])(
+    'accepts the Geins payment type %s',
+    (paymentMethod) => {
+      const result = CheckoutSummarySchema.safeParse({
+        orderId: 'order-001',
+        paymentMethod,
+      });
+      expect(result.success).toBe(true);
+    },
+  );
+
+  // Geins rejects anything outside its enum at the GraphQL layer, which used to
+  // come back to the buyer as a 502. Refused here instead, before the call.
+  it.each(['invoice', 'standard', 'klarna', ''])(
+    'rejects %j, which is not a Geins payment type',
+    (paymentMethod) => {
+      const result = CheckoutSummarySchema.safeParse({
+        orderId: 'order-001',
+        paymentMethod,
+      });
+      expect(result.success).toBe(false);
+    },
+  );
 
   it('rejects missing orderId', () => {
-    const result = CheckoutSummarySchema.safeParse({ paymentMethod: 'klarna' });
+    const result = CheckoutSummarySchema.safeParse({
+      paymentMethod: 'KLARNA',
+    });
     expect(result.success).toBe(false);
   });
 
@@ -382,7 +400,7 @@ describe('CheckoutSummarySchema', () => {
   it('rejects empty orderId', () => {
     const result = CheckoutSummarySchema.safeParse({
       orderId: '',
-      paymentMethod: 'klarna',
+      paymentMethod: 'KLARNA',
     });
     expect(result.success).toBe(false);
   });

@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import type { CheckoutSummaryOrderType, AddressType } from '@geins/types';
+import type { AddressType, PriceType } from '@geins/types';
+import type { ConfirmationOrder } from '#shared/types/commerce';
 import { CircleCheck, FileText, ChevronDown, ChevronUp } from 'lucide-vue-next';
 
 const props = defineProps<{
-  summary: CheckoutSummaryOrderType | null;
+  summary: ConfirmationOrder | null;
   isLoading: boolean;
-  paymentMethod?: string;
+  /** How the order was paid, as the buyer reads it. */
+  paymentLabel?: string;
   reference?: string;
   /**
    * Human-friendly numeric order id forwarded from the checkout page in
@@ -25,24 +27,18 @@ const displayOrderNumber = computed(
 );
 
 /**
- * Where "view order in the portal" goes.
+ * Where "view order in the portal" goes: the order's own page.
  *
- * A freshly placed order is not readable for several seconds, so the list this
- * falls back to would otherwise render without it. `awaiting` names the order
- * the buyer is looking for; the list waits for that one rather than leaving
- * them to reload by hand. `publicOrderId` is the same id the confirmation page
- * was handed, so the link carries it whether or not the summary arrived.
+ * A freshly placed order is not readable for several seconds, so the page
+ * could otherwise answer 404. `awaiting` tells it to wait for this order
+ * instead. The list only when there is no order id at all.
  */
 const { localePath } = useLocaleMarket();
 
 const viewOrderLink = computed(() => {
-  if (props.summary?.orderId) {
-    return localePath(`/portal/orders/${props.summary.orderId}`);
-  }
-  const list = localePath('/portal/orders');
-  return props.publicOrderId
-    ? `${list}?awaiting=${encodeURIComponent(props.publicOrderId)}`
-    : list;
+  if (!props.publicOrderId) return localePath('/portal/orders');
+  const id = encodeURIComponent(props.publicOrderId);
+  return `${localePath(`/portal/orders/${id}`)}?awaiting=${id}`;
 });
 
 const { t } = useI18n();
@@ -66,6 +62,40 @@ const subtotalFormatted = computed(
       ? props.summary?.total?.itemValueIncVatFormatted
       : props.summary?.total?.itemValueExVatFormatted) ?? '',
 );
+
+// A fee row only when the order carries the fee; a placed order has no
+// "may apply".
+function feeOnSide(
+  incVat: number | undefined,
+  incVatFormatted: string | undefined,
+  exVat: number | undefined,
+  exVatFormatted: string | undefined,
+): string {
+  const [amount, formatted] = showIncVat.value
+    ? [incVat, incVatFormatted]
+    : [exVat, exVatFormatted];
+  return (amount ?? 0) > 0 ? (formatted ?? '') : '';
+}
+
+const shippingFormatted = computed(() => {
+  const total = props.summary?.total;
+  return feeOnSide(
+    total?.shippingFeeIncVat,
+    total?.shippingFeeIncVatFormatted,
+    total?.shippingFeeExVat,
+    total?.shippingFeeExVatFormatted,
+  );
+});
+
+const paymentFeeFormatted = computed(() => {
+  const total = props.summary?.total;
+  return feeOnSide(
+    total?.paymentFeeIncVat,
+    total?.paymentFeeIncVatFormatted,
+    total?.paymentFeeExVat,
+    total?.paymentFeeExVatFormatted,
+  );
+});
 
 const discountAmount = computed(
   () =>
@@ -124,12 +154,15 @@ const shippingLines = computed(() =>
   formatAddressLines(props.summary?.shippingAddress),
 );
 
-const paymentLabel = computed(() => {
-  const raw = props.paymentMethod;
-  if (!raw) return null;
-  const key = `checkout.payment_types.${raw}`;
-  const localized = t(key);
-  return localized === key ? raw : localized;
+// The order's own VAT when it carries one, so this page and the order detail
+// page show the same number; the hosted summary has none, so it is derived.
+const vatFormatted = computed(() => {
+  const total = props.summary?.total;
+  if (total?.vatFormatted) return total.vatFormatted;
+  if (total?.itemValueIncVat == null || total.itemValueExVat == null) {
+    return '-';
+  }
+  return `${(total.itemValueIncVat - total.itemValueExVat).toLocaleString(formatLocale.value)} ${total.currency ?? ''}`;
 });
 
 type SummaryRowPrice = {
@@ -139,7 +172,21 @@ type SummaryRowPrice = {
   priceExVatFormatted?: string;
 };
 
-function lineUnitPrice(row: { price?: SummaryRowPrice }) {
+type Row = {
+  quantity?: number;
+  price?: SummaryRowPrice;
+  unitPrice?: PriceType;
+  totalPrice?: PriceType;
+};
+
+function sideOf(price: PriceType | undefined): string | undefined {
+  return showIncVat.value
+    ? price?.sellingPriceIncVatFormatted
+    : price?.sellingPriceExVatFormatted;
+}
+
+function lineUnitPrice(row: Row) {
+  if (row.unitPrice) return sideOf(row.unitPrice) ?? '';
   return (
     (showIncVat.value
       ? row.price?.priceIncVatFormatted
@@ -147,7 +194,9 @@ function lineUnitPrice(row: { price?: SummaryRowPrice }) {
   );
 }
 
-function lineTotal(row: { quantity?: number; price?: SummaryRowPrice }) {
+function lineTotal(row: Row) {
+  // A row read from the order carries its own line total.
+  if (row.totalPrice) return sideOf(row.totalPrice) ?? '';
   // CheckoutSummaryPriceType doesn't expose a line total — multiply the
   // unit price by quantity for display. Falls back to the unit string if
   // numeric multiplication isn't possible.
@@ -281,6 +330,23 @@ function lineTotal(row: { quantity?: number; price?: SummaryRowPrice }) {
                 >
                   SKU: {{ row.articleNumber }}
                 </p>
+                <template v-if="row.configuration">
+                  <p
+                    class="text-muted-foreground text-xs"
+                    data-testid="order-item-configured"
+                  >
+                    {{ t('cart.configured_product') }}
+                  </p>
+                  <LineSpecification
+                    :id="`confirmation-row-configuration-${index}`"
+                    class="mt-2"
+                    :product-name="row.product?.name ?? row.name ?? ''"
+                    :quantity="row.quantity ?? 1"
+                    :configuration="row.configuration"
+                    :unit-price="row.unitPrice"
+                    :total-price="row.totalPrice"
+                  />
+                </template>
               </div>
               <div class="shrink-0 text-right">
                 <p class="text-sm font-semibold">{{ lineTotal(row) }}</p>
@@ -352,23 +418,31 @@ function lineTotal(row: { quantity?: number; price?: SummaryRowPrice }) {
                   subtotalFormatted
                 }}</span>
               </div>
+              <div
+                v-if="shippingFormatted"
+                class="flex items-center justify-between text-sm"
+                data-testid="summary-shipping"
+              >
+                <span class="text-muted-foreground">{{
+                  t('order_confirmation.shipping')
+                }}</span>
+                <span>{{ shippingFormatted }}</span>
+              </div>
+              <div
+                v-if="paymentFeeFormatted"
+                class="flex items-center justify-between text-sm"
+                data-testid="summary-payment-fee"
+              >
+                <span class="text-muted-foreground">{{
+                  t('common.payment_fee')
+                }}</span>
+                <span>{{ paymentFeeFormatted }}</span>
+              </div>
               <div class="flex items-center justify-between text-sm">
                 <span class="text-muted-foreground">{{
                   t(showIncVat ? 'common.vat_included' : 'common.vat')
                 }}</span>
-                <span data-testid="summary-vat">
-                  {{
-                    summary.total?.itemValueIncVat != null &&
-                    summary.total?.itemValueExVat != null
-                      ? (
-                          summary.total.itemValueIncVat -
-                          summary.total.itemValueExVat
-                        ).toLocaleString(formatLocale) +
-                        ' ' +
-                        (summary.total.currency ?? '')
-                      : '-'
-                  }}
-                </span>
+                <span data-testid="summary-vat">{{ vatFormatted }}</span>
               </div>
               <div
                 v-if="hasDiscount"

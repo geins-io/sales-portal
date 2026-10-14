@@ -30,6 +30,7 @@
     "vat": "Moms",
     "vat_included": "Heraf moms",
     "to_pay_inc_vat": "At betale inkl. moms",
+    "payment_fee": "Betalingsgebyr",
     "total_inc_vat": "I alt inkl. moms",
     "shipping_may_apply": "Kan tilkomme"
   },
@@ -173,8 +174,7 @@
       "svea": "Svea",
       "walley": "Walley",
       "avarda": "Avarda",
-      "geins_pay": "Geins Pay",
-      "standard": "Standardbetaling"
+      "geins_pay": "Geins Pay"
     },
     "no_shipping_methods": "Ingen leveringsmetoder tilgængelige.",
     "blacklisted": "Din konto er begrænset. Kontakt kundeservice.",

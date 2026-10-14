@@ -20,6 +20,7 @@ definePageMeta({
 
 const { t } = useI18n();
 const route = useRoute();
+const router = useRouter();
 const { localePath } = useLocaleMarket();
 const { formatLocale } = useFormatLocale();
 const cartStore = useCartStore();
@@ -60,6 +61,53 @@ const { data, error, pending } = useFetch<{ order: OrderDetailType }>(
 
 const order = computed(() => data.value?.order);
 
+/**
+ * Arriving from the confirmation page before the platform has the order.
+ *
+ * `?awaiting=<publicId>` is set by that link. With it, a miss is a wait rather
+ * than a 404: the order is polled until readable, bounded, with the existing
+ * spinner on screen. Without it — a typed or bookmarked URL — a miss is the
+ * 404 it always was.
+ */
+const awaiting = computed(() => route.query.awaiting === orderId.value);
+
+/**
+ * `replace`, and the path is unchanged, so this rewrites the address without a
+ * navigation step. Dropped once the order is on screen, so a reload starts no
+ * new wait.
+ */
+async function clearAwaitingParam() {
+  if (!route.query.awaiting) return;
+  const { awaiting: _dropped, ...rest } = route.query;
+  await router.replace({ query: rest });
+}
+
+// Whichever response brought the order, the first one included.
+watch(
+  order,
+  async (current) => {
+    if (!import.meta.client || !current) return;
+    await nextTick();
+    await clearAwaitingParam();
+  },
+  { immediate: true },
+);
+
+useAwaitedOrder<{ order: OrderDetailType }>({
+  url: () => (awaiting.value ? `/api/orders/${orderId.value}` : null),
+  settled: () => !pending.value,
+  hasOrder: () => !!order.value,
+  onOrder: (fresh) => {
+    data.value = fresh;
+  },
+  onGiveUp: async () => {
+    // Dropped first: a client navigation clears a shown error, so dropping it
+    // afterwards would take the 404 away again.
+    await clearAwaitingParam();
+    showNotFound();
+  },
+});
+
 const itemCount = computed(() => order.value?.cart?.items?.length ?? 0);
 
 // Every amount is the side of the buyer's VAT choice; VAT itself is one number.
@@ -86,14 +134,43 @@ function incOf(price: Side | undefined): string | undefined {
     : undefined;
 }
 
+// A fee row only when the order carries the fee; a placed order has no
+// "may apply".
+function feeOf(
+  amount: number | null | undefined,
+  formatted: string | null | undefined,
+): string | undefined {
+  return (amount ?? 0) > 0 ? formatted || undefined : undefined;
+}
+
 const amounts = computed(() => {
   const summary = order.value?.cart?.summary;
+  const shipping = summary?.shipping;
+  const shippingFee = order.value?.shippingFee;
+  const paymentFee = order.value?.paymentFee;
   return {
     subtotal: sideOf(summary?.subTotal),
-    shipping:
-      (showIncVat.value
-        ? summary?.shipping?.feeIncVatFormatted
-        : summary?.shipping?.feeExVatFormatted) ?? undefined,
+    // The cart summary's fee, the order's own for whatever that lacks.
+    shipping: showIncVat.value
+      ? feeOf(
+          shipping?.feeIncVat ?? shippingFee?.sellingPriceIncVat,
+          shipping?.feeIncVatFormatted ??
+            shippingFee?.sellingPriceIncVatFormatted,
+        )
+      : feeOf(
+          shipping?.feeExVat ?? shippingFee?.sellingPriceExVat,
+          shipping?.feeExVatFormatted ??
+            shippingFee?.sellingPriceExVatFormatted,
+        ),
+    paymentFee: showIncVat.value
+      ? feeOf(
+          paymentFee?.sellingPriceIncVat,
+          paymentFee?.sellingPriceIncVatFormatted,
+        )
+      : feeOf(
+          paymentFee?.sellingPriceExVat,
+          paymentFee?.sellingPriceExVatFormatted,
+        ),
     tax:
       summary?.total?.vatFormatted ??
       order.value?.vat?.sellingPriceIncVatFormatted ??
@@ -140,22 +217,25 @@ useHead({
 
 // Handle 404 when order not found
 const errorShown = ref(false);
+
+function showNotFound() {
+  if (errorShown.value) return;
+  errorShown.value = true;
+  showError(
+    createError({
+      statusCode: 404,
+      statusMessage: 'Order not found',
+    }),
+  );
+}
+
 watch(
   [pending, error, data],
   () => {
-    if (
-      !errorShown.value &&
-      !pending.value &&
-      (error.value || !data.value?.order)
-    ) {
-      errorShown.value = true;
-      showError(
-        createError({
-          statusCode: 404,
-          statusMessage: 'Order not found',
-        }),
-      );
-    }
+    if (awaiting.value) return;
+    // On the order, not on `error`: an order the wait brought in leaves the
+    // first response's 404 behind.
+    if (!pending.value && !data.value?.order) showNotFound();
   },
   { immediate: true },
 );
@@ -235,10 +315,17 @@ const orderTotals = computed<PortalItemTotal[]>(() => {
       }),
       value: amounts.value.subtotal,
     },
-    {
-      label: t('portal.orders.detail.summary.shipping'),
-      value: amounts.value.shipping,
-    },
+    ...(amounts.value.shipping
+      ? [
+          {
+            label: t('portal.orders.detail.summary.shipping'),
+            value: amounts.value.shipping,
+          },
+        ]
+      : []),
+    ...(amounts.value.paymentFee
+      ? [{ label: t('common.payment_fee'), value: amounts.value.paymentFee }]
+      : []),
     {
       label: t(showIncVat.value ? 'common.vat_included' : 'common.vat'),
       value: amounts.value.tax,
@@ -263,7 +350,7 @@ const orderTotals = computed<PortalItemTotal[]>(() => {
   <PortalShell>
     <!-- Loading -->
     <div
-      v-if="pending"
+      v-if="pending || (awaiting && !order)"
       data-testid="order-loading"
       class="flex items-center justify-center py-16"
     >
@@ -428,15 +515,32 @@ const orderTotals = computed<PortalItemTotal[]>(() => {
                       {{ amounts.subtotal }}
                     </td>
                   </tr>
-                  <tr>
+                  <tr v-if="amounts.shipping">
                     <td
                       colspan="4"
                       class="text-muted-foreground px-4 py-3 text-right text-sm"
                     >
                       {{ t('portal.orders.detail.summary.shipping') }}
                     </td>
-                    <td class="px-4 py-3 text-right text-sm">
+                    <td
+                      data-testid="order-items-footer-shipping"
+                      class="px-4 py-3 text-right text-sm"
+                    >
                       {{ amounts.shipping }}
+                    </td>
+                  </tr>
+                  <tr v-if="amounts.paymentFee">
+                    <td
+                      colspan="4"
+                      class="text-muted-foreground px-4 py-3 text-right text-sm"
+                    >
+                      {{ t('common.payment_fee') }}
+                    </td>
+                    <td
+                      data-testid="order-items-footer-payment-fee"
+                      class="px-4 py-3 text-right text-sm"
+                    >
+                      {{ amounts.paymentFee }}
                     </td>
                   </tr>
                   <tr>
@@ -524,12 +628,26 @@ const orderTotals = computed<PortalItemTotal[]>(() => {
                     amounts.subtotal
                   }}</span>
                 </div>
-                <div class="flex justify-between text-sm">
+                <div
+                  v-if="amounts.shipping"
+                  class="flex justify-between text-sm"
+                >
                   <span class="text-muted-foreground">{{
                     t('portal.orders.detail.summary.shipping')
                   }}</span>
                   <span data-testid="order-summary-shipping">{{
                     amounts.shipping
+                  }}</span>
+                </div>
+                <div
+                  v-if="amounts.paymentFee"
+                  class="flex justify-between text-sm"
+                >
+                  <span class="text-muted-foreground">{{
+                    t('common.payment_fee')
+                  }}</span>
+                  <span data-testid="order-summary-payment-fee">{{
+                    amounts.paymentFee
                   }}</span>
                 </div>
                 <div class="flex justify-between text-sm">

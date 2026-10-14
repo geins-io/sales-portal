@@ -1,6 +1,9 @@
 import type {
   BrandType,
   CartItemType as SdkCartItemType,
+  CheckoutSummaryOrderRowType,
+  CheckoutSummaryOrderTotalType,
+  CheckoutSummaryOrderType,
   CartType as SdkCartType,
   OrderSummaryType,
   PriceType,
@@ -451,6 +454,26 @@ export type OrderDetailItem = Omit<
 
 export type OrderDetailType = Omit<OrderSummaryType, 'cart'> & {
   cart?: Omit<SdkCartType, 'items'> & { items: OrderDetailItem[] };
+};
+
+// ---------------------------------------------------------------------------
+// Order confirmation (the checkout summary's shape, which an order fills too)
+// ---------------------------------------------------------------------------
+
+/** A summary row; one read from an order also carries its own prices and configuration. */
+export type ConfirmationRow = CheckoutSummaryOrderRowType & {
+  unitPrice?: PriceType;
+  totalPrice?: PriceType;
+  configuration?: LineConfigurationSummary;
+};
+
+export type ConfirmationOrder = Omit<
+  CheckoutSummaryOrderType,
+  'rows' | 'total'
+> & {
+  rows?: ConfirmationRow[];
+  /** `vatFormatted` is the order's own VAT; the summary has none. */
+  total?: CheckoutSummaryOrderTotalType & { vatFormatted?: string };
 };
 
 // ---------------------------------------------------------------------------

@@ -30,6 +30,7 @@
     "vat": "Mva.",
     "vat_included": "Herav mva.",
     "to_pay_inc_vat": "Å betale inkl. mva.",
+    "payment_fee": "Betalingsgebyr",
     "total_inc_vat": "Totalt inkl. mva.",
     "shipping_may_apply": "Kan tilkomme"
   },
@@ -173,8 +174,7 @@
       "svea": "Svea",
       "walley": "Walley",
       "avarda": "Avarda",
-      "geins_pay": "Geins Pay",
-      "standard": "Standardbetaling"
+      "geins_pay": "Geins Pay"
     },
     "no_shipping_methods": "Ingen leveringsmåter tilgjengelig.",
     "blacklisted": "Kontoen din er begrenset. Kontakt kundeservice.",

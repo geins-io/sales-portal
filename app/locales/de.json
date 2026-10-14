@@ -30,6 +30,7 @@
     "vat": "MwSt.",
     "vat_included": "Davon MwSt.",
     "to_pay_inc_vat": "Zu zahlen inkl. MwSt.",
+    "payment_fee": "Zahlungsgebühr",
     "total_inc_vat": "Gesamt inkl. MwSt.",
     "shipping_may_apply": "Kann anfallen"
   },
@@ -173,8 +174,7 @@
       "svea": "Svea",
       "walley": "Walley",
       "avarda": "Avarda",
-      "geins_pay": "Geins Pay",
-      "standard": "Standardzahlung"
+      "geins_pay": "Geins Pay"
     },
     "no_shipping_methods": "Keine Versandarten verfügbar.",
     "blacklisted": "Ihr Konto wurde gesperrt. Bitte wenden Sie sich an den Support.",

@@ -2,6 +2,7 @@
 import type { FunctionalComponent } from 'vue';
 import { Receipt } from 'lucide-vue-next';
 import type { PaymentOptionType } from '#shared/types/commerce';
+import { paymentTypeLabelKey } from '~/utils/payment-type';
 
 const { t } = useI18n();
 const { showIncVat } = useVatDisplay();
@@ -24,30 +25,17 @@ function fee(option: PaymentOptionType): number {
   return showIncVat.value ? option.feeIncVat : option.feeExVat;
 }
 
-// Map the Geins paymentType enum to a localized fallback label. Used when
-// the merchant has not configured a displayName or name on the option in
-// Geins admin, which would otherwise leak the section title through the
-// generic fallback. Anything not in the map (or missing entirely) defaults
-// to "Invoice" / "Faktura" because invoice is the standard B2B option.
-const PAYMENT_TYPE_LABELS: Record<string, string> = {
-  // STANDARD is the B2B invoice option for this tenant. Label as "Faktura"
-  // (Invoice) rather than the generic "Standardbetalning" so the radio
-  // surfaces a meaningful payment type when the admin omits displayName.
-  STANDARD: 'checkout.payment_types.invoice',
-  KLARNA: 'checkout.payment_types.klarna',
-  SVEA: 'checkout.payment_types.svea',
-  WALLEY: 'checkout.payment_types.walley',
-  AVARDA: 'checkout.payment_types.avarda',
-  GEINS_PAY: 'checkout.payment_types.geins_pay',
-};
-
+// Used when the merchant has not configured a displayName or name on the
+// option in Geins admin, which would otherwise leak the section title through
+// the generic fallback. Anything without a label (or missing entirely)
+// defaults to "Invoice" / "Faktura" because invoice is the standard B2B option.
 function paymentLabel(option: PaymentOptionType): string {
   if (option.displayName && option.displayName.trim())
     return option.displayName;
   if (option.name && option.name.trim()) return option.name;
-  const key =
-    option.paymentType && PAYMENT_TYPE_LABELS[option.paymentType as string];
-  return t(key ?? 'checkout.payment_types.invoice');
+  return t(
+    paymentTypeLabelKey(option.paymentType) ?? 'checkout.payment_types.invoice',
+  );
 }
 
 // Icon shown next to each payment option label. Invoice/STANDARD gets a

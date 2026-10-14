@@ -30,6 +30,7 @@
     "vat": "Moms",
     "vat_included": "Varav moms",
     "to_pay_inc_vat": "Att betala inkl. moms",
+    "payment_fee": "Betalningsavgift",
     "total_inc_vat": "Totalt inkl. moms",
     "shipping_may_apply": "Kan tillkomma"
   },
@@ -173,8 +174,7 @@
       "svea": "Svea",
       "walley": "Walley",
       "avarda": "Avarda",
-      "geins_pay": "Geins Pay",
-      "standard": "Standardbetalning"
+      "geins_pay": "Geins Pay"
     },
     "no_shipping_methods": "Inga leveransmetoder tillgängliga.",
     "blacklisted": "Ditt konto har begränsats. Kontakta support.",

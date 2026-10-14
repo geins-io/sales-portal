@@ -243,10 +243,10 @@ describe('OrderConfirmation', () => {
     expect(discount.text()).toContain('$20.00');
   });
 
-  it('renders payment method label when paymentMethod prop is set', () => {
-    const wrapper = mountConfirmation({ paymentMethod: 'invoice' });
+  it('renders the payment label it is given, as it is', () => {
+    const wrapper = mountConfirmation({ paymentLabel: 'Faktura 30 dagar' });
     const label = wrapper.find('[data-testid="payment-label"]');
-    expect(label.exists()).toBe(true);
+    expect(label.text()).toBe('Faktura 30 dagar');
   });
 
   it('omits payment method block when prop is missing', () => {
@@ -261,11 +261,29 @@ describe('OrderConfirmation', () => {
     expect(wrapper.text()).toContain('REF-8842-X');
   });
 
-  it('renders full-width view-order CTA pointing to /portal/orders/<orderId>', () => {
-    const wrapper = mountConfirmation();
-    const cta = wrapper.find('[data-testid="view-order-cta"]');
-    expect(cta.exists()).toBe(true);
-    expect(cta.attributes('href')).toBe('/se/en/portal/orders/ORD-215');
+  describe('view order', () => {
+    const PUBLIC_ID = '8dd16643-aaaa-bbbb-cccc-000000000000';
+    const ORDER_PAGE = `/se/en/portal/orders/${PUBLIC_ID}?awaiting=${PUBLIC_ID}`;
+
+    it("goes to the order's own page, waiting for it, once the order is shown", () => {
+      const cta = mountConfirmation({ publicOrderId: PUBLIC_ID }).find(
+        '[data-testid="view-order-cta"]',
+      );
+      expect(cta.attributes('href')).toBe(ORDER_PAGE);
+    });
+
+    it("goes to the order's own page before the order is readable too", () => {
+      const cta = mountConfirmation({
+        summary: null,
+        publicOrderId: PUBLIC_ID,
+      }).find('[data-testid="view-order-cta"]');
+      expect(cta.attributes('href')).toBe(ORDER_PAGE);
+    });
+
+    it('goes to the order list when there is no order id at all', () => {
+      const cta = mountConfirmation().find('[data-testid="view-order-cta"]');
+      expect(cta.attributes('href')).toBe('/se/en/portal/orders');
+    });
   });
 
   it('renders back-to-store link below the card', () => {
@@ -295,6 +313,172 @@ describe('OrderConfirmation', () => {
     expect(wrapper.find('[data-testid="back-to-store"]').exists()).toBe(true);
     // Never display the legacy "Order not found" error text.
     expect(wrapper.text()).not.toContain('order_confirmation.order_not_found');
+  });
+
+  describe('a row from the order', () => {
+    const orderRow = {
+      quantity: 2,
+      articleNumber: 'ART-010',
+      name: 'Cabinet',
+      product: { name: 'Cabinet' },
+      price: {
+        priceIncVat: 125,
+        priceIncVatFormatted: '125,00 kr',
+        priceExVat: 100,
+        priceExVatFormatted: '100,00 kr',
+      },
+      unitPrice: {
+        sellingPriceIncVat: 125,
+        sellingPriceIncVatFormatted: '125,00 kr',
+        sellingPriceExVat: 100,
+        sellingPriceExVatFormatted: '100,00 kr',
+      },
+      totalPrice: {
+        sellingPriceIncVat: 250,
+        sellingPriceIncVatFormatted: '250,00 kr',
+        sellingPriceExVat: 200,
+        sellingPriceExVatFormatted: '200,00 kr',
+      },
+    };
+
+    function mountWithRow(row: Record<string, unknown>) {
+      return mountComponent(OrderConfirmation, {
+        props: {
+          summary: { ...mockSummary, rows: [row] },
+          isLoading: false,
+        },
+        global: {
+          stubs: {
+            LineSpecification: {
+              props: ['id', 'productName', 'quantity', 'configuration'],
+              template:
+                '<div data-testid="line-specification" :data-id="id">{{ productName }} x{{ quantity }}</div>',
+            },
+          },
+        },
+      });
+    }
+
+    it.each([
+      [true, '250,00 kr', '2 × 125,00 kr'],
+      [false, '200,00 kr', '2 × 100,00 kr'],
+    ])(
+      'shows its own formatted line total (incl. VAT: %s)',
+      (incVat, total, perUnit) => {
+        mockShowIncVat.value = incVat;
+        const row = mountWithRow(orderRow).find(
+          '[data-testid="items-list"] li',
+        );
+
+        expect(row.text()).toContain(total);
+        expect(row.text()).toContain(perUnit);
+        expect(row.text()).not.toContain('SEK');
+      },
+    );
+
+    it('shows a configured row as configured, with its specification', () => {
+      const row = mountWithRow({
+        ...orderRow,
+        configuration: { summary: [{ label: 'Colour', value: 'Red' }] },
+      }).find('[data-testid="items-list"] li');
+
+      expect(row.find('[data-testid="order-item-configured"]').text()).toBe(
+        'cart.configured_product',
+      );
+      expect(row.find('[data-testid="line-specification"]').text()).toBe(
+        'Cabinet x2',
+      );
+    });
+
+    it('shows a plain row without a specification', () => {
+      const row = mountWithRow(orderRow).find('[data-testid="items-list"] li');
+
+      expect(row.find('[data-testid="order-item-configured"]').exists()).toBe(
+        false,
+      );
+      expect(row.find('[data-testid="line-specification"]').exists()).toBe(
+        false,
+      );
+    });
+  });
+
+  describe('fees', () => {
+    const fees = {
+      shippingFeeIncVat: 62.5,
+      shippingFeeIncVatFormatted: '62,50 kr',
+      shippingFeeExVat: 50,
+      shippingFeeExVatFormatted: '50,00 kr',
+      paymentFeeIncVat: 25,
+      paymentFeeIncVatFormatted: '25,00 kr',
+      paymentFeeExVat: 20,
+      paymentFeeExVatFormatted: '20,00 kr',
+    };
+
+    function mountWithTotal(total: Record<string, unknown>) {
+      return mountConfirmation({
+        summary: { ...mockSummary, total: { ...mockSummary.total, ...total } },
+      });
+    }
+
+    it.each([
+      [true, '62,50 kr', '25,00 kr'],
+      [false, '50,00 kr', '20,00 kr'],
+    ])(
+      'shows shipping and the payment fee on the chosen side (incl. VAT: %s)',
+      (incVat, shipping, payment) => {
+        mockShowIncVat.value = incVat;
+        const wrapper = mountWithTotal(fees);
+
+        expect(
+          wrapper.find('[data-testid="summary-shipping"]').text(),
+        ).toContain(shipping);
+        expect(
+          wrapper.find('[data-testid="summary-payment-fee"]').text(),
+        ).toContain(payment);
+      },
+    );
+
+    it.each([
+      [
+        'zero',
+        {
+          shippingFeeIncVat: 0,
+          shippingFeeExVat: 0,
+          paymentFeeIncVat: 0,
+          paymentFeeExVat: 0,
+        },
+      ],
+      [
+        'absent',
+        {
+          shippingFeeIncVat: undefined,
+          shippingFeeIncVatFormatted: undefined,
+          shippingFeeExVat: undefined,
+          shippingFeeExVatFormatted: undefined,
+        },
+      ],
+    ])('shows no fee rows when the fees are %s', (_, total) => {
+      const wrapper = mountWithTotal(total);
+
+      expect(wrapper.find('[data-testid="summary-shipping"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.find('[data-testid="summary-payment-fee"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.text()).not.toContain('common.shipping_may_apply');
+    });
+  });
+
+  it("shows the order's own VAT when it carries one", () => {
+    const wrapper = mountConfirmation({
+      summary: {
+        ...mockSummary,
+        total: { ...mockSummary.total, vatFormatted: '58,00 kr' },
+      },
+    });
+
+    expect(wrapper.find('[data-testid="summary-vat"]').text()).toBe('58,00 kr');
   });
 
   describe('follows the VAT choice', () => {

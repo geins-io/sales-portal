@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { GeinsPaymentType } from '@geins/types';
 import type {
   ConfigurationChange,
   CreateConfigurationInput,
@@ -309,7 +310,9 @@ export type ValidateOrderInput = z.infer<typeof ValidateOrderSchema>;
 
 export const CheckoutSummarySchema = z.object({
   orderId: z.string().min(1),
-  paymentMethod: z.string().min(1),
+  // Sent to Geins as its `PaymentType`, which rejects anything else at the
+  // GraphQL layer; refused here as a 400 instead of forwarded as a 502.
+  paymentMethod: z.enum(GeinsPaymentType),
 });
 export type CheckoutSummaryInput = z.infer<typeof CheckoutSummarySchema>;
 

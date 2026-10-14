@@ -409,13 +409,13 @@ describe('Checkout API routes', () => {
       mockGetSummary.mockResolvedValue(summaryData);
 
       const event = mockEvent({
-        query: { orderId: '123', paymentMethod: 'card' },
+        query: { orderId: '123', paymentMethod: 'STANDARD' },
       });
       const result = await handler(event);
 
       expect(mockOptionalAuth).toHaveBeenCalledWith(event);
       expect(mockGetSummary).toHaveBeenCalledWith(
-        { orderId: '123', paymentMethod: 'card' },
+        { orderId: '123', paymentMethod: 'STANDARD' },
         event,
       );
       expect(result).toEqual(summaryData);
@@ -426,7 +426,7 @@ describe('Checkout API routes', () => {
       mockGetSummary.mockResolvedValue({ order: { orderId: '123' } });
 
       const event = mockEvent({
-        query: { orderId: '123', paymentMethod: 'card' },
+        query: { orderId: '123', paymentMethod: 'STANDARD' },
       });
       await handler(event);
 
@@ -434,11 +434,20 @@ describe('Checkout API routes', () => {
       expect(mockRequireAuth).not.toHaveBeenCalled();
     });
 
+    it('refuses a value Geins does not know as a payment type, without calling it', async () => {
+      const event = mockEvent({
+        query: { orderId: '123', paymentMethod: 'invoice' },
+      });
+
+      await expect(handler(event)).rejects.toThrow();
+      expect(mockGetSummary).not.toHaveBeenCalled();
+    });
+
     it('throws NOT_FOUND when summary is undefined', async () => {
       mockGetSummary.mockResolvedValue(undefined);
 
       const event = mockEvent({
-        query: { orderId: '123', paymentMethod: 'card' },
+        query: { orderId: '123', paymentMethod: 'STANDARD' },
       });
       await expect(handler(event)).rejects.toMatchObject({
         statusCode: 404,

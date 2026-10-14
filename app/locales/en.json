@@ -30,6 +30,7 @@
     "vat": "VAT",
     "vat_included": "Includes VAT",
     "to_pay_inc_vat": "To pay incl. VAT",
+    "payment_fee": "Payment fee",
     "total_inc_vat": "Total incl. VAT",
     "shipping_may_apply": "May apply"
   },
@@ -173,8 +174,7 @@
       "svea": "Svea",
       "walley": "Walley",
       "avarda": "Avarda",
-      "geins_pay": "Geins Pay",
-      "standard": "Standard payment"
+      "geins_pay": "Geins Pay"
     },
     "no_shipping_methods": "No shipping methods available.",
     "blacklisted": "Your account has been restricted. Please contact support.",
