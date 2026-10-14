@@ -37,6 +37,7 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 - **Managed Hosting**: Infrastructure-as-code approach for consistent deployments
 - **Type-Safe**: Full TypeScript support throughout the codebase
 - **Modern UI**: Built on shadcn-vue + Tailwind CSS 4 design system
+- **Product configurator**: Configurable products are built by the buyer before they are bought — see [How the configurator behaves](/configurator-behaviour) and the [technical reference](/configurator)
 
 ---
 

@@ -53,6 +53,13 @@ export default withMermaid(
           ],
         },
         {
+          text: 'Configurator',
+          items: [
+            { text: 'How it behaves', link: '/configurator-behaviour' },
+            { text: 'Technical reference', link: '/configurator' },
+          ],
+        },
+        {
           text: 'Development',
           items: [
             { text: 'Testing', link: '/testing' },
