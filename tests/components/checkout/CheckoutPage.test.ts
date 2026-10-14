@@ -88,6 +88,8 @@ const mockPaymentOptions: PaymentOptionType[] = [
     displayName: 'Card',
     feeIncVat: 15,
     feeExVat: 12,
+    feeIncVatFormatted: '15,00 kr',
+    feeExVatFormatted: '12,00 kr',
     isDefault: false,
     isSelected: false,
   },
@@ -427,24 +429,60 @@ describe('CheckoutPaymentOptions', () => {
     mockShowIncVat.value = true;
   });
 
-  function cardFee(): string {
+  function optionText(
+    options: PaymentOptionType[] = mockPaymentOptions,
+    id = 2,
+  ): string {
     const wrapper = mountComponent(CheckoutPaymentOptions, {
-      props: { options: mockPaymentOptions, modelValue: null, disabled: false },
+      props: { options, modelValue: null, disabled: false },
       global: { stubs },
     });
-    return wrapper.find('[data-testid="payment-option-2"]').text();
+    return wrapper.find(`[data-testid="payment-option-${id}"]`).text();
   }
 
-  it('shows the fee inc VAT when inc is chosen', () => {
+  it('shows the formatted fee inc VAT when inc is chosen', () => {
     mockShowIncVat.value = true;
-    expect(cardFee()).toContain('+15');
+    expect(optionText()).toContain('+15,00 kr');
   });
 
-  it('shows the fee ex VAT when ex is chosen', () => {
+  it('shows the formatted fee ex VAT when ex is chosen', () => {
     mockShowIncVat.value = false;
-    const text = cardFee();
-    expect(text).toContain('+12');
+    const text = optionText();
+    expect(text).toContain('+12,00 kr');
     expect(text).not.toContain('15');
+  });
+
+  it.each([true, false])(
+    'shows no fee for an option without one (incl. VAT chosen: %s)',
+    (incVat) => {
+      mockShowIncVat.value = incVat;
+      expect(optionText(mockPaymentOptions, 1)).not.toContain('+');
+    },
+  );
+
+  it.each([true, false])(
+    'shows nothing when the formatted fee is empty (incl. VAT chosen: %s)',
+    (incVat) => {
+      mockShowIncVat.value = incVat;
+      const card = {
+        ...mockPaymentOptions[1]!,
+        feeIncVatFormatted: '',
+        feeExVatFormatted: '',
+      };
+      expect(optionText([card])).not.toContain('+');
+    },
+  );
+
+  it('decides on the chosen side only (ex chosen)', () => {
+    mockShowIncVat.value = false;
+    const card = { ...mockPaymentOptions[1]!, feeExVat: 0 };
+    expect(optionText([card])).not.toContain('+');
+  });
+
+  it('decides on the chosen side only (inc chosen)', () => {
+    mockShowIncVat.value = true;
+    const card = { ...mockPaymentOptions[1]!, feeIncVat: 0 };
+    expect(optionText([card])).not.toContain('+');
   });
 
   it('renders all payment options as radio buttons', () => {

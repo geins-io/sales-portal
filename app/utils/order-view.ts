@@ -1,5 +1,6 @@
 import { formatPrice, type OrderDetailType } from '#shared/types/commerce';
 import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
+import { feeOf } from '~/utils/fee';
 
 /** An order's summary amounts, formatted, on one side of the VAT choice. */
 export interface OrderAmounts {
@@ -37,15 +38,6 @@ function incOf(price: Side | undefined): string | undefined {
     : undefined;
 }
 
-// A fee row only when the order carries the fee; a placed order has no
-// "may apply".
-function feeOf(
-  amount: number | null | undefined,
-  formatted: string | null | undefined,
-): string | undefined {
-  return (amount ?? 0) > 0 ? formatted || undefined : undefined;
-}
-
 /** Every amount the order page and the confirmation show, from the order. */
 export function orderAmounts(
   order: OrderDetailType | null | undefined,
@@ -64,7 +56,8 @@ export function orderAmounts(
       : summary?.fixedAmountDiscountExVat) ?? 0;
   return {
     subtotal: sideOf(summary?.subTotal, incVat),
-    // The cart summary's fee, the order's own for whatever that lacks.
+    // The cart summary's fee, the order's own for whatever that lacks. No fee
+    // means no row: a placed order has no "may apply".
     shipping: incVat
       ? feeOf(
           shipping?.feeIncVat ?? shippingFee?.sellingPriceIncVat,

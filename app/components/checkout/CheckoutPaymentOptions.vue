@@ -3,6 +3,7 @@ import type { FunctionalComponent } from 'vue';
 import { Receipt } from 'lucide-vue-next';
 import type { PaymentOptionType } from '#shared/types/commerce';
 import { paymentTypeLabelKey } from '~/utils/payment-type';
+import { feeOf } from '~/utils/fee';
 
 const { t } = useI18n();
 const { showIncVat } = useVatDisplay();
@@ -21,8 +22,10 @@ function selectOption(id: number) {
   emit('update:modelValue', id);
 }
 
-function fee(option: PaymentOptionType): number {
-  return showIncVat.value ? option.feeIncVat : option.feeExVat;
+function feeFormatted(option: PaymentOptionType): string | undefined {
+  return showIncVat.value
+    ? feeOf(option.feeIncVat, option.feeIncVatFormatted)
+    : feeOf(option.feeExVat, option.feeExVatFormatted);
 }
 
 // Used when the merchant has not configured a displayName or name on the
@@ -86,8 +89,11 @@ function paymentIcon(option: PaymentOptionType): FunctionalComponent {
             />
             {{ paymentLabel(option) }}
           </span>
-          <span v-if="fee(option) > 0" class="text-muted-foreground text-xs">
-            +{{ fee(option) }}
+          <span
+            v-if="feeFormatted(option)"
+            class="text-muted-foreground text-xs"
+          >
+            +{{ feeFormatted(option) }}
           </span>
         </div>
       </label>
