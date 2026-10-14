@@ -416,7 +416,7 @@ describe('LayoutHeaderNav', () => {
       const wrapper = shallowMountComponent(LayoutHeaderNav, mountOptions);
       const classes = scrollContainer(wrapper).classes();
       expect(classes).toContain('px-[3px]');
-      expect(classes).toContain('-mx-[3px]');
+      expect(classes).toContain('mx-[-3px]');
     });
 
     it('lets the scroll container shrink below its content width', () => {

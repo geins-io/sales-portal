@@ -233,7 +233,7 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
             the negative margin keeps the items where they were.
           -->
           <NavigationMenuList
-            class="scrollbar-none -mx-[3px] justify-start gap-2 overflow-x-auto overflow-y-hidden px-[3px] py-[3px]"
+            class="scrollbar-none mx-[-3px] justify-start gap-2 overflow-x-auto overflow-y-hidden px-[3px] py-[3px]"
           >
             <NavigationMenuItem
               v-for="item in visibleItems"
