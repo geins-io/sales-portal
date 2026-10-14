@@ -561,6 +561,10 @@ test('a placed order carries the cart it was built from all the way to the porta
     page.locator('[data-testid="confirmation-order"]'),
     `the confirmation did not show the order within ${SELF_ARRIVAL_MS / 1000}s. ${ours}`,
   ).toBeVisible({ timeout: SELF_ARRIVAL_MS });
+  await expect(
+    page.locator('[data-testid="confirmation-order-loading"]'),
+    'the waiting indicator stayed after the order rendered',
+  ).toHaveCount(0);
   expect(
     summaryRequests,
     'the in-app confirmation asked for the checkout summary',

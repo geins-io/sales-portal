@@ -32,7 +32,8 @@
     "to_pay_inc_vat": "To pay incl. VAT",
     "payment_fee": "Payment fee",
     "total_inc_vat": "Total incl. VAT",
-    "shipping_may_apply": "May apply"
+    "shipping_may_apply": "May apply",
+    "fetching_order": "Fetching your order…"
   },
   "auth": {
     "already_have_account": "Already have an account?",
@@ -232,7 +233,8 @@
     "back_to_store": "Back to store",
     "continue_shopping": "Continue Shopping",
     "view_orders": "View My Orders",
-    "order_not_found": "Order not found."
+    "order_not_found": "Order not found.",
+    "order_slow": "Fetching the order is taking longer than usual. It will appear in the Customer portal shortly."
   },
   "product": {
     "details": "Product details",
@@ -675,7 +677,8 @@
         "order_message": "Order message",
         "order_date": "Order date",
         "order_status": "Status",
-        "payment_method": "Payment method"
+        "payment_method": "Payment method",
+        "order_slow": "The order has not appeared yet. If you just placed it, it will appear under Orders shortly."
       }
     },
     "account": {

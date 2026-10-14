@@ -32,7 +32,8 @@
     "to_pay_inc_vat": "Å betale inkl. mva.",
     "payment_fee": "Betalingsgebyr",
     "total_inc_vat": "Totalt inkl. mva.",
-    "shipping_may_apply": "Kan tilkomme"
+    "shipping_may_apply": "Kan tilkomme",
+    "fetching_order": "Henter ordren din…"
   },
   "auth": {
     "already_have_account": "Har du allerede en konto?",
@@ -232,7 +233,8 @@
     "back_to_store": "Tilbake til butikken",
     "continue_shopping": "Fortsett å handle",
     "view_orders": "Vis mine ordrer",
-    "order_not_found": "Ordren ble ikke funnet."
+    "order_not_found": "Ordren ble ikke funnet.",
+    "order_slow": "Det tar lengre tid enn vanlig å hente ordren. Den vises i kundeportalen om kort tid."
   },
   "product": {
     "details": "Produktdetaljer",
@@ -675,7 +677,8 @@
         "order_message": "Ordremelding",
         "order_date": "Ordredato",
         "order_status": "Status",
-        "payment_method": "Betalingsmåte"
+        "payment_method": "Betalingsmåte",
+        "order_slow": "Ordren har ikke dukket opp ennå. Hvis du nettopp la den inn, vises den under Ordrer om kort tid."
       }
     },
     "account": {

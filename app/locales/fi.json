@@ -32,7 +32,8 @@
     "to_pay_inc_vat": "Maksettava sis. ALV",
     "payment_fee": "Maksukulu",
     "total_inc_vat": "Yhteensä sis. ALV",
-    "shipping_may_apply": "Voi tulla lisäksi"
+    "shipping_may_apply": "Voi tulla lisäksi",
+    "fetching_order": "Haetaan tilaustasi…"
   },
   "auth": {
     "already_have_account": "Onko sinulla jo tili?",
@@ -232,7 +233,8 @@
     "back_to_store": "Takaisin kauppaan",
     "continue_shopping": "Jatka ostoksia",
     "view_orders": "Näytä tilaukseni",
-    "order_not_found": "Tilausta ei löytynyt."
+    "order_not_found": "Tilausta ei löytynyt.",
+    "order_slow": "Tilauksen hakeminen kestää tavallista kauemmin. Se näkyy pian asiakasportaalissa."
   },
   "product": {
     "details": "Tuotetiedot",
@@ -675,7 +677,8 @@
         "order_message": "Tilausviesti",
         "order_date": "Tilauspäivä",
         "order_status": "Tila",
-        "payment_method": "Maksutapa"
+        "payment_method": "Maksutapa",
+        "order_slow": "Tilaus ei ole vielä näkyvissä. Jos teit sen juuri, se näkyy pian kohdassa Tilaukset."
       }
     },
     "account": {

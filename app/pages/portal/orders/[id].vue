@@ -98,6 +98,8 @@ watch(
   { immediate: true },
 );
 
+const gaveUp = ref(false);
+
 useAwaitedOrder<{ order: OrderDetailType }>({
   url: () => (awaiting.value ? `/api/orders/${orderId.value}` : null),
   settled: () => !pending.value,
@@ -105,11 +107,10 @@ useAwaitedOrder<{ order: OrderDetailType }>({
   onOrder: (fresh) => {
     data.value = fresh;
   },
-  onGiveUp: async () => {
-    // Dropped first: a client navigation clears a shown error, so dropping it
-    // afterwards would take the 404 away again.
-    await clearAwaitingParam();
-    showNotFound();
+  // No 404 at the bound: the order was just placed, so it says it is slow and
+  // keeps `awaiting`, so a reload waits again.
+  onGiveUp: () => {
+    gaveUp.value = true;
   },
 });
 
@@ -200,11 +201,33 @@ const orderTotals = computed<PortalItemTotal[]>(() =>
   <PortalShell>
     <!-- Loading -->
     <div
-      v-if="pending || (awaiting && !order)"
+      v-if="pending || (awaiting && !order && !gaveUp)"
+      role="status"
       data-testid="order-loading"
-      class="flex items-center justify-center py-16"
+      class="text-muted-foreground flex flex-col items-center justify-center gap-3 py-16"
     >
-      <LoaderCircle class="text-muted-foreground size-8 animate-spin" />
+      <LoaderCircle class="size-8 animate-spin" aria-hidden="true" />
+      <p v-if="awaiting" class="text-sm">{{ t('common.fetching_order') }}</p>
+    </div>
+
+    <!-- Waited to the bound: slow, not missing -->
+    <div
+      v-else-if="awaiting && !order"
+      role="status"
+      data-testid="order-slow"
+      class="flex flex-col items-center gap-4 py-16 text-center"
+    >
+      <p class="text-muted-foreground text-sm">
+        {{ t('portal.orders.detail.order_slow') }}
+      </p>
+      <NuxtLink
+        :to="localePath('/portal/orders')"
+        data-testid="back-link"
+        class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+      >
+        <ArrowLeft class="size-4" />
+        {{ t('portal.orders.detail.back_to_orders') }}
+      </NuxtLink>
     </div>
 
     <!-- Detail View -->

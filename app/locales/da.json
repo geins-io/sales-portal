@@ -32,7 +32,8 @@
     "to_pay_inc_vat": "At betale inkl. moms",
     "payment_fee": "Betalingsgebyr",
     "total_inc_vat": "I alt inkl. moms",
-    "shipping_may_apply": "Kan tilkomme"
+    "shipping_may_apply": "Kan tilkomme",
+    "fetching_order": "Henter din ordre…"
   },
   "auth": {
     "already_have_account": "Har du allerede en konto?",
@@ -232,7 +233,8 @@
     "back_to_store": "Tilbage til butikken",
     "continue_shopping": "Fortsæt med at handle",
     "view_orders": "Vis mine ordrer",
-    "order_not_found": "Ordren blev ikke fundet."
+    "order_not_found": "Ordren blev ikke fundet.",
+    "order_slow": "Det tager længere tid end normalt at hente ordren. Den vises i kundeportalen om kort tid."
   },
   "product": {
     "details": "Produktdetaljer",
@@ -675,7 +677,8 @@
         "order_message": "Ordremeddelelse",
         "order_date": "Ordredato",
         "order_status": "Status",
-        "payment_method": "Betalingsmetode"
+        "payment_method": "Betalingsmetode",
+        "order_slow": "Ordren er ikke dukket op endnu. Hvis du lige har afgivet den, vises den under Ordrer om kort tid."
       }
     },
     "account": {

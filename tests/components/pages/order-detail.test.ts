@@ -433,6 +433,8 @@ describe('OrderDetail', () => {
 
       expect(wrapper.find('[data-testid="order-loading"]').exists()).toBe(true);
       expect(wrapper.find('[data-testid="order-detail"]').exists()).toBe(false);
+      // An ordinary load is not a wait for a new order: no waiting text.
+      expect(wrapper.find('[data-testid="order-loading"]').text()).toBe('');
     });
   });
 
@@ -554,27 +556,39 @@ describe('OrderDetail', () => {
       expect(wrapper.find('[data-testid="order-detail"]').exists()).toBe(true);
     });
 
-    it('shows the 404 at the bound, after dropping the parameter', async () => {
+    it('says it is fetching the order while it waits, as a status', () => {
       mockQuery.value = { awaiting: TEST_ORDER_ID };
       mockError.value = notFound();
       mockPollFetch.mockRejectedValue(notFound());
-      mount();
+      const indicator = mount().find('[data-testid="order-loading"]');
+
+      expect(indicator.attributes('role')).toBe('status');
+      expect(indicator.text()).toBe('common.fetching_order');
+    });
+
+    it('at the bound, says it is slow and offers the way back, without a 404', async () => {
+      mockQuery.value = { awaiting: TEST_ORDER_ID };
+      mockError.value = notFound();
+      mockPollFetch.mockRejectedValue(notFound());
+      const wrapper = mount();
 
       await vi.advanceTimersByTimeAsync(115000);
-      expect(mockShowError).not.toHaveBeenCalled();
+      expect(wrapper.find('[data-testid="order-slow"]').exists()).toBe(false);
 
       await vi.advanceTimersByTimeAsync(10000);
 
-      expect(mockReplace).toHaveBeenCalledWith({ query: {} });
-      expect(mockShowError).toHaveBeenCalledTimes(1);
-      const errorArg = mockShowError.mock.calls[0]![0] as Error & {
-        statusCode: number;
-      };
-      expect(errorArg.statusCode).toBe(404);
-      // Dropped first: a client navigation clears a shown error.
-      expect(mockReplace.mock.invocationCallOrder[0]).toBeLessThan(
-        mockShowError.mock.invocationCallOrder[0]!,
+      expect(mockShowError).not.toHaveBeenCalled();
+      expect(wrapper.find('[data-testid="order-loading"]').exists()).toBe(
+        false,
       );
+      const slow = wrapper.find('[data-testid="order-slow"]');
+      expect(slow.attributes('role')).toBe('status');
+      expect(slow.text()).toContain('portal.orders.detail.order_slow');
+      expect(slow.find('[data-testid="back-link"]').attributes('href')).toBe(
+        '/se/en/portal/orders',
+      );
+      // Kept, so a reload waits again.
+      expect(mockReplace).not.toHaveBeenCalled();
     });
 
     it('shows the 404 at once without the parameter, and does not wait', async () => {

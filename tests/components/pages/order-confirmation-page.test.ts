@@ -366,3 +366,75 @@ describe('Order confirmation page — back from hosted checkout', () => {
     expect(hasOrderParts(wrapper)).toEqual([false, false, false, false]);
   });
 });
+
+describe('Order confirmation page — while the order is awaited', () => {
+  beforeEach(() => {
+    mockQuery.value = { orderId: PUBLIC_ID, orderNumber: '1100' };
+  });
+
+  const loading = (wrapper: ReturnType<typeof mount>) =>
+    wrapper.find('[data-testid="confirmation-order-loading"]');
+  const slow = (wrapper: ReturnType<typeof mount>) =>
+    wrapper.find('[data-testid="confirmation-order-slow"]');
+
+  it('says it is fetching the order, as a status', () => {
+    resultFor(ORDER_URL).error.value = notFound();
+    const indicator = loading(mount());
+
+    expect(indicator.attributes('role')).toBe('status');
+    expect(indicator.text()).toBe('common.fetching_order');
+  });
+
+  it('drops the indicator when the order arrives', async () => {
+    resultFor(ORDER_URL).error.value = notFound();
+    mockPollFetch.mockResolvedValue(makeOrder());
+    const wrapper = mount();
+
+    await vi.advanceTimersByTimeAsync(2500);
+
+    expect(loading(wrapper).exists()).toBe(false);
+    expect(slow(wrapper).exists()).toBe(false);
+    expect(hasOrderParts(wrapper)).toEqual([true, true, true, true]);
+  });
+
+  it('shows no indicator when the order is there on the first response', () => {
+    resultFor(ORDER_URL).data.value = makeOrder();
+
+    expect(loading(mount()).exists()).toBe(false);
+  });
+
+  it('at the bound, swaps the indicator for a line that the order is slow', async () => {
+    resultFor(ORDER_URL).error.value = notFound();
+    mockPollFetch.mockRejectedValue(notFound());
+    const wrapper = mount();
+
+    await vi.advanceTimersByTimeAsync(115000);
+    expect(loading(wrapper).exists()).toBe(true);
+    expect(slow(wrapper).exists()).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(10000);
+
+    expect(loading(wrapper).exists()).toBe(false);
+    // Said as a status; the button below is the way on, so no link here.
+    expect(slow(wrapper).attributes('role')).toBe('status');
+    expect(slow(wrapper).text()).toBe('order_confirmation.order_slow');
+    expect(slow(wrapper).find('a').exists()).toBe(false);
+    // The button to the order itself stays.
+    expect(wrapper.findComponent(OrderConfirmationStub).props()).toMatchObject({
+      publicOrderId: PUBLIC_ID,
+    });
+  });
+
+  it.each([
+    ['back from hosted checkout', { 'geins-cart': 'cart-123' }],
+    ['with no order id', {}],
+  ])('shows no indicator %s', async (_, query) => {
+    mockQuery.value = query;
+    const wrapper = mount();
+
+    await vi.advanceTimersByTimeAsync(130000);
+
+    expect(loading(wrapper).exists()).toBe(false);
+    expect(slow(wrapper).exists()).toBe(false);
+  });
+});

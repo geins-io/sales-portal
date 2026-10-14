@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { LoaderCircle } from 'lucide-vue-next';
 import type { OrderDetailType } from '#shared/types/commerce';
 import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
 import { productPath } from '#shared/utils/route-helpers';
@@ -48,8 +49,11 @@ const { data: orderData, pending: orderPending } = useFetch<{
 });
 const order = computed(() => orderData.value?.order ?? null);
 
-// The order is readable seconds after it was placed, so the page waits for it
-// silently: the thank-you, number and link show at once, the rest fills in.
+// The order is readable seconds after it was placed, so the page waits for it:
+// the thank-you, number and link show at once, with a waiting indicator below
+// until the rest fills in. At the bound it says the order is slow; the
+// button above is the way on.
+const gaveUp = ref(false);
 useAwaitedOrder<{ order: OrderDetailType }>({
   url: orderUrl,
   settled: () => !orderPending.value,
@@ -57,7 +61,13 @@ useAwaitedOrder<{ order: OrderDetailType }>({
   onOrder: (fresh) => {
     orderData.value = fresh;
   },
+  onGiveUp: () => {
+    gaveUp.value = true;
+  },
 });
+const awaitingOrder = computed(
+  () => !!orderUrl && !order.value && !gaveUp.value,
+);
 
 // The order as the portal order page shows it, with the same parts.
 const itemCount = computed(() => order.value?.cart?.items?.length ?? 0);
@@ -97,6 +107,23 @@ const totals = computed<PortalItemTotal[]>(() =>
       :order-number="orderNumber"
       :public-order-id="publicOrderId"
     >
+      <div
+        v-if="awaitingOrder"
+        role="status"
+        data-testid="confirmation-order-loading"
+        class="text-muted-foreground mt-8 flex flex-col items-center gap-3 py-8"
+      >
+        <LoaderCircle class="size-8 animate-spin" aria-hidden="true" />
+        <p class="text-sm">{{ t('common.fetching_order') }}</p>
+      </div>
+      <p
+        v-else-if="gaveUp && !order"
+        role="status"
+        data-testid="confirmation-order-slow"
+        class="text-muted-foreground mx-auto mt-8 max-w-3xl text-center text-sm"
+      >
+        {{ t('order_confirmation.order_slow') }}
+      </p>
       <div
         v-if="order"
         data-testid="confirmation-order"

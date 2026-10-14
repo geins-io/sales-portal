@@ -32,7 +32,8 @@
     "to_pay_inc_vat": "Zu zahlen inkl. MwSt.",
     "payment_fee": "Zahlungsgebühr",
     "total_inc_vat": "Gesamt inkl. MwSt.",
-    "shipping_may_apply": "Kann anfallen"
+    "shipping_may_apply": "Kann anfallen",
+    "fetching_order": "Ihre Bestellung wird geladen…"
   },
   "auth": {
     "already_have_account": "Sie haben bereits ein Konto?",
@@ -232,7 +233,8 @@
     "back_to_store": "Zurück zum Shop",
     "continue_shopping": "Weiter einkaufen",
     "view_orders": "Meine Bestellungen anzeigen",
-    "order_not_found": "Bestellung nicht gefunden."
+    "order_not_found": "Bestellung nicht gefunden.",
+    "order_slow": "Das Laden der Bestellung dauert länger als üblich. Sie wird in Kürze im Kundenportal angezeigt."
   },
   "product": {
     "details": "Produktdetails",
@@ -675,7 +677,8 @@
         "order_message": "Bestellnachricht",
         "order_date": "Bestelldatum",
         "order_status": "Status",
-        "payment_method": "Zahlungsart"
+        "payment_method": "Zahlungsart",
+        "order_slow": "Die Bestellung ist noch nicht da. Wenn Sie sie gerade aufgegeben haben, erscheint sie in Kürze unter Bestellungen."
       }
     },
     "account": {
