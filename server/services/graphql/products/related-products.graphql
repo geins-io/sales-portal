@@ -19,7 +19,7 @@ query relatedProducts(
     unitPrice {
       ...Price
     }
-    relation
+    relationType
     productImages {
       fileName
     }

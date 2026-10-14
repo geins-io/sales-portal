@@ -92,5 +92,13 @@ describe('GraphQL loader', () => {
       expect(query).toContain('mutation subscribeToNewsletter');
       expect(query).toContain('$email: String!');
     });
+
+    it('selects relationType, not the deprecated relation, on related products', () => {
+      // Geins fails the whole call on `relation` for accessory and similar rows.
+      const query = loadQuery('products/related-products.graphql');
+
+      expect(query).toMatch(/^\s*relationType$/m);
+      expect(query).not.toMatch(/^\s*relation$/m);
+    });
   });
 });
