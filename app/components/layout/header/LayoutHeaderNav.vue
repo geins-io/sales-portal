@@ -71,7 +71,7 @@ const PANEL = '[data-slot="navigation-menu-content"]';
 // Mouse aids only: keyboard users Tab through the links, which scroll into
 // view, and screen readers read every link wherever the bar is scrolled.
 const arrowClass =
-  'inline-flex size-9 shrink-0 items-center justify-center rounded-md disabled:opacity-40';
+  'inline-flex h-9 w-6 items-center justify-center rounded-md disabled:opacity-40';
 
 function isAtStart(el: HTMLElement) {
   return el.scrollLeft <= 0;
@@ -88,20 +88,32 @@ function updateEnds() {
   atEnd.value = isAtEnd(list.value);
 }
 
-// Measured against the bar, not the list: with the arrows shown the list is
-// narrower than the room it gets without them, so it would keep them forever.
+// The list's padding is room for the focus rings, not content: it does not
+// count as overflow, and items are paged and focused to the edge inside it.
+function padding(el: HTMLElement) {
+  const style = getComputedStyle(el);
+  return {
+    left: parseFloat(style.paddingLeft) || 0,
+    right: parseFloat(style.paddingRight) || 0,
+  };
+}
+
+function contentEdges(el: HTMLElement) {
+  const rect = el.getBoundingClientRect();
+  const pad = padding(el);
+  return { left: rect.left + pad.left, right: rect.right - pad.right };
+}
+
+// Measured against the bar, the room the list has between the gutters.
 function updateOverflow() {
   list.value =
     bar.value?.querySelector<HTMLElement>(
       '[data-slot="navigation-menu-list"]',
     ) ?? null;
   if (!list.value || !bar.value) return;
-  // The list's padding is room for the focus rings, not content.
-  const style = getComputedStyle(list.value);
-  const padding =
-    (parseFloat(style.paddingLeft) || 0) +
-    (parseFloat(style.paddingRight) || 0);
-  overflowing.value = list.value.scrollWidth - padding > bar.value.clientWidth;
+  const pad = padding(list.value);
+  overflowing.value =
+    list.value.scrollWidth - pad.left - pad.right > bar.value.clientWidth;
   updateEnds();
 }
 
@@ -112,7 +124,7 @@ function updateOverflow() {
 function page(direction: 1 | -1) {
   const el = list.value;
   if (!el) return;
-  const port = el.getBoundingClientRect();
+  const port = contentEdges(el);
   const items = Array.from(el.children, (item) => item.getBoundingClientRect());
   let left = 0;
   if (direction > 0) {
@@ -154,7 +166,7 @@ function keepFocusedInView(event: FocusEvent) {
   const el = list.value;
   const target = event.target;
   if (!el || !(target instanceof HTMLElement) || target.closest(PANEL)) return;
-  const port = el.getBoundingClientRect();
+  const port = contentEdges(el);
   const item = target.getBoundingClientRect();
   if (item.left < port.left) el.scrollLeft -= port.left - item.left;
   else if (item.right > port.right) el.scrollLeft += item.right - port.right;
@@ -178,8 +190,23 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
     class="bg-nav-bar-background relative hidden h-12 items-center border-b lg:flex"
     :aria-label="$t('layout.main_navigation')"
   >
-    <div class="mx-auto w-full max-w-7xl px-4 lg:px-6">
-      <div ref="bar" class="flex items-center">
+    <!--
+      The side gutters are the container's 24px padding, kept as slots: an
+      arrow renders inside one only on overflow, so the items never move when
+      the arrows appear. The list's focus-ring padding reaches 3px into each
+      gutter, so while items are scrolled under a gutter it paints the bar
+      background over that sliver (above the items, which are positioned,
+      and over the full row height, which two-line labels fill); at an end
+      it stays clear for the ring. The row isolates that z-index.
+    -->
+    <div class="isolate mx-auto flex w-full max-w-7xl items-center">
+      <div
+        class="flex w-6 shrink-0 items-center self-stretch"
+        :class="{
+          'bg-nav-bar-background relative z-10': overflowing && !atStart,
+        }"
+        data-nav-gutter="start"
+      >
         <button
           v-if="overflowing"
           type="button"
@@ -192,6 +219,8 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
         >
           <ChevronLeft class="size-4" />
         </button>
+      </div>
+      <div ref="bar" class="flex min-w-0 flex-1 items-center">
         <NavigationMenu
           :viewport="false"
           class="static max-w-none min-w-0 flex-1 justify-start [&>div]:!static [&>div]:min-w-0 [&>div]:flex-1"
@@ -289,6 +318,14 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
             </NavigationMenuItem>
           </NavigationMenuList>
         </NavigationMenu>
+      </div>
+      <div
+        class="flex w-6 shrink-0 items-center self-stretch"
+        :class="{
+          'bg-nav-bar-background relative z-10': overflowing && !atEnd,
+        }"
+        data-nav-gutter="end"
+      >
         <button
           v-if="overflowing"
           type="button"

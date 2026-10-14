@@ -473,6 +473,70 @@ describe('LayoutHeaderNav', () => {
         expect(wrapper.find(FORWARD).exists()).toBe(false);
       });
 
+      it('keeps a 24px gutter on each side of the list whether or not the items fit', async () => {
+        // The gutters replace the container's side padding, so the items sit
+        // where they did before the arrows existed and never move when the
+        // arrows appear.
+        for (const content of [1000, 1600]) {
+          mockMenu.value = manyItems();
+          const wrapper = shallowMountComponent(LayoutHeaderNav, mountOptions);
+          setGeometry(wrapper, { bar: 1000, list: 1000, content });
+          window.dispatchEvent(new Event('resize'));
+          await settle();
+
+          const bar = root(wrapper).element.parentElement;
+          assert.isNotNull(bar);
+          const row = bar.parentElement;
+          assert.isNotNull(row);
+          expect(row.classList.contains('px-4')).toBe(false);
+          expect(row.classList.contains('lg:px-6')).toBe(false);
+          const [start, , end] = Array.from(row.children);
+          expect(start?.getAttribute('data-nav-gutter')).toBe('start');
+          expect(end?.getAttribute('data-nav-gutter')).toBe('end');
+          for (const gutter of [start, end]) {
+            expect(gutter?.classList.contains('w-6')).toBe(true);
+            expect(gutter?.classList.contains('shrink-0')).toBe(true);
+            // Two-line labels are taller than the arrow; the gutter must cover
+            // the whole row so no descender shows beside it while scrolled.
+            expect(gutter?.classList.contains('self-stretch')).toBe(true);
+            expect(gutter?.classList.contains('items-center')).toBe(true);
+          }
+        }
+      });
+
+      it('puts each arrow inside its gutter, no wider than the gutter', async () => {
+        const { wrapper } = await mountOverflowing();
+        const back = wrapper.find(BACK);
+        const forward = wrapper.find(FORWARD);
+        expect(
+          back.element
+            .closest('[data-nav-gutter]')
+            ?.getAttribute('data-nav-gutter'),
+        ).toBe('start');
+        expect(
+          forward.element
+            .closest('[data-nav-gutter]')
+            ?.getAttribute('data-nav-gutter'),
+        ).toBe('end');
+        for (const arrow of [back, forward]) {
+          expect(arrow.classes()).toContain('w-6');
+          expect(arrow.classes()).not.toContain('size-9');
+        }
+      });
+
+      it('leaves the gutters empty when the items fit', async () => {
+        mockMenu.value = manyItems();
+        const wrapper = shallowMountComponent(LayoutHeaderNav, mountOptions);
+        setGeometry(wrapper, { bar: 1000, list: 1000, content: 1000 });
+        window.dispatchEvent(new Event('resize'));
+        await settle();
+        const gutters = wrapper.findAll('[data-nav-gutter]');
+        expect(gutters).toHaveLength(2);
+        for (const gutter of gutters) {
+          expect(gutter.element.children.length).toBe(0);
+        }
+      });
+
       it('shows both arrows on overflow, the back one disabled at the start', async () => {
         const { wrapper } = await mountOverflowing();
         const back = wrapper.find(BACK);
@@ -530,9 +594,9 @@ describe('LayoutHeaderNav', () => {
         wrapper.unmount();
       });
 
-      it('decides overflow from the room without arrows, so they do not flap', async () => {
-        // With the arrows shown the list is 920 wide; 950 of content would not
-        // fit there but fits the 1000 the list gets once they are gone.
+      it('decides overflow from the room the bar gives the list', async () => {
+        // The bar is 1000 wide; 950 of content fits it even though the list
+        // reports a narrower clientWidth.
         const { wrapper } = await mountOverflowing();
         setGeometry(wrapper, { bar: 1000, list: 920, content: 950 });
         window.dispatchEvent(new Event('resize'));
@@ -643,6 +707,65 @@ describe('LayoutHeaderNav', () => {
           left: -928,
           behavior: 'smooth',
         });
+      });
+
+      it('pages to the content edge, leaving the focus-ring padding empty', async () => {
+        // The list's 3px padding is room for focus rings, so a paged item lands
+        // 3px in from the list's box, where the first item sits at scroll 0.
+        mockMenu.value = manyItems();
+        const wrapper = shallowMountComponent(LayoutHeaderNav, {
+          ...mountOptions,
+          attachTo: document.body,
+        });
+        const list = setGeometry(wrapper, {
+          bar: 1000,
+          list: 920,
+          content: 1600,
+        });
+        list.style.paddingLeft = '3px';
+        list.style.paddingRight = '3px';
+        window.dispatchEvent(new Event('resize'));
+        await settle();
+        const { scrollBy } = layOut(list);
+
+        await wrapper.find(FORWARD).trigger('click');
+
+        // Item 3 starts at 724; the content edge is 103, not 100.
+        expect(scrollBy).toHaveBeenCalledWith({
+          left: 621,
+          behavior: 'smooth',
+        });
+        wrapper.unmount();
+      });
+
+      it('paints the bar background over a gutter only while items are scrolled under it', async () => {
+        // The list's focus-ring padding reaches 3px into each gutter, so a
+        // scrolled-off label would show a sliver next to the arrow. At an end
+        // the gutter stays transparent, so the edge item's focus ring shows.
+        const { wrapper, list } = await mountOverflowing();
+        const gutter = (side: string) =>
+          wrapper.find(`[data-nav-gutter="${side}"]`).classes();
+        // Plain-link items are positioned, so the gutter needs a z-index to
+        // paint over them; the row isolates it from the rest of the header.
+        const solid = ['relative', 'z-10', 'bg-nav-bar-background'];
+        const row = wrapper.find('[data-nav-gutter="start"]').element
+          .parentElement;
+        expect(row?.classList.contains('isolate')).toBe(true);
+
+        expect(gutter('start')).not.toEqual(expect.arrayContaining(solid));
+        expect(gutter('end')).toEqual(expect.arrayContaining(solid));
+
+        list.scrollLeft = 300;
+        list.dispatchEvent(new Event('scroll'));
+        await settle();
+        expect(gutter('start')).toEqual(expect.arrayContaining(solid));
+        expect(gutter('end')).toEqual(expect.arrayContaining(solid));
+
+        list.scrollLeft = 680;
+        list.dispatchEvent(new Event('scroll'));
+        await settle();
+        expect(gutter('start')).toEqual(expect.arrayContaining(solid));
+        expect(gutter('end')).not.toEqual(expect.arrayContaining(solid));
       });
 
       it('reaches the end of a menu almost three bars long in three clicks', async () => {
@@ -776,6 +899,35 @@ describe('LayoutHeaderNav', () => {
       link.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
 
       expect(list.scrollLeft).toBe(240);
+    });
+
+    it('scrolls a focused item to the content edge, past the focus-ring padding', async () => {
+      mockMenu.value = manyItems();
+      const wrapper = shallowMountComponent(LayoutHeaderNav, {
+        ...mountOptions,
+        attachTo: document.body,
+      });
+      const list = setGeometry(wrapper, {
+        bar: 1000,
+        list: 920,
+        content: 1600,
+        scrollLeft: 300,
+      });
+      list.style.paddingLeft = '3px';
+      list.style.paddingRight = '3px';
+      window.dispatchEvent(new Event('resize'));
+      await settle();
+      list.getBoundingClientRect = () => new DOMRect(100, 0, 920, 44);
+      const link = topLink(wrapper);
+
+      link.getBoundingClientRect = () => new DOMRect(980, 0, 100, 36);
+      link.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+      expect(list.scrollLeft).toBe(363);
+
+      link.getBoundingClientRect = () => new DOMRect(40, 0, 100, 36);
+      link.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+      expect(list.scrollLeft).toBe(300);
+      wrapper.unmount();
     });
 
     it('leaves the bar alone when focus moves into a mega menu', async () => {
