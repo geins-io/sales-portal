@@ -471,7 +471,8 @@ offers a retry. "Cancel editing" is still offered.
 
 ### The update fails because the line is gone
 
-The page says "The product is no longer in the cart." and offers no retry.
+The page says "The product is no longer in the cart." and offers no retry. "Cancel editing" then
+opens the configurator on the defaults.
 
 ### The update fails because the configuration is unknown
 

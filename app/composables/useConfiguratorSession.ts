@@ -688,11 +688,14 @@ export function useConfiguratorSession({
 
   /**
    * Leaves the line as it is: the session is released, and the page carries on
-   * from the line as after an add, no longer editing it.
+   * from the line as after an add, no longer editing it. After a swap that
+   * found the line gone there is nothing to carry on from, so the page starts
+   * afresh without saying the choices did not come back.
    */
   async function cancelEdit(): Promise<void> {
     const line = editing.value;
     if (!line) return;
+    const gone = error.value?.code === 'CART_LINE_GONE';
     if (liveId()) {
       await release();
       if (status.value !== 'closed') return;
@@ -700,7 +703,8 @@ export function useConfiguratorSession({
     editing.value = null;
     editNotice.value = null;
     committed.value = null;
-    await carryOn(line);
+    if (!gone) return carryOn(line);
+    if (started) await start(started.productId, started.quantity);
   }
 
   async function release(): Promise<void> {
