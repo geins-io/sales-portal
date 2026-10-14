@@ -11,7 +11,6 @@ import {
   fetchProductListSample,
   fetchProductsByAliases,
   isConfigurable,
-  parsePrice,
   readPrice,
   setVatDisplay,
   signedInState,
@@ -428,24 +427,25 @@ test.describe('Portal Order Values', () => {
         await readPrice(page.locator('[data-testid="order-summary-subtotal"]')),
       ).toBeCloseTo(inc ? api.subTotalIncVat : api.subTotalExVat, 2);
 
-      // No order has a priced shipping option, so the API sends an empty fee
-      // string. Asserting the rendered fallback would assert the active locale;
-      // the absence of a number is the assertion.
+      // A shipping row only when the order carries a fee, decided on the
+      // number with the page's own fallback: the cart summary's fee, then the
+      // order's. A formatted "0,00 kr" is no fee.
+      const rawOrder = (
+        await (await page.request.get(`/api/orders/${publicId}`)).json()
+      )?.order;
+      const shippingAmount: number | undefined = inc
+        ? (rawOrder?.cart?.summary?.shipping?.feeIncVat ??
+          rawOrder?.shippingFee?.sellingPriceIncVat)
+        : (rawOrder?.cart?.summary?.shipping?.feeExVat ??
+          rawOrder?.shippingFee?.sellingPriceExVat);
       const shipping = page.locator('[data-testid="order-summary-shipping"]');
-      const shippingFee = inc
-        ? api.shippingFeeFormatted
-        : api.shippingFeeExVatFormatted;
-      if (shippingFee === '') {
-        const text = (await shipping.innerText()).trim();
-        expect(
-          /\d/.test(text),
-          `the API sent no shipping fee, so the cell must not show a number: ${JSON.stringify(text)}`,
-        ).toBe(false);
+      if ((shippingAmount ?? 0) > 0) {
+        expect(await readPrice(shipping)).toBeCloseTo(shippingAmount!, 2);
       } else {
-        expect(await readPrice(shipping)).toBeCloseTo(
-          parsePrice(shippingFee),
-          2,
-        );
+        await expect(
+          shipping,
+          'the order carries no shipping fee, so the order page must show no shipping row',
+        ).toHaveCount(0);
       }
 
       // The desktop table repeats the total in its footer: two renderings of one
