@@ -221,10 +221,6 @@
     "confirmation_subtitle": "Vielen Dank für Ihre Bestellung. Eine Bestätigung wurde an Ihre E-Mail-Adresse gesendet.",
     "order_number": "Bestellnummer",
     "order_placed": "Ihre Bestellung wurde erfolgreich aufgegeben.",
-    "order_details": "Bestelldetails",
-    "items_total": "{count} Artikel insgesamt",
-    "view_all_items": "Alle {count} Artikel anzeigen",
-    "hide_items": "Artikel ausblenden",
     "items": "Artikel",
     "product": "Produkt",
     "article_number": "Art.-Nr.",
@@ -232,20 +228,11 @@
     "unit_price": "Einzelpreis",
     "line_total": "Gesamt",
     "summary": "Zusammenfassung",
-    "subtotal": "Zwischensumme",
-    "shipping": "Versand",
-    "discount": "Rabatt",
-    "total": "Gesamt",
-    "billing_address": "Rechnungsadresse",
-    "shipping_address": "Lieferadresse",
-    "reference": "Ihre Referenz",
-    "payment_method": "Zahlungsart",
     "view_order_in_portal": "Bestellung im Kundenportal ansehen",
     "back_to_store": "Zurück zum Shop",
     "continue_shopping": "Weiter einkaufen",
     "view_orders": "Meine Bestellungen anzeigen",
-    "order_not_found": "Bestellung nicht gefunden.",
-    "buyer": "Käufer"
+    "order_not_found": "Bestellung nicht gefunden."
   },
   "product": {
     "details": "Produktdetails",
@@ -680,7 +667,8 @@
           "title": "Zusätzliche Informationen",
           "your_reference": "Ihre Referenz",
           "goods_label": "Versandkennzeichen",
-          "desired_delivery_date": "Wunschlieferdatum"
+          "desired_delivery_date": "Wunschlieferdatum",
+          "payment_method": "Zahlungsart"
         },
         "billing_address": "Rechnungsdaten",
         "shipping_address": "Lieferadresse",

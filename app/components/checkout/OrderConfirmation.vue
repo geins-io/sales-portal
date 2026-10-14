@@ -1,18 +1,14 @@
 <script setup lang="ts">
-import type { AddressType, PriceType } from '@geins/types';
-import type { ConfirmationOrder } from '#shared/types/commerce';
-import { CircleCheck, FileText, ChevronDown, ChevronUp } from 'lucide-vue-next';
+import { CircleCheck } from 'lucide-vue-next';
 
+/**
+ * The confirmation's own top part. The order itself renders in the default
+ * slot, below the card, with the portal order page's components.
+ */
 const props = defineProps<{
-  summary: ConfirmationOrder | null;
-  isLoading: boolean;
-  /** How the order was paid, as the buyer reads it. */
-  paymentLabel?: string;
-  reference?: string;
   /**
-   * Human-friendly numeric order id forwarded from the checkout page in
-   * the URL. Lets the badge render immediately even when the Geins
-   * checkout summary hasn't propagated yet.
+   * Human-friendly numeric order id forwarded from the checkout page in the
+   * URL, so the badge renders before the order is readable.
    */
   orderNumber?: string;
   /**
@@ -22,9 +18,8 @@ const props = defineProps<{
   publicOrderId?: string;
 }>();
 
-const displayOrderNumber = computed(
-  () => props.summary?.orderId || props.orderNumber || '',
-);
+const { t } = useI18n();
+const { localePath } = useLocaleMarket();
 
 /**
  * Where "view order in the portal" goes: the order's own page.
@@ -33,468 +28,62 @@ const displayOrderNumber = computed(
  * could otherwise answer 404. `awaiting` tells it to wait for this order
  * instead. The list only when there is no order id at all.
  */
-const { localePath } = useLocaleMarket();
-
 const viewOrderLink = computed(() => {
   if (!props.publicOrderId) return localePath('/portal/orders');
   const id = encodeURIComponent(props.publicOrderId);
   return `${localePath(`/portal/orders/${id}`)}?awaiting=${id}`;
 });
-
-const { t } = useI18n();
-const { formatLocale } = useFormatLocale();
-
-const COLLAPSED_ROW_LIMIT = 3;
-
-const expanded = ref(false);
-
-const rows = computed(() => props.summary?.rows ?? []);
-const visibleRows = computed(() =>
-  expanded.value ? rows.value : rows.value.slice(0, COLLAPSED_ROW_LIMIT),
-);
-const hasMoreRows = computed(() => rows.value.length > COLLAPSED_ROW_LIMIT);
-
-const { showIncVat } = useVatDisplay();
-
-const subtotalFormatted = computed(
-  () =>
-    (showIncVat.value
-      ? props.summary?.total?.itemValueIncVatFormatted
-      : props.summary?.total?.itemValueExVatFormatted) ?? '',
-);
-
-// A fee row only when the order carries the fee; a placed order has no
-// "may apply".
-function feeOnSide(
-  incVat: number | undefined,
-  incVatFormatted: string | undefined,
-  exVat: number | undefined,
-  exVatFormatted: string | undefined,
-): string {
-  const [amount, formatted] = showIncVat.value
-    ? [incVat, incVatFormatted]
-    : [exVat, exVatFormatted];
-  return (amount ?? 0) > 0 ? (formatted ?? '') : '';
-}
-
-const shippingFormatted = computed(() => {
-  const total = props.summary?.total;
-  return feeOnSide(
-    total?.shippingFeeIncVat,
-    total?.shippingFeeIncVatFormatted,
-    total?.shippingFeeExVat,
-    total?.shippingFeeExVatFormatted,
-  );
-});
-
-const paymentFeeFormatted = computed(() => {
-  const total = props.summary?.total;
-  return feeOnSide(
-    total?.paymentFeeIncVat,
-    total?.paymentFeeIncVatFormatted,
-    total?.paymentFeeExVat,
-    total?.paymentFeeExVatFormatted,
-  );
-});
-
-const discountAmount = computed(
-  () =>
-    (showIncVat.value
-      ? props.summary?.total?.discountIncVat
-      : props.summary?.total?.discountExVat) ?? 0,
-);
-
-const discountFormatted = computed(
-  () =>
-    (showIncVat.value
-      ? props.summary?.total?.discountIncVatFormatted
-      : props.summary?.total?.discountExVatFormatted) ?? '',
-);
-
-const hasDiscount = computed(() => discountAmount.value > 0);
-
-// `sum` is the charged amount and has no ex-VAT twin; the ex side is the
-// order value.
-const totalFormatted = computed(
-  () =>
-    (showIncVat.value
-      ? props.summary?.total?.sumFormatted
-      : props.summary?.total?.orderValueExVatFormatted) ?? '',
-);
-
-// What is charged, under an ex-VAT total; never a 0.
-const toPayFormatted = computed(() =>
-  !showIncVat.value && (props.summary?.total?.sum ?? 0) > 0
-    ? props.summary?.total?.sumFormatted || ''
-    : '',
-);
-
-function formatAddressLines(address: AddressType | undefined | null): string[] {
-  if (!address) return [];
-  const lines: string[] = [];
-  if (address.company) lines.push(address.company);
-  if (address.addressLine1) lines.push(address.addressLine1);
-  if (address.addressLine2) lines.push(address.addressLine2);
-  const cityLine = [address.zip, address.city].filter(Boolean).join(' ');
-  if (cityLine) lines.push(cityLine);
-  if (address.country) lines.push(address.country);
-  return lines;
-}
-
-const buyerName = computed(() => {
-  const a = props.summary?.billingAddress;
-  if (!a) return '';
-  return [a.firstName, a.lastName].filter(Boolean).join(' ');
-});
-
-const billingLines = computed(() =>
-  formatAddressLines(props.summary?.billingAddress),
-);
-const shippingLines = computed(() =>
-  formatAddressLines(props.summary?.shippingAddress),
-);
-
-// The order's own VAT when it carries one, so this page and the order detail
-// page show the same number; the hosted summary has none, so it is derived.
-const vatFormatted = computed(() => {
-  const total = props.summary?.total;
-  if (total?.vatFormatted) return total.vatFormatted;
-  if (total?.itemValueIncVat == null || total.itemValueExVat == null) {
-    return '-';
-  }
-  return `${(total.itemValueIncVat - total.itemValueExVat).toLocaleString(formatLocale.value)} ${total.currency ?? ''}`;
-});
-
-type SummaryRowPrice = {
-  priceIncVat?: number;
-  priceIncVatFormatted?: string;
-  priceExVat?: number;
-  priceExVatFormatted?: string;
-};
-
-type Row = {
-  quantity?: number;
-  price?: SummaryRowPrice;
-  unitPrice?: PriceType;
-  totalPrice?: PriceType;
-};
-
-function sideOf(price: PriceType | undefined): string | undefined {
-  return showIncVat.value
-    ? price?.sellingPriceIncVatFormatted
-    : price?.sellingPriceExVatFormatted;
-}
-
-function lineUnitPrice(row: Row) {
-  if (row.unitPrice) return sideOf(row.unitPrice) ?? '';
-  return (
-    (showIncVat.value
-      ? row.price?.priceIncVatFormatted
-      : row.price?.priceExVatFormatted) ?? ''
-  );
-}
-
-function lineTotal(row: Row) {
-  // A row read from the order carries its own line total.
-  if (row.totalPrice) return sideOf(row.totalPrice) ?? '';
-  // CheckoutSummaryPriceType doesn't expose a line total — multiply the
-  // unit price by quantity for display. Falls back to the unit string if
-  // numeric multiplication isn't possible.
-  const unit = showIncVat.value
-    ? row.price?.priceIncVat
-    : row.price?.priceExVat;
-  const qty = row.quantity ?? 0;
-  if (typeof unit === 'number' && qty > 0) {
-    const currency = props.summary?.total?.currency ?? '';
-    const value = (unit * qty).toLocaleString(formatLocale.value);
-    return `${value} ${currency}`.trim();
-  }
-  return lineUnitPrice(row);
-}
 </script>
 
 <template>
   <div data-testid="order-confirmation">
-    <!-- Loading state -->
-    <div
-      v-if="isLoading"
-      class="mx-auto max-w-3xl"
-      data-testid="order-confirmation-loading"
+    <article
+      class="border-border bg-card mx-auto max-w-3xl rounded-xl border px-8 py-10 sm:px-12 sm:py-12"
     >
-      <div class="bg-muted h-[600px] animate-pulse rounded-xl" />
-    </div>
+      <!-- Header: icon + heading + subtitle + badge -->
+      <header class="flex flex-col items-center gap-3 text-center">
+        <CircleCheck class="text-primary size-12" data-testid="confirm-icon" />
+        <h1 class="text-2xl font-bold sm:text-3xl">
+          {{ t('order_confirmation.thank_you') }}
+        </h1>
+        <p class="text-muted-foreground max-w-md text-sm">
+          {{ t('order_confirmation.confirmation_subtitle') }}
+        </p>
+        <div
+          v-if="orderNumber"
+          class="bg-muted mt-2 inline-flex items-center gap-2 rounded-md px-4 py-2"
+          data-testid="order-number"
+        >
+          <span
+            class="text-muted-foreground text-xs font-semibold tracking-wider uppercase"
+          >
+            {{ t('order_confirmation.order_number') }}:
+          </span>
+          <span class="text-sm font-semibold">{{ orderNumber }}</span>
+        </div>
+      </header>
 
-    <template v-else>
-      <article
-        class="border-border bg-card mx-auto max-w-3xl rounded-xl border px-8 py-10 sm:px-12 sm:py-12"
+      <!-- Full-width CTA -->
+      <NuxtLink
+        :to="viewOrderLink"
+        class="bg-button-background text-primary-foreground hover:bg-button-background/90 mt-8 flex w-full items-center justify-center rounded-md px-6 py-3 text-sm font-semibold transition-colors"
+        data-testid="view-order-cta"
       >
-        <!-- Header: icon + heading + subtitle + badge -->
-        <header class="flex flex-col items-center gap-3 text-center">
-          <CircleCheck
-            class="text-primary size-12"
-            data-testid="confirm-icon"
-          />
-          <h1 class="text-2xl font-bold sm:text-3xl">
-            {{ t('order_confirmation.thank_you') }}
-          </h1>
-          <p class="text-muted-foreground max-w-md text-sm">
-            {{ t('order_confirmation.confirmation_subtitle') }}
-          </p>
-          <div
-            v-if="displayOrderNumber"
-            class="bg-muted mt-2 inline-flex items-center gap-2 rounded-md px-4 py-2"
-            data-testid="order-number"
-          >
-            <span
-              class="text-muted-foreground text-xs font-semibold tracking-wider uppercase"
-            >
-              {{ t('order_confirmation.order_number') }}:
-            </span>
-            <span class="text-sm font-semibold">{{ displayOrderNumber }}</span>
-          </div>
-        </header>
+        {{ t('order_confirmation.view_order_in_portal') }}
+      </NuxtLink>
+    </article>
 
-        <!-- Success body -->
-        <template v-if="summary">
-          <hr class="border-border my-8" />
+    <slot />
 
-          <!-- Addresses: Buyer / Billing / Shipping -->
-          <section
-            v-if="buyerName || billingLines.length || shippingLines.length"
-            class="grid gap-6 sm:grid-cols-3"
-          >
-            <div v-if="buyerName" data-testid="buyer-info">
-              <h2 class="mb-1 text-sm font-semibold">
-                {{ t('order_confirmation.buyer') }}
-              </h2>
-              <div class="text-muted-foreground space-y-0.5 text-sm">
-                <p>{{ buyerName }}</p>
-              </div>
-            </div>
-
-            <div v-if="billingLines.length" data-testid="billing-address">
-              <h2 class="mb-1 text-sm font-semibold">
-                {{ t('order_confirmation.billing_address') }}
-              </h2>
-              <div class="text-muted-foreground space-y-0.5 text-sm">
-                <p v-for="line in billingLines" :key="`b-${line}`">
-                  {{ line }}
-                </p>
-              </div>
-            </div>
-
-            <div v-if="shippingLines.length" data-testid="shipping-address">
-              <h2 class="mb-1 text-sm font-semibold">
-                {{ t('order_confirmation.shipping_address') }}
-              </h2>
-              <div class="text-muted-foreground space-y-0.5 text-sm">
-                <p v-for="line in shippingLines" :key="`s-${line}`">
-                  {{ line }}
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <hr class="border-border my-8" />
-
-          <!-- Order details header -->
-          <div class="mb-4 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <FileText class="size-4" />
-              <h2 class="text-base font-semibold">
-                {{ t('order_confirmation.order_details') }}
-              </h2>
-            </div>
-            <span
-              class="bg-muted rounded-md px-2.5 py-1 text-xs font-medium"
-              data-testid="items-total-badge"
-            >
-              {{ t('order_confirmation.items_total', { count: rows.length }) }}
-            </span>
-          </div>
-
-          <!-- Item rows -->
-          <ul class="divide-border divide-y" data-testid="items-list">
-            <li
-              v-for="(row, index) in visibleRows"
-              :key="row.articleNumber ?? index"
-              class="flex items-start justify-between py-3"
-            >
-              <div class="min-w-0 pr-4">
-                <p class="text-sm font-medium">
-                  {{ row.product?.name ?? row.name }}
-                </p>
-                <p
-                  v-if="row.articleNumber"
-                  class="text-muted-foreground mt-0.5 text-xs"
-                >
-                  SKU: {{ row.articleNumber }}
-                </p>
-                <template v-if="row.configuration">
-                  <p
-                    class="text-muted-foreground text-xs"
-                    data-testid="order-item-configured"
-                  >
-                    {{ t('cart.configured_product') }}
-                  </p>
-                  <LineSpecification
-                    :id="`confirmation-row-configuration-${index}`"
-                    class="mt-2"
-                    :product-name="row.product?.name ?? row.name ?? ''"
-                    :quantity="row.quantity ?? 1"
-                    :configuration="row.configuration"
-                    :unit-price="row.unitPrice"
-                    :total-price="row.totalPrice"
-                  />
-                </template>
-              </div>
-              <div class="shrink-0 text-right">
-                <p class="text-sm font-semibold">{{ lineTotal(row) }}</p>
-                <p
-                  v-if="row.quantity && lineUnitPrice(row)"
-                  class="text-muted-foreground mt-0.5 text-xs"
-                >
-                  {{ row.quantity }} × {{ lineUnitPrice(row) }}
-                </p>
-              </div>
-            </li>
-          </ul>
-
-          <!-- Expand toggle -->
-          <button
-            v-if="hasMoreRows"
-            type="button"
-            class="text-primary mt-3 flex w-full items-center justify-center gap-1 text-sm font-medium hover:opacity-80"
-            data-testid="toggle-items"
-            @click="expanded = !expanded"
-          >
-            <ChevronDown v-if="!expanded" class="size-4" />
-            <ChevronUp v-else class="size-4" />
-            {{
-              expanded
-                ? t('order_confirmation.hide_items')
-                : t('order_confirmation.view_all_items', {
-                    count: rows.length,
-                  })
-            }}
-          </button>
-
-          <hr class="border-border my-8" />
-
-          <!-- Bottom: reference + payment (left) | summary (right) -->
-          <section class="grid items-start gap-6 sm:grid-cols-2">
-            <div class="space-y-4">
-              <div v-if="reference">
-                <p
-                  class="text-foreground mb-0.5 text-sm font-semibold"
-                  data-testid="reference-label"
-                >
-                  {{ t('order_confirmation.reference') }}:
-                </p>
-                <p class="text-muted-foreground text-sm">{{ reference }}</p>
-              </div>
-              <div v-if="paymentLabel">
-                <p class="text-foreground mb-0.5 text-sm font-semibold">
-                  {{ t('order_confirmation.payment_method') }}:
-                </p>
-                <p
-                  class="text-muted-foreground text-sm"
-                  data-testid="payment-label"
-                >
-                  {{ paymentLabel }}
-                </p>
-              </div>
-            </div>
-
-            <div
-              class="bg-muted space-y-3 rounded-lg p-5"
-              data-testid="summary-box"
-            >
-              <div class="flex items-center justify-between text-sm">
-                <span class="text-muted-foreground">{{
-                  t('order_confirmation.subtotal')
-                }}</span>
-                <span data-testid="summary-subtotal">{{
-                  subtotalFormatted
-                }}</span>
-              </div>
-              <div
-                v-if="shippingFormatted"
-                class="flex items-center justify-between text-sm"
-                data-testid="summary-shipping"
-              >
-                <span class="text-muted-foreground">{{
-                  t('order_confirmation.shipping')
-                }}</span>
-                <span>{{ shippingFormatted }}</span>
-              </div>
-              <div
-                v-if="paymentFeeFormatted"
-                class="flex items-center justify-between text-sm"
-                data-testid="summary-payment-fee"
-              >
-                <span class="text-muted-foreground">{{
-                  t('common.payment_fee')
-                }}</span>
-                <span>{{ paymentFeeFormatted }}</span>
-              </div>
-              <div class="flex items-center justify-between text-sm">
-                <span class="text-muted-foreground">{{
-                  t(showIncVat ? 'common.vat_included' : 'common.vat')
-                }}</span>
-                <span data-testid="summary-vat">{{ vatFormatted }}</span>
-              </div>
-              <div
-                v-if="hasDiscount"
-                class="text-destructive flex items-center justify-between text-sm"
-                data-testid="summary-discount"
-              >
-                <span>{{ t('order_confirmation.discount') }}</span>
-                <span class="font-medium">-{{ discountFormatted }}</span>
-              </div>
-              <div class="border-border border-t pt-3">
-                <div
-                  class="flex items-center justify-between text-base font-bold"
-                  data-testid="summary-total"
-                >
-                  <span>{{ t('order_confirmation.total') }}</span>
-                  <span>{{ totalFormatted }}</span>
-                </div>
-                <div
-                  v-if="toPayFormatted"
-                  class="text-muted-foreground mt-1 flex items-center justify-between text-sm"
-                  data-testid="summary-to-pay"
-                >
-                  <span>{{ t('common.to_pay_inc_vat') }}</span>
-                  <span>{{ toPayFormatted }}</span>
-                </div>
-              </div>
-            </div>
-          </section>
-        </template>
-
-        <!-- Fallback content shown when summary is null: just the CTA -->
-
-        <!-- Full-width CTA -->
-        <NuxtLink
-          :to="viewOrderLink"
-          class="bg-button-background text-primary-foreground hover:bg-button-background/90 mt-8 flex w-full items-center justify-center rounded-md px-6 py-3 text-sm font-semibold transition-colors"
-          data-testid="view-order-cta"
-        >
-          {{ t('order_confirmation.view_order_in_portal') }}
-        </NuxtLink>
-      </article>
-
-      <!-- Back to store link below the card -->
-      <div class="mt-6 text-center">
-        <NuxtLink
-          :to="localePath('/')"
-          class="text-primary text-sm font-medium hover:opacity-80"
-          data-testid="back-to-store"
-        >
-          &larr; {{ t('order_confirmation.back_to_store') }}
-        </NuxtLink>
-      </div>
-    </template>
+    <!-- Back to store link below the card -->
+    <div class="mt-6 text-center">
+      <NuxtLink
+        :to="localePath('/')"
+        class="text-primary text-sm font-medium hover:opacity-80"
+        data-testid="back-to-store"
+      >
+        &larr; {{ t('order_confirmation.back_to_store') }}
+      </NuxtLink>
+    </div>
   </div>
 </template>

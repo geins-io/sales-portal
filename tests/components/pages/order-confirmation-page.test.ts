@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ref, type Ref } from 'vue';
 import { mountComponent } from '../../utils/component';
+import { mockShowIncVat } from '../../setup-components';
 
 /**
  * The confirmation page, both ways a buyer lands on it.
@@ -9,8 +10,8 @@ import { mountComponent } from '../../utils/component';
  * reads the order the portal reads and waits for it, because Geins's checkout
  * summary never carries an order placed through `createOrder`.
  *
- * Hosted (`?geins-cart=…&geins-pt=…`, Geins's redirect): the checkout summary,
- * with the payment type Geins itself put on the URL.
+ * Hosted (`?geins-cart=…`, Geins's redirect): the thank-you header only. A
+ * hosted order returns with nothing to read, so nothing is asked.
  */
 
 type FetchResult = {
@@ -66,16 +67,32 @@ function makeOrder() {
       publicId: PUBLIC_ID,
       currency: 'SEK',
       customerOrderNumber: 'PO-77',
+      goodsLabel: 'Dock 4',
+      billingAddress: { company: 'Acme' },
+      shippingAddress: { company: 'Warehouse' },
       cart: {
         items: [
           {
             product: { name: 'Widget Pro', articleNumber: 'ART-001' },
             quantity: 3,
-            unitPrice: { sellingPriceExVatFormatted: '120,00 kr' },
-            totalPrice: { sellingPriceExVatFormatted: '360,00 kr' },
+            unitPrice: {
+              sellingPriceIncVatFormatted: '150,00 kr',
+              sellingPriceExVatFormatted: '120,00 kr',
+            },
+            totalPrice: {
+              sellingPriceIncVatFormatted: '450,00 kr',
+              sellingPriceExVatFormatted: '360,00 kr',
+            },
           },
         ],
-        summary: {},
+        summary: {
+          subTotal: { sellingPriceIncVatFormatted: '450,00 kr' },
+          total: {
+            sellingPriceIncVat: 450,
+            sellingPriceIncVatFormatted: '450,00 kr',
+            vatFormatted: '90,00 kr',
+          },
+        },
       },
       paymentDetails: [{ displayName: 'Faktura 30 dagar' }],
     },
@@ -84,35 +101,82 @@ function makeOrder() {
 
 const OrderConfirmationStub = {
   name: 'OrderConfirmation',
-  props: [
-    'summary',
-    'isLoading',
-    'paymentLabel',
-    'reference',
-    'orderNumber',
-    'publicOrderId',
-  ],
-  template: '<div data-testid="order-confirmation" />',
+  props: ['orderNumber', 'publicOrderId'],
+  template: '<div data-testid="order-confirmation"><slot /></div>',
 };
+
+// The order's own parts, shared with the portal order page.
+const partStub = (name: string, props: string[]) => ({
+  name,
+  props,
+  template: `<div data-testid="${name}" />`,
+});
+const OrderItemsTableStub = partStub('OrderItemsTable', [
+  'items',
+  'amounts',
+  'itemCount',
+  'totalIncVatLabel',
+]);
+const OrderSummaryCardStub = partStub('OrderSummaryCard', [
+  'amounts',
+  'itemCount',
+  'totalIncVatLabel',
+]);
+const OrderAddressesStub = partStub('OrderAddresses', [
+  'billingAddress',
+  'shippingAddress',
+  'customerOrderNumber',
+  'goodsLabel',
+  'desiredDeliveryDate',
+  'paymentMethod',
+]);
+const SheetStub = partStub('PortalItemRowsSheet', [
+  'items',
+  'totals',
+  'triggerLabel',
+  'title',
+]);
 
 function mount() {
   return mountComponent(ConfirmationPage, {
-    global: { stubs: { OrderConfirmation: OrderConfirmationStub } },
+    global: {
+      stubs: {
+        OrderConfirmation: OrderConfirmationStub,
+        OrderItemsTable: OrderItemsTableStub,
+        OrderSummaryCard: OrderSummaryCardStub,
+        OrderAddresses: OrderAddressesStub,
+        PortalItemRowsSheet: SheetStub,
+      },
+    },
   });
 }
 
-function confirmationProps(wrapper: ReturnType<typeof mount>) {
-  return wrapper.findComponent(OrderConfirmationStub).props() as Record<
-    string,
-    unknown
-  >;
+function propsOf(
+  wrapper: ReturnType<typeof mount>,
+  stub: { name: string },
+): Record<string, unknown> {
+  return wrapper.findComponent(stub).props() as Record<string, unknown>;
+}
+
+function hasOrderParts(wrapper: ReturnType<typeof mount>) {
+  return [
+    OrderItemsTableStub,
+    OrderSummaryCardStub,
+    OrderAddressesStub,
+    SheetStub,
+  ].map((stub) => wrapper.findComponent(stub).exists());
 }
 
 function summaryRequests() {
   return useFetchMock.mock.calls.filter(
+    ([url]) => (typeof url === 'function' ? url() : url) === SUMMARY_URL,
+  );
+}
+
+function orderRequests() {
+  return useFetchMock.mock.calls.filter(
     ([url, options]) =>
-      (typeof url === 'function' ? url() : url) === SUMMARY_URL &&
-      options?.immediate !== false,
+      String(url).startsWith('/api/orders/') && options?.immediate !== false,
   );
 }
 
@@ -125,6 +189,7 @@ beforeEach(() => {
   useFetchMock.mockClear();
   mockPollFetch.mockReset();
   mockQuery.value = {};
+  mockShowIncVat.value = true;
   vi.useFakeTimers();
 });
 
@@ -146,56 +211,105 @@ describe('Order confirmation page — placed in the app', () => {
   it('reads the order the portal reads', () => {
     mount();
 
-    expect(
-      useFetchMock.mock.calls.some(
-        ([url, options]) => url === ORDER_URL && options?.immediate !== false,
-      ),
-    ).toBe(true);
+    expect(orderRequests().map(([url]) => url)).toEqual([ORDER_URL]);
   });
 
   it('shows the thank-you, the order number and the link at once', () => {
     resultFor(ORDER_URL).error.value = notFound();
-    const props = confirmationProps(mount());
+    const wrapper = mount();
 
-    expect(props.isLoading).toBe(false);
-    expect(props.summary).toBeNull();
-    expect(props.orderNumber).toBe('1100');
-    expect(props.publicOrderId).toBe(PUBLIC_ID);
+    expect(propsOf(wrapper, OrderConfirmationStub)).toEqual({
+      orderNumber: '1100',
+      publicOrderId: PUBLIC_ID,
+    });
+    expect(hasOrderParts(wrapper)).toEqual([false, false, false, false]);
   });
 
-  it('fills in the order once it is readable', () => {
+  it('shows the order with the order page parts once it is readable', () => {
     resultFor(ORDER_URL).data.value = makeOrder();
-    const props = confirmationProps(mount());
-    const summary = props.summary as { orderId: string; rows: unknown[] };
+    const wrapper = mount();
 
-    expect(summary.orderId).toBe('1100');
-    expect(summary.rows).toHaveLength(1);
-    expect(props.reference).toBe('PO-77');
-    expect(props.paymentLabel).toBe('Faktura 30 dagar');
+    expect(hasOrderParts(wrapper)).toEqual([true, true, true, true]);
+    const table = propsOf(wrapper, OrderItemsTableStub);
+    expect(table.items).toEqual([
+      expect.objectContaining({
+        name: 'Widget Pro',
+        quantity: 3,
+        unitPriceFormatted: '150,00 kr',
+        totalPriceFormatted: '450,00 kr',
+      }),
+    ]);
+    expect(table.itemCount).toBe(1);
+    expect(propsOf(wrapper, OrderSummaryCardStub).amounts).toMatchObject({
+      subtotal: '450,00 kr',
+      tax: '90,00 kr',
+      total: '450,00 kr',
+    });
+    expect(propsOf(wrapper, OrderAddressesStub)).toEqual({
+      billingAddress: { company: 'Acme' },
+      shippingAddress: { company: 'Warehouse' },
+      customerOrderNumber: 'PO-77',
+      goodsLabel: 'Dock 4',
+      desiredDeliveryDate: undefined,
+      paymentMethod: 'Faktura 30 dagar',
+    });
   });
 
-  it('has no payment label until the order says what it is', () => {
-    resultFor(ORDER_URL).error.value = notFound();
+  it('labels the inc-VAT line "to pay incl. VAT"', () => {
+    resultFor(ORDER_URL).data.value = makeOrder();
+    const wrapper = mount();
 
-    expect(confirmationProps(mount()).paymentLabel).toBeUndefined();
+    expect(propsOf(wrapper, OrderSummaryCardStub).totalIncVatLabel).toBe(
+      'common.to_pay_inc_vat',
+    );
+    expect(propsOf(wrapper, OrderItemsTableStub).totalIncVatLabel).toBe(
+      'common.to_pay_inc_vat',
+    );
   });
 
-  it('waits for the order with the cache bypassed, then renders it', async () => {
+  it('labels the mobile sheet\'s inc-VAT line "to pay incl. VAT"', () => {
+    mockShowIncVat.value = false;
+    resultFor(ORDER_URL).data.value = makeOrder();
+    const totals = propsOf(mount(), SheetStub).totals as { label: string }[];
+
+    expect(totals.at(-1)?.label).toBe('common.to_pay_inc_vat');
+  });
+
+  it("formats the discount in the buyer's own locale", () => {
+    const order = makeOrder();
+    Object.assign(order.order.cart.summary, { fixedAmountDiscountIncVat: 25 });
+    resultFor(ORDER_URL).data.value = order;
+
+    expect(propsOf(mount(), OrderSummaryCardStub).amounts).toMatchObject({
+      discount: 'SEK\u00a025.00',
+    });
+  });
+
+  it('follows the VAT choice', () => {
+    mockShowIncVat.value = false;
+    resultFor(ORDER_URL).data.value = makeOrder();
+    const wrapper = mount();
+
+    expect(propsOf(wrapper, OrderItemsTableStub).items).toEqual([
+      expect.objectContaining({ unitPriceFormatted: '120,00 kr' }),
+    ]);
+  });
+
+  it('waits for the order with the cache bypassed, then shows it', async () => {
     resultFor(ORDER_URL).error.value = notFound();
     mockPollFetch.mockRejectedValueOnce(notFound());
     mockPollFetch.mockResolvedValue(makeOrder());
     const wrapper = mount();
 
     await vi.advanceTimersByTimeAsync(2500);
-    expect(confirmationProps(wrapper).summary).toBeNull();
+    expect(hasOrderParts(wrapper)).toEqual([false, false, false, false]);
     await vi.advanceTimersByTimeAsync(2500);
 
     expect(mockPollFetch.mock.calls).toEqual([
       [ORDER_URL, { cache: 'no-store' }],
       [ORDER_URL, { cache: 'no-store' }],
     ]);
-    const summary = confirmationProps(wrapper).summary as { rows: unknown[] };
-    expect(summary.rows).toHaveLength(1);
+    expect(hasOrderParts(wrapper)).toEqual([true, true, true, true]);
 
     await vi.advanceTimersByTimeAsync(20000);
     expect(mockPollFetch).toHaveBeenCalledTimes(2);
@@ -220,7 +334,8 @@ describe('Order confirmation page — placed in the app', () => {
     await vi.advanceTimersByTimeAsync(30000);
 
     expect(mockPollFetch).toHaveBeenCalledTimes(calls);
-    expect(confirmationProps(wrapper).summary).toBeNull();
+    expect(wrapper.findComponent(OrderConfirmationStub).exists()).toBe(true);
+    expect(hasOrderParts(wrapper)).toEqual([false, false, false, false]);
   });
 });
 
@@ -232,68 +347,22 @@ describe('Order confirmation page — no order id', () => {
     await vi.advanceTimersByTimeAsync(10000);
 
     expect(summaryRequests()).toEqual([]);
-    expect(
-      useFetchMock.mock.calls.some(
-        ([url, options]) =>
-          String(url).startsWith('/api/orders/') &&
-          options?.immediate !== false,
-      ),
-    ).toBe(false);
+    expect(orderRequests()).toEqual([]);
     expect(mockPollFetch).not.toHaveBeenCalled();
   });
 });
 
 describe('Order confirmation page — back from hosted checkout', () => {
-  const CART_ID = 'cart-123';
-
-  it('asks for the summary with the payment type Geins put on the URL', () => {
-    mockQuery.value = { 'geins-cart': CART_ID, 'geins-pt': 'KLARNA' };
-    mount();
-
-    const [call] = summaryRequests();
-    expect(call?.[1]?.query).toEqual({
-      orderId: CART_ID,
-      paymentMethod: 'KLARNA',
-    });
-  });
-
-  it('labels the payment by that type', () => {
-    mockQuery.value = { 'geins-cart': CART_ID, 'geins-pt': 'STANDARD' };
-
-    expect(confirmationProps(mount()).paymentLabel).toBe(
-      'checkout.payment_types.invoice',
-    );
-  });
-
-  it('asks for no summary without a payment type, and never guesses one', () => {
-    mockQuery.value = { 'geins-cart': CART_ID };
-    const props = confirmationProps(mount());
-
-    expect(summaryRequests()).toEqual([]);
-    expect(props.paymentLabel).toBeUndefined();
-    expect(JSON.stringify(useFetchMock.mock.calls)).not.toContain('invoice');
-  });
-
-  it('does not read or wait for an order by the cart id', async () => {
-    mockQuery.value = { 'geins-cart': CART_ID, 'geins-pt': 'KLARNA' };
-    mount();
+  it('shows the thank-you header only, and asks for nothing', async () => {
+    mockQuery.value = { 'geins-cart': 'cart-123', 'geins-pt': 'KLARNA' };
+    const wrapper = mount();
 
     await vi.advanceTimersByTimeAsync(10000);
 
-    expect(
-      useFetchMock.mock.calls.some(
-        ([url, options]) =>
-          String(url).startsWith('/api/orders/') &&
-          options?.immediate !== false,
-      ),
-    ).toBe(false);
+    expect(summaryRequests()).toEqual([]);
+    expect(orderRequests()).toEqual([]);
     expect(mockPollFetch).not.toHaveBeenCalled();
-  });
-
-  it('renders the summary it gets', () => {
-    mockQuery.value = { 'geins-cart': CART_ID, 'geins-pt': 'KLARNA' };
-    resultFor(SUMMARY_URL).data.value = { order: { orderId: '55' } };
-
-    expect(confirmationProps(mount()).summary).toEqual({ orderId: '55' });
+    expect(wrapper.findComponent(OrderConfirmationStub).exists()).toBe(true);
+    expect(hasOrderParts(wrapper)).toEqual([false, false, false, false]);
   });
 });

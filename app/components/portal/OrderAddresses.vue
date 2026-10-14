@@ -9,6 +9,8 @@ const props = defineProps<{
   customerOrderNumber?: string | null;
   goodsLabel?: string | null;
   desiredDeliveryDate?: string | null;
+  /** How the order was paid, as the order names it. */
+  paymentMethod?: string | null;
 }>();
 
 const { t } = useI18n();
@@ -39,8 +41,14 @@ const hasAdditionalInfo = computed(
     !!(
       props.customerOrderNumber ||
       props.goodsLabel ||
-      props.desiredDeliveryDate
+      props.desiredDeliveryDate ||
+      props.paymentMethod
     ),
+);
+
+const paymentMethodLine = computed(
+  () =>
+    `${t('portal.orders.detail.additional_info.payment_method')}: ${props.paymentMethod}`,
 );
 
 // Slices the YYYY-MM-DD portion from the ISO date string rather than using
@@ -113,6 +121,13 @@ const deliveryDate = computed(() => {
       >
         {{ t('portal.orders.detail.additional_info.desired_delivery_date') }}:
         {{ deliveryDate }}
+      </p>
+      <p
+        v-if="paymentMethod"
+        data-testid="additional-payment-method"
+        class="text-muted-foreground text-sm"
+      >
+        {{ paymentMethodLine }}
       </p>
     </div>
   </div>

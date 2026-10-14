@@ -221,10 +221,6 @@
     "confirmation_subtitle": "Takk for bestillingen. En bekreftelse er sendt til e-postadressen din.",
     "order_number": "Ordrenummer",
     "order_placed": "Ordren din er lagt inn.",
-    "order_details": "Ordredetaljer",
-    "items_total": "{count} varer totalt",
-    "view_all_items": "Vis alle {count} varer",
-    "hide_items": "Skjul varer",
     "items": "Varer",
     "product": "Produkt",
     "article_number": "Art.nr.",
@@ -232,20 +228,11 @@
     "unit_price": "Enhetspris",
     "line_total": "Totalt",
     "summary": "Sammendrag",
-    "subtotal": "Delsum",
-    "shipping": "Frakt",
-    "discount": "Rabatt",
-    "total": "Totalt",
-    "billing_address": "Fakturaadresse",
-    "shipping_address": "Leveringsadresse",
-    "reference": "Din referanse",
-    "payment_method": "Betalingsmåte",
     "view_order_in_portal": "Vis ordre i kundeportalen",
     "back_to_store": "Tilbake til butikken",
     "continue_shopping": "Fortsett å handle",
     "view_orders": "Vis mine ordrer",
-    "order_not_found": "Ordren ble ikke funnet.",
-    "buyer": "Kjøper"
+    "order_not_found": "Ordren ble ikke funnet."
   },
   "product": {
     "details": "Produktdetaljer",
@@ -680,7 +667,8 @@
           "title": "Tilleggsinformasjon",
           "your_reference": "Deres referanse",
           "goods_label": "Godsmerke",
-          "desired_delivery_date": "Ønsket leveringsdato"
+          "desired_delivery_date": "Ønsket leveringsdato",
+          "payment_method": "Betalingsmåte"
         },
         "billing_address": "Fakturaopplysninger",
         "shipping_address": "Leveringsadresse",

@@ -221,10 +221,6 @@
     "confirmation_subtitle": "Tack för din beställning. En bekräftelse har skickats till din e-postadress.",
     "order_number": "Ordernummer",
     "order_placed": "Din order har lagts.",
-    "order_details": "Orderdetaljer",
-    "items_total": "{count} artiklar totalt",
-    "view_all_items": "Visa alla {count} artiklar",
-    "hide_items": "Dölj artiklar",
     "items": "Artiklar",
     "product": "Produkt",
     "article_number": "Art.nr.",
@@ -232,20 +228,11 @@
     "unit_price": "À-pris",
     "line_total": "Totalt",
     "summary": "Sammanfattning",
-    "subtotal": "Delsumma",
-    "shipping": "Frakt",
-    "discount": "Rabatt",
-    "total": "Totalt",
-    "billing_address": "Fakturaadress",
-    "shipping_address": "Leveransadress",
-    "reference": "Din referens",
-    "payment_method": "Betalningssätt",
     "view_order_in_portal": "Visa order i kundportalen",
     "back_to_store": "Tillbaka till butiken",
     "continue_shopping": "Fortsätt handla",
     "view_orders": "Visa mina ordrar",
-    "order_not_found": "Order hittades inte.",
-    "buyer": "Köpare"
+    "order_not_found": "Order hittades inte."
   },
   "product": {
     "details": "Produktdetaljer",
@@ -680,7 +667,8 @@
           "title": "Ytterligare information",
           "your_reference": "Er referens",
           "goods_label": "Godsmärke",
-          "desired_delivery_date": "Önskat leveransdatum"
+          "desired_delivery_date": "Önskat leveransdatum",
+          "payment_method": "Betalsätt"
         },
         "billing_address": "Fakturauppgifter",
         "shipping_address": "Leveransadress",

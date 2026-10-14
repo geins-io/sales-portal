@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import type { OrderDetailType } from '#shared/types/commerce';
 import {
   orderAmounts,
+  orderPaymentLabel,
   orderRows,
   orderTotalRows,
 } from '../../app/utils/order-view';
@@ -74,6 +75,7 @@ describe('orderAmounts', () => {
         subtotal,
         shipping: undefined,
         paymentFee: undefined,
+        discount: undefined,
         tax: '62,50 vat',
         total,
         totalIncVat,
@@ -176,11 +178,66 @@ describe('orderAmounts', () => {
     });
   });
 
+  it.each([
+    [true, /^25,00\skr$/],
+    [false, /^20,00\skr$/],
+  ])(
+    'shows the order discount from the cart field, formatted (incl. VAT: %s)',
+    (incVat, value) => {
+      const order = withSummary({
+        fixedAmountDiscountIncVat: 25,
+        fixedAmountDiscountExVat: 20,
+      });
+
+      expect(orderAmounts(order, incVat, 'sv-SE').discount).toMatch(value);
+    },
+  );
+
+  it("formats the discount in the cart total's currency", () => {
+    const { cart } = makeOrder();
+    const order = makeOrder({
+      currency: 'NOK',
+      cart: {
+        ...cart,
+        summary: {
+          ...cart!.summary,
+          total: { ...cart!.summary!.total, currency: { code: 'EUR' } },
+          fixedAmountDiscountIncVat: 25,
+        },
+      },
+    });
+
+    expect(orderAmounts(order, true, 'en-GB').discount).toBe('€25.00');
+  });
+
+  it("falls back to the order's currency when the cart total has none", () => {
+    const { cart } = makeOrder();
+    const order = makeOrder({
+      currency: 'EUR',
+      cart: {
+        ...cart,
+        summary: { fixedAmountDiscountIncVat: 25 },
+      },
+    });
+
+    expect(orderAmounts(order, true, 'en-GB').discount).toBe('€25.00');
+  });
+
+  it.each([0, -5, undefined])('shows no discount of %s', (amount) => {
+    const order = withSummary({
+      fixedAmountDiscountIncVat: amount,
+      fixedAmountDiscountExVat: amount,
+    });
+
+    expect(orderAmounts(order, true, 'sv-SE').discount).toBeUndefined();
+  });
+
   it('has nothing to show without an order', () => {
     expect(orderAmounts(undefined, false)).toEqual({
       subtotal: undefined,
       shipping: undefined,
       paymentFee: undefined,
+      discount: undefined,
       tax: undefined,
       total: undefined,
       totalIncVat: undefined,
@@ -273,6 +330,7 @@ describe('orderTotalRows', () => {
         subtotal: 's',
         shipping: 'sh',
         paymentFee: 'pf',
+        discount: 'd',
         tax: 'v',
         total: 'tot',
         totalIncVat: 'inc',
@@ -280,6 +338,7 @@ describe('orderTotalRows', () => {
       3,
       false,
       t,
+      'Att betala inkl. moms',
     );
 
     expect(rows).toEqual([
@@ -287,6 +346,7 @@ describe('orderTotalRows', () => {
         label: 'portal.orders.detail.summary.subtotal_with_count:{"count":3}',
         value: 's',
       },
+      { label: 'discount.discount', value: '-d' },
       { label: 'portal.orders.detail.summary.shipping', value: 'sh' },
       { label: 'common.payment_fee', value: 'pf' },
       { label: 'common.vat', value: 'v' },
@@ -295,7 +355,7 @@ describe('orderTotalRows', () => {
         value: 'tot',
         emphasis: true,
       },
-      { label: 'common.total_inc_vat', value: 'inc' },
+      { label: 'Att betala inkl. moms', value: 'inc' },
     ]);
   });
 
@@ -305,6 +365,7 @@ describe('orderTotalRows', () => {
       1,
       true,
       t,
+      'Totalt inkl. moms',
     );
 
     expect(rows.map((row) => row.label)).toEqual([
@@ -312,5 +373,51 @@ describe('orderTotalRows', () => {
       'common.vat_included',
       'portal.orders.detail.summary.total',
     ]);
+  });
+});
+
+describe('orderPaymentLabel', () => {
+  it('prefers the display name', () => {
+    expect(
+      orderPaymentLabel(
+        makeOrder({
+          paymentDetails: [
+            { displayName: 'Faktura 30 dagar', name: 'Invoice' },
+          ],
+        }),
+      ),
+    ).toBe('Faktura 30 dagar');
+  });
+
+  it('falls back to the name', () => {
+    expect(
+      orderPaymentLabel(
+        makeOrder({ paymentDetails: [{ displayName: ' ', name: 'Invoice' }] }),
+      ),
+    ).toBe('Invoice');
+  });
+
+  it('trims the name it falls back to', () => {
+    expect(
+      orderPaymentLabel(makeOrder({ paymentDetails: [{ name: ' Invoice ' }] })),
+    ).toBe('Invoice');
+  });
+
+  it('has nothing to say when the display name is blank and there is no name', () => {
+    expect(
+      orderPaymentLabel(makeOrder({ paymentDetails: [{ displayName: ' ' }] })),
+    ).toBe(undefined);
+  });
+
+  it('has nothing to say without payment details', () => {
+    expect(orderPaymentLabel(makeOrder({ paymentDetails: undefined }))).toBe(
+      undefined,
+    );
+    expect(orderPaymentLabel(makeOrder({ paymentDetails: [] }))).toBe(
+      undefined,
+    );
+    expect(
+      orderPaymentLabel(makeOrder({ paymentDetails: [{ name: '' }] })),
+    ).toBe(undefined);
   });
 });

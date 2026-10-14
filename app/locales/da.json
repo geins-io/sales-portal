@@ -221,10 +221,6 @@
     "confirmation_subtitle": "Tak for din bestilling. En bekræftelse er sendt til din e-mailadresse.",
     "order_number": "Ordrenummer",
     "order_placed": "Din ordre er afgivet.",
-    "order_details": "Ordredetaljer",
-    "items_total": "{count} varer i alt",
-    "view_all_items": "Vis alle {count} varer",
-    "hide_items": "Skjul varer",
     "items": "Varer",
     "product": "Produkt",
     "article_number": "Varenr.",
@@ -232,20 +228,11 @@
     "unit_price": "Enhedspris",
     "line_total": "I alt",
     "summary": "Oversigt",
-    "subtotal": "Delsum",
-    "shipping": "Fragt",
-    "discount": "Rabat",
-    "total": "I alt",
-    "billing_address": "Faktureringsadresse",
-    "shipping_address": "Leveringsadresse",
-    "reference": "Din reference",
-    "payment_method": "Betalingsmetode",
     "view_order_in_portal": "Vis ordre i kundeportalen",
     "back_to_store": "Tilbage til butikken",
     "continue_shopping": "Fortsæt med at handle",
     "view_orders": "Vis mine ordrer",
-    "order_not_found": "Ordren blev ikke fundet.",
-    "buyer": "Køber"
+    "order_not_found": "Ordren blev ikke fundet."
   },
   "product": {
     "details": "Produktdetaljer",
@@ -680,7 +667,8 @@
           "title": "Yderligere oplysninger",
           "your_reference": "Deres reference",
           "goods_label": "Godsmærke",
-          "desired_delivery_date": "Ønsket leveringsdato"
+          "desired_delivery_date": "Ønsket leveringsdato",
+          "payment_method": "Betalingsmetode"
         },
         "billing_address": "Faktureringsoplysninger",
         "shipping_address": "Leveringsadresse",

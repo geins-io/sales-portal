@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import {
+  type ApiOrder,
   addToCart,
   discoverPurchasableProduct,
   fetchCart,
@@ -148,9 +149,10 @@ interface ScreenOrderLine {
 }
 
 /**
- * The lines the order detail page renders. Desktop only: this project runs
- * chromium at a desktop viewport, where the table is the visible shape and the
- * mobile sheet behind `view-rows-trigger` is not.
+ * The lines the order table renders, on the order page and the confirmation
+ * alike. Desktop only: this project runs chromium at a desktop viewport, where
+ * the table is the visible shape and the mobile sheet behind
+ * `view-rows-trigger` is not.
  */
 async function readOrderLines(page: Page): Promise<ScreenOrderLine[]> {
   const rows = page.locator('[data-testid="order-item-row"]');
@@ -247,6 +249,61 @@ async function addConfiguredLine(
     quantity: commit.quantity,
     unitPriceIncVat: commit.unitPrice.sellingPriceIncVat,
   };
+}
+
+/**
+ * One order, as both the confirmation and the order detail page render it:
+ * the same components, so the same reading and the same checks. Read on the
+ * ex side, as step 1 sets it.
+ */
+async function expectOrderMatchesApi(
+  page: Page,
+  order: ApiOrder,
+  surface: string,
+): Promise<void> {
+  const screenLines = await readOrderLines(page);
+  expect(screenLines.length).toBe(order.items.length);
+  for (const [index, line] of order.items.entries()) {
+    const screen = screenLines[index]!;
+    const where = `order line ${index} (article ${line.articleNumber}), rendered on the ${surface}`;
+    expect(screen.articleNumber, `${where}: wrong article number`).toBe(
+      line.articleNumber,
+    );
+    expect(screen.quantity, `${where}: wrong quantity`).toBe(line.quantity);
+    expect(screen.unitPrice, `${where}: wrong unit price`).toBeCloseTo(
+      line.unitPriceExVat,
+      2,
+    );
+    expect(screen.totalPrice, `${where}: wrong line total`).toBeCloseTo(
+      line.totalPriceExVat,
+      2,
+    );
+    // The multiplication itself, on both sides.
+    expect(
+      screen.totalPrice,
+      `${where}: the rendered total is not quantity x unit price`,
+    ).toBeCloseTo(screen.unitPrice * screen.quantity, 2);
+    expect(
+      line.totalPriceExVat,
+      `${where}: the API's own total is not quantity x unit price`,
+    ).toBeCloseTo(line.unitPriceExVat * line.quantity, 2);
+  }
+
+  expect(
+    await readPrice(page.locator('[data-testid="order-summary-subtotal"]')),
+  ).toBeCloseTo(order.subTotalExVat, 2);
+  expect(
+    await readPrice(page.locator('[data-testid="order-summary-tax"]')),
+  ).toBeCloseTo(order.vat, 2);
+  expect(
+    await readPrice(page.locator('[data-testid="order-summary-total"]')),
+  ).toBeCloseTo(order.totalExVat, 2);
+  expect(
+    await readPrice(
+      page.locator('[data-testid="order-summary-total-inc-vat"]'),
+    ),
+    `${surface}: the inc-VAT line under the total`,
+  ).toBeCloseTo(order.totalIncVat, 2);
 }
 
 /**
@@ -501,7 +558,7 @@ test('a placed order carries the cart it was built from all the way to the porta
     'browser serving the cached 404.';
 
   await expect(
-    page.locator('[data-testid="summary-box"]'),
+    page.locator('[data-testid="confirmation-order"]'),
     `the confirmation did not show the order within ${SELF_ARRIVAL_MS / 1000}s. ${ours}`,
   ).toBeVisible({ timeout: SELF_ARRIVAL_MS });
   expect(
@@ -510,38 +567,7 @@ test('a placed order carries the cart it was built from all the way to the porta
   ).toEqual([]);
 
   await test.step('the confirmation renders what the orders API reports', async () => {
-    const toggle = page.locator('[data-testid="toggle-items"]');
-    if (await toggle.isVisible()) await toggle.click();
-    const rows = page.locator('[data-testid="items-list"] li');
-    await expect(rows).toHaveCount(order.items.length);
-    for (const [index, line] of order.items.entries()) {
-      const row = rows.nth(index);
-      const where = `confirmation row ${index} (article ${line.articleNumber})`;
-      await expect(row, `${where}: wrong article number`).toContainText(
-        `SKU: ${line.articleNumber}`,
-      );
-      await expect(row, `${where}: wrong quantity`).toContainText(
-        `${line.quantity} ×`,
-      );
-    }
-
-    // The ex side, as set in step 1.
-    expect(
-      await readPrice(page.locator('[data-testid="summary-subtotal"]')),
-    ).toBeCloseTo(order.subTotalExVat, 2);
-    expect(
-      await readPrice(page.locator('[data-testid="summary-vat"]')),
-    ).toBeCloseTo(order.vat, 2);
-    expect(
-      await readPrice(
-        page.locator('[data-testid="summary-total"] span').last(),
-      ),
-    ).toBeCloseTo(order.totalExVat, 2);
-    expect(
-      await readPrice(
-        page.locator('[data-testid="summary-to-pay"] span').last(),
-      ),
-    ).toBeCloseTo(order.totalIncVat, 2);
+    await expectOrderMatchesApi(page, order, 'confirmation');
   });
 
   await expect(
@@ -575,45 +601,7 @@ test('a placed order carries the cart it was built from all the way to the porta
   // ---------- 8. The detail page, against its own API ----------
 
   await test.step('the order detail page renders what the orders API reports', async () => {
-    // Reached by the confirmation's own link above, which keeps the locale out
-    // of the spec — the prefix belongs to the tenant's configuration.
-    const screenLines = await readOrderLines(page);
-    expect(screenLines.length).toBe(order.items.length);
-    for (const [index, line] of order.items.entries()) {
-      const screen = screenLines[index]!;
-      const where = `order line ${index} (article ${line.articleNumber}), rendered on the order detail page`;
-      expect(screen.articleNumber, `${where}: wrong article number`).toBe(
-        line.articleNumber,
-      );
-      expect(screen.quantity, `${where}: wrong quantity`).toBe(line.quantity);
-      expect(screen.unitPrice, `${where}: wrong unit price`).toBeCloseTo(
-        line.unitPriceExVat,
-        2,
-      );
-      expect(screen.totalPrice, `${where}: wrong line total`).toBeCloseTo(
-        line.totalPriceExVat,
-        2,
-      );
-      // The multiplication itself, on both sides.
-      expect(
-        screen.totalPrice,
-        `${where}: the rendered total is not quantity x unit price`,
-      ).toBeCloseTo(screen.unitPrice * screen.quantity, 2);
-      expect(
-        line.totalPriceExVat,
-        `${where}: the API's own total is not quantity x unit price`,
-      ).toBeCloseTo(line.unitPriceExVat * line.quantity, 2);
-    }
-
-    expect(
-      await readPrice(page.locator('[data-testid="order-summary-subtotal"]')),
-    ).toBeCloseTo(order.subTotalExVat, 2);
-    expect(
-      await readPrice(page.locator('[data-testid="order-summary-tax"]')),
-    ).toBeCloseTo(order.vat, 2);
-    expect(
-      await readPrice(page.locator('[data-testid="order-summary-total"]')),
-    ).toBeCloseTo(order.totalExVat, 2);
+    await expectOrderMatchesApi(page, order, 'order detail page');
   });
 
   // ---------- 8b. The list, from the order's own back link ----------

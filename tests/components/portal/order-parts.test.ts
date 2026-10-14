@@ -60,7 +60,7 @@ describe('OrderItemsTable', () => {
 
   function mount() {
     return mountComponent(OrderItemsTable, {
-      props: { items: rows, amounts, itemCount: 2 },
+      props: { items: rows, amounts, itemCount: 2, totalIncVatLabel: 'X' },
       global: { stubs },
     });
   }
@@ -107,10 +107,103 @@ describe('OrderItemsTable', () => {
   });
 });
 
+describe('the summary rows the decision adds', () => {
+  const withDiscount = { ...amounts, discount: '25 kr' };
+
+  it('shows the discount as a deduction in the card and the table footer', () => {
+    const card = mountComponent(OrderSummaryCard, {
+      props: { amounts: withDiscount, itemCount: 2, totalIncVatLabel: 'X' },
+    });
+    const table = mountComponent(OrderItemsTable, {
+      props: {
+        items: rows,
+        amounts: withDiscount,
+        itemCount: 2,
+        totalIncVatLabel: 'X',
+      },
+      global: { stubs },
+    });
+
+    expect(text(card, 'order-summary-discount')).toContain('-25 kr');
+    expect(text(table, 'order-items-footer-discount')).toBe('-25 kr');
+  });
+
+  it('lists the discount right after the subtotal, as the cart does', () => {
+    const card = mountComponent(OrderSummaryCard, {
+      props: { amounts: withDiscount, itemCount: 2, totalIncVatLabel: 'X' },
+    });
+    const order = [...card.element.querySelectorAll('[data-testid]')]
+      .map((el) => el.getAttribute('data-testid'))
+      .filter(
+        (id) => id?.startsWith('order-summary-') && id !== 'order-summary',
+      );
+
+    expect(order).toEqual([
+      'order-summary-subtotal',
+      'order-summary-discount',
+      'order-summary-shipping',
+      'order-summary-payment-fee',
+      'order-summary-tax',
+      'order-summary-total',
+      'order-summary-total-inc-vat',
+    ]);
+  });
+
+  it('shows no discount row without a discount', () => {
+    const card = mountComponent(OrderSummaryCard, {
+      props: { amounts, itemCount: 2, totalIncVatLabel: 'X' },
+    });
+
+    expect(card.find('[data-testid="order-summary-discount"]').exists()).toBe(
+      false,
+    );
+  });
+
+  it('labels the inc-VAT line with the text it is given', () => {
+    const card = mountComponent(OrderSummaryCard, {
+      props: {
+        amounts,
+        itemCount: 2,
+        totalIncVatLabel: 'Att betala inkl. moms',
+      },
+    });
+    const table = mountComponent(OrderItemsTable, {
+      props: {
+        items: rows,
+        amounts,
+        itemCount: 2,
+        totalIncVatLabel: 'Att betala inkl. moms',
+      },
+      global: { stubs },
+    });
+
+    expect(
+      card.find('[data-testid="order-summary-total-inc-vat"]').element
+        .previousElementSibling?.textContent,
+    ).toBe('Att betala inkl. moms');
+    expect(
+      table
+        .find('[data-testid="order-items-footer-total-inc-vat"]')
+        .element.previousElementSibling?.textContent?.trim(),
+    ).toBe('Att betala inkl. moms');
+  });
+
+  it('shows the payment method in the additional information', () => {
+    const wrapper = mountComponent(OrderAddresses, {
+      props: { paymentMethod: 'Faktura 30 dagar' },
+      global: { stubs },
+    });
+
+    expect(text(wrapper, 'additional-payment-method')).toBe(
+      'portal.orders.detail.additional_info.payment_method: Faktura 30 dagar',
+    );
+  });
+});
+
 describe('OrderSummaryCard', () => {
   it('shows each amount it is given', () => {
     const wrapper = mountComponent(OrderSummaryCard, {
-      props: { amounts, itemCount: 2 },
+      props: { amounts, itemCount: 2, totalIncVatLabel: 'X' },
     });
 
     expect(text(wrapper, 'order-summary-subtotal')).toBe('240 kr');
@@ -123,7 +216,11 @@ describe('OrderSummaryCard', () => {
 
   it('shows no fee or inc line it is not given', () => {
     const wrapper = mountComponent(OrderSummaryCard, {
-      props: { amounts: { subtotal: '1', tax: '2', total: '3' }, itemCount: 1 },
+      props: {
+        amounts: { subtotal: '1', tax: '2', total: '3' },
+        itemCount: 1,
+        totalIncVatLabel: 'X',
+      },
     });
 
     for (const id of [

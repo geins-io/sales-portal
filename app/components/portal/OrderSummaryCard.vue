@@ -5,6 +5,8 @@ import type { OrderAmounts } from '~/utils/order-view';
 defineProps<{
   amounts: OrderAmounts;
   itemCount: number;
+  /** The inc-VAT line's text: each page words it its own way. */
+  totalIncVatLabel: string;
 }>();
 
 const { t } = useI18n();
@@ -24,6 +26,14 @@ const { showIncVat } = useVatDisplay();
           })
         }}</span>
         <span data-testid="order-summary-subtotal">{{ amounts.subtotal }}</span>
+      </div>
+      <div
+        v-if="amounts.discount"
+        class="text-destructive flex justify-between text-sm"
+        data-testid="order-summary-discount"
+      >
+        <span>{{ t('discount.discount') }}</span>
+        <span class="font-medium">-{{ amounts.discount }}</span>
       </div>
       <div v-if="amounts.shipping" class="flex justify-between text-sm">
         <span class="text-muted-foreground">{{
@@ -53,7 +63,7 @@ const { showIncVat } = useVatDisplay();
         v-if="amounts.totalIncVat"
         class="text-muted-foreground flex justify-between text-sm"
       >
-        <span>{{ t('common.total_inc_vat') }}</span>
+        <span>{{ totalIncVatLabel }}</span>
         <span data-testid="order-summary-total-inc-vat">{{
           amounts.totalIncVat
         }}</span>

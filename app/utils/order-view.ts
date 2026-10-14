@@ -1,4 +1,4 @@
-import type { OrderDetailType } from '#shared/types/commerce';
+import { formatPrice, type OrderDetailType } from '#shared/types/commerce';
 import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
 
 /** An order's summary amounts, formatted, on one side of the VAT choice. */
@@ -8,6 +8,8 @@ export interface OrderAmounts {
   shipping?: string;
   /** Only when the order carries a payment fee. */
   paymentFee?: string;
+  /** The order-level discount, as a positive amount; only when > 0. */
+  discount?: string;
   /** VAT is one number on both sides. */
   tax?: string;
   total?: string;
@@ -48,11 +50,18 @@ function feeOf(
 export function orderAmounts(
   order: OrderDetailType | null | undefined,
   incVat: boolean,
+  locale?: string,
 ): OrderAmounts {
   const summary = order?.cart?.summary;
   const shipping = summary?.shipping;
   const shippingFee = order?.shippingFee;
   const paymentFee = order?.paymentFee;
+  // The cart's own field, as the cart and checkout read it. A number only, so
+  // it is formatted here, in the order's currency.
+  const discount =
+    (incVat
+      ? summary?.fixedAmountDiscountIncVat
+      : summary?.fixedAmountDiscountExVat) ?? 0;
   return {
     subtotal: sideOf(summary?.subTotal, incVat),
     // The cart summary's fee, the order's own for whatever that lacks.
@@ -76,6 +85,14 @@ export function orderAmounts(
           paymentFee?.sellingPriceExVat,
           paymentFee?.sellingPriceExVatFormatted,
         ),
+    discount:
+      discount > 0
+        ? formatPrice(
+            discount,
+            summary?.total?.currency?.code ?? order?.currency,
+            locale,
+          )
+        : undefined,
     tax:
       summary?.total?.vatFormatted ??
       order?.vat?.sellingPriceIncVatFormatted ??
@@ -127,6 +144,8 @@ export function orderTotalRows(
   itemCount: number,
   incVat: boolean,
   t: Translate,
+  /** The inc-VAT line's text: each page words it its own way. */
+  totalIncVatLabel: string,
 ): PortalItemTotal[] {
   const rows: PortalItemTotal[] = [
     {
@@ -136,6 +155,10 @@ export function orderTotalRows(
       value: amounts.subtotal,
     },
   ];
+  // As the cart orders them: the discount right after the subtotal.
+  if (amounts.discount) {
+    rows.push({ label: t('discount.discount'), value: `-${amounts.discount}` });
+  }
   if (amounts.shipping) {
     rows.push({
       label: t('portal.orders.detail.summary.shipping'),
@@ -157,7 +180,13 @@ export function orderTotalRows(
     },
   );
   if (amounts.totalIncVat) {
-    rows.push({ label: t('common.total_inc_vat'), value: amounts.totalIncVat });
+    rows.push({ label: totalIncVatLabel, value: amounts.totalIncVat });
   }
   return rows;
+}
+
+/** How the order says it was paid, or undefined when it does not. */
+export function orderPaymentLabel(order: OrderDetailType): string | undefined {
+  const payment = order.paymentDetails?.[0];
+  return payment?.displayName?.trim() || payment?.name?.trim() || undefined;
 }

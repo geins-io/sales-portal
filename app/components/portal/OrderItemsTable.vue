@@ -8,6 +8,8 @@ defineProps<{
   items: PortalItemRow[];
   amounts: OrderAmounts;
   itemCount: number;
+  /** The inc-VAT line's text: each page words it its own way. */
+  totalIncVatLabel: string;
 }>();
 
 const { t } = useI18n();
@@ -131,6 +133,20 @@ const { showIncVat } = useVatDisplay();
               {{ amounts.subtotal }}
             </td>
           </tr>
+          <tr v-if="amounts.discount">
+            <td
+              colspan="4"
+              class="text-destructive px-4 py-3 text-right text-sm"
+            >
+              {{ t('discount.discount') }}
+            </td>
+            <td
+              data-testid="order-items-footer-discount"
+              class="text-destructive px-4 py-3 text-right text-sm font-medium"
+            >
+              -{{ amounts.discount }}
+            </td>
+          </tr>
           <tr v-if="amounts.shipping">
             <td
               colspan="4"
@@ -186,7 +202,7 @@ const { showIncVat } = useVatDisplay();
               colspan="4"
               class="text-muted-foreground px-4 pb-5 text-right text-sm"
             >
-              {{ t('common.total_inc_vat') }}
+              {{ totalIncVatLabel }}
             </td>
             <td
               data-testid="order-items-footer-total-inc-vat"

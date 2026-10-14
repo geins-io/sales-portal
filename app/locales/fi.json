@@ -221,10 +221,6 @@
     "confirmation_subtitle": "Kiitos tilauksestasi. Vahvistus on lähetetty sähköpostiisi.",
     "order_number": "Tilausnumero",
     "order_placed": "Tilauksesi on lähetetty.",
-    "order_details": "Tilauksen tiedot",
-    "items_total": "Yhteensä {count} tuotetta",
-    "view_all_items": "Näytä kaikki {count} tuotetta",
-    "hide_items": "Piilota tuotteet",
     "items": "Tuotteet",
     "product": "Tuote",
     "article_number": "Tuotenro",
@@ -232,20 +228,11 @@
     "unit_price": "Yksikköhinta",
     "line_total": "Yhteensä",
     "summary": "Yhteenveto",
-    "subtotal": "Välisumma",
-    "shipping": "Toimitus",
-    "discount": "Alennus",
-    "total": "Yhteensä",
-    "billing_address": "Laskutusosoite",
-    "shipping_address": "Toimitusosoite",
-    "reference": "Viitteesi",
-    "payment_method": "Maksutapa",
     "view_order_in_portal": "Näytä tilaus asiakasportaalissa",
     "back_to_store": "Takaisin kauppaan",
     "continue_shopping": "Jatka ostoksia",
     "view_orders": "Näytä tilaukseni",
-    "order_not_found": "Tilausta ei löytynyt.",
-    "buyer": "Ostaja"
+    "order_not_found": "Tilausta ei löytynyt."
   },
   "product": {
     "details": "Tuotetiedot",
@@ -680,7 +667,8 @@
           "title": "Lisätiedot",
           "your_reference": "Viitteenne",
           "goods_label": "Rahtimerkintä",
-          "desired_delivery_date": "Toivottu toimituspäivä"
+          "desired_delivery_date": "Toivottu toimituspäivä",
+          "payment_method": "Maksutapa"
         },
         "billing_address": "Laskutustiedot",
         "shipping_address": "Toimitusosoite",

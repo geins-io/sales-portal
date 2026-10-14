@@ -1713,8 +1713,9 @@ describe('OrderDetail', () => {
       ).toBe(false);
     });
 
-    it('hides the additional info section when all three fields are absent', () => {
-      mockData.value = makeOrder();
+    it('hides the additional info section when every field is absent', () => {
+      // The payment method lives in this block too, so it goes as well.
+      mockData.value = makeOrder({ paymentDetails: [] });
       const wrapper = shallowMountComponent(OrderDetail, {
         global: { stubs: defaultStubs },
       });
@@ -1875,5 +1876,91 @@ describe('OrderDetail — fees', () => {
       wrapper.find('[data-testid="order-items-footer-payment-fee"]').exists(),
     ).toBe(false);
     expect(sheetTotals(wrapper)).not.toContain('common.payment_fee');
+  });
+});
+
+describe('OrderDetail — discount, payment method and the inc-VAT label', () => {
+  beforeEach(() => {
+    mockData.value = null;
+    mockError.value = null;
+    mockPending.value = false;
+    mockQuery.value = {};
+    mockShowIncVat.value = true;
+  });
+
+  function mountWith(overrides: Record<string, unknown>) {
+    mockData.value = makeOrder(overrides);
+    return shallowMountComponent(OrderDetail, {
+      global: { stubs: defaultStubs },
+    });
+  }
+
+  function withDiscount(inc: number | undefined, ex: number | undefined) {
+    const { order } = makeOrder();
+    const cart = order.cart as { summary: Record<string, unknown> };
+    return {
+      cart: {
+        ...cart,
+        summary: {
+          ...cart.summary,
+          fixedAmountDiscountIncVat: inc,
+          fixedAmountDiscountExVat: ex,
+        },
+      },
+    };
+  }
+
+  it.each([
+    [true, '25'],
+    [false, '20'],
+  ])(
+    'shows the order discount on the chosen side (incl. VAT: %s)',
+    (incVat, amount) => {
+      mockShowIncVat.value = incVat;
+      const wrapper = mountWith(withDiscount(25, 20));
+
+      expect(
+        wrapper.find('[data-testid="order-summary-discount"]').text(),
+      ).toMatch(new RegExp(`-\\D*${amount}`));
+      expect(
+        wrapper.find('[data-testid="order-items-footer-discount"]').text(),
+      ).toMatch(new RegExp(`-\\D*${amount}`));
+    },
+  );
+
+  it("formats the discount in the buyer's own locale", () => {
+    const wrapper = mountWith(withDiscount(25, 20));
+
+    expect(
+      wrapper.find('[data-testid="order-items-footer-discount"]').text(),
+    ).toBe('-SEK\u00a025.00');
+  });
+
+  it('shows no discount row without a discount', () => {
+    const wrapper = mountWith(withDiscount(0, 0));
+
+    expect(
+      wrapper.find('[data-testid="order-summary-discount"]').exists(),
+    ).toBe(false);
+  });
+
+  it('shows the payment method in the additional information', () => {
+    const wrapper = mountWith({
+      paymentDetails: [{ displayName: 'Faktura 30 dagar', name: 'Invoice' }],
+    });
+
+    expect(
+      wrapper.find('[data-testid="additional-payment-method"]').text(),
+    ).toContain('Faktura 30 dagar');
+  });
+
+  it('labels the inc-VAT line "total incl. VAT" on the order page', () => {
+    mockShowIncVat.value = false;
+    const wrapper = mountWith({});
+
+    expect(
+      wrapper.find('[data-testid="order-summary-total-inc-vat"]').element
+        .previousElementSibling?.textContent,
+    ).toBe('common.total_inc_vat');
   });
 });

@@ -11,7 +11,12 @@ import {
 import { reorderLines } from '~/utils/reorder';
 import { productPath } from '#shared/utils/route-helpers';
 import { replayLineHref } from '~/utils/configurator-replay';
-import { orderAmounts, orderRows, orderTotalRows } from '~/utils/order-view';
+import {
+  orderAmounts,
+  orderPaymentLabel,
+  orderRows,
+  orderTotalRows,
+} from '~/utils/order-view';
 
 definePageMeta({
   middleware: ['auth', 'feature'],
@@ -113,7 +118,9 @@ const itemCount = computed(() => order.value?.cart?.items?.length ?? 0);
 // Every amount is the side of the buyer's VAT choice; VAT itself is one number.
 const { showIncVat } = useVatDisplay();
 
-const amounts = computed(() => orderAmounts(order.value, showIncVat.value));
+const amounts = computed(() =>
+  orderAmounts(order.value, showIncVat.value, formatLocale.value),
+);
 
 useHead({
   title: computed(
@@ -184,6 +191,7 @@ const orderTotals = computed<PortalItemTotal[]>(() =>
     itemCount.value,
     showIncVat.value,
     (key, named) => t(key, named ?? {}),
+    t('common.total_inc_vat'),
   ),
 );
 </script>
@@ -238,6 +246,7 @@ const orderTotals = computed<PortalItemTotal[]>(() =>
               :items="orderItemRows"
               :amounts="amounts"
               :item-count="itemCount"
+              :total-inc-vat-label="t('common.total_inc_vat')"
             />
           </div>
 
@@ -267,7 +276,11 @@ const orderTotals = computed<PortalItemTotal[]>(() =>
             </div>
 
             <!-- Summary Card -->
-            <OrderSummaryCard :amounts="amounts" :item-count="itemCount" />
+            <OrderSummaryCard
+              :amounts="amounts"
+              :item-count="itemCount"
+              :total-inc-vat-label="t('common.total_inc_vat')"
+            />
 
             <!-- Mobile: the broken desktop table is replaced by a sheet
                  opened from a "View order rows" trigger below the summary. -->
@@ -287,6 +300,7 @@ const orderTotals = computed<PortalItemTotal[]>(() =>
               :customer-order-number="order?.customerOrderNumber"
               :goods-label="order?.goodsLabel"
               :desired-delivery-date="order?.desiredDeliveryDate"
+              :payment-method="order && orderPaymentLabel(order)"
             />
 
             <!-- Order message: shown only when the order carries one. Grey
