@@ -476,6 +476,46 @@ describe('Saved list detail with a configurable product', () => {
     }
   });
 
+  it('offers add all on a list that mixes ordinary and configurable rows', () => {
+    const wrapper = mountPage();
+
+    expect(wrapper.find('[data-testid="add-all-to-cart-btn"]').exists()).toBe(
+      true,
+    );
+  });
+
+  it('offers no add all when every row is configurable', () => {
+    // Holds BOOKCASE too, which the afterEach takes out again.
+    const rows = mockFetchProducts.splice(0, mockFetchProducts.length);
+    mockFetchProducts.push(BOOKCASE, { ...BOOKCASE, alias: 'bookcase-1' });
+    try {
+      const wrapper = mountPage();
+
+      expect(wrapper.findAll('[data-testid="list-item-row"]')).toHaveLength(2);
+      expect(wrapper.find('[data-testid="add-all-to-cart-btn"]').exists()).toBe(
+        false,
+      );
+    } finally {
+      mockFetchProducts.splice(0, mockFetchProducts.length, ...rows);
+    }
+  });
+
+  it('offers no add all when the only ordinary row has no SKU to add', () => {
+    // Holds BOOKCASE too, which the afterEach takes out again.
+    const rows = mockFetchProducts.splice(0, mockFetchProducts.length);
+    mockFetchProducts.push({ ...rows[0]!, skus: [] }, BOOKCASE);
+    try {
+      const wrapper = mountPage();
+
+      expect(wrapper.findAll('[data-testid="list-item-row"]')).toHaveLength(2);
+      expect(wrapper.find('[data-testid="add-all-to-cart-btn"]').exists()).toBe(
+        false,
+      );
+    } finally {
+      mockFetchProducts.splice(0, mockFetchProducts.length, ...rows);
+    }
+  });
+
   it('adds only the ordinary rows on add all and hands the cart the count it skipped', async () => {
     const wrapper = mountPage();
 

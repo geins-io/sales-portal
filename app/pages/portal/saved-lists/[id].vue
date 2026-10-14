@@ -155,23 +155,30 @@ const filteredProducts = computed(() => {
 });
 
 // --- Add all to cart ---
+// What the button would add, so a list of configurable products offers no
+// button that adds nothing.
+const addAll = computed(() => {
+  const lines: { skuId: number; quantity: number }[] = [];
+  let skipped = 0;
+  for (const product of products.value) {
+    if (isConfigurable(product)) {
+      skipped++;
+      continue;
+    }
+    const firstSku = product.skus?.find((s) => s?.skuId != null);
+    if (firstSku?.skuId) {
+      lines.push({ skuId: firstSku.skuId, quantity: getQty(product.alias) });
+    }
+  }
+  return { lines, skipped };
+});
+
 const isAddingAll = ref(false);
 async function addAllToCart() {
-  if (isAddingAll.value || products.value.length === 0) return;
+  const { lines, skipped } = addAll.value;
+  if (isAddingAll.value || !lines.length) return;
   isAddingAll.value = true;
   try {
-    const lines: { skuId: number; quantity: number }[] = [];
-    let skipped = 0;
-    for (const product of products.value) {
-      if (isConfigurable(product)) {
-        skipped++;
-        continue;
-      }
-      const firstSku = product.skus?.find((s) => s?.skuId != null);
-      if (firstSku?.skuId) {
-        lines.push({ skuId: firstSku.skuId, quantity: getQty(product.alias) });
-      }
-    }
     await cartStore.addItems(lines, skipped);
   } finally {
     isAddingAll.value = false;
@@ -283,7 +290,7 @@ function addToCart(product: ListProduct) {
                 {{ t('portal.saved_list_detail.delete_list') }}
               </Button>
               <Button
-                v-if="products.length && canPurchase"
+                v-if="canPurchase && addAll.lines.length"
                 data-testid="add-all-to-cart-btn"
                 :disabled="isAddingAll"
                 @click="addAllToCart"
