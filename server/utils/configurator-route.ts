@@ -10,9 +10,9 @@ import { canConfigureServer } from './feature-access';
 // ---------------------------------------------------------------------------
 // What every configuration route does before it does anything else.
 //
-// Written once rather than six times: the gate is the part that must not drift
-// between the routes, and it is checked before any body is read so that a
-// guest gets the same 404 for a malformed request as for a well-formed one.
+// Written once rather than in every route: the gate is the part that must not
+// drift between the routes, and it is checked before any body is read so that
+// a guest gets the same 404 for a malformed request as for a well-formed one.
 // ---------------------------------------------------------------------------
 
 export interface ConfiguratorRoute {

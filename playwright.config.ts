@@ -273,9 +273,9 @@ export default defineConfig({
         // Playwright starts the server — otherwise use `E2E=1 pnpm dev`.
         // The TLS pair makes `pnpm preview` serve https (see tlsEnv above);
         // keepAliveEnv adds the preview's keep-alive preload.
-        // The configurator fixture: the suite runs against the same backend
-        // the dev environment does, whether the server is a dev boot or a
-        // production build (E2E_PROD).
+        // The configurator fixture, whether the server is a dev boot or a
+        // production build (E2E_PROD); every other environment runs
+        // merchant-api.
         env: {
           E2E: '1',
           NUXT_CONFIGURATOR_BACKEND: 'fixture',

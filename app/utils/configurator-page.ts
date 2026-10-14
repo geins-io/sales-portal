@@ -123,7 +123,10 @@ export function canCommit(
       busy: boolean;
       /** What the line is added as; a commit with nothing to add would strand it. */
       skuId?: number | null;
-      /** Past the stock, the cart replaces a configured line of the SKU instead. */
+      /**
+       * Set when the SKU is out of stock or the cart already holds all of it;
+       * the page then refuses the add itself.
+       */
       stockBlock?: StockBlock | null;
     },
 ): boolean {

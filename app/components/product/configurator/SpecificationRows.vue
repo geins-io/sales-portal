@@ -20,7 +20,7 @@ const {
   large: boolean;
   /** The currency the option prices are written in. */
   currency: string | undefined;
-  /** Net, per unit; `null` where there is no row to show. */
+  /** Per unit, on the buyer's VAT side; `null` where there is no row. */
   basePrice?: number | null;
 }>();
 

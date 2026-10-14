@@ -34,14 +34,11 @@ import {
 /**
  * One `ConfigurationOptionGroup`, and the groups nested inside it.
  *
- * Selecting inside a single-choice group emits one change for the row chosen,
- * not a deselect for the row it replaces: the provider drops the siblings when
- * it re-evaluates, and a client that sent both would be guessing at a rule it
- * cannot see.
+ * Selecting inside a single-choice group emits one batch: a deselect for each
+ * row already chosen, then the pick (`singleChoiceChanges`).
  *
  * A single choice the buyer may skip leads with "nothing chosen", which is
- * chosen whenever no real option is. Choosing it is the one deselect the group
- * sends: the provider has nothing to replace the option with.
+ * chosen whenever no real option is. Choosing it deselects the chosen option.
  *
  * The folding and the header are `ConfiguratorFoldable`'s. The group's own
  * messages sit beside its title as an icon, as the prototype.

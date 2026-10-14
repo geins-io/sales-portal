@@ -238,8 +238,7 @@ jobs:
 
       # Output goes to a file: an open stdout would keep the step from ending.
       # NUXT_CONFIGURATOR_BACKEND: the configurator suite runs against the
-      # fixture, as the dev environment does. The variable goes when the
-      # configurator reads the merchant API instead.
+      # fixture; every other environment runs merchant-api.
       # The preload stops the server closing idle sockets under Playwright's
       # pooled API requests (tests/e2e/preview-keepalive.mjs). Absolute path:
       # `nuxt preview` starts the server with `.output` as its cwd.
