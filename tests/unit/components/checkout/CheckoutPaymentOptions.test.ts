@@ -16,6 +16,10 @@ vi.stubGlobal('useI18n', () => ({
   locale: ref('en'),
 }));
 
+vi.mock('~/composables/usePriceVisibility', () => ({
+  usePriceVisibility: () => ({ showPrice: ref(true) }),
+}));
+
 const CheckoutPaymentOptions =
   await import('../../../../app/components/checkout/CheckoutPaymentOptions.vue');
 

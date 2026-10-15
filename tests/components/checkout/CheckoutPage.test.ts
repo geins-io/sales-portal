@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { ref } from 'vue';
 import { mockShowIncVat } from '../../setup-components';
 import { mountComponent } from '../../utils/component';
 import CheckoutOrderSummary from '../../../app/components/checkout/CheckoutOrderSummary.vue';
@@ -10,6 +11,11 @@ import type {
   ShippingOptionType,
   ConsentType,
 } from '#shared/types/commerce';
+
+const mockShowPrice = ref(true);
+vi.mock('../../../app/composables/usePriceVisibility', () => ({
+  usePriceVisibility: () => ({ showPrice: mockShowPrice }),
+}));
 
 // ---------------------------------------------------------------------------
 // Shared stubs
@@ -790,5 +796,73 @@ describe('CheckoutConsents', () => {
     });
 
     expect(wrapper.findAll('[role="checkbox"]')).toHaveLength(0);
+  });
+});
+
+describe('shipping and payment options where prices are hidden', () => {
+  beforeEach(() => {
+    mockShowIncVat.value = true;
+  });
+  afterEach(() => {
+    mockShowPrice.value = true;
+  });
+
+  function mountShipping() {
+    return mountComponent(CheckoutShippingOptions, {
+      props: {
+        options: mockShippingOptions,
+        modelValue: null,
+        disabled: false,
+      },
+      global: { stubs },
+    });
+  }
+  function mountPayment() {
+    return mountComponent(CheckoutPaymentOptions, {
+      props: { options: mockPaymentOptions, modelValue: null, disabled: false },
+      global: { stubs },
+    });
+  }
+
+  it('shows each shipping fee, the free one and the amount left where prices are shown', () => {
+    const wrapper = mountShipping();
+
+    expect(wrapper.text()).toContain('49,00 kr');
+    expect(wrapper.text()).toContain('checkout.free_shipping');
+    expect(wrapper.text()).toContain('checkout.amount_left_free_shipping');
+  });
+
+  it('names each shipping option with no fee, no free and no amount left', () => {
+    mockShowPrice.value = false;
+    const wrapper = mountShipping();
+
+    expect(wrapper.find('[data-testid="shipping-option-10"]').text()).toContain(
+      'Standard',
+    );
+    expect(wrapper.find('[data-testid="shipping-option-11"]').text()).toContain(
+      'Express',
+    );
+    expect(wrapper.findAll('input[type="radio"]')).toHaveLength(2);
+    expect(wrapper.text()).not.toContain('49,00 kr');
+    expect(wrapper.text()).not.toContain('checkout.free_shipping');
+    expect(wrapper.text()).not.toContain('checkout.amount_left_free_shipping');
+  });
+
+  it('shows the payment fee where prices are shown', () => {
+    expect(
+      mountPayment().find('[data-testid="payment-option-2"]').text(),
+    ).toContain('+15,00 kr');
+  });
+
+  it('names each payment option with no fee', () => {
+    mockShowPrice.value = false;
+    const wrapper = mountPayment();
+
+    expect(wrapper.find('[data-testid="payment-option-2"]').text()).toContain(
+      'Card',
+    );
+    expect(wrapper.findAll('input[type="radio"]')).toHaveLength(2);
+    expect(wrapper.text()).not.toContain('15,00 kr');
+    expect(wrapper.text()).not.toContain('+');
   });
 });

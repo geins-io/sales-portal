@@ -186,46 +186,51 @@ function goToCheckout() {
             {{ $t('cart.order_summary') }}
           </h2>
           <dl class="space-y-2 text-sm">
-            <div class="flex items-center justify-between">
-              <dt class="text-muted-foreground">
-                {{ $t('cart.subtotal') }}
-              </dt>
-              <dd data-testid="cart-summary-subtotal">
-                {{ subTotalFormatted }}
-              </dd>
-            </div>
-            <div
-              v-if="cartStore.discountAmount"
-              class="flex items-center justify-between"
-              data-testid="cart-summary-discount"
-            >
-              <dt class="text-destructive">
-                {{ $t('discount.discount') }}
-              </dt>
-              <dd
-                class="text-destructive font-medium"
-                data-testid="cart-summary-discount-amount"
+            <template v-if="showPrice">
+              <div class="flex items-center justify-between">
+                <dt class="text-muted-foreground">
+                  {{ $t('cart.subtotal') }}
+                </dt>
+                <dd data-testid="cart-summary-subtotal">
+                  {{ subTotalFormatted }}
+                </dd>
+              </div>
+              <div
+                v-if="cartStore.discountAmount"
+                class="flex items-center justify-between"
+                data-testid="cart-summary-discount"
               >
-                -{{ discountFormatted }}
-              </dd>
-            </div>
-            <div class="flex items-center justify-between">
-              <dt class="text-muted-foreground">
-                {{ $t('cart.shipping') }}
-              </dt>
-              <dd data-testid="cart-summary-shipping">
-                <template v-if="shippingFee">{{ shippingFee }}</template>
-                <span v-else class="text-muted-foreground">{{
-                  $t('common.shipping_may_apply')
-                }}</span>
-              </dd>
-            </div>
-            <div v-if="taxFormatted" class="flex items-center justify-between">
-              <dt class="text-muted-foreground">
-                {{ $t(showIncVat ? 'common.vat_included' : 'common.vat') }}
-              </dt>
-              <dd data-testid="cart-summary-tax">{{ taxFormatted }}</dd>
-            </div>
+                <dt class="text-destructive">
+                  {{ $t('discount.discount') }}
+                </dt>
+                <dd
+                  class="text-destructive font-medium"
+                  data-testid="cart-summary-discount-amount"
+                >
+                  -{{ discountFormatted }}
+                </dd>
+              </div>
+              <div class="flex items-center justify-between">
+                <dt class="text-muted-foreground">
+                  {{ $t('cart.shipping') }}
+                </dt>
+                <dd data-testid="cart-summary-shipping">
+                  <template v-if="shippingFee">{{ shippingFee }}</template>
+                  <span v-else class="text-muted-foreground">{{
+                    $t('common.shipping_may_apply')
+                  }}</span>
+                </dd>
+              </div>
+              <div
+                v-if="taxFormatted"
+                class="flex items-center justify-between"
+              >
+                <dt class="text-muted-foreground">
+                  {{ $t(showIncVat ? 'common.vat_included' : 'common.vat') }}
+                </dt>
+                <dd data-testid="cart-summary-tax">{{ taxFormatted }}</dd>
+              </div>
+            </template>
             <div
               v-if="cartStore.visibleCartCampaigns.length"
               class="space-y-1"
@@ -240,7 +245,7 @@ function goToCheckout() {
                 <span class="text-destructive">{{ campaign.name }}</span>
               </div>
             </div>
-            <div class="border-border border-t pt-3">
+            <div v-if="showPrice" class="border-border border-t pt-3">
               <div
                 class="flex items-baseline justify-between text-lg font-semibold"
               >

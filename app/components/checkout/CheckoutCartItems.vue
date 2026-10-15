@@ -189,7 +189,7 @@ function handleRemove(item: CartItemType) {
               class="text-base font-semibold"
             />
             <p
-              v-if="item.unitPrice && !item.configuration"
+              v-if="showPrice && item.unitPrice && !item.configuration"
               class="text-muted-foreground text-sm"
               data-testid="checkout-unit-price"
             >

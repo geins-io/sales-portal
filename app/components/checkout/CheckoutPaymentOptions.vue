@@ -7,6 +7,7 @@ import { feeOf } from '~/utils/fee';
 
 const { t } = useI18n();
 const { showIncVat } = useVatDisplay();
+const { showPrice } = usePriceVisibility();
 
 const props = defineProps<{
   options: PaymentOptionType[];
@@ -90,7 +91,7 @@ function paymentIcon(option: PaymentOptionType): FunctionalComponent {
             {{ paymentLabel(option) }}
           </span>
           <span
-            v-if="feeFormatted(option)"
+            v-if="showPrice && feeFormatted(option)"
             class="text-muted-foreground text-xs"
           >
             +{{ feeFormatted(option) }}

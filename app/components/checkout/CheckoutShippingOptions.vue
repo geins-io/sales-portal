@@ -3,6 +3,7 @@ import type { ShippingOptionType } from '#shared/types/commerce';
 
 const { t } = useI18n();
 const { showIncVat } = useVatDisplay();
+const { showPrice } = usePriceVisibility();
 
 const props = defineProps<{
   options: ShippingOptionType[];
@@ -62,7 +63,7 @@ function feeFormatted(option: ShippingOptionType): string {
             <span class="text-sm font-medium">
               {{ option.displayName ?? option.name }}
             </span>
-            <span class="text-sm">
+            <span v-if="showPrice" class="text-sm">
               <template v-if="fee(option) === 0">
                 {{ t('checkout.free_shipping') }}
               </template>
@@ -73,6 +74,7 @@ function feeFormatted(option: ShippingOptionType): string {
           </div>
           <p
             v-if="
+              showPrice &&
               option.amountLeftToFreeShipping > 0 &&
               option.amountLeftToFreeShippingFormatted
             "

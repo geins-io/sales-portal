@@ -499,6 +499,119 @@ describe('ProductCard', () => {
     });
   });
 
+  // The brief shape carries a formatted price string from its caller, so the
+  // card has to ask the same question PriceDisplay asks for the full shape.
+  describe('price visibility', () => {
+    afterEach(() => {
+      setFeatures({});
+      mockCanAccess.mockReturnValue(true);
+    });
+
+    const brief = {
+      name: 'Arbetsbord',
+      alias: 'arbetsbord',
+      price: '3 200 kr',
+    };
+    const briefOnSale = { ...brief, salePrice: '2 400 kr' };
+    // The real PriceDisplay, so the full shape's own gate is what is tested.
+    const realPriceStubs = Object.fromEntries(
+      Object.entries(stubs).filter(([name]) => !name.endsWith('PriceDisplay')),
+    );
+
+    const hidden = {
+      'disabled for everyone': () =>
+        setFeatures({
+          priceVisibility: { enabled: false, access: 'authenticated' },
+        }),
+      'closed to this buyer': () => {
+        setFeatures({ priceVisibility: { enabled: true } });
+        mockCanAccess.mockImplementation(
+          (feature) => feature !== 'priceVisibility',
+        );
+      },
+    };
+
+    describe.each(Object.entries(hidden))('when prices are %s', (_, hide) => {
+      it.each(['grid', 'list'] as const)(
+        'shows no amount on the brief shape in the %s variant',
+        (variant) => {
+          hide();
+          const wrapper = mountComponent(ProductCard, {
+            props: { product: briefOnSale, variant },
+            global: { stubs },
+          });
+          expect(wrapper.find('[data-testid="sale-price"]').exists()).toBe(
+            false,
+          );
+          expect(wrapper.find('[data-testid="original-price"]').exists()).toBe(
+            false,
+          );
+          expect(wrapper.text()).not.toContain('2 400 kr');
+          expect(wrapper.text()).not.toContain('3 200 kr');
+        },
+      );
+
+      it('shows no amount on a brief shape without a sale price', () => {
+        hide();
+        const wrapper = mountComponent(ProductCard, {
+          props: { product: brief },
+          global: { stubs },
+        });
+        expect(wrapper.find('[data-testid="price"]').exists()).toBe(false);
+        expect(wrapper.text()).not.toContain('3 200 kr');
+      });
+
+      it.each(['grid', 'list'] as const)(
+        'shows no amount on the full shape in the %s variant',
+        (variant) => {
+          hide();
+          const wrapper = mountComponent(ProductCard, {
+            props: { product: makeProduct(), variant },
+            global: { stubs: realPriceStubs },
+          });
+          expect(wrapper.find('[data-testid="card-price"]').exists()).toBe(
+            false,
+          );
+          expect(wrapper.text()).not.toContain('199,00 kr');
+        },
+      );
+    });
+
+    it('shows the price on the brief shape where prices are shown', () => {
+      setFeatures({ priceVisibility: { enabled: true } });
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: brief },
+        global: { stubs },
+      });
+      expect(wrapper.find('[data-testid="price"]').text()).toBe('3 200 kr');
+    });
+
+    it('shows the sale and original price on the brief shape where prices are shown', () => {
+      setFeatures({ priceVisibility: { enabled: true } });
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: briefOnSale },
+        global: { stubs },
+      });
+      expect(wrapper.find('[data-testid="sale-price"]').text()).toBe(
+        '2 400 kr',
+      );
+      expect(wrapper.find('[data-testid="original-price"]').text()).toBe(
+        '3 200 kr',
+      );
+    });
+
+    it('shows the full shape price where prices are shown', () => {
+      setFeatures({ priceVisibility: { enabled: true } });
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: makeProduct() },
+        global: { stubs: realPriceStubs },
+      });
+      expect(wrapper.find('[data-testid="card-price"]').text()).toBe(
+        '199,00 kr',
+      );
+    });
+  });
+
   // A configurable product cannot be bought without a configuration, and a
   // plain add of one is accepted upstream as a bare line at catalogue price.
   describe('configurable product', () => {

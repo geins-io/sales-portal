@@ -981,6 +981,65 @@ describe('CartDrawer', () => {
       }
     });
 
+    describe('where prices are hidden', () => {
+      const amountRows = [
+        'cart-summary-subtotal',
+        'cart-summary-discount',
+        'cart-summary-shipping',
+        'cart-summary-tax',
+        'cart-summary-total',
+        'cart-summary-to-pay',
+      ];
+      // Every row the summary can show, on the ex side so the amount to pay
+      // incl. VAT appears too.
+      const fullCart = () =>
+        cartWith({
+          subTotal: { sellingPriceExVatFormatted: '400 kr' },
+          total: {
+            sellingPriceExVatFormatted: '400 kr',
+            sellingPriceIncVat: 500,
+            sellingPriceIncVatFormatted: '500 kr',
+            vatFormatted: '100 kr',
+          },
+          shipping: { feeIncVatFormatted: '49 kr', feeExVatFormatted: '39 kr' },
+          fixedAmountDiscountIncVat: 50,
+          fixedAmountDiscountExVat: 40,
+        });
+
+      beforeEach(() => {
+        mockShowIncVat.value = false;
+      });
+
+      it('shows every amount row when prices are shown', () => {
+        const wrapper = mountDrawer(fullCart());
+
+        for (const id of amountRows) {
+          expect(byId(wrapper, id).exists(), id).toBe(true);
+        }
+      });
+
+      it('shows no amount in the summary', () => {
+        mockShowPrice.value = false;
+        try {
+          const wrapper = mountDrawer(fullCart());
+          const summary = byId(wrapper, 'cart-summary');
+
+          expect(summary.exists()).toBe(true);
+          for (const id of amountRows) {
+            expect(byId(wrapper, id).exists(), id).toBe(false);
+          }
+          for (const amount of ['400 kr', '500 kr', '100 kr', '39 kr']) {
+            expect(summary.text()).not.toContain(amount);
+          }
+          expect(byId(wrapper, 'cart-drawer-checkout-button').exists()).toBe(
+            true,
+          );
+        } finally {
+          mockShowPrice.value = true;
+        }
+      });
+    });
+
     it('says nothing of VAT on an empty cart', () => {
       const wrapper = mountDrawer(null);
 

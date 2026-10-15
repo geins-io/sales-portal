@@ -355,6 +355,36 @@ describe('CheckoutCartItems', () => {
     );
   });
 
+  describe('the unit price line and price visibility', () => {
+    const priced = () =>
+      createItem({
+        unitPrice: {
+          sellingPriceIncVatFormatted: '50.00 SEK',
+          sellingPriceIncVat: 50,
+          currency: { code: 'SEK' },
+        },
+      });
+
+    it('shows the unit price with its "per unit" where prices are shown', () => {
+      const line = mountItems([priced()]).find(
+        '[data-testid="checkout-unit-price"]',
+      );
+
+      expect(line.exists()).toBe(true);
+      expect(line.text()).toContain('checkout.per_unit');
+    });
+
+    it('leaves no "per unit" behind where prices are hidden', () => {
+      mockShowPrice.value = false;
+      const wrapper = mountItems([priced()]);
+
+      expect(wrapper.find('[data-testid="checkout-unit-price"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.text()).not.toContain('checkout.per_unit');
+    });
+  });
+
   // C3: does not render unit price line when unitPrice is absent
   it('does not render unit price line when unitPrice is absent', () => {
     const item = createItem({

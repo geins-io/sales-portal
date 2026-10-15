@@ -305,7 +305,9 @@ async function addToCart() {
 
       <!-- Price (brief ProductCardItem shape) -->
       <div
-        v-else-if="!isFullProduct(product) && product.price != null"
+        v-else-if="
+          showPrice && !isFullProduct(product) && product.price != null
+        "
         class="flex items-baseline gap-2"
       >
         <span
