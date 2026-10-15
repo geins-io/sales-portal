@@ -5,8 +5,12 @@ import { mockNuxtImport, registerEndpoint } from '@nuxt/test-utils/runtime';
 // useCookie decodes 'true' → boolean true via destr, so ref accepts both types
 const mockCookieRef = ref<boolean | string | null>(null);
 const navigateToMock = vi.fn();
+const exitHits = vi.fn();
 
 mockNuxtImport('useCookie', () => () => mockCookieRef);
+mockNuxtImport('useLocaleMarket', () => () => ({
+  localePath: (path: string) => `/se/en${path}`,
+}));
 mockNuxtImport(
   'navigateTo',
   () =>
@@ -16,7 +20,10 @@ mockNuxtImport(
 
 registerEndpoint('/api/auth/preview-exit', {
   method: 'POST',
-  handler: () => ({ success: true }),
+  handler: () => {
+    exitHits();
+    return { success: true };
+  },
 });
 
 describe('useCmsPreview', () => {
@@ -25,6 +32,7 @@ describe('useCmsPreview', () => {
   beforeEach(async () => {
     mockCookieRef.value = null;
     navigateToMock.mockClear();
+    exitHits.mockClear();
 
     vi.resetModules();
     const mod = await import('../../app/composables/useCmsPreview');
@@ -55,11 +63,12 @@ describe('useCmsPreview', () => {
     expect(isPreview.value).toBe(false);
   });
 
-  it('exitPreview clears cookie and navigates home', async () => {
+  it('exitPreview ends the preview session, clears cookie and navigates home', async () => {
     mockCookieRef.value = true;
     const { exitPreview } = useCmsPreview();
     await exitPreview();
 
+    expect(exitHits).toHaveBeenCalledOnce();
     expect(mockCookieRef.value).toBeNull();
     expect(navigateToMock).toHaveBeenCalledWith('/se/en/', {
       replace: true,

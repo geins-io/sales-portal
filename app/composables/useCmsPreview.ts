@@ -8,6 +8,7 @@ export function useCmsPreview() {
   const isPreview = computed(
     () => previewCookie.value === true || previewCookie.value === 'true',
   );
+  const { localePath } = useLocaleMarket();
 
   async function exitPreview() {
     try {
@@ -18,8 +19,7 @@ export function useCmsPreview() {
     previewCookie.value = null;
     // Full page reload so the server re-renders without preview cookies
     // Client-side navigateTo would reuse cached (broken) CMS data
-    const { localePath: getLocalePath } = useLocaleMarket();
-    await navigateTo(getLocalePath('/'), { replace: true, external: true });
+    await navigateTo(localePath('/'), { replace: true, external: true });
   }
 
   return { isPreview, exitPreview };
