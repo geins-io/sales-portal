@@ -151,7 +151,7 @@ function handleSortProduct() {
               >
             </th>
             <th class="py-3 pr-4 font-medium">
-              {{ t('portal.purchased_products.columns.article_number') }}
+              {{ t('product.article_number_heading') }}
             </th>
             <th class="py-3 pr-4 font-medium">
               {{ priceHeading }}

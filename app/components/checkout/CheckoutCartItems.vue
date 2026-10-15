@@ -113,7 +113,11 @@ function handleRemove(item: CartItemType) {
               class="text-muted-foreground text-xs"
             >
               <template v-if="item.product?.articleNumber">
-                Art nr. {{ item.product.articleNumber }}
+                {{
+                  t('product.article_number', {
+                    number: item.product.articleNumber,
+                  })
+                }}
               </template>
               <template v-if="getSkuName(item)">
                 <span v-if="item.product?.articleNumber"> &bull; </span>

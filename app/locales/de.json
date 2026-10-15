@@ -224,7 +224,6 @@
     "order_placed": "Ihre Bestellung wurde erfolgreich aufgegeben.",
     "items": "Artikel",
     "product": "Produkt",
-    "article_number": "Art.-Nr.",
     "quantity": "Menge",
     "unit_price": "Einzelpreis",
     "line_total": "Gesamt",
@@ -289,6 +288,7 @@
     "no_documents": "Für dieses Produkt sind keine Dokumente verfügbar.",
     "failed_to_load": "Produkt konnte nicht geladen werden.",
     "article_number": "Art.-Nr. {number}",
+    "article_number_heading": "Art.-Nr.",
     "wishlist": "Zur Merkliste hinzufügen",
     "quick_filter_placeholder": "Nach Art.-Nr. oder Produktname filtern",
     "view_as": "Ansicht:",
@@ -654,7 +654,6 @@
         "items": {
           "title": "Bestellpositionen",
           "product": "Produkt",
-          "article_number": "Art.-Nr.",
           "quantity": "Anzahl",
           "unit_price": "Einzelpreis",
           "total": "Gesamt"
@@ -861,7 +860,6 @@
       "view_rows": "Angebotspositionen anzeigen",
       "summary_heading": "Zusammenfassung",
       "product": "Produkt",
-      "article_number": "Art.-Nr.",
       "quantity": "Anzahl",
       "unit_price": "Einzelpreis",
       "line_total": "Gesamt",
@@ -915,7 +913,6 @@
       "search_placeholder": "Nach Art.-Nr. oder Produktname suchen",
       "columns": {
         "product": "Produkt",
-        "article_number": "Art.-Nr.",
         "price_ex_vat": "Preis (exkl. MwSt.)",
         "price_inc_vat": "Preis (inkl. MwSt.)",
         "total_ordered": "Insgesamt bestellt",

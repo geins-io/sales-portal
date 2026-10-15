@@ -188,7 +188,11 @@ const maxQuantity = computed(() => {
               data-testid="cart-item-article"
             >
               <template v-if="item.product?.articleNumber">
-                Art nr. {{ item.product.articleNumber }}
+                {{
+                  t('product.article_number', {
+                    number: item.product.articleNumber,
+                  })
+                }}
               </template>
               <template v-if="configuration">
                 <span v-if="item.product?.articleNumber"> &bull; </span>

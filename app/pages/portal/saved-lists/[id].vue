@@ -416,7 +416,11 @@ function addToCart(product: ListProduct) {
                   <div class="min-w-0 flex-1">
                     <p class="truncate font-medium">{{ product.name }}</p>
                     <p class="text-muted-foreground text-xs no-underline">
-                      Art nr. {{ product.articleNumber }}
+                      {{
+                        t('product.article_number', {
+                          number: product.articleNumber,
+                        })
+                      }}
                     </p>
                     <StockBadge
                       v-if="product.totalStock"
@@ -438,7 +442,11 @@ function addToCart(product: ListProduct) {
                   <div class="min-w-0 flex-1">
                     <p class="truncate font-medium">{{ product.name }}</p>
                     <p class="text-muted-foreground text-xs">
-                      Art nr. {{ product.articleNumber }}
+                      {{
+                        t('product.article_number', {
+                          number: product.articleNumber,
+                        })
+                      }}
                     </p>
                     <StockBadge
                       v-if="product.totalStock"

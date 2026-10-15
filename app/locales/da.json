@@ -224,7 +224,6 @@
     "order_placed": "Din ordre er afgivet.",
     "items": "Varer",
     "product": "Produkt",
-    "article_number": "Varenr.",
     "quantity": "Antal",
     "unit_price": "Enhedspris",
     "line_total": "I alt",
@@ -289,6 +288,7 @@
     "no_documents": "Ingen dokumenter tilgængelige for dette produkt.",
     "failed_to_load": "Produktet kunne ikke indlæses.",
     "article_number": "Varenr. {number}",
+    "article_number_heading": "Varenr.",
     "wishlist": "Føj til ønskeliste",
     "quick_filter_placeholder": "Filtrer på varenr. eller produktnavn",
     "view_as": "Vis som:",
@@ -654,7 +654,6 @@
         "items": {
           "title": "Ordrelinjer",
           "product": "Produkt",
-          "article_number": "Varenr.",
           "quantity": "Antal",
           "unit_price": "Enhedspris",
           "total": "I alt"
@@ -861,7 +860,6 @@
       "view_rows": "Vis tilbudslinjer",
       "summary_heading": "Oversigt",
       "product": "Produkt",
-      "article_number": "Varenr.",
       "quantity": "Antal",
       "unit_price": "Enhedspris",
       "line_total": "I alt",
@@ -915,7 +913,6 @@
       "search_placeholder": "Søg på varenr. eller produktnavn",
       "columns": {
         "product": "Produkt",
-        "article_number": "Varenr.",
         "price_ex_vat": "Pris (ekskl. moms)",
         "price_inc_vat": "Pris (inkl. moms)",
         "total_ordered": "Bestilt i alt",

@@ -224,7 +224,6 @@
     "order_placed": "Tilauksesi on lähetetty.",
     "items": "Tuotteet",
     "product": "Tuote",
-    "article_number": "Tuotenro",
     "quantity": "Määrä",
     "unit_price": "Yksikköhinta",
     "line_total": "Yhteensä",
@@ -289,6 +288,7 @@
     "no_documents": "Tälle tuotteelle ei ole dokumentteja.",
     "failed_to_load": "Tuotteen lataaminen epäonnistui.",
     "article_number": "Tuotenro {number}",
+    "article_number_heading": "Tuotenro",
     "wishlist": "Lisää toivelistalle",
     "quick_filter_placeholder": "Suodata tuotenumerolla tai tuotenimellä",
     "view_as": "Näkymä:",
@@ -654,7 +654,6 @@
         "items": {
           "title": "Tilausrivit",
           "product": "Tuote",
-          "article_number": "Tuotenro",
           "quantity": "Määrä",
           "unit_price": "Yksikköhinta",
           "total": "Yhteensä"
@@ -861,7 +860,6 @@
       "view_rows": "Näytä tarjousrivit",
       "summary_heading": "Yhteenveto",
       "product": "Tuote",
-      "article_number": "Tuotenro",
       "quantity": "Määrä",
       "unit_price": "Yksikköhinta",
       "line_total": "Yhteensä",
@@ -915,7 +913,6 @@
       "search_placeholder": "Hae tuotenumerolla tai tuotenimellä",
       "columns": {
         "product": "Tuote",
-        "article_number": "Tuotenro",
         "price_ex_vat": "Hinta (ei sis. ALV)",
         "price_inc_vat": "Hinta (sis. ALV)",
         "total_ordered": "Tilattu yhteensä",

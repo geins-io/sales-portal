@@ -161,7 +161,7 @@ describe('CartItem', () => {
         },
       },
     });
-    expect(wrapper.text()).toContain('Art nr. ART-001');
+    expect(wrapper.text()).toContain('product.article_number(ART-001)');
   });
 
   it("judges the total's discount by the line quantity, so a CPQ rounding gap on three units is no sale", () => {
@@ -295,7 +295,7 @@ describe('CartItem', () => {
 
       const article = wrapper.find('[data-testid="cart-item-article"]');
       expect(article.text().replace(/\s+/g, ' ')).toBe(
-        'Art nr. ART-001 • cart.configured_product',
+        'product.article_number(ART-001) • cart.configured_product',
       );
       expect(article.find('[data-testid="cart-item-configured"]').text()).toBe(
         'cart.configured_product',
@@ -474,7 +474,7 @@ describe('CartItem', () => {
       ).toBe(false);
       expect(showOf(wrapper).exists()).toBe(false);
       expect(actionsOf(wrapper).exists()).toBe(false);
-      expect(wrapper.text()).toContain('Art nr. ART-001');
+      expect(wrapper.text()).toContain('product.article_number(ART-001)');
       expect(wrapper.find('a').exists()).toBe(true);
       expect(
         wrapper.find('[data-testid="cart-item-unit-price"]').exists(),

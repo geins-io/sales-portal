@@ -224,7 +224,6 @@
     "order_placed": "Your order has been placed successfully.",
     "items": "Items",
     "product": "Product",
-    "article_number": "Art. Nr.",
     "quantity": "Qty",
     "unit_price": "Unit Price",
     "line_total": "Total",
@@ -288,9 +287,10 @@
     },
     "no_documents": "No documents available for this product.",
     "failed_to_load": "Failed to load product.",
-    "article_number": "Art nr. {number}",
+    "article_number": "Art. no. {number}",
+    "article_number_heading": "Art. no.",
     "wishlist": "Add to wishlist",
-    "quick_filter_placeholder": "Filter by art nr or product name",
+    "quick_filter_placeholder": "Filter by art. no. or product name",
     "view_as": "View as:",
     "grid": "Grid",
     "list": "List",
@@ -654,7 +654,6 @@
         "items": {
           "title": "Order items",
           "product": "Product",
-          "article_number": "Art nr",
           "quantity": "Amount",
           "unit_price": "à price",
           "total": "Total"
@@ -861,7 +860,6 @@
       "view_rows": "View quotation rows",
       "summary_heading": "Summary",
       "product": "Product",
-      "article_number": "Art Nr",
       "quantity": "Amount",
       "unit_price": "Unit Price",
       "line_total": "Total",
@@ -907,15 +905,14 @@
       "view_list": "List view",
       "grid": "Grid",
       "list": "List",
-      "search_placeholder": "Quick filter on art nr or product name"
+      "search_placeholder": "Quick filter by art. no. or product name"
     },
     "purchased_products": {
       "title": "Purchased products",
       "subtitle": "A complete list of the different products your company has purchased",
-      "search_placeholder": "Search on art nr or prod name",
+      "search_placeholder": "Search by art. no. or product name",
       "columns": {
         "product": "Product",
-        "article_number": "Art. nr",
         "price_ex_vat": "Price (ex VAT)",
         "price_inc_vat": "Price (incl. VAT)",
         "total_ordered": "Total ordered",
@@ -947,7 +944,7 @@
       "delete_list": "Delete list",
       "delete_confirm": "This will permanently delete the list and all its items. You can't undo this.",
       "remove_item": "Remove product from list",
-      "quick_filter_placeholder": "Quick filter on art nr or product name",
+      "quick_filter_placeholder": "Quick filter by art. no. or product name",
       "list_name_label": "List Name",
       "list_internal_note": "For internal use only",
       "list_total_label": "List Total",

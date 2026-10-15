@@ -30,7 +30,7 @@ const { showIncVat } = useVatDisplay();
               {{ t('portal.orders.detail.items.product') }}
             </th>
             <th class="px-4 py-3 text-left font-medium">
-              {{ t('portal.orders.detail.items.article_number') }}
+              {{ t('product.article_number_heading') }}
             </th>
             <th class="px-4 py-3 text-right font-medium">
               {{ t('portal.orders.detail.items.quantity') }}

@@ -9,6 +9,16 @@ import type {
 import PriceDisplay from '../../../app/components/shared/PriceDisplay.vue';
 import { mockShowIncVat } from '../../setup-components';
 
+// The shared mock drops a parameter its key does not name; here the key is
+// followed by the values, so a test can read the article number it was given.
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string, params?: Record<string, unknown>) =>
+      params ? `${key}(${Object.values(params).join(', ')})` : key,
+    locale: ref('en'),
+  }),
+}));
+
 const mockShowPrice = ref(true);
 vi.mock('../../../app/composables/usePriceVisibility', () => ({
   usePriceVisibility: () => ({ showPrice: mockShowPrice }),
@@ -376,7 +386,7 @@ describe('CheckoutCartItems', () => {
       expect(
         wrapper.find('[data-testid="checkout-cart-item-configured"]').text(),
       ).toBe('cart.configured_product');
-      expect(wrapper.text()).not.toContain('Art nr.');
+      expect(wrapper.text()).not.toContain('product.article_number');
       expect(wrapper.text()).not.toContain('Size M');
     });
 
@@ -546,7 +556,7 @@ describe('CheckoutCartItems', () => {
       expect(
         wrapper.find('[data-testid="line-specification-open"]').exists(),
       ).toBe(false);
-      expect(wrapper.text()).toContain('Art nr. ART-001');
+      expect(wrapper.text()).toContain('product.article_number(ART-001)');
     });
   });
 

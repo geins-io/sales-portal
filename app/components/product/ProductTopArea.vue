@@ -7,6 +7,8 @@ import type { DetailProduct } from '#shared/types/commerce';
  * the rest of the middle column, `aside` for the right one.
  */
 defineProps<{ product: DetailProduct }>();
+
+const { t } = useI18n();
 </script>
 
 <template>
@@ -45,7 +47,7 @@ defineProps<{ product: DetailProduct }>();
           class="text-muted-foreground text-[20px]"
           data-testid="product-article-number"
         >
-          Art nr. {{ product.articleNumber }}
+          {{ t('product.article_number', { number: product.articleNumber }) }}
         </p>
 
         <!-- Brand -->

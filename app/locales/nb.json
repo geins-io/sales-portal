@@ -224,7 +224,6 @@
     "order_placed": "Ordren din er lagt inn.",
     "items": "Varer",
     "product": "Produkt",
-    "article_number": "Art.nr.",
     "quantity": "Antall",
     "unit_price": "Enhetspris",
     "line_total": "Totalt",
@@ -289,8 +288,9 @@
     "no_documents": "Ingen dokumenter tilgjengelig for dette produktet.",
     "failed_to_load": "Kunne ikke laste produktet.",
     "article_number": "Art.nr. {number}",
+    "article_number_heading": "Art.nr.",
     "wishlist": "Legg til i ønskeliste",
-    "quick_filter_placeholder": "Filtrer på art.nr eller produktnavn",
+    "quick_filter_placeholder": "Filtrer på art.nr. eller produktnavn",
     "view_as": "Vis som:",
     "grid": "Rutenett",
     "list": "Liste",
@@ -654,7 +654,6 @@
         "items": {
           "title": "Ordrelinjer",
           "product": "Produkt",
-          "article_number": "Art.nr",
           "quantity": "Antall",
           "unit_price": "Enhetspris",
           "total": "Totalt"
@@ -861,7 +860,6 @@
       "view_rows": "Vis tilbudslinjer",
       "summary_heading": "Sammendrag",
       "product": "Produkt",
-      "article_number": "Art.nr",
       "quantity": "Antall",
       "unit_price": "Enhetspris",
       "line_total": "Totalt",
@@ -907,15 +905,14 @@
       "view_list": "Liste",
       "grid": "Rutenett",
       "list": "Liste",
-      "search_placeholder": "Hurtigfilter på art.nr eller produktnavn"
+      "search_placeholder": "Hurtigfilter på art.nr. eller produktnavn"
     },
     "purchased_products": {
       "title": "Kjøpte produkter",
       "subtitle": "En komplett liste over de ulike produktene bedriften din har kjøpt",
-      "search_placeholder": "Søk på art.nr eller produktnavn",
+      "search_placeholder": "Søk på art.nr. eller produktnavn",
       "columns": {
         "product": "Produkt",
-        "article_number": "Art.nr",
         "price_ex_vat": "Pris (ekskl. mva.)",
         "price_inc_vat": "Pris (inkl. mva.)",
         "total_ordered": "Totalt bestilt",
@@ -947,7 +944,7 @@
       "delete_list": "Slett liste",
       "delete_confirm": "Dette sletter listen og alle produktene i den permanent. Det kan ikke angres.",
       "remove_item": "Fjern produktet fra listen",
-      "quick_filter_placeholder": "Hurtigfilter på art.nr eller produktnavn",
+      "quick_filter_placeholder": "Hurtigfilter på art.nr. eller produktnavn",
       "list_name_label": "Listenavn",
       "list_internal_note": "Kun til internt bruk",
       "list_total_label": "Listesum",

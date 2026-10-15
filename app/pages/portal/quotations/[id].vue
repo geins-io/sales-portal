@@ -189,7 +189,7 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
                       {{ t('portal.quotations.product') }}
                     </th>
                     <th class="px-4 py-3 text-left font-medium">
-                      {{ t('portal.quotations.article_number') }}
+                      {{ t('product.article_number_heading') }}
                     </th>
                     <th class="px-4 py-3 text-right font-medium">
                       {{ t('portal.quotations.quantity') }}
