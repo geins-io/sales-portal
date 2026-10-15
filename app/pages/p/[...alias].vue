@@ -20,6 +20,7 @@ import type { DetailProduct } from '#shared/types/commerce';
 import { AlertTriangle as AlertTriangleIcon } from 'lucide-vue-next';
 import { productPath as buildProductPath } from '#shared/utils/route-helpers';
 import { recoverEntityUrl } from '~/composables/useEntityUrlRecovery';
+import { resolveProductRouteType } from '~/utils/product-page-type';
 
 const route = useRoute();
 
@@ -91,12 +92,17 @@ function samePrefix(a: string, b: string): boolean {
 }
 
 const { pageTypeOf } = useFeatureAccess();
+const { isCatalogMode } = useTenant();
 
 // A computed, not a value settled during setup: `pageTypeOf` reads the auth
 // store, which `plugins/auth-init.ts` has resolved before this page renders on
 // the server and keeps resolving on the client. A guest who signs in moves the
 // page to the configurator without a reload.
-const pageType = computed(() => pageTypeOf(product.value));
+const pageType = computed(() =>
+  resolveProductRouteType(pageTypeOf(product.value), {
+    catalogMode: isCatalogMode.value,
+  }),
+);
 </script>
 
 <template>
@@ -126,5 +132,6 @@ const pageType = computed(() => pageTypeOf(product.value));
     :product="product"
     :alias="productAlias"
     :sign-in-to-configure="pageType === 'sign-in-to-configure'"
+    :configurable-in-catalogue="pageType === 'catalogue'"
   />
 </template>

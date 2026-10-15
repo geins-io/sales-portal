@@ -37,7 +37,19 @@ const props = defineProps<{
    * page offers sign-in in place of a price and a plain add.
    */
   signInToConfigure?: boolean;
+  /**
+   * A configurable product on a tenant in catalogue mode: nothing can be
+   * configured, so the page is the ordinary one without a price or a plain
+   * add, and without a sign-in offer that would not open a configurator.
+   */
+  configurableInCatalogue?: boolean;
 }>();
+
+// Both cases show a configurable product without a configuration, so neither
+// shows the catalogue SKU's price, stock or variants, nor offers to buy it.
+const hidesCatalogueSku = computed(
+  () => props.signInToConfigure || props.configurableInCatalogue,
+);
 
 // The route loads the product and hands it down. It keeps the name `product`
 // so everything below reads as it did when the fetch lived here — and it is a
@@ -481,10 +493,10 @@ useProductSeo({
   breadcrumbs: () => breadcrumbItems.value,
   localeAlternates,
   sku: () => resolvedSku.value?.skuId?.toString() ?? '',
-  // No price for a guest on a configurable product, as on the configurator
-  // page. The flag cannot change under a mounted page: signing in swaps the
-  // component.
-  withOffers: !props.signInToConfigure,
+  // No price for a configurable product without a configuration, as on the
+  // configurator page. The flags cannot change under a mounted page: signing
+  // in swaps the component, and the tenant's mode is fixed.
+  withOffers: !hidesCatalogueSku.value,
 });
 </script>
 
@@ -503,7 +515,7 @@ useProductSeo({
           <!-- Price: sits above the long-form description so the dominant
              commerce signal anchors the column. -->
           <PriceDisplay
-            v-if="product.unitPrice && showPrice && !signInToConfigure"
+            v-if="product.unitPrice && showPrice && !hidesCatalogueSku"
             :price="product.unitPrice"
             :lowest-price="product.lowestPrice"
             :discount-type="product.discountType"
@@ -523,7 +535,7 @@ useProductSeo({
 
           <!-- The configurator page's top area shows none of what follows:
                it is about the catalogue SKU, not a configuration. -->
-          <template v-if="!signInToConfigure">
+          <template v-if="!hidesCatalogueSku">
             <!-- Campaign badges -->
             <div
               v-if="visibleCampaigns.length"
@@ -582,7 +594,7 @@ useProductSeo({
           </template>
 
           <Alert
-            v-else
+            v-else-if="signInToConfigure"
             role="note"
             class="bg-muted/30 max-w-md border-dashed"
             data-testid="pdp-sign-in-to-configure-box"
@@ -607,7 +619,7 @@ useProductSeo({
 
         <template #aside>
           <!-- Quantity + Add to cart + Wishlist -->
-          <template v-if="canPurchase && !signInToConfigure">
+          <template v-if="canPurchase && !hidesCatalogueSku">
             <OutOfStockBlock v-if="isOutOfStock" />
             <div
               v-else

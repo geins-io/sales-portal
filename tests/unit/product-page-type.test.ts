@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { resolveProductPageType } from '../../app/utils/product-page-type';
+import {
+  resolveProductPageType,
+  resolveProductRouteType,
+} from '../../app/utils/product-page-type';
 
 // ---------------------------------------------------------------------------
 // Which page component a product gets.
@@ -59,5 +62,43 @@ describe('resolveProductPageType', () => {
     };
     expect(resolveProductPageType(product, SIGNED_IN)).toBe('ordinary');
     expect(resolveProductPageType(product, GUEST)).toBe('ordinary');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// What the product route renders.
+//
+// In catalogue mode nothing can be configured, so a configurable product gets
+// the ordinary page for a guest and a signed-in buyer alike. This is the
+// route's own question: reorder, saved lists and cards keep asking
+// `resolveProductPageType`, which knows nothing of the tenant's mode.
+// ---------------------------------------------------------------------------
+
+describe('resolveProductRouteType', () => {
+  it.each(['ordinary', 'configurable', 'sign-in-to-configure'] as const)(
+    'passes %s through outside catalogue mode',
+    (pageType) => {
+      expect(resolveProductRouteType(pageType, { catalogMode: false })).toBe(
+        pageType,
+      );
+    },
+  );
+
+  it('gives a signed-in buyer no configurator in catalogue mode', () => {
+    expect(resolveProductRouteType('configurable', { catalogMode: true })).toBe(
+      'catalogue',
+    );
+  });
+
+  it('does not ask a guest to sign in to configure in catalogue mode', () => {
+    expect(
+      resolveProductRouteType('sign-in-to-configure', { catalogMode: true }),
+    ).toBe('catalogue');
+  });
+
+  it('keeps an ordinary product ordinary in catalogue mode', () => {
+    expect(resolveProductRouteType('ordinary', { catalogMode: true })).toBe(
+      'ordinary',
+    );
   });
 });

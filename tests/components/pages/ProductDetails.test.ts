@@ -22,7 +22,12 @@ import { useTenant } from '../../../app/composables/useTenant';
 // run in it), so mount inside a Suspense boundary, full depth with the stubs
 // below, and flush the microtask queue before asserting.
 async function mountProductDetails(
-  props: { product: DetailProduct; alias: string; signInToConfigure?: boolean },
+  props: {
+    product: DetailProduct;
+    alias: string;
+    signInToConfigure?: boolean;
+    configurableInCatalogue?: boolean;
+  },
   mountOptions: MountOptionsFor<Component> = {},
 ) {
   // The wrapper closes over `props` instead of redeclaring them through
@@ -1457,6 +1462,142 @@ describe('ProductDetails', () => {
       expect(
         wrapper.find('[data-testid="pdp-sign-in-to-configure-box"]').exists(),
       ).toBe(false);
+    });
+  });
+
+  // A configurable product on a tenant in catalogue mode: nothing can be
+  // configured, so the page is the ordinary one without what belongs to the
+  // catalogue SKU. Its price is not what a configuration costs.
+  describe('a configurable product in catalogue mode', () => {
+    const everything = () =>
+      makeProduct({
+        configurable: true,
+        discountCampaigns: [{ name: 'Spring Sale', hideTitle: false }],
+        discountType: 'EXTERNAL',
+        texts: { text1: 'Description', text2: 'Short', text3: 'Extra copy' },
+        variantDimensions: [{ dimension: 'Variant', value: '88' }],
+        skus: [
+          { skuId: 101, name: '88', stock: { totalStock: 10 } },
+          { skuId: 102, name: '90', stock: { totalStock: 10 } },
+        ],
+      });
+
+    const stubs = {
+      ...defaultStubs,
+      VariantSelector: { template: '<div data-testid="variant-selector" />' },
+    };
+
+    async function mountInCatalogue(configurableInCatalogue: boolean) {
+      const product = everything();
+      return mountProductDetails(
+        { product, alias: product.alias, configurableInCatalogue },
+        { global: { stubs } },
+      );
+    }
+
+    beforeEach(() => {
+      mockIsCatalogMode.value = true;
+      defineProductMock.mockClear();
+    });
+
+    afterEach(() => {
+      mockIsCatalogMode.value = false;
+      mockIsAuthenticated.value = true;
+    });
+
+    function publishedOffers(): unknown {
+      const input = defineProductMock.mock.lastCall?.[0];
+      assert.isDefined(input);
+      return input.offers();
+    }
+
+    it('shows no price, stock, campaigns, negotiated banner or variant selector', async () => {
+      const wrapper = await mountInCatalogue(true);
+
+      expect(wrapper.find('[data-testid="pdp-price"]').exists()).toBe(false);
+      expect(wrapper.find('.price-display').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="stock-badge"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="pdp-campaign-badges"]').exists()).toBe(
+        false,
+      );
+      expect(
+        wrapper.find('[data-testid="negotiated-price-banner"]').exists(),
+      ).toBe(false);
+      expect(wrapper.find('[data-testid="variant-selector"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('publishes no Schema.org offer', async () => {
+      await mountInCatalogue(true);
+
+      expect(publishedOffers()).toBeUndefined();
+    });
+
+    it('says nothing about signing in or configuring', async () => {
+      const wrapper = await mountInCatalogue(true);
+
+      expect(
+        wrapper.find('[data-testid="pdp-sign-in-to-configure-box"]').exists(),
+      ).toBe(false);
+      expect(wrapper.text()).not.toContain('configurator.');
+    });
+
+    it('says nothing about signing in or configuring to a guest either', async () => {
+      mockIsAuthenticated.value = false;
+
+      const wrapper = await mountInCatalogue(true);
+
+      expect(
+        wrapper.find('[data-testid="pdp-sign-in-to-configure-box"]').exists(),
+      ).toBe(false);
+      expect(wrapper.text()).not.toContain('configurator.');
+    });
+
+    it('offers no add, even where the tenant would allow one', async () => {
+      // The flag shuts the purchase block by itself, not only through the
+      // tenant's mode.
+      mockIsCatalogMode.value = false;
+
+      const wrapper = await mountInCatalogue(true);
+
+      expect(wrapper.find('[data-testid="pdp-actions"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.find('.quantity-input').exists()).toBe(false);
+    });
+
+    it('keeps the name, the extra copy, the info card and the tabs', async () => {
+      const wrapper = await mountInCatalogue(true);
+
+      expect(wrapper.find('[data-testid="product-name"]').text()).toBe(
+        'Test Product',
+      );
+      expect(wrapper.find('[data-testid="product-text3"]').text()).toBe(
+        'Extra copy',
+      );
+      expect(wrapper.find('[data-testid="pdp-print"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="pdp-add-to-lists"]').exists()).toBe(
+        true,
+      );
+      expect(wrapper.findComponent({ name: 'ProductTabs' }).exists()).toBe(
+        true,
+      );
+    });
+
+    it('is the ordinary catalogue-mode page without the flag', async () => {
+      const wrapper = await mountInCatalogue(false);
+
+      expect(publishedOffers()).toMatchObject({ '@type': 'Offer' });
+      expect(wrapper.find('.price-display').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="stock-badge"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="variant-selector"]').exists()).toBe(
+        true,
+      );
+      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+        false,
+      );
     });
   });
 });

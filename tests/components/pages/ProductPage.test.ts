@@ -11,6 +11,7 @@ import { flushPromises } from '@vue/test-utils';
 import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductPage from '../../../app/pages/p/[...alias].vue';
 import type { DetailProduct } from '../../../shared/types/commerce';
+import { mockIsCatalogMode } from '../../setup-components';
 
 // ---------------------------------------------------------------------------
 // The product route.
@@ -134,8 +135,8 @@ const stubs = {
   // component" and "with which product" are one assertion.
   ProductDetails: {
     template:
-      '<div data-testid="page-ordinary" :data-alias="alias" :data-sign-in-to-configure="String(signInToConfigure)">{{ product?.name }}</div>',
-    props: ['product', 'alias', 'signInToConfigure'],
+      '<div data-testid="page-ordinary" :data-alias="alias" :data-sign-in-to-configure="String(signInToConfigure)" :data-configurable-in-catalogue="String(configurableInCatalogue)">{{ product?.name }}</div>',
+    props: ['product', 'alias', 'signInToConfigure', 'configurableInCatalogue'],
   },
   ConfiguratorProduct: {
     template: '<div data-testid="page-configurator">{{ product?.name }}</div>',
@@ -196,6 +197,7 @@ beforeEach(() => {
   mockStatus.value = 'success';
   mockError.value = null;
   mockSignedIn.value = false;
+  mockIsCatalogMode.value = false;
   navigateToMock.mockClear();
   recoverEntityUrlMock.mockClear();
   mockUseFetch.mockClear();
@@ -227,6 +229,7 @@ describe('product page: the component a product type gets', () => {
     const page = wrapper.find('[data-testid="page-ordinary"]');
     expect(page.exists()).toBe(true);
     expect(page.attributes('data-sign-in-to-configure')).toBe('true');
+    expect(page.attributes('data-configurable-in-catalogue')).toBe('false');
     expect(wrapper.find('[data-testid="page-configurator"]').exists()).toBe(
       false,
     );
@@ -284,6 +287,63 @@ describe('product page: the component a product type gets', () => {
     expect(wrapper.find('[data-testid="page-ordinary"]').text()).toBe(
       'Handed down',
     );
+  });
+
+  describe('in catalogue mode', () => {
+    // Nothing can be configured in catalogue mode: every configuration route
+    // answers 403. A configurable product gets the ordinary page instead, for
+    // a guest and a signed-in buyer alike.
+    beforeEach(() => {
+      mockIsCatalogMode.value = true;
+    });
+
+    it('renders the detail page, not the configurator, for a signed-in buyer', async () => {
+      mockProduct.value = makeProduct({ configurable: true });
+      mockSignedIn.value = true;
+
+      const wrapper = await mountPage();
+
+      const page = wrapper.find('[data-testid="page-ordinary"]');
+      expect(page.exists()).toBe(true);
+      expect(page.attributes('data-configurable-in-catalogue')).toBe('true');
+      expect(page.attributes('data-sign-in-to-configure')).toBe('false');
+      expect(wrapper.find('[data-testid="page-configurator"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('does not ask a guest to sign in to configure', async () => {
+      mockProduct.value = makeProduct({ configurable: true });
+
+      const wrapper = await mountPage();
+
+      const page = wrapper.find('[data-testid="page-ordinary"]');
+      expect(page.attributes('data-configurable-in-catalogue')).toBe('true');
+      expect(page.attributes('data-sign-in-to-configure')).toBe('false');
+    });
+
+    it('keeps a guest who signs in on the detail page', async () => {
+      mockProduct.value = makeProduct({ configurable: true });
+
+      const wrapper = await mountPage();
+      mockSignedIn.value = true;
+      await nextTick();
+
+      expect(wrapper.find('[data-testid="page-ordinary"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="page-configurator"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('renders an ordinary product as before', async () => {
+      mockSignedIn.value = true;
+
+      const wrapper = await mountPage();
+
+      const page = wrapper.find('[data-testid="page-ordinary"]');
+      expect(page.attributes('data-configurable-in-catalogue')).toBe('false');
+      expect(page.attributes('data-sign-in-to-configure')).toBe('false');
+    });
   });
 
   it('loads the product exactly once', async () => {

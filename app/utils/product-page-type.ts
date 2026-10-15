@@ -28,3 +28,28 @@ export function resolveProductPageType(
   if (product?.configurable !== true) return 'ordinary';
   return canConfigure(user) ? 'configurable' : 'sign-in-to-configure';
 }
+
+/**
+ * What the product route renders: the product's page type, or `catalogue` for
+ * a configurable product on a tenant in catalogue mode.
+ */
+export type ProductRouteType = ProductPageType | 'catalogue';
+
+/**
+ * In catalogue mode nothing can be configured, so a configurable product gets
+ * the ordinary page without its catalogue price, for a guest and a signed-in
+ * buyer alike: signing in would not open a configurator either.
+ *
+ * Only the route asks this. Reorder, saved lists and cards keep asking
+ * `resolveProductPageType`, so a configurable product is never ordinary there
+ * and never gets a plain add.
+ */
+export function resolveProductRouteType(
+  pageType: ProductPageType,
+  { catalogMode }: { catalogMode: boolean },
+): ProductRouteType {
+  if (!catalogMode) return pageType;
+  return pageType === 'configurable' || pageType === 'sign-in-to-configure'
+    ? 'catalogue'
+    : pageType;
+}
