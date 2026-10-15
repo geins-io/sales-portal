@@ -1,46 +1,66 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import type { VariantDimensionType, VariantType } from '@geins/types';
 import { nextTick } from 'vue';
 import type { ComponentPublicInstance } from 'vue';
 import { mountComponent } from '../../utils/component';
 import VariantSelector from '../../../app/components/product/VariantSelector.vue';
 import { mockShowIncVat } from '../../setup-components';
-import type { VariantNode } from '#shared/types/commerce';
+import type {
+  StockType,
+  VariantDimensionRow,
+  VariantNode,
+} from '#shared/types/commerce';
 import { variantCombinations } from '../../../app/utils/variant-tree';
 import { twoDimensionTree } from '../../fixtures/variant-trees';
 
+const stock = (totalStock: number): StockType => ({
+  inStock: totalStock,
+  oversellable: 0,
+  totalStock,
+  static: 0,
+});
+
+// One row per (dimension, value) pair, as the query returns them.
+const row = (dimension: string, value: string): VariantDimensionRow => ({
+  dimension,
+  value,
+  label: value,
+  level: 0,
+});
+
 const dimensions = [
-  { dimensionName: 'Color', values: ['Red', 'Blue'] },
-  { dimensionName: 'Size', values: ['S', 'M', 'L'] },
+  row('Color', 'Red'),
+  row('Color', 'Blue'),
+  row('Size', 'S'),
+  row('Size', 'M'),
+  row('Size', 'L'),
 ];
 
-const variants = [
+// No node carries an alias, so there is no tree and the selector falls back to
+// the dimension rows and each variant's `{ key, value }` attributes.
+const variants: VariantNode[] = [
   {
-    variantId: 1,
+    skuId: 1,
     attributes: [
-      { attributeName: 'Color', attributeValue: 'Red' },
-      { attributeName: 'Size', attributeValue: 'S' },
+      { key: 'Color', value: 'Red' },
+      { key: 'Size', value: 'S' },
     ],
-    price: { sellingPriceIncVat: 100, isDiscounted: false },
-    stock: { inStock: 5, oversellable: 0, totalStock: 5, static: 0 },
+    stock: stock(5),
   },
   {
-    variantId: 2,
+    skuId: 2,
     attributes: [
-      { attributeName: 'Color', attributeValue: 'Red' },
-      { attributeName: 'Size', attributeValue: 'M' },
+      { key: 'Color', value: 'Red' },
+      { key: 'Size', value: 'M' },
     ],
-    price: { sellingPriceIncVat: 100, isDiscounted: false },
-    stock: { inStock: 0, oversellable: 0, totalStock: 0, static: 0 },
+    stock: stock(0),
   },
   {
-    variantId: 3,
+    skuId: 3,
     attributes: [
-      { attributeName: 'Color', attributeValue: 'Blue' },
-      { attributeName: 'Size', attributeValue: 'L' },
+      { key: 'Color', value: 'Blue' },
+      { key: 'Size', value: 'L' },
     ],
-    price: { sellingPriceIncVat: 120, isDiscounted: false },
-    stock: { inStock: 3, oversellable: 0, totalStock: 3, static: 0 },
+    stock: stock(3),
   },
 ];
 
@@ -222,30 +242,25 @@ describe('VariantSelector', () => {
 describe('VariantSelector per-variant name and article number', () => {
   // One variantDimensions row (the active product's own value) + the full
   // sibling set in variantGroup.variants, mirroring real Geins payloads.
-  // The component declares `VariantDimensionType[]`/`VariantType[]` but casts
-  // both props to the GraphQL row shape in its own setup, and its comment says
-  // it tolerates that shape deliberately. These fixtures carry what the API
-  // really sends, so the cast below is the point of the test; the declared prop
-  // type is the thing that is wrong, and that is product code.
-  const siblingDimensions = [{ dimension: 'Variant', value: '88' }];
-  const siblingVariants = [
+  const siblingDimensions = [row('Variant', '88')];
+  const siblingVariants: VariantNode[] = [
     {
       alias: 'grenror-150-150-88',
       dimension: 'Variant',
       value: '88',
-      stock: { totalStock: 5 },
+      stock: stock(5),
     },
     {
       alias: 'grenror-100-100-90',
       dimension: 'Variant',
       value: '90',
-      stock: { totalStock: 5 },
+      stock: stock(5),
     },
     {
       alias: 'grenror-100-75-45',
       dimension: 'Variant',
       value: '75-45',
-      stock: { totalStock: 5 },
+      stock: stock(5),
     },
   ];
   // The active product (88) is intentionally absent: siblings are fetched
@@ -276,15 +291,10 @@ describe('VariantSelector per-variant name and article number', () => {
     const wrapper = mountComponent(VariantSelector, {
       props: {
         ...(withTree
-          ? {
-              combinations: variantCombinations(
-                siblingVariants as unknown as VariantNode[],
-              ),
-            }
+          ? { combinations: variantCombinations(siblingVariants) }
           : {}),
-        variantDimensions:
-          siblingDimensions as unknown as VariantDimensionType[],
-        variants: siblingVariants as unknown as VariantType[],
+        variantDimensions: siblingDimensions,
+        variants: siblingVariants,
         modelValue: { Variant: '88' },
         productName: 'Grenrör 150/150-88',
         productArticleNumber: 'S1-243-088',
@@ -363,27 +373,27 @@ describe('VariantSelector per-variant name and article number', () => {
   // products on elproman do) must NOT render every row disabled. Out-of-stock
   // siblings are still real, viewable products and must stay selectable.
   it('keeps out-of-stock sibling variants selectable, not disabled', async () => {
-    const oosDimensions = [{ dimension: 'Variant', value: 'm 20 / 5-8' }];
-    const oosVariants = [
+    const oosDimensions = [row('Variant', 'm 20 / 5-8')];
+    const oosVariants: VariantNode[] = [
       {
         alias: 'gland-m20',
         dimension: 'Variant',
         value: 'm 20 / 5-8',
         attributes: null,
-        stock: { totalStock: 0 },
+        stock: stock(0),
       },
       {
         alias: 'gland-m32',
         dimension: 'Variant',
         value: 'm 32 / 11,5-15,5',
         attributes: null,
-        stock: { totalStock: 0 },
+        stock: stock(0),
       },
     ];
     const wrapper = mountComponent(VariantSelector, {
       props: {
-        variantDimensions: oosDimensions as unknown as VariantDimensionType[],
-        variants: oosVariants as unknown as VariantType[],
+        variantDimensions: oosDimensions,
+        variants: oosVariants,
         modelValue: { Variant: 'm 20 / 5-8' },
         productName: 'Metallförskruvning M20x1,5',
       },
@@ -408,8 +418,8 @@ describe('VariantSelector per-variant name and article number', () => {
 // active product's own row (88) is served by the parent fallback props, the
 // other two by their entries in variantProducts, so both sources are covered.
 describe('VariantSelector row price follows the VAT preference', () => {
-  const siblingDimensions = [{ dimension: 'Variant', value: '88' }];
-  const siblingVariants = [
+  const siblingDimensions = [row('Variant', '88')];
+  const siblingVariants: VariantNode[] = [
     { alias: 'grenror-150-150-88', dimension: 'Variant', value: '88' },
     { alias: 'grenror-100-100-90', dimension: 'Variant', value: '90' },
     { alias: 'grenror-100-75-45', dimension: 'Variant', value: '75-45' },
@@ -432,9 +442,8 @@ describe('VariantSelector row price follows the VAT preference', () => {
   async function openPriceSheet() {
     const wrapper = mountComponent(VariantSelector, {
       props: {
-        variantDimensions:
-          siblingDimensions as unknown as VariantDimensionType[],
-        variants: siblingVariants as unknown as VariantType[],
+        variantDimensions: siblingDimensions,
+        variants: siblingVariants,
         modelValue: { Variant: '88' },
         productName: 'Grenrör 150/150-88',
         productArticleNumber: 'S1-243-088',
@@ -496,10 +505,8 @@ describe('VariantSelector value order on one dimension', () => {
     const tree: VariantNode[] = [node('20 mm'), node('25 mm'), node('30 mm')];
     const wrapper = mountComponent(VariantSelector, {
       props: {
-        variantDimensions: [
-          { dimension: 'Dimension', value: '25 mm' },
-        ] as unknown as VariantDimensionType[],
-        variants: tree as unknown as VariantType[],
+        variantDimensions: [row('Dimension', '25 mm')],
+        variants: tree,
         combinations: variantCombinations(tree),
         modelValue: { Dimension: '25 mm' },
       },
@@ -522,8 +529,8 @@ describe('VariantSelector on a two-dimension variant tree', () => {
   function mountTree(modelValue: Record<string, string>) {
     return mountComponent(VariantSelector, {
       props: {
-        variantDimensions: [] as VariantDimensionType[],
-        variants: [] as VariantType[],
+        variantDimensions: [],
+        variants: [],
         combinations,
         modelValue,
         productName: 'Sexkantskruv M12x60',

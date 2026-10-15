@@ -23,13 +23,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   const route = useRoute();
 
   watch(
-    () => {
-      const raw = tenant.value;
-      if (!raw) return undefined;
-      return (raw as unknown as Record<string, unknown>).locale as
-        | string
-        | undefined;
-    },
+    () => tenant.value?.locale,
     async (tenantLocale) => {
       if (!tenantLocale) return;
       if (hasUrlLocalePrefix(route)) return;

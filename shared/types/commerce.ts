@@ -11,6 +11,9 @@ import type {
   MetadataType,
   VariantGroupType,
   VariantType,
+  GeinsProductTextsTypeType,
+  GeinsVariantAttributeTypeType,
+  GeinsVariantDimensionTypeType,
 } from '@geins/types';
 import type { CategoryAncestor } from '../utils/breadcrumb-trail';
 import type { ConfigurationValue } from './configurator';
@@ -23,9 +26,7 @@ export type {
   ProductImageType,
   CurrencyType,
   BrandType,
-  ProductTextsType,
   CategoryType,
-  VariantDimensionType,
   VariantType,
   VariantGroupType,
   AttributeType,
@@ -260,6 +261,21 @@ export interface DetailBrand extends BrandType {
 }
 
 /**
+ * The SDK's hand-written type makes these non-null strings; the schema allows
+ * null and `adminText` relies on it.
+ */
+export type ProductTextsType = GeinsProductTextsTypeType;
+
+/**
+ * One `variantDimensions` row: the query returns a row per (dimension, value)
+ * pair, not the SDK's `{ dimensionName, values }`.
+ */
+export type VariantDimensionRow = Pick<
+  GeinsVariantDimensionTypeType,
+  'dimension' | 'value' | 'level' | 'label'
+>;
+
+/**
  * A node of `variantGroup.variants` as the GraphQL query returns it: a tree one
  * level per variant dimension, top dimension first. The node carrying `alias`
  * is the variant's product (`level` 1); below it hang its SKUs (`level` 0,
@@ -274,6 +290,7 @@ export interface VariantNode {
   productId?: number | null;
   skuId?: number | null;
   stock?: StockType | null;
+  attributes?: GeinsVariantAttributeTypeType[] | null;
   variants?: VariantNode[] | null;
 }
 
@@ -291,8 +308,12 @@ export interface DetailProduct extends Omit<
   | 'alternativeUrls'
   | 'brand'
   | 'variantGroup'
+  | 'variantDimensions'
+  | 'texts'
 > {
   brand?: DetailBrand;
+  texts?: ProductTextsType;
+  variantDimensions?: VariantDimensionRow[];
   variantGroup?: Omit<VariantGroupType, 'variants'> & {
     variants: (VariantType & VariantNode)[];
   };

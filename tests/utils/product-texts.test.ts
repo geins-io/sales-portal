@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import type { ProductTextsType } from '@geins/types';
 import {
   adminText,
   GEINS_ADMIN_TEXT_FIELD_MAP,
@@ -42,11 +41,6 @@ describe('adminText', () => {
   it('normalises missing texts or null fields to undefined', () => {
     expect(adminText(undefined, 2)).toBeUndefined();
     expect(adminText(null, 3)).toBeUndefined();
-    // The SDK types each text field as `string | undefined`, but the Merchant
-    // API sends null and `adminText` normalises it — the impossible value is
-    // what this case exists to cover, so the cast stays.
-    expect(
-      adminText({ text1: null } as unknown as ProductTextsType, 2),
-    ).toBeUndefined();
+    expect(adminText({ text1: null }, 2)).toBeUndefined();
   });
 });

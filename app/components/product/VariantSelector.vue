@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Check, ChevronDown, Search } from 'lucide-vue-next';
 import type {
-  VariantDimensionType,
-  VariantType,
+  VariantDimensionRow,
+  VariantNode,
   ProductImageType,
 } from '#shared/types/commerce';
 import type { SkuType } from '@geins/types';
@@ -20,20 +20,9 @@ import {
   SheetTitle,
 } from '~/components/ui/sheet';
 
-// The Geins GraphQL `variantDimensions` field returns one row per
-// (dimension, value) pair, not the SDK type's nominal `{dimensionName, values}`
-// shape. Group them into a dimension → values map for rendering.
-type RawDimensionRow = {
-  dimension?: string;
-  dimensionName?: string;
-  value?: string;
-  values?: string[];
-  label?: string;
-};
-
 const props = defineProps<{
-  variantDimensions: VariantDimensionType[];
-  variants: VariantType[];
+  variantDimensions: VariantDimensionRow[];
+  variants: VariantNode[];
   modelValue: Record<string, string>;
   // The variant tree flattened by the parent. When given, it is the source of
   // the dimensions, labels and per-row variant; the two props above remain the
@@ -91,28 +80,21 @@ const groupedDimensions = computed<GroupedDimension[]>(() => {
       values: d.values.map((v) => v.value),
     }));
   }
-  const rows = props.variantDimensions as unknown as RawDimensionRow[];
+  // One row per (dimension, value) pair; group them per dimension.
   const map = new Map<string, Set<string>>();
-  for (const row of rows ?? []) {
-    // Tolerate both the legacy `{dimensionName, values}` shape and the
-    // GraphQL `{dimension, value}` shape so unit tests + real data both work.
-    const name = row.dimensionName ?? row.dimension;
+  for (const row of props.variantDimensions) {
+    const name = row.dimension;
     if (!name) continue;
     if (!map.has(name)) map.set(name, new Set());
-    if (Array.isArray(row.values)) {
-      for (const v of row.values) map.get(name)!.add(v);
-    } else if (row.value != null) {
-      map.get(name)!.add(row.value);
-    }
+    if (row.value != null) map.get(name)!.add(row.value);
   }
   // Sibling-variant products carry the other variants in
   // variantGroup.variants. Each sibling exposes its own dimension/value
   // (or label). Merge those values into the existing dimension keys so
   // the sheet shows every available variant across the group, not just
   // the current product's own row.
-  const siblings = props.variants as unknown as RawDimensionRow[];
-  for (const v of siblings ?? []) {
-    const name = v.dimension ?? v.dimensionName;
+  for (const v of props.variants) {
+    const name = v.dimension;
     if (!name) continue;
     if (!map.has(name)) map.set(name, new Set());
     const value = v.value ?? v.label;
@@ -180,30 +162,21 @@ function variantInfoFor(
       name: meta?.name ?? props.productName ?? undefined,
     };
   }
-  const matchingVariant = props.variants.find((variant) => {
-    const dim = (variant as { dimension?: string }).dimension;
-    const val = (variant as { value?: string | null }).value;
-    if (dim && val != null && dim === dimensionName && val === value) {
-      return true;
-    }
-    const attrs = Array.isArray(variant.attributes) ? variant.attributes : [];
-    return attrs.some(
-      (attr) =>
-        attr.attributeName === dimensionName && attr.attributeValue === value,
-    );
-  });
+  const matchingVariant = props.variants.find(
+    (variant) =>
+      !!variant.dimension &&
+      variant.value != null &&
+      variant.dimension === dimensionName &&
+      variant.value === value,
+  );
   // Sibling-variant products: prefer the per-alias map populated by the
-  // parent. Falls back to the SKU-by-id lookup for multi-SKU "wrapper"
-  // products where each variant lives in props.skus, and finally to the
-  // parent product's own art-nr for the single-variant default case.
-  const siblingAlias = (matchingVariant as { alias?: string } | undefined)
-    ?.alias;
+  // parent, then the parent product's own art-nr. Nothing maps a matched
+  // variant to a SKU, so only an unmatched value falls back to the first one.
+  const siblingAlias = matchingVariant?.alias;
   const sibling = siblingAlias
     ? props.variantProducts?.[siblingAlias]
     : undefined;
-  const sku = matchingVariant
-    ? props.skus?.find((s) => s.skuId === matchingVariant.variantId)
-    : props.skus?.[0];
+  const sku = matchingVariant ? undefined : props.skus?.[0];
   const articleNumber =
     sibling?.articleNumber ||
     sku?.articleNumber ||
@@ -287,22 +260,6 @@ function selectValue(dimensionName: string, value: string) {
   closeSheet();
 }
 
-// Geins exposes variant attributes as `{ key, value }` on the GraphQL
-// fragment, while the SDK/legacy shape uses `{ attributeName, attributeValue }`.
-// Tolerate both so real payloads and unit fixtures resolve the same way.
-function attrName(attr: {
-  attributeName?: string;
-  key?: string;
-}): string | undefined {
-  return attr.attributeName ?? attr.key;
-}
-function attrValue(attr: {
-  attributeValue?: string;
-  value?: string;
-}): string | undefined {
-  return attr.attributeValue ?? attr.value;
-}
-
 // Whether a (dimension, value) pair maps to a real variant given the other
 // dimensions already chosen. Stock is deliberately NOT part of this: an
 // out-of-stock variant is still a real, viewable product, so it stays
@@ -318,14 +275,14 @@ function isValueSelectable(dimensionName: string, value: string): boolean {
     if (attrs.length === 0) return true;
 
     const hasAttribute = attrs.some(
-      (attr) => attrName(attr) === dimensionName && attrValue(attr) === value,
+      (attr) => attr.key === dimensionName && attr.value === value,
     );
     if (!hasAttribute) return false;
 
     for (const [dimName, dimValue] of Object.entries(props.modelValue)) {
       if (dimName === dimensionName) continue;
       const matches = attrs.some(
-        (attr) => attrName(attr) === dimName && attrValue(attr) === dimValue,
+        (attr) => attr.key === dimName && attr.value === dimValue,
       );
       if (!matches) return false;
     }
