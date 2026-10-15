@@ -7,6 +7,7 @@ const { formatLocale } = useFormatLocale();
 const { timezone } = useTenant();
 const { localePath } = useLocaleMarket();
 const { showIncVat } = useVatDisplay();
+const { showPrice } = usePriceVisibility();
 
 defineProps<{
   orders: Array<{
@@ -142,6 +143,7 @@ function handleSortCreated() {
             <div class="flex justify-between">
               <span>{{ formatDate(order.createdAt) }}</span>
               <span
+                v-if="showPrice"
                 data-testid="order-total"
                 class="text-foreground font-medium"
                 >{{ getTotal(order) }}</span
@@ -176,7 +178,7 @@ function handleSortCreated() {
             <th class="py-3 pr-4 font-medium">
               {{ t('portal.orders.columns.type') }}
             </th>
-            <th class="py-3 pr-4 font-medium">
+            <th v-if="showPrice" class="py-3 pr-4 font-medium">
               {{ t('portal.orders.columns.sum') }}
             </th>
             <th class="py-3 pr-4 font-medium">
@@ -196,7 +198,7 @@ function handleSortCreated() {
             <td class="py-3 pr-4">{{ formatDate(order.createdAt) }}</td>
             <td class="py-3 pr-4">{{ getPlacedBy(order) }}</td>
             <td class="py-3 pr-4">{{ t('portal.orders.type_web') }}</td>
-            <td data-testid="order-total" class="py-3 pr-4">
+            <td v-if="showPrice" data-testid="order-total" class="py-3 pr-4">
               {{ getTotal(order) }}
             </td>
             <td class="py-3 pr-4">

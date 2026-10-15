@@ -1287,6 +1287,54 @@ describe('OrderDetail', () => {
     });
   });
 
+  describe('where priceVisibility hides prices', () => {
+    function mountOrder() {
+      mockData.value = makeOrder();
+      return shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+    }
+    const sheetShowsPrices = (wrapper: ReturnType<typeof mountOrder>) =>
+      wrapper
+        .findComponent({ name: 'PortalItemRowsSheet' })
+        .props('showPrices');
+
+    it('shows the amounts and lets the sheet show them when priceVisibility is enabled', () => {
+      setFeatures({
+        reorder: { enabled: true },
+        priceVisibility: { enabled: true },
+      });
+      const wrapper = mountOrder();
+
+      expect(wrapper.find('[data-testid="order-summary"]').exists()).toBe(true);
+      expect(
+        wrapper.findAll('[data-testid="order-item-unit-price"]'),
+      ).toHaveLength(2);
+      expect(sheetShowsPrices(wrapper)).toBe(true);
+    });
+
+    it('shows the rows with no amount and hides them in the sheet when priceVisibility is disabled', () => {
+      setFeatures({
+        reorder: { enabled: true },
+        priceVisibility: { enabled: false },
+      });
+      const wrapper = mountOrder();
+
+      expect(wrapper.findAll('[data-testid="order-item-row"]')).toHaveLength(2);
+      expect(wrapper.find('[data-testid="order-summary"]').exists()).toBe(
+        false,
+      );
+      expect(
+        wrapper.find('[data-testid="order-item-unit-price"]').exists(),
+      ).toBe(false);
+      expect(wrapper.find('[data-testid="order-items-footer"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.text()).not.toContain('kr');
+      expect(sheetShowsPrices(wrapper)).toBe(false);
+    });
+  });
+
   describe('the inc-VAT total under an ex-VAT total', () => {
     type Total = {
       sellingPriceIncVat?: number;

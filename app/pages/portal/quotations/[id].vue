@@ -389,12 +389,14 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
 
             <!-- Mobile: the broken desktop table is replaced by a sheet
                  opened from a "View quotation rows" trigger below the summary. -->
+            <!-- A quotation keeps its prices whatever the tenant's price visibility. -->
             <PortalItemRowsSheet
               class="lg:hidden"
               :items="quoteItemRows"
               :totals="quoteTotals"
               :trigger-label="t('portal.quotations.view_rows')"
               :title="t('portal.quotations.items_heading')"
+              :show-prices="true"
             />
 
             <div

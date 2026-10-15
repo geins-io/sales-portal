@@ -1,9 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { ref } from 'vue';
 import { mockShowIncVat } from '../../setup-components';
 import { mountComponent } from '../../utils/component';
 import OrderItemsTable from '../../../app/components/portal/OrderItemsTable.vue';
 import OrderSummaryCard from '../../../app/components/portal/OrderSummaryCard.vue';
 import OrderAddresses from '../../../app/components/portal/OrderAddresses.vue';
+
+const mockShowPrice = ref(true);
+vi.mock('../../../app/composables/usePriceVisibility', () => ({
+  usePriceVisibility: () => ({ showPrice: mockShowPrice }),
+}));
 
 const amounts = {
   subtotal: '240 kr',
@@ -229,6 +235,92 @@ describe('OrderSummaryCard', () => {
       'order-summary-total-inc-vat',
     ]) {
       expect(wrapper.find(`[data-testid="${id}"]`).exists(), id).toBe(false);
+    }
+  });
+});
+
+describe('an order where prices are hidden', () => {
+  const allAmounts = [
+    '240 kr',
+    '50 kr',
+    '20 kr',
+    '62 kr',
+    '310 kr',
+    '372 kr',
+    '100 kr',
+    '200 kr',
+    '40 kr',
+  ];
+
+  afterEach(() => {
+    mockShowPrice.value = true;
+  });
+
+  function mountTable() {
+    return mountComponent(OrderItemsTable, {
+      props: { items: rows, amounts, itemCount: 2, totalIncVatLabel: 'X' },
+      global: { stubs },
+    });
+  }
+
+  it('shows the price columns and the totals footer where prices are shown', () => {
+    const wrapper = mountTable();
+
+    expect(wrapper.text()).toContain('portal.orders.detail.items.unit_price');
+    expect(wrapper.text()).toContain('portal.orders.detail.items.total');
+    expect(
+      wrapper.findAll('[data-testid="order-item-unit-price"]'),
+    ).toHaveLength(2);
+    expect(wrapper.find('[data-testid="order-items-footer"]').exists()).toBe(
+      true,
+    );
+  });
+
+  it('keeps the rows in the table but no price column and no totals', () => {
+    mockShowPrice.value = false;
+    const wrapper = mountTable();
+
+    expect(wrapper.findAll('[data-testid="order-item-row"]')).toHaveLength(2);
+    expect(
+      wrapper
+        .findAll('[data-testid="order-item-quantity"]')
+        .map((c) => c.text()),
+    ).toEqual(['2', '1']);
+    expect(wrapper.text()).toContain('Widget');
+    expect(wrapper.text()).not.toContain(
+      'portal.orders.detail.items.unit_price',
+    );
+    expect(wrapper.find('[data-testid="order-item-unit-price"]').exists()).toBe(
+      false,
+    );
+    expect(
+      wrapper.find('[data-testid="order-item-total-price"]').exists(),
+    ).toBe(false);
+    expect(wrapper.find('[data-testid="order-items-footer"]').exists()).toBe(
+      false,
+    );
+    for (const amount of allAmounts) {
+      expect(wrapper.text()).not.toContain(amount);
+    }
+  });
+
+  it('shows the summary card where prices are shown', () => {
+    const wrapper = mountComponent(OrderSummaryCard, {
+      props: { amounts, itemCount: 2, totalIncVatLabel: 'X' },
+    });
+
+    expect(wrapper.find('[data-testid="order-summary"]').exists()).toBe(true);
+  });
+
+  it('shows no summary card, which holds only amounts', () => {
+    mockShowPrice.value = false;
+    const wrapper = mountComponent(OrderSummaryCard, {
+      props: { amounts, itemCount: 2, totalIncVatLabel: 'X' },
+    });
+
+    expect(wrapper.find('[data-testid="order-summary"]').exists()).toBe(false);
+    for (const amount of allAmounts) {
+      expect(wrapper.text()).not.toContain(amount);
     }
   });
 });

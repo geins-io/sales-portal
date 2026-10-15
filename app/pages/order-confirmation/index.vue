@@ -18,6 +18,7 @@ const route = useRoute();
 const { localePath } = useLocaleMarket();
 const { formatLocale } = useFormatLocale();
 const { showIncVat } = useVatDisplay();
+const { showPrice } = usePriceVisibility();
 
 useHead({
   title: computed(() => t('order_confirmation.title')),
@@ -152,6 +153,7 @@ const totals = computed<PortalItemTotal[]>(() =>
             :totals="totals"
             :trigger-label="t('portal.orders.detail.view_rows')"
             :title="t('portal.orders.detail.items.title')"
+            :show-prices="showPrice"
           />
           <OrderAddresses
             :billing-address="order.billingAddress"

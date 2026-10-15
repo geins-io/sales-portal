@@ -11,10 +11,15 @@ defineProps<{
 
 const { t } = useI18n();
 const { showIncVat } = useVatDisplay();
+const { showPrice } = usePriceVisibility();
 </script>
 
 <template>
-  <div data-testid="order-summary" class="bg-muted rounded-lg p-6">
+  <div
+    v-if="showPrice"
+    data-testid="order-summary"
+    class="bg-muted rounded-lg p-6"
+  >
     <h3 class="mb-4 text-base font-semibold">
       {{ t('portal.orders.detail.summary.title') }}
     </h3>

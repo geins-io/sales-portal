@@ -16,6 +16,11 @@ defineProps<{
   triggerLabel: string;
   /** Heading shown at the top of the sheet, e.g. "Order items". */
   title: string;
+  /**
+   * Off where the tenant hides prices. The caller decides: a quotation shows
+   * its prices whatever the tenant's price visibility.
+   */
+  showPrices: boolean;
 }>();
 
 const { localePath } = useLocaleMarket();
@@ -84,10 +89,12 @@ const open = ref(false);
                   <span data-testid="item-rows-quantity">{{
                     item.quantity
                   }}</span>
-                  &times;
-                  <span data-testid="item-rows-unit-price">{{
-                    item.unitPriceFormatted
-                  }}</span>
+                  <template v-if="showPrices">
+                    &times;
+                    <span data-testid="item-rows-unit-price">{{
+                      item.unitPriceFormatted
+                    }}</span>
+                  </template>
                 </p>
                 <div v-if="item.configuration" class="mt-2">
                   <LineSpecification
@@ -101,6 +108,7 @@ const open = ref(false);
                 </div>
               </div>
               <div
+                v-if="showPrices"
                 data-testid="item-rows-total-price"
                 class="shrink-0 text-right text-sm font-medium"
               >
@@ -111,7 +119,11 @@ const open = ref(false);
         </div>
 
         <!-- Pinned totals footer -->
-        <div class="shrink-0 border-t px-6 py-4">
+        <div
+          v-if="showPrices"
+          data-testid="item-rows-totals"
+          class="shrink-0 border-t px-6 py-4"
+        >
           <div
             v-for="(row, index) in totals"
             :key="index"

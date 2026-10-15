@@ -49,6 +49,11 @@ vi.mock('#app/composables/router', () => ({
   navigateTo: vi.fn(),
 }));
 
+const mockShowPrice = ref(true);
+vi.mock('../../../app/composables/usePriceVisibility', () => ({
+  usePriceVisibility: () => ({ showPrice: mockShowPrice }),
+}));
+
 vi.stubGlobal('useFetch', useFetchMock);
 vi.stubGlobal('definePageMeta', vi.fn());
 vi.stubGlobal('$fetch', (...args: unknown[]) => mockPollFetch(...args));
@@ -135,6 +140,7 @@ const SheetStub = partStub('PortalItemRowsSheet', [
   'totals',
   'triggerLabel',
   'title',
+  'showPrices',
 ]);
 
 function mount() {
@@ -294,6 +300,23 @@ describe('Order confirmation page — placed in the app', () => {
       expect.objectContaining({ unitPriceFormatted: '120,00 kr' }),
     ]);
   });
+
+  it.each([
+    ['shown', true],
+    ['hidden', false],
+  ])(
+    'tells the mobile sheet whether to show its prices when prices are %s',
+    (_, shown) => {
+      mockShowPrice.value = shown;
+      try {
+        resultFor(ORDER_URL).data.value = makeOrder();
+
+        expect(propsOf(mount(), SheetStub).showPrices).toBe(shown);
+      } finally {
+        mockShowPrice.value = true;
+      }
+    },
+  );
 
   it('waits for the order with the cache bypassed, then shows it', async () => {
     resultFor(ORDER_URL).error.value = notFound();

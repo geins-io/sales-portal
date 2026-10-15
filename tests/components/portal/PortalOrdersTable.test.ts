@@ -1,7 +1,13 @@
-import { describe, it, expect, assert, afterEach } from 'vitest';
+import { describe, it, expect, assert, afterEach, vi } from 'vitest';
+import { ref } from 'vue';
 import { mountComponent } from '../../utils/component';
 import { mockShowIncVat, mockTenantTimezone } from '../../setup-components';
 import PortalOrdersTable from '../../../app/components/portal/PortalOrdersTable.vue';
+
+const mockShowPrice = ref(true);
+vi.mock('../../../app/composables/usePriceVisibility', () => ({
+  usePriceVisibility: () => ({ showPrice: mockShowPrice }),
+}));
 
 const mockOrders = [
   {
@@ -270,6 +276,38 @@ describe('PortalOrdersTable', () => {
       });
       for (const cell of wrapper.findAll('[data-testid="order-total"]')) {
         expect(cell.text()).toBe('-');
+      }
+    });
+  });
+
+  describe('where prices are hidden', () => {
+    afterEach(() => {
+      mockShowPrice.value = true;
+    });
+
+    it('shows the sum column and each order total where prices are shown', () => {
+      const wrapper = mountComponent(PortalOrdersTable, {
+        props: { orders: mockOrders },
+      });
+
+      expect(wrapper.text()).toContain('portal.orders.columns.sum');
+      // Mobile card and desktop row per order.
+      expect(wrapper.findAll('[data-testid="order-total"]')).toHaveLength(4);
+    });
+
+    it('lists the orders with no sum column and no total', () => {
+      mockShowPrice.value = false;
+      const wrapper = mountComponent(PortalOrdersTable, {
+        props: { orders: mockOrders },
+      });
+
+      expect(wrapper.findAll('[data-testid="order-row"]')).toHaveLength(4);
+      expect(wrapper.text()).toContain('2124');
+      expect(wrapper.text()).toContain('portal.orders.columns.status');
+      expect(wrapper.text()).not.toContain('portal.orders.columns.sum');
+      expect(wrapper.find('[data-testid="order-total"]').exists()).toBe(false);
+      for (const amount of ['17 000', '13 600', '8 500', '6 800']) {
+        expect(wrapper.text()).not.toContain(amount);
       }
     });
   });

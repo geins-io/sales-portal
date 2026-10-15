@@ -58,6 +58,7 @@ function mountSheet(props: Record<string, unknown> = {}) {
       totals,
       triggerLabel: 'View order rows',
       title: 'Order items',
+      showPrices: true,
       ...props,
     },
     global: { stubs },
@@ -196,6 +197,52 @@ describe('PortalItemRowsSheet', () => {
 
       const first = wrapper.findAll('[data-testid="item-rows-row"]')[0]!;
       expect(first.find('[data-testid="item-rows-quantity"]').text()).toBe('2');
+    });
+  });
+
+  // Quotations show their prices whatever the tenant's price visibility, so
+  // the sheet hides amounts only when its caller says so.
+  describe('prices', () => {
+    it('shows the row prices and the totals when prices are shown', () => {
+      const wrapper = mountSheet();
+
+      expect(
+        wrapper
+          .findAll('[data-testid="item-rows-unit-price"]')
+          .map((c) => c.text()),
+      ).toEqual(['100 kr', '50 kr']);
+      expect(
+        wrapper
+          .findAll('[data-testid="item-rows-total-price"]')
+          .map((c) => c.text()),
+      ).toEqual(['200 kr', '50 kr']);
+      expect(wrapper.find('[data-testid="item-rows-totals"]').exists()).toBe(
+        true,
+      );
+    });
+
+    it('shows names and quantities but no amount when prices are hidden', () => {
+      const wrapper = mountSheet({ showPrices: false });
+
+      const rows = wrapper.findAll('[data-testid="item-rows-row"]');
+      expect(rows).toHaveLength(2);
+      expect(rows[0]!.text()).toContain('Widget A');
+      expect(
+        wrapper
+          .findAll('[data-testid="item-rows-quantity"]')
+          .map((c) => c.text()),
+      ).toEqual(['2', '1']);
+      for (const id of [
+        'item-rows-unit-price',
+        'item-rows-total-price',
+        'item-rows-totals',
+      ]) {
+        expect(wrapper.find(`[data-testid="${id}"]`).exists(), id).toBe(false);
+      }
+      for (const amount of ['100 kr', '200 kr', '50 kr', '250 kr']) {
+        expect(wrapper.text()).not.toContain(amount);
+      }
+      expect(wrapper.text()).not.toContain('×');
     });
   });
 });

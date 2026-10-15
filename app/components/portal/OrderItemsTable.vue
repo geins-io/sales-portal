@@ -15,6 +15,7 @@ defineProps<{
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
 const { showIncVat } = useVatDisplay();
+const { showPrice } = usePriceVisibility();
 </script>
 
 <template>
@@ -35,12 +36,14 @@ const { showIncVat } = useVatDisplay();
             <th class="px-4 py-3 text-right font-medium">
               {{ t('portal.orders.detail.items.quantity') }}
             </th>
-            <th class="px-4 py-3 text-right font-medium">
-              {{ t('portal.orders.detail.items.unit_price') }}
-            </th>
-            <th class="px-4 py-3 text-right font-medium">
-              {{ t('portal.orders.detail.items.total') }}
-            </th>
+            <template v-if="showPrice">
+              <th class="px-4 py-3 text-right font-medium">
+                {{ t('portal.orders.detail.items.unit_price') }}
+              </th>
+              <th class="px-4 py-3 text-right font-medium">
+                {{ t('portal.orders.detail.items.total') }}
+              </th>
+            </template>
           </tr>
         </thead>
         <tbody class="divide-border divide-y">
@@ -103,21 +106,27 @@ const { showIncVat } = useVatDisplay();
             >
               {{ item.quantity }}
             </td>
-            <td
-              data-testid="order-item-unit-price"
-              class="h-24 px-4 py-2 text-right"
-            >
-              {{ item.unitPriceFormatted }}
-            </td>
-            <td
-              data-testid="order-item-total-price"
-              class="h-24 px-4 py-2 text-right font-medium"
-            >
-              {{ item.totalPriceFormatted }}
-            </td>
+            <template v-if="showPrice">
+              <td
+                data-testid="order-item-unit-price"
+                class="h-24 px-4 py-2 text-right"
+              >
+                {{ item.unitPriceFormatted }}
+              </td>
+              <td
+                data-testid="order-item-total-price"
+                class="h-24 px-4 py-2 text-right font-medium"
+              >
+                {{ item.totalPriceFormatted }}
+              </td>
+            </template>
           </tr>
         </tbody>
-        <tfoot data-testid="order-items-footer" class="border-border border-t">
+        <tfoot
+          v-if="showPrice"
+          data-testid="order-items-footer"
+          class="border-border border-t"
+        >
           <tr>
             <td
               colspan="4"

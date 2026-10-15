@@ -118,6 +118,7 @@ const itemCount = computed(() => order.value?.cart?.items?.length ?? 0);
 
 // Every amount is the side of the buyer's VAT choice; VAT itself is one number.
 const { showIncVat } = useVatDisplay();
+const { showPrice } = usePriceVisibility();
 
 const amounts = computed(() =>
   orderAmounts(order.value, showIncVat.value, formatLocale.value),
@@ -313,6 +314,7 @@ const orderTotals = computed<PortalItemTotal[]>(() =>
               :totals="orderTotals"
               :trigger-label="t('portal.orders.detail.view_rows')"
               :title="t('portal.orders.detail.items.title')"
+              :show-prices="showPrice"
             />
 
             <!-- Addresses: share one grey container per Figma 25361-102134.

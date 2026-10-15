@@ -585,6 +585,17 @@ describe('PortalQuotationDetail', () => {
         ],
       });
     });
+
+    it('lets the mobile sheet show its prices, which a quotation always keeps', async () => {
+      mockData.value = { quote: shipped() };
+      const { wrapper } = await mountDetailPage();
+
+      expect(
+        wrapper
+          .findComponent({ name: 'PortalItemRowsSheet' })
+          .props('showPrices'),
+      ).toBe(true);
+    });
   });
 
   describe('the inc-VAT total under an ex-VAT total', () => {
