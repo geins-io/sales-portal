@@ -6,6 +6,7 @@ import {
   type ConfiguratorContext,
 } from '../services/configurator';
 import { canConfigureServer } from './feature-access';
+import { assertCommerceMode } from './catalog-mode';
 
 // ---------------------------------------------------------------------------
 // What every configuration route does before it does anything else.
@@ -31,12 +32,7 @@ export async function requireConfigurator(
     throw createAppError(ErrorCode.NOT_FOUND, 'No configurator on this tenant');
   }
 
-  if (event.context.tenant?.config?.mode === 'catalog') {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Not available in catalogue mode',
-    });
-  }
+  assertCommerceMode(event);
 
   return {
     backend: getConfiguratorBackend(event),

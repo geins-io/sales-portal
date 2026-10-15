@@ -307,6 +307,29 @@ describe('Cart API Routes', () => {
       expect(result).toEqual(mockCart);
     });
 
+    it('refuses with RATE_LIMITED once the attempts are spent', async () => {
+      const { promoCodeRateLimiter } =
+        await import('../../../server/utils/rate-limiter');
+      vi.mocked(promoCodeRateLimiter.check).mockResolvedValueOnce({
+        allowed: false,
+        remaining: 0,
+        resetTime: 0,
+      });
+
+      const handler = (await import('../../../server/api/cart/promo.post'))
+        .default;
+
+      await expect(handler(mockEvent)).rejects.toThrow(
+        'Too many promo code attempts',
+      );
+      expect(createAppError).toHaveBeenCalledWith(
+        'RATE_LIMITED',
+        'Too many promo code attempts',
+      );
+      expect(readValidatedBody).not.toHaveBeenCalled();
+      expect(mockCartSetPromotionCode).not.toHaveBeenCalled();
+    });
+
     it('throws on invalid body (missing promoCode)', async () => {
       const readBodyMock = vi.mocked(readValidatedBody);
       readBodyMock.mockImplementation(async (_event, parse) => {
@@ -470,6 +493,50 @@ describe('Cart API Routes', () => {
       await expect(handler(catalogModeEvent)).rejects.toMatchObject({
         statusCode: 403,
       });
+    });
+
+    // A cart left over from before the switch to catalogue mode cannot be
+    // edited either; the refusal comes before the request is read.
+    it.each([
+      [
+        'PUT /api/cart/items',
+        () => import('../../../server/api/cart/items.put'),
+      ],
+      [
+        'DELETE /api/cart/items',
+        () => import('../../../server/api/cart/items.delete'),
+      ],
+      [
+        'POST /api/cart/promo',
+        () => import('../../../server/api/cart/promo.post'),
+      ],
+      [
+        'DELETE /api/cart/promo',
+        () => import('../../../server/api/cart/promo.delete'),
+      ],
+    ])('%s returns 403 in catalog mode', async (_route, load) => {
+      const handler = (await load()).default;
+      await expect(handler(catalogModeEvent)).rejects.toMatchObject({
+        statusCode: 403,
+        message: 'Not available in catalogue mode',
+      });
+      expect(readValidatedBody).not.toHaveBeenCalled();
+      expect(getValidatedQuery).not.toHaveBeenCalled();
+      expect(mockCartUpdateItem).not.toHaveBeenCalled();
+      expect(mockCartDeleteItem).not.toHaveBeenCalled();
+      expect(mockCartSetPromotionCode).not.toHaveBeenCalled();
+      expect(mockCartRemovePromotionCode).not.toHaveBeenCalled();
+    });
+
+    it('POST /api/cart/promo spends no rate-limit attempt in catalog mode', async () => {
+      const { promoCodeRateLimiter } =
+        await import('../../../server/utils/rate-limiter');
+      const handler = (await import('../../../server/api/cart/promo.post'))
+        .default;
+      await expect(handler(catalogModeEvent)).rejects.toMatchObject({
+        statusCode: 403,
+      });
+      expect(promoCodeRateLimiter.check).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,14 +1,10 @@
 import { ValidateOrderSchema } from '../../schemas/api-input';
 import { validateOrder } from '../../services/checkout';
 import { requireAuth } from '../../utils/auth';
+import { assertCommerceMode } from '../../utils/catalog-mode';
 
 export default defineEventHandler(async (event) => {
-  if (event.context.tenant?.config?.mode === 'catalog') {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Not available in catalogue mode',
-    });
-  }
+  assertCommerceMode(event);
 
   await requireAuth(event);
 

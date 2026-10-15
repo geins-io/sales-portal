@@ -6,6 +6,7 @@ import { getCart } from '../../services/cart';
 import { createOrder } from '../../services/checkout';
 import { requireAuth } from '../../utils/auth';
 import { createOrderRateLimiter, getClientIp } from '../../utils/rate-limiter';
+import { assertCommerceMode } from '../../utils/catalog-mode';
 
 /**
  * Reject an order for a cart the platform reports as having no lines.
@@ -33,12 +34,7 @@ async function rejectEmptyCart(cartId: string, event: H3Event): Promise<void> {
 }
 
 export default defineEventHandler(async (event) => {
-  if (event.context.tenant?.config?.mode === 'catalog') {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Not available in catalogue mode',
-    });
-  }
+  assertCommerceMode(event);
 
   await requireAuth(event);
 

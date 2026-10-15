@@ -1,8 +1,11 @@
 import { CartPromoCodeSchema } from '../../schemas/api-input';
 import { applyPromoCode } from '../../services/cart';
 import { promoCodeRateLimiter, getClientIp } from '../../utils/rate-limiter';
+import { assertCommerceMode } from '../../utils/catalog-mode';
 
 export default defineEventHandler(async (event) => {
+  assertCommerceMode(event);
+
   const clientIp = getClientIp(event);
   const rateLimit = await promoCodeRateLimiter.check(clientIp);
 

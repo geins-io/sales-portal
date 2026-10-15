@@ -1,7 +1,10 @@
 import { CartUpdateItemSchema } from '../../schemas/api-input';
 import { updateItem } from '../../services/cart';
+import { assertCommerceMode } from '../../utils/catalog-mode';
 
 export default defineEventHandler(async (event) => {
+  assertCommerceMode(event);
+
   const body = await readValidatedBody(event, CartUpdateItemSchema.parse);
 
   return withErrorHandling(

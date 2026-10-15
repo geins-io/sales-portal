@@ -3,16 +3,12 @@ import { CheckoutTokenSchema } from '../../schemas/api-input';
 import { createToken, getCheckout } from '../../services/checkout';
 import { HOSTED_CHECKOUT_BASE_URL } from '#shared/constants/checkout';
 import { COOKIE_NAMES } from '#shared/constants/storage';
+import { assertCommerceMode } from '../../utils/catalog-mode';
 
 const TWO_LETTER = /^[a-z]{2}$/;
 
 export default defineEventHandler(async (event) => {
-  if (event.context.tenant?.config?.mode === 'catalog') {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Not available in catalogue mode',
-    });
-  }
+  assertCommerceMode(event);
 
   const { cartId } = await readValidatedBody(event, CheckoutTokenSchema.parse);
 

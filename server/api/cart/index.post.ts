@@ -1,12 +1,8 @@
 import { createCart } from '../../services/cart';
+import { assertCommerceMode } from '../../utils/catalog-mode';
 
 export default defineEventHandler(async (event) => {
-  if (event.context.tenant?.config?.mode === 'catalog') {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Not available in catalogue mode',
-    });
-  }
+  assertCommerceMode(event);
 
   return withErrorHandling(
     async () => {
