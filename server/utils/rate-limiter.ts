@@ -230,10 +230,12 @@ export const createOrderRateLimiter = new RateLimiter({
   prefix: 'checkout-create-order',
 });
 
-export const quoteCreateRateLimiter = new RateLimiter({
-  limit: 5,
+// Shared by accept and reject. A buyer's office reaches us from one IP, so
+// the limit leaves room for several buyers working through their quotes.
+export const quoteRespondRateLimiter = new RateLimiter({
+  limit: 20,
   windowMs: 60000,
-  prefix: 'quote-create',
+  prefix: 'quote-respond',
 });
 
 export const reviewPostRateLimiter = new RateLimiter({

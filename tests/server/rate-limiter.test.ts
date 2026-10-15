@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { RateLimiter, getClientIp } from '../../server/utils/rate-limiter';
+import {
+  RateLimiter,
+  getClientIp,
+  quoteRespondRateLimiter,
+} from '../../server/utils/rate-limiter';
 import type { H3Event } from 'h3';
 
 const { mockUseRuntimeConfig, mockLoggerWarn } = vi.hoisted(() => ({
@@ -263,6 +267,26 @@ describe('RateLimiter', () => {
 
       expect(resultA.allowed).toBe(false);
       expect(resultB.allowed).toBe(true);
+    });
+  });
+
+  describe('quoteRespondRateLimiter', () => {
+    it('allows 20 quote responses a minute per IP, then blocks', async () => {
+      for (let i = 0; i < 20; i++) {
+        expect((await quoteRespondRateLimiter.check('10.0.0.1')).allowed).toBe(
+          true,
+        );
+      }
+
+      expect((await quoteRespondRateLimiter.check('10.0.0.1')).allowed).toBe(
+        false,
+      );
+      expect(mockStore.has('rate-limit:quote-respond:10.0.0.1')).toBe(true);
+
+      vi.advanceTimersByTime(60001);
+      expect((await quoteRespondRateLimiter.check('10.0.0.1')).allowed).toBe(
+        true,
+      );
     });
   });
 });

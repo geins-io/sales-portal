@@ -21,6 +21,15 @@ vi.mock('../../../server/services/quotes', () => ({
 const mockRequireAuth = vi.fn();
 vi.stubGlobal('requireAuth', mockRequireAuth);
 
+// Rate limiter — uses useStorage('kv'), must stay mocked
+const mockRateLimitCheck = vi.fn();
+vi.mock('../../../server/utils/rate-limiter', () => ({
+  quoteRespondRateLimiter: {
+    check: (...args: unknown[]) => mockRateLimitCheck(...args),
+  },
+  getClientIp: vi.fn().mockReturnValue('203.0.113.7'),
+}));
+
 // ---------------------------------------------------------------------------
 // Stub Nitro / h3 auto-imports
 // ---------------------------------------------------------------------------
@@ -30,11 +39,18 @@ vi.stubGlobal(
   vi.fn((code: string, msg: string) => {
     const err = new Error(msg);
     (err as Error & { statusCode: number }).statusCode =
-      code === 'UNAUTHORIZED' ? 401 : code === 'NOT_FOUND' ? 404 : 400;
+      code === 'UNAUTHORIZED'
+        ? 401
+        : code === 'NOT_FOUND'
+          ? 404
+          : code === 'RATE_LIMITED'
+            ? 429
+            : 400;
     return err;
   }),
 );
 vi.stubGlobal('ErrorCode', {
+  RATE_LIMITED: 'RATE_LIMITED',
   UNAUTHORIZED: 'UNAUTHORIZED',
   NOT_FOUND: 'NOT_FOUND',
   BAD_REQUEST: 'BAD_REQUEST',
@@ -91,6 +107,62 @@ describe('Quote API Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireAuth.mockResolvedValue(mockTokens);
+    mockRateLimitCheck.mockResolvedValue({
+      allowed: true,
+      remaining: 19,
+      resetTime: 0,
+    });
+  });
+
+  // Accept and reject share one limiter: the same checks run on both.
+  describe.each([
+    { route: 'accept', service: mockAcceptQuote },
+    { route: 'reject', service: mockRejectQuote },
+  ])('POST /api/quotes/[id]/$route rate limit', ({ route, service }) => {
+    const eventWithId = {
+      ...mockEvent,
+      context: { ...mockEvent.context, params: { id: 'quote-uuid-001' } },
+    } as unknown as import('h3').H3Event;
+
+    const loadHandler = async () =>
+      (await import(`../../../server/api/quotes/[id]/${route}.post.ts`))
+        .default as (event: import('h3').H3Event) => Promise<unknown>;
+
+    it('answers 429 and never calls Geins when the limit is reached', async () => {
+      mockRateLimitCheck.mockResolvedValue({
+        allowed: false,
+        remaining: 0,
+        resetTime: 0,
+      });
+
+      const handler = await loadHandler();
+
+      await expect(handler(eventWithId)).rejects.toMatchObject({
+        statusCode: 429,
+        message: 'Too many quote responses',
+      });
+      expect(service).not.toHaveBeenCalled();
+    });
+
+    it('keys the limit on the client IP', async () => {
+      service.mockResolvedValue(mockQuote);
+
+      const handler = await loadHandler();
+      await handler(eventWithId);
+
+      expect(mockRateLimitCheck).toHaveBeenCalledWith('203.0.113.7');
+    });
+
+    it('does not count requests that fail authentication', async () => {
+      mockRequireAuth.mockRejectedValue(new Error('Authentication required'));
+
+      const handler = await loadHandler();
+
+      await expect(handler(eventWithId)).rejects.toThrow(
+        'Authentication required',
+      );
+      expect(mockRateLimitCheck).not.toHaveBeenCalled();
+    });
   });
 
   // -------------------------------------------------------------------------
