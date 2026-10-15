@@ -13,6 +13,7 @@ import {
   hasE2ECredentials,
   PRODUCTION_BUILD,
 } from './target';
+import { purchaseCandidates, type StockedCandidate } from './product-choice';
 
 export { e2eCredentials, hasE2ECredentials };
 
@@ -119,11 +120,15 @@ export interface DiscoveredCategory {
 }
 
 interface RawProduct {
+  productId?: number;
   skus?: { skuId: number }[];
   alias?: string;
   name?: string;
   articleNumber?: string | null;
+  totalStock?: StockedCandidate['stock'];
 }
+
+type ListedProduct = DiscoveredProduct & StockedCandidate;
 
 /**
  * Candidates with a usable alias and SKU. The `sort` makes the twenty rows the
@@ -131,9 +136,7 @@ interface RawProduct {
  * four different sets from a catalogue of 98. Not `LATEST`, which orders on a
  * timestamp the response does not carry. The alias sort only breaks ties.
  */
-async function fetchProductCandidates(
-  page: Page,
-): Promise<DiscoveredProduct[]> {
+async function fetchProductCandidates(page: Page): Promise<ListedProduct[]> {
   const response = await page.request.get('/api/product-lists/products', {
     params: { take: '20', filter: JSON.stringify({ sort: 'ALPHABETICAL' }) },
   });
@@ -151,6 +154,8 @@ async function fetchProductCandidates(
       skuId: p.skus![0]!.skuId,
       name: p.name ?? p.alias,
       articleNumber: p.articleNumber ?? null,
+      productId: p.productId,
+      stock: p.totalStock,
     }))
     .sort((a, b) => a.alias.localeCompare(b.alias));
 }
@@ -357,30 +362,39 @@ export async function readPrice(locator: Locator): Promise<number> {
   return parsePrice((await locator.innerText()).trim());
 }
 
-/** Memoised per worker — probing costs a page load + hydration wait each. */
-let purchasableProductCache: DiscoveredProduct | undefined;
+/**
+ * Memoised per worker and quantity — probing costs a page load + hydration
+ * wait each, and a product found for one unit may not have three.
+ */
+const purchasableProductCache = new Map<number, DiscoveredProduct>();
+
+/** PDPs probed before giving up. */
+const PURCHASE_PROBES = 3;
 
 /**
- * A product whose PDP actually offers an add-to-cart button. A SKU is not
- * enough (out of stock hides it), and `stockStatus` is disabled here so the
- * list API exposes no stock — hence probing the PDP.
+ * A product the caller can buy `quantity` of. The list carries stock, so
+ * candidates without enough are dropped before any PDP is opened (see
+ * `purchaseCandidates`); the PDP is still probed because a session without
+ * order access gets no add-to-cart button whatever the stock.
  */
 export async function discoverPurchasableProduct(
   page: Page,
-  maxAttempts = 3,
+  quantity = 1,
 ): Promise<DiscoveredProduct> {
-  if (purchasableProductCache) return purchasableProductCache;
+  const cached = purchasableProductCache.get(quantity);
+  if (cached) return cached;
 
-  const candidates = await fetchProductCandidates(page);
+  const listed = await fetchProductCandidates(page);
   expect(
-    candidates.length,
+    listed.length,
     'no product with a SKU and alias found',
   ).toBeGreaterThan(0);
+  const candidates = purchaseCandidates(listed, quantity);
 
   const tried: string[] = [];
 
   for (const candidate of candidates) {
-    if (tried.length >= maxAttempts) break;
+    if (tried.length >= PURCHASE_PROBES) break;
     // A configurable product has no add-to-cart button, so trying one spends
     // an attempt to learn what one request already answers.
     if (await isConfigurable(page, candidate.alias)) continue;
@@ -397,15 +411,15 @@ export async function discoverPurchasableProduct(
       .catch(() => false);
 
     if (visible) {
-      purchasableProductCache = candidate;
+      purchasableProductCache.set(quantity, candidate);
       return candidate;
     }
   }
 
   throw new Error(
     `No purchasable product found after ${tried.length} attempts (tried: ${tried.join(', ')}). ` +
-      `Every candidate was out of stock, or the session is not authenticated and ` +
-      `this tenant gates orderPlacement behind access: 'authenticated'.`,
+      `Each had stock for ${quantity} in the list, so the session is likely not ` +
+      `authenticated and this tenant gates orderPlacement behind access: 'authenticated'.`,
   );
 }
 
@@ -685,6 +699,9 @@ export async function addToCart(
     const amount = field.locator('input');
     const increment = field.locator('button:last-of-type');
     for (let step = 1; step < quantity; step++) {
+      // A click on the disabled button waits for the test timeout; stop and
+      // let the assertion below name the shortfall instead.
+      if (await increment.isDisabled()) break;
       await increment.click();
     }
     // The control is capped at the SKU's stock, so a silent stop short of the

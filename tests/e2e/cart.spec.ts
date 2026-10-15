@@ -459,7 +459,7 @@ test.describe('Cart values', () => {
   test('drawer and cart page show the summary /api/cart reports', async ({
     page,
   }) => {
-    const product = await discoverPurchasableProduct(page);
+    const product = await discoverPurchasableProduct(page, QUANTITY);
     await addToCart(page, product.alias, QUANTITY);
 
     const drawer = page.locator('[data-testid="cart-drawer"]');
@@ -493,7 +493,7 @@ test.describe('Cart values', () => {
   test('a cart line shows quantity x unit price as its total', async ({
     page,
   }) => {
-    const product = await discoverPurchasableProduct(page);
+    const product = await discoverPurchasableProduct(page, QUANTITY);
     await addToCart(page, product.alias, QUANTITY);
     await openCartPage(page);
 
@@ -518,7 +518,7 @@ test.describe('Cart values', () => {
   });
 
   test('the summary follows a quantity change', async ({ page }) => {
-    const product = await discoverPurchasableProduct(page);
+    const product = await discoverPurchasableProduct(page, QUANTITY);
     await addToCart(page, product.alias, QUANTITY);
     await openCartPage(page);
 
@@ -576,7 +576,7 @@ test.describe('Cart values', () => {
   });
 
   test('the discount line carries what the API reports', async ({ page }) => {
-    const product = await discoverPurchasableProduct(page);
+    const product = await discoverPurchasableProduct(page, QUANTITY);
     await addToCart(page, product.alias, QUANTITY);
     await openCartPage(page);
 
@@ -741,7 +741,7 @@ test.describe('Cart layout', () => {
   test('a line shows its total and, under it, the unit price "/st", with no VAT word', async ({
     page,
   }) => {
-    const product = await discoverPurchasableProduct(page);
+    const product = await discoverPurchasableProduct(page, 3);
     await addToCart(page, product.alias, 3);
     const drawer = page.locator('[data-testid="cart-drawer"]');
     const item = drawer.locator('[data-testid="cart-item"]').first();

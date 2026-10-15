@@ -92,7 +92,7 @@ test.describe('Checkout summary', () => {
    */
   async function openCheckout(page: Page, side: VatSide) {
     await setVatDisplay(page, side);
-    const product = await discoverPurchasableProduct(page);
+    const product = await discoverPurchasableProduct(page, QUANTITY);
     await addToCart(page, product.alias, QUANTITY);
 
     await page.goto('/checkout');

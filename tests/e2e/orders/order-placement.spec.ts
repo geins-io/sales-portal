@@ -382,7 +382,7 @@ test('a placed order carries the cart it was built from all the way to the porta
 
   // Every screen below is read on this side.
   await setVatDisplay(page, 'ex');
-  const product = await discoverPurchasableProduct(page);
+  const product = await discoverPurchasableProduct(page, QUANTITY);
   await addToCart(page, product.alias, QUANTITY);
   const cartId = (await page.context().cookies()).find(
     (cookie) => cookie.name === 'cart_id',
