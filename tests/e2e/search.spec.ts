@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import {
   discoverProduct,
   discoverPurchasableProduct,
@@ -9,6 +9,7 @@ import {
   setMobileViewport,
   signedInState,
 } from './helpers';
+import { BASE_URL } from './target';
 
 /**
  * Search E2E Tests
@@ -278,30 +279,124 @@ test.describe('Search results add to cart', () => {
 
   test.use({ storageState: signedInState });
 
+  /** The caller's cart lines with the ids a cleanup needs. */
+  async function cartLines(page: Page): Promise<{
+    cartId?: string;
+    lines: { id: string; skuId: number; quantity: number }[];
+  }> {
+    // This host's cookie whether or not the page has navigated yet: before the
+    // first goto `page.url()` is about:blank and matches no cookie, and the
+    // stored state may hold other tenants' carts.
+    const cartId = (await page.context().cookies(BASE_URL)).find(
+      (cookie) => cookie.name === 'cart_id',
+    )?.value;
+    if (!cartId) return { lines: [] };
+    const response = await page.request.get('/api/cart', {
+      params: { cartId },
+    });
+    expect(response.ok(), '/api/cart did not answer 200').toBe(true);
+    return { cartId, lines: (await response.json())?.items ?? [] };
+  }
+
+  /** Puts the cart back as `before` read it: new lines out, grown ones back. */
+  async function restoreCart(
+    page: Page,
+    before: Awaited<ReturnType<typeof cartLines>>,
+  ): Promise<void> {
+    const now = await cartLines(page);
+    for (const line of now.lines) {
+      const was = before.lines.find((b) => b.id === line.id);
+      if (!was) {
+        await page.request.delete('/api/cart/items', {
+          params: { cartId: now.cartId!, itemId: line.id },
+        });
+      } else if (was.quantity !== line.quantity) {
+        await page.request.put('/api/cart/items', {
+          data: {
+            cartId: now.cartId!,
+            itemId: line.id,
+            quantity: was.quantity,
+          },
+        });
+      }
+    }
+  }
+
   test('a search result card adds its product to the cart', async ({
     page,
   }) => {
+    // The search ranks no result reliably first, so the test takes whichever
+    // card can be bought and follows that card's own product into the cart.
     const product = await discoverPurchasableProduct(page);
-    await page.goto(`/search?q=${encodeURIComponent(product.name)}`);
+    const before = await cartLines(page);
 
-    const card = page
-      .locator('[data-testid="product-card"]')
-      .filter({ hasText: product.articleNumber ?? product.name })
-      .first();
-    await expect(card).toBeVisible({ timeout: 15000 });
-    await waitForHydration(page);
+    // Not try/finally: a cleanup that throws there replaces the test's error.
+    let failure: unknown;
+    try {
+      await page.goto(`/search?q=${encodeURIComponent(product.name)}`);
+      await waitForHydration(page);
 
-    // The card disables its button when the search payload carries no SKU.
-    const addButton = card.locator('[data-testid="add-to-cart-button"]');
-    await expect(addButton).toBeEnabled();
-    await addButton.click();
+      // Only a buyable card renders the button: a configurable one links to
+      // its configurator, an out-of-stock one shows the stock block.
+      const card = page
+        .locator('[data-testid="product-card"]:visible')
+        .filter({
+          has: page.locator('[data-testid="add-to-cart-button"]:enabled'),
+        })
+        .filter({ has: page.locator('[data-testid="article-number"]') })
+        .first();
+      await expect(card).toBeVisible({ timeout: 15000 });
+      const cardArticle = (
+        await card.getByTestId('article-number').innerText()
+      ).trim();
+      expect(cardArticle, 'the card shows no article number').not.toBe('');
 
-    const drawer = page.locator('[data-testid="cart-drawer"]');
-    await expect(
-      drawer.locator('[data-testid="cart-item"]').first(),
-    ).toBeVisible({ timeout: 10000 });
+      const added = page.waitForResponse(
+        (r) =>
+          r.url().includes('/api/cart/items') &&
+          r.request().method() === 'POST',
+      );
+      await card.getByTestId('add-to-cart-button').click();
+      expect((await added).ok(), 'POST /api/cart/items failed').toBe(true);
 
-    const cart = await fetchCart(page);
-    expect(cart.items.map((item) => item.skuId)).toContain(product.skuId);
+      // The line the click made, or grew when the cart already held the SKU.
+      const cart = await fetchCart(page);
+      const { lines } = await cartLines(page);
+      const changed = lines.filter(
+        (line) =>
+          (before.lines.find((b) => b.id === line.id)?.quantity ?? 0) <
+          line.quantity,
+      );
+      expect(changed, 'the click changed no cart line').toHaveLength(1);
+      const apiLine = cart.items.find(
+        (item) => item.skuId === changed[0]!.skuId,
+      );
+      expect(apiLine, 'the cart API holds no line for that SKU').toBeTruthy();
+      expect(cardArticle).toContain(apiLine!.articleNumber);
+
+      const drawer = page.locator('[data-testid="cart-drawer"]');
+      await expect(
+        drawer
+          .locator('[data-testid="cart-item-article"]')
+          .filter({ hasText: apiLine!.articleNumber }),
+      ).toBeVisible({ timeout: 10000 });
+    } catch (error) {
+      failure = error;
+    }
+
+    const cleanup = await restoreCart(page, before).then(
+      () => undefined,
+      (error: Error) => error,
+    );
+    if (failure) {
+      if (cleanup) {
+        test.info().annotations.push({
+          type: 'cleanup',
+          description: `cart cleanup failed: ${cleanup.message}`,
+        });
+      }
+      throw failure;
+    }
+    if (cleanup) throw cleanup;
   });
 });

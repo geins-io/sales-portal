@@ -392,12 +392,16 @@ export async function discoverPurchasableProduct(
   const candidates = purchaseCandidates(listed, quantity);
 
   const tried: string[] = [];
+  const configurable: string[] = [];
 
   for (const candidate of candidates) {
     if (tried.length >= PURCHASE_PROBES) break;
     // A configurable product has no add-to-cart button, so trying one spends
     // an attempt to learn what one request already answers.
-    if (await isConfigurable(page, candidate.alias)) continue;
+    if (await isConfigurable(page, candidate.alias)) {
+      configurable.push(candidate.alias);
+      continue;
+    }
     tried.push(candidate.alias);
 
     await page.goto(`/p/${candidate.alias}`);
@@ -416,10 +420,17 @@ export async function discoverPurchasableProduct(
     }
   }
 
+  // Every probed PDP hydrated: `waitForHydration` throws otherwise.
+  const seen =
+    `${candidates.length} listed with stock for ${quantity}; ` +
+    `configurable, so not opened: ${configurable.join(', ') || 'none'}; ` +
+    `opened, hydrated, no add-to-cart button: ${tried.join(', ') || 'none'}.`;
   throw new Error(
-    `No purchasable product found after ${tried.length} attempts (tried: ${tried.join(', ')}). ` +
-      `Each had stock for ${quantity} in the list, so the session is likely not ` +
-      `authenticated and this tenant gates orderPlacement behind access: 'authenticated'.`,
+    tried.length === 0
+      ? `No purchasable product: every candidate with stock is configurable. ${seen}`
+      : `No purchasable product: no opened PDP rendered add-to-cart. ${seen} ` +
+          `A session without order access gets no button whatever the stock, so ` +
+          `check that it is signed in where orderPlacement needs it.`,
   );
 }
 
