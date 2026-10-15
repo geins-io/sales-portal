@@ -157,6 +157,12 @@ var appSettingsAlways = [
     name: 'NUXT_HEALTH_CHECK_SECRET'
     value: healthCheckSecret
   }
+  // App Service's front end is the one proxy in front of the container. It appends the
+  // client's ip:port to X-Forwarded-For, and rate limits key on that entry (getClientIp).
+  {
+    name: 'NUXT_TRUSTED_PROXY_HOPS'
+    value: '1'
+  }
   {
     name: 'NUXT_STORAGE_DRIVER'
     value: storageDriver

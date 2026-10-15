@@ -27,6 +27,9 @@ export default defineEventHandler(async (event) => {
     throw createAppError(ErrorCode.UNAUTHORIZED, 'Invalid credentials');
   }
 
+  // Only failed attempts count against the limit.
+  await loginRateLimiter.refund(clientIp);
+
   const { tokens, user } = result;
 
   // Set httpOnly cookies — tokens never reach the client

@@ -32,9 +32,11 @@ vi.mock('../../../../server/services/cart', () => ({
 const mockCheck = vi
   .fn()
   .mockResolvedValue({ allowed: true, remaining: 4, resetTime: 0 });
+const mockRefund = vi.fn().mockResolvedValue(undefined);
 vi.mock('../../../../server/utils/rate-limiter', () => ({
   loginRateLimiter: {
     check: (...args: unknown[]) => mockCheck(...args),
+    refund: (...args: unknown[]) => mockRefund(...args),
   },
   getClientIp: vi.fn().mockReturnValue('127.0.0.1'),
 }));
@@ -200,6 +202,74 @@ describe('POST /api/auth/login', () => {
     const handler = (await import('../../../../server/api/auth/login.post'))
       .default;
     await expect(handler(mockEvent)).rejects.toThrow('RATE_LIMITED');
+  });
+
+  it('gives the limiter slot back after a successful login', async () => {
+    mockAuthLogin.mockResolvedValue({
+      succeeded: true,
+      tokens: {
+        token: 'access-token',
+        refreshToken: 'refresh-token',
+        expiresIn: 3600,
+      },
+      user: { id: 1 },
+    });
+
+    const handler = (await import('../../../../server/api/auth/login.post'))
+      .default;
+    await handler(mockEvent);
+
+    expect(mockCheck).toHaveBeenCalledWith('127.0.0.1');
+    expect(mockRefund).toHaveBeenCalledWith('127.0.0.1');
+  });
+
+  it('keeps the limiter slot taken after a failed login', async () => {
+    mockAuthLogin.mockResolvedValue({ succeeded: false });
+
+    const handler = (await import('../../../../server/api/auth/login.post'))
+      .default;
+    await expect(handler(mockEvent)).rejects.toThrow('UNAUTHORIZED');
+
+    expect(mockCheck).toHaveBeenCalledWith('127.0.0.1');
+    expect(mockRefund).not.toHaveBeenCalled();
+  });
+
+  it('keeps the limiter slot taken when tokens are missing', async () => {
+    mockAuthLogin.mockResolvedValue({
+      succeeded: true,
+      tokens: { token: 'access-token', refreshToken: null },
+    });
+
+    const handler = (await import('../../../../server/api/auth/login.post'))
+      .default;
+    await expect(handler(mockEvent)).rejects.toThrow('UNAUTHORIZED');
+
+    expect(mockRefund).not.toHaveBeenCalled();
+  });
+
+  it('keeps the limiter slot taken when the login call throws', async () => {
+    mockAuthLogin.mockRejectedValue(new Error('upstream down'));
+
+    const handler = (await import('../../../../server/api/auth/login.post'))
+      .default;
+    await expect(handler(mockEvent)).rejects.toThrow();
+
+    expect(mockRefund).not.toHaveBeenCalled();
+  });
+
+  it('does not authenticate when the limit is reached', async () => {
+    mockCheck.mockResolvedValueOnce({
+      allowed: false,
+      remaining: 0,
+      resetTime: 0,
+    });
+
+    const handler = (await import('../../../../server/api/auth/login.post'))
+      .default;
+    await expect(handler(mockEvent)).rejects.toThrow('RATE_LIMITED');
+
+    expect(mockAuthLogin).not.toHaveBeenCalled();
+    expect(mockRefund).not.toHaveBeenCalled();
   });
 
   it('returns null expiresAt when expiresIn is not provided', async () => {

@@ -1,5 +1,7 @@
+import { isIP } from 'node:net';
 import type { H3Event } from 'h3';
 import { getHeader } from 'h3';
+import { logger } from './logger';
 
 /**
  * Rate limiter configuration options
@@ -88,6 +90,22 @@ export class RateLimiter {
   }
 
   /**
+   * Give back one slot (the newest timestamp), for limits that should only
+   * count failures. Taking the slot first and refunding on success keeps a
+   * burst of parallel attempts counted.
+   */
+  async refund(key: string): Promise<void> {
+    const storage = useStorage('kv');
+    const storageKey = this.storageKey(key);
+    const timestamps = (await storage.getItem<number[]>(storageKey)) || [];
+    if (timestamps.length <= 1) {
+      await storage.removeItem(storageKey);
+      return;
+    }
+    await storage.setItem(storageKey, timestamps.slice(0, -1));
+  }
+
+  /**
    * Reset the rate limiter for a specific key (useful for testing)
    */
   async reset(key?: string): Promise<void> {
@@ -113,48 +131,47 @@ export class RateLimiter {
   }
 }
 
+let warnedUntrustedForwardedFor = false;
+
+/** `a.b.c.d:port` and `[v6]:port` lose the port; a bare IPv6 is left whole. */
+function stripPort(entry: string): string {
+  if (entry.startsWith('[')) {
+    return entry.slice(1, entry.indexOf(']'));
+  }
+  const parts = entry.split(':');
+  return parts.length === 2 ? parts[0]! : entry;
+}
+
 /**
- * Extract client IP address from an H3 event
+ * The client address a limit is keyed on.
  *
- * Checks common proxy headers first, then falls back to the direct connection IP.
- * The order of header checks follows common proxy/CDN conventions.
- *
- * TRUST BOUNDARY: takes the first X-Forwarded-For entry, which assumes an
- * upstream proxy that overwrites the header rather than appending to it.
- * Confirm that assumption holds for the current deployment before relying on
- * these limits as an abuse control.
+ * `runtimeConfig.trustedProxyHops` is the trust boundary: the number of
+ * proxies in front of the app that append to `X-Forwarded-For`. Azure App
+ * Service is one, and it appends `ip:port` to whatever the client sent, so
+ * every entry left of the one it wrote is client-chosen. With N hops the key
+ * is the Nth entry from the right, port stripped. With 0 (local dev, e2e) the
+ * header is ignored. Anything unexpected falls back to the connection address,
+ * never to the leftmost entry.
  */
 export function getClientIp(event: H3Event): string {
-  // Check X-Forwarded-For header (most common proxy header)
+  const hops = Number(useRuntimeConfig(event).trustedProxyHops) || 0;
   const forwardedFor = getHeader(event, 'x-forwarded-for');
-  if (forwardedFor) {
-    // X-Forwarded-For can contain multiple IPs; the first is the client
-    const firstIp = forwardedFor.split(',')[0]?.trim();
-    if (firstIp) {
-      return firstIp;
+
+  if (hops > 0 && forwardedFor) {
+    const entries = forwardedFor.split(',');
+    const entry = entries[entries.length - hops];
+    const ip = entry === undefined ? '' : stripPort(entry.trim());
+    if (isIP(ip)) {
+      return ip;
     }
+  } else if (forwardedFor && !warnedUntrustedForwardedFor) {
+    warnedUntrustedForwardedFor = true;
+    logger.warn(
+      'X-Forwarded-For arrived but NUXT_TRUSTED_PROXY_HOPS is 0: rate limits key on the connection address',
+    );
   }
 
-  // Check X-Real-IP header (used by Nginx)
-  const realIp = getHeader(event, 'x-real-ip');
-  if (realIp) {
-    return realIp.trim();
-  }
-
-  // Check CF-Connecting-IP header (used by Cloudflare)
-  const cfIp = getHeader(event, 'cf-connecting-ip');
-  if (cfIp) {
-    return cfIp.trim();
-  }
-
-  // Fall back to the direct connection address
-  const nodeReq = event.node?.req;
-  if (nodeReq?.socket?.remoteAddress) {
-    return nodeReq.socket.remoteAddress;
-  }
-
-  // Ultimate fallback
-  return 'unknown';
+  return event.node.req.socket.remoteAddress || 'unknown';
 }
 
 // --- Pre-configured rate limiter instances ---

@@ -279,6 +279,11 @@ export default defineNuxtConfig({
       redisUrl: '',
     },
 
+    // Proxies in front of the app that append to X-Forwarded-For; rate limits
+    // key on the entry the outermost one wrote. 0 ignores the header.
+    // Azure: NUXT_TRUSTED_PROXY_HOPS=1 (set by Bicep)
+    trustedProxyHops: 0,
+
     // Secret for accessing detailed health check metrics
     // Azure: NUXT_HEALTH_CHECK_SECRET=your-secret-here
     healthCheckSecret: '',

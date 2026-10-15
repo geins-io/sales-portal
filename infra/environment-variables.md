@@ -122,6 +122,7 @@ The `deploy.yml` workflow passes GitHub variables to Bicep, which sets these in 
 | `NUXT_CONFIGURATOR_BACKEND`          | `vars.CONFIGURATOR_BACKEND`                          | `runtimeConfig.configurator.backend`        |
 | `NUXT_CONFIGURATOR_MERCHANT_API_URL` | `vars.CONFIGURATOR_MERCHANT_API_URL` (only when set) | `runtimeConfig.configurator.merchantApiUrl` |
 | `NUXT_SENTRY_DSN`                    | `secrets.SENTRY_DSN`                                 | `runtimeConfig.sentry.dsn` (server-only)    |
+| `NUXT_TRUSTED_PROXY_HOPS`            | Hardcoded `1` (the App Service front end)            | `runtimeConfig.trustedProxyHops`            |
 | `SENTRY_ENVIRONMENT`                 | Set by Bicep based on environment                    | `process.env.SENTRY_ENVIRONMENT`            |
 | `NUXT_PUBLIC_SENTRY_ENVIRONMENT`     | Set by Bicep based on environment                    | `runtimeConfig.public.sentry.environment`   |
 | `NUXT_PUBLIC_SENTRY_DSN`             | `secrets.SENTRY_DSN`                                 | `runtimeConfig.public.sentry.dsn`           |
