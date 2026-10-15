@@ -8,7 +8,13 @@ const ORDINARY: FavoriteProduct = {
   alias: 'wood-screw',
   name: 'Wood screw',
   articleNumber: 'WS-1',
-  productImages: [{ fileName: 'screw.jpg' }, { fileName: 'second.jpg' }],
+  productImages: [
+    {
+      fileName: 'screw.jpg',
+      url: 'https://cdn.example.test/acme/products/screw.jpg',
+    },
+    { fileName: 'second.jpg', url: null },
+  ],
   unitPrice: {
     isDiscounted: false,
     regularPriceIncVat: 100,
@@ -23,6 +29,7 @@ describe('toFavoriteCardItem', () => {
     expect(toFavoriteCardItem(ORDINARY, true)).toStrictEqual({
       name: 'Wood screw',
       imageFileName: 'screw.jpg',
+      imageUrl: 'https://cdn.example.test/acme/products/screw.jpg',
       price: '100 kr',
       salePrice: null,
       articleNumber: 'WS-1',
@@ -132,16 +139,28 @@ describe('toFavoriteCardItem', () => {
   it.each([[[]], [[null]]])(
     'gives no image when the first image is missing (%j)',
     (productImages) => {
-      expect(
-        toFavoriteCardItem({ ...ORDINARY, productImages }, true).imageFileName,
-      ).toBeNull();
+      const item = toFavoriteCardItem({ ...ORDINARY, productImages }, true);
+
+      expect(item.imageFileName).toBeNull();
+      expect(item.imageUrl).toBeNull();
     },
   );
+
+  it('gives a legacy image its file name and no library url', () => {
+    const item = toFavoriteCardItem(
+      { ...ORDINARY, productImages: [{ fileName: 'old.jpg', url: null }] },
+      true,
+    );
+
+    expect(item.imageFileName).toBe('old.jpg');
+    expect(item.imageUrl).toBeNull();
+  });
 
   it('falls back to empty values when the product carries nothing', () => {
     expect(toFavoriteCardItem({}, true)).toStrictEqual({
       name: '',
       imageFileName: null,
+      imageUrl: null,
       price: null,
       salePrice: null,
       articleNumber: null,

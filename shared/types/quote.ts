@@ -27,6 +27,7 @@ export interface QuoteLineItem {
   totalPriceExVat: number;
   totalPriceExVatFormatted: string;
   imageFileName?: string;
+  imageUrl?: string | null;
 }
 
 // ---------------------------------------------------------------------------

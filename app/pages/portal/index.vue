@@ -134,6 +134,7 @@ function mapPurchasedProduct(product: PurchasedProduct): ProductCardItem {
       : (product.priceExVatFormatted ?? String(product.priceExVat ?? '-')),
     articleNumber: product.articleNumber,
     imageFileName: product.imageFileName ?? null,
+    imageUrl: product.imageUrl ?? null,
     alias: product.alias ?? null,
     configurable: product.configurable,
   };

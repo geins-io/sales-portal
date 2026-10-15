@@ -185,10 +185,12 @@ export function usesChooser(rowCount: number): boolean {
  */
 export function optionImage(option: {
   product: {
-    productImages?: { fileName?: string | null }[] | null;
+    productImages?: { fileName?: string | null; url?: string | null }[] | null;
   } | null;
-}): string | undefined {
-  return option.product?.productImages?.[0]?.fileName || undefined;
+}): { fileName: string; url: string | null } | undefined {
+  const image = option.product?.productImages?.[0];
+  if (!image?.fileName) return undefined;
+  return { fileName: image.fileName, url: image.url ?? null };
 }
 
 /**

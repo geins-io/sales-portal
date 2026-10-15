@@ -12,6 +12,7 @@ fragment ListProduct on ProductType {
   }
   productImages {
     fileName
+    url
   }
   discountCampaigns {
     ...Campaign

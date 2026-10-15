@@ -37,7 +37,7 @@ interface RawCartItem {
     alias?: string;
     name?: string;
     articleNumber?: string;
-    productImages?: { fileName?: string }[];
+    productImages?: { fileName?: string; url?: string | null }[];
   };
 }
 
@@ -166,6 +166,7 @@ function mapLineItem(item: RawCartItem): QuoteLineItem {
     totalPriceExVat: item.totalPrice?.sellingPriceExVat ?? 0,
     totalPriceExVatFormatted: item.totalPrice?.sellingPriceExVatFormatted ?? '',
     imageFileName: item.product?.productImages?.[0]?.fileName ?? undefined,
+    imageUrl: item.product?.productImages?.[0]?.url ?? null,
   };
 }
 

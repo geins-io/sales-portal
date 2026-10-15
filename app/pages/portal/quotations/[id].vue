@@ -118,6 +118,7 @@ const quoteItemRows = computed<PortalItemRow[]>(() =>
     unitPriceFormatted: unitPriceOf(item),
     totalPriceFormatted: totalPriceOf(item),
     imageFileName: item.imageFileName ?? null,
+    imageUrl: item.imageUrl ?? null,
     alias: item.alias ?? null,
   })),
 );

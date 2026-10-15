@@ -6,7 +6,10 @@ export interface FavoriteProduct {
   alias?: string | null;
   name?: string | null;
   articleNumber?: string | null;
-  productImages?: Array<{ fileName?: string | null } | null> | null;
+  productImages?: Array<{
+    fileName?: string | null;
+    url?: string | null;
+  } | null> | null;
   unitPrice?: {
     isDiscounted?: boolean | null;
     regularPriceIncVat?: number | null;
@@ -46,6 +49,7 @@ export function toFavoriteCardItem(
   return {
     name: product.name ?? '',
     imageFileName: product.productImages?.[0]?.fileName ?? null,
+    imageUrl: product.productImages?.[0]?.url ?? null,
     price: hasDiscount
       ? (regularFormatted ?? null)
       : (sellingFormatted ?? null),

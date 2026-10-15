@@ -22,6 +22,7 @@ query relatedProducts(
     relationType
     productImages {
       fileName
+      url
     }
     skus {
       ...Sku

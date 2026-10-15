@@ -136,6 +136,7 @@ export function orderRows(
     unitPriceFormatted: sideOf(item.unitPrice, incVat),
     totalPriceFormatted: sideOf(item.totalPrice, incVat),
     imageFileName: item.product?.productImages?.[0]?.fileName ?? null,
+    imageUrl: item.product?.productImages?.[0]?.url ?? null,
     alias: item.product?.alias ?? null,
     href: item.configuration
       ? replayHrefOf(item.product?.canonicalUrl, index)

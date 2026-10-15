@@ -33,7 +33,10 @@ interface ListProduct {
   alias?: string | null;
   name?: string | null;
   articleNumber?: string | null;
-  productImages?: Array<{ fileName?: string | null } | null> | null;
+  productImages?: Array<{
+    fileName?: string | null;
+    url?: string | null;
+  } | null> | null;
   totalStock?: StockType | null;
   unitPrice?: {
     isDiscounted?: boolean | null;

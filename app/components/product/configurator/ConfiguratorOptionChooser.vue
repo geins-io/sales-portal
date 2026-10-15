@@ -77,7 +77,7 @@ const reason = computed(() => {
   >
     <ConfiguratorOptionImage
       v-if="imageColumn && !showsNone"
-      :file-name="chosen ? optionImage(chosen) : undefined"
+      :file-name="chosen ? optionImage(chosen)?.fileName : undefined"
       :alt="chosen?.name ?? ''"
     />
     <span class="min-w-0 flex-1">

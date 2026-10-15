@@ -27,6 +27,7 @@ import { useFavoritesStore } from '~/stores/favorites';
 export interface ProductCardItem {
   name: string;
   imageFileName?: string | null;
+  imageUrl?: string | null;
   price?: string | number | null;
   salePrice?: string | number | null;
   articleNumber?: string | null;

@@ -234,6 +234,34 @@ describe('quotes service', () => {
   // getQuote
   // -------------------------------------------------------------------------
   describe('getQuote', () => {
+    it('gives a line without a library image no image url', async () => {
+      const cart = makeRawQuotationCart();
+      const [item] = cart.items as Record<string, unknown>[];
+      cart.items = [
+        { ...item, product: undefined },
+        { ...item, product: { productId: 101 } },
+        { ...item, product: { productId: 101, productImages: [] } },
+        {
+          ...item,
+          product: {
+            productId: 101,
+            productImages: [{ fileName: 'old.jpg', url: null }],
+          },
+        },
+      ];
+      mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(result.lineItems.map((line) => line.imageUrl)).toEqual([
+        null,
+        null,
+        null,
+        null,
+      ]);
+      expect(result.lineItems[3]!.imageFileName).toBe('old.jpg');
+    });
+
     it('calls graphql.query with getQuotationCart and maps to Quote type', async () => {
       const cart = makeRawQuotationCart();
       mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
@@ -295,6 +323,7 @@ describe('quotes service', () => {
         totalPriceExVat: 7992,
         totalPriceExVatFormatted: '7 992 SEK',
         imageFileName: '/img/desk.jpg',
+        imageUrl: 'https://cdn.example.test/acme/products/desk.jpg',
       });
 
       expect(result.company).toEqual({

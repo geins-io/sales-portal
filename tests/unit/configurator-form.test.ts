@@ -494,11 +494,23 @@ describe('optionImage', () => {
     const workbench = makeInitialConfiguration();
     const option = findOption(workbench, 'top-wood');
     option.product!.productImages = [
-      { fileName: 'beech-front.jpg' },
+      {
+        fileName: 'beech-front.jpg',
+        url: 'https://cdn.example.test/acme/products/beech-front.jpg',
+      },
       { fileName: 'beech-side.jpg' },
     ];
 
-    expect(optionImage(option)).toBe('beech-front.jpg');
+    expect(optionImage(option)).toEqual({
+      fileName: 'beech-front.jpg',
+      url: 'https://cdn.example.test/acme/products/beech-front.jpg',
+    });
+  });
+
+  it('gives a legacy image its file name and no library url', () => {
+    expect(
+      optionImage({ product: { productImages: [{ fileName: 'old.jpg' }] } }),
+    ).toEqual({ fileName: 'old.jpg', url: null });
   });
 
   it('has none for an option without a product, or a product without images', () => {

@@ -68,6 +68,7 @@ function makeOrder(overrides: {
     sellingPriceExVatFormatted?: string;
     sellingPriceIncVat?: number;
     sellingPriceIncVatFormatted?: string;
+    productImages?: Array<{ fileName?: string | null; url?: string | null }>;
   }> | null;
 }) {
   return {
@@ -105,6 +106,7 @@ function makeOrder(overrides: {
                 type: item.type ?? 'product',
                 articleNumber: item.articleNumber ?? 'ART-001',
                 name: item.name ?? 'Test Product',
+                productImages: item.productImages,
               },
             })),
           },
@@ -277,6 +279,101 @@ describe('getPurchasedProducts', () => {
         latestOrderDate: '2026-03-15T00:00:00Z',
       }),
     );
+  });
+
+  it('keeps the library url with the file name of the same image', async () => {
+    withOrders([
+      makeOrder({
+        items: [
+          {
+            productImages: [
+              {
+                fileName: 'widget.jpg',
+                url: 'https://cdn.example.test/acme/products/widget.jpg',
+              },
+            ],
+          },
+        ],
+      }),
+    ]);
+
+    const result = await purchasedProducts.getPurchasedProducts(mockEvent);
+
+    expect(result.products[0]).toMatchObject({
+      imageFileName: 'widget.jpg',
+      imageUrl: 'https://cdn.example.test/acme/products/widget.jpg',
+    });
+  });
+
+  it('gives a product without images neither a file name nor a url', async () => {
+    withOrders([makeOrder({ items: [{}] })]);
+
+    const result = await purchasedProducts.getPurchasedProducts(mockEvent);
+
+    expect(result.products[0]).toMatchObject({
+      imageFileName: null,
+      imageUrl: null,
+    });
+  });
+
+  it('takes the image from a later order only as a pair, when the first had none', async () => {
+    withOrders([
+      makeOrder({
+        id: 1,
+        createdAt: '2026-03-15T00:00:00Z',
+        items: [{ productImages: [] }],
+      }),
+      makeOrder({
+        id: 2,
+        createdAt: '2026-01-15T00:00:00Z',
+        items: [
+          {
+            productImages: [
+              {
+                fileName: 'widget.jpg',
+                url: 'https://cdn.example.test/acme/products/widget.jpg',
+              },
+            ],
+          },
+        ],
+      }),
+      makeOrder({
+        id: 3,
+        createdAt: '2026-02-15T00:00:00Z',
+        items: [
+          {
+            productImages: [
+              {
+                fileName: 'other.jpg',
+                url: 'https://cdn.example.test/acme/products/other.jpg',
+              },
+            ],
+          },
+        ],
+      }),
+    ]);
+
+    const result = await purchasedProducts.getPurchasedProducts(mockEvent);
+
+    expect(result.products[0]).toMatchObject({
+      imageFileName: 'widget.jpg',
+      imageUrl: 'https://cdn.example.test/acme/products/widget.jpg',
+    });
+  });
+
+  it('keeps a legacy image without a library url', async () => {
+    withOrders([
+      makeOrder({
+        items: [{ productImages: [{ fileName: 'old.jpg', url: null }] }],
+      }),
+    ]);
+
+    const result = await purchasedProducts.getPurchasedProducts(mockEvent);
+
+    expect(result.products[0]).toMatchObject({
+      imageFileName: 'old.jpg',
+      imageUrl: null,
+    });
   });
 
   it('uses latest order date/id/buyer when same product appears in multiple orders', async () => {

@@ -28,10 +28,11 @@ query product(
       alias
       canonicalUrl
     }
-    # Storefront ProductImageType exposes only fileName and tags (no per-image alt field).
+    # Storefront ProductImageType has no per-image alt field.
     # Alt text is generated client-side from product name + position (see useProductImageAlt).
     productImages {
       fileName
+      url
     }
     # The Documents tab reads the `productfile` rows. `mediaType` is too coarse
     # to pick an icon from (docx and xlsx are both "doc"), so it is not asked.

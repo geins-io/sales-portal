@@ -130,7 +130,12 @@ export function makeRawQuotationCart(
           productId: 101,
           name: 'Standing Desk Oak Large',
           articleNumber: 'SD-OAK-L',
-          productImages: [{ fileName: '/img/desk.jpg' }],
+          productImages: [
+            {
+              fileName: '/img/desk.jpg',
+              url: 'https://cdn.example.test/acme/products/desk.jpg',
+            },
+          ],
         },
       },
     ],

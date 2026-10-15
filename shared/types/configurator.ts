@@ -131,7 +131,7 @@ export interface ConfigurationOptionProduct {
   articleNumber?: string | null;
   alias?: string | null;
   canonicalUrl?: string | null;
-  productImages?: { fileName?: string | null }[] | null;
+  productImages?: { fileName?: string | null; url?: string | null }[] | null;
 }
 
 export interface ConfigurationOptionGroup {

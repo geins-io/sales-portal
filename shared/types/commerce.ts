@@ -4,7 +4,6 @@ import type {
   CartType as SdkCartType,
   OrderSummaryType,
   PriceType,
-  ProductImageType,
   ProductType,
   StockType,
   SkuType,
@@ -23,7 +22,6 @@ export type {
   PriceType,
   StockType,
   SkuType,
-  ProductImageType,
   CurrencyType,
   BrandType,
   CategoryType,
@@ -35,6 +33,20 @@ export type {
   RatingType,
   LowestPriceType,
 } from '@geins/types';
+
+/**
+ * A product image as the portal's queries select it. The SDK type declares
+ * `url` as always set; the API returns null for an image that is not in the
+ * asset library.
+ */
+export interface ProductImageType {
+  fileName: string;
+  url?: string | null;
+  /** No query selects it today. */
+  isPrimary?: boolean;
+  /** No query selects it today. */
+  altText?: string | null;
+}
 
 /**
  * Parameter group as returned by the GraphQL API.
@@ -325,7 +337,9 @@ export interface DetailProduct extends Omit<
   | 'variantGroup'
   | 'variantDimensions'
   | 'texts'
+  | 'productImages'
 > {
+  productImages?: ProductImageType[];
   brand?: DetailBrand;
   texts?: ProductTextsType;
   variantDimensions?: VariantDimensionRow[];
@@ -481,7 +495,11 @@ export type OrderDetailItem = Omit<
   SdkCartItemType,
   'product' | 'configurationId' | 'configuration'
 > & {
-  product?: Omit<NonNullable<SdkCartItemType['product']>, 'type'> & {
+  product?: Omit<
+    NonNullable<SdkCartItemType['product']>,
+    'type' | 'productImages'
+  > & {
+    productImages: ProductImageType[];
     configurable?: true;
   };
   configuration?: LineConfigurationSummary;
@@ -499,6 +517,7 @@ export interface PurchasedProduct {
   articleNumber: string;
   alias?: string | null;
   imageFileName?: string | null;
+  imageUrl?: string | null;
   priceExVat?: number;
   priceExVatFormatted?: string;
   priceIncVat?: number;
