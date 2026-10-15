@@ -988,9 +988,9 @@
     }
   },
   "preview": {
-    "title": "CMS Redigering / Forhandsvisning",
-    "description": "— Du visar sidan i CMS redigerings-/forhandsvisningslage.",
-    "exit": "Avsluta forhandsvisning",
+    "title": "CMS Redigering / Förhandsvisning",
+    "description": "— Du visar sidan i CMS redigerings-/förhandsvisningsläge.",
+    "exit": "Avsluta förhandsvisning",
     "studio_connected": "Studio ansluten"
   },
   "impersonation": {
