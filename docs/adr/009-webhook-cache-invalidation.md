@@ -122,9 +122,8 @@ Body:
 
 **Negative:**
 
-- Rate limiting (10 req/min per IP) keys on `X-Forwarded-For`, which assumes an upstream proxy
-  that overwrites it. That assumption should be confirmed against the deployment before open mode
-  above is relied on
+- Rate limiting (10 req/min per IP) keys on the client address App Service appends to
+  `X-Forwarded-For` (`NUXT_TRUSTED_PROXY_HOPS`); entries the client sends itself are ignored
 - Requires coordination with Geins to configure the shared secret
 - Single shared secret (not per-tenant) — compromise means all tenants are affected
 - Rate limiter uses KV storage (`useStorage('kv')`), currently a per-process memory store, so
