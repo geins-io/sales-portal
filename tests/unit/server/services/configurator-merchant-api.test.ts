@@ -2711,7 +2711,7 @@ describe('the documents the SDK sends', () => {
     const { query } = await sent((b) => b.get('cfg-1', CTX));
 
     expect(query).toMatch(
-      /product \{\s*productId\s+name\s+articleNumber\s+alias\s+canonicalUrl\s+productImages \{\s*fileName\s*\}\s*\}/,
+      /product \{\s*productId\s+name\s+articleNumber\s+alias\s+canonicalUrl\s+productImages \{\s*fileName\s+url\s*\}\s*\}/,
     );
     expect(query).not.toContain('skus');
   });

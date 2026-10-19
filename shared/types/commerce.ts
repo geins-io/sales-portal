@@ -2,6 +2,7 @@ import type {
   BrandType,
   CartItemType as SdkCartItemType,
   CartType as SdkCartType,
+  GeinsProductImageTypeType,
   OrderSummaryType,
   PriceType,
   ProductType,
@@ -35,13 +36,15 @@ export type {
 } from '@geins/types';
 
 /**
- * A product image as the portal's queries select it. The SDK type declares
- * `url` as always set; the API returns null for an image that is not in the
- * asset library.
+ * A product image as the portal's queries select it. The SDK's own
+ * `ProductImageType` makes `fileName` optional and `isPrimary` required; the
+ * schema type has the nullability the API sends (`url` is null outside the
+ * asset library).
  */
-export interface ProductImageType {
-  fileName: string;
-  url?: string | null;
+export interface ProductImageType extends Pick<
+  GeinsProductImageTypeType,
+  'fileName' | 'url'
+> {
   /** No query selects it today. */
   isPrimary?: boolean;
   /** No query selects it today. */
