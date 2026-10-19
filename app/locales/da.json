@@ -306,7 +306,11 @@
     "max_in_cart": "Alt i kurven",
     "max_quantity_info": "Det maksimale antal på lager er lagt i kurven.",
     "on_demand": "Efter bestilling",
-    "no_image": "Intet billede tilgængeligt"
+    "no_image": "Intet billede tilgængeligt",
+    "document_download": "Download",
+    "document_download_named": "Download {name}",
+    "document_open": "Åbn {name} i en ny fane",
+    "document_view": "Vis"
   },
   "configurator": {
     "required": "Påkrævet",

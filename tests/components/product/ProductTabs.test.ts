@@ -377,4 +377,69 @@ describe('ProductTabs localized parameter labels', () => {
 
     expect(wrapper.text()).toContain('Weight');
   });
+  describe('documents', () => {
+    const assets = [
+      {
+        id: 'img',
+        name: 'photo.jpg',
+        url: 'https://cdn.example.com/photo.jpg',
+        linkType: 'productimage',
+        sizeBytes: 1000,
+        description: [],
+      },
+      {
+        id: 'pdf',
+        name: 'sheet.pdf',
+        url: 'https://cdn.example.com/sheet.pdf',
+        linkType: 'productfile',
+        sizeBytes: 37862,
+        description: [{ language: 'en', value: 'Data sheet' }],
+      },
+      {
+        id: 'zip',
+        name: 'pack.zip',
+        url: 'https://cdn.example.com/pack.zip',
+        linkType: 'productfile',
+        sizeBytes: 31897,
+        description: [],
+      },
+    ];
+
+    function documentsTrigger(wrapper: ReturnType<typeof mountComponent>) {
+      return wrapper.find('.tabs-trigger[data-value="documents"]');
+    }
+
+    it('counts the files on the tab and lists them in tab and accordion', () => {
+      const wrapper = mountComponent(ProductTabs, {
+        props: { product: makeProduct({ assets }), related: [] },
+        global: { stubs },
+      });
+
+      expect(documentsTrigger(wrapper).text()).toBe('product.documents (2)');
+      // Once in the desktop tab, once in the mobile accordion.
+      expect(wrapper.findAll('[data-testid="product-documents"]')).toHaveLength(
+        2,
+      );
+      expect(wrapper.findAll('[data-testid="product-document"]')).toHaveLength(
+        4,
+      );
+      expect(wrapper.text()).not.toContain('product.no_documents');
+    });
+
+    it('shows no count and the empty line in both places without files', () => {
+      const wrapper = mountComponent(ProductTabs, {
+        props: {
+          product: makeProduct({ assets: assets.slice(0, 1) }),
+          related: [],
+        },
+        global: { stubs },
+      });
+
+      expect(documentsTrigger(wrapper).text()).toBe('product.documents');
+      expect(wrapper.find('[data-testid="product-documents"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.text().split('product.no_documents')).toHaveLength(3);
+    });
+  });
 });

@@ -12,11 +12,17 @@ import {
   productDescriptionTexts,
   visibleParameterGroups,
 } from '~/utils/product-tabs';
+import { productDocuments } from '~/utils/product-documents';
 
 const props = defineProps<{
   product: DetailProduct;
   related?: ListProduct[] | null;
 }>();
+
+const { locale } = useI18n();
+const documents = computed(() =>
+  productDocuments(props.product.assets, locale.value),
+);
 
 const descriptionTexts = computed(() => productDescriptionTexts(props.product));
 const hasDescription = computed(
@@ -52,6 +58,11 @@ useProductTabPrint();
         </TabsTrigger>
         <TabsTrigger value="documents">
           {{ $t('product.documents') }}
+          <span
+            v-if="documents.length"
+            class="text-muted-foreground ml-1 tabular-nums"
+            >({{ documents.length }})</span
+          >
         </TabsTrigger>
         <TabsTrigger v-if="hasRelated" value="related">
           {{ $t('product.related') }}
@@ -86,7 +97,7 @@ useProductTabPrint();
         data-print="documents"
         class="bg-card mt-6 rounded-lg border p-6"
       >
-        <ProductDocumentsPanel />
+        <ProductDocumentsPanel :documents="documents" />
       </TabsContent>
 
       <TabsContent
@@ -155,7 +166,8 @@ useProductTabPrint();
       <AccordionItem value="documents">
         <AccordionTrigger>{{ $t('product.documents') }}</AccordionTrigger>
         <AccordionContent>
-          <p class="text-muted-foreground text-sm">
+          <ProductDocumentList v-if="documents.length" :documents="documents" />
+          <p v-else class="text-muted-foreground text-sm">
             {{ $t('product.no_documents') }}
           </p>
         </AccordionContent>

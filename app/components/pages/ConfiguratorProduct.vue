@@ -71,6 +71,7 @@ import {
   visibleParameterGroups,
   type ProductTabValue,
 } from '~/utils/product-tabs';
+import { productDocuments } from '~/utils/product-documents';
 
 /**
  * The page a configurable product gets.
@@ -94,7 +95,10 @@ const { product, alias } = defineProps<{
 const { localePath, localeQuery, currentLocale, currentMarket } =
   useLocaleMarket();
 const { buildProductImageAlt } = useProductImageAlt();
-const { t } = useI18n();
+const { t, locale } = useI18n();
+const documents = computed(() =>
+  productDocuments(product.assets, locale.value),
+);
 
 const { data: related } = useFetch<ListProduct[]>(
   () => `/api/products/${alias}/related`,
@@ -818,6 +822,11 @@ function onRetryOpen(): void {
             :data-testid="`configurator-tab-${tab.value}`"
           >
             {{ t(tab.labelKey) }}
+            <span
+              v-if="tab.value === 'documents' && documents.length"
+              class="text-muted-foreground ml-1 tabular-nums"
+              >({{ documents.length }})</span
+            >
           </TabsTrigger>
         </TabsList>
 
@@ -1320,7 +1329,7 @@ function onRetryOpen(): void {
           data-print="documents"
           class="bg-card mt-6 rounded-lg border p-6"
         >
-          <ProductDocumentsPanel />
+          <ProductDocumentsPanel :documents="documents" />
         </TabsContent>
 
         <TabsContent

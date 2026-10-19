@@ -306,7 +306,11 @@
     "max_in_cart": "Max in cart",
     "max_quantity_info": "Max quantity added to cart",
     "on_demand": "On demand",
-    "no_image": "No image available"
+    "no_image": "No image available",
+    "document_download": "Download",
+    "document_download_named": "Download {name}",
+    "document_open": "Open {name} in a new tab",
+    "document_view": "View"
   },
   "configurator": {
     "required": "Required",

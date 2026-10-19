@@ -295,6 +295,21 @@ export interface VariantNode {
 }
 
 /**
+ * A row of `ProductType.assets` as `products/product.graphql` selects it. The
+ * SDK types have no `assets`. Images and files share the list; `linkType`
+ * tells them apart. `description` carries one entry per language that has
+ * text, so the account's default language can be missing from it.
+ */
+export interface ProductAsset {
+  id: string;
+  name: string;
+  url: string;
+  linkType: string;
+  sizeBytes: number;
+  description?: { language: string; value: string }[] | null;
+}
+
+/**
  * Extends the SDK ProductType with fields that come from our enriched
  * GraphQL product queries (discount campaigns, discount type, lowest price).
  * The SDK types use different shapes (e.g. DiscountType enum vs string,
@@ -343,6 +358,8 @@ export interface DetailProduct extends Omit<
    * they exist for the CMS content area's Category filters.
    */
   categoryIds?: number[];
+  /** Images and files linked to the product; empty on accounts without them. */
+  assets?: ProductAsset[];
 }
 
 // ---------------------------------------------------------------------------

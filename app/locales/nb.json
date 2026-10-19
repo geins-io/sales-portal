@@ -306,7 +306,11 @@
     "max_in_cart": "Alt i handlekurven",
     "max_quantity_info": "Maks antall på lager er lagt i handlekurven.",
     "on_demand": "På bestilling",
-    "no_image": "Ingen bilde tilgjengelig"
+    "no_image": "Ingen bilde tilgjengelig",
+    "document_download": "Last ned",
+    "document_download_named": "Last ned {name}",
+    "document_open": "Åpne {name} i en ny fane",
+    "document_view": "Vis"
   },
   "configurator": {
     "required": "Obligatorisk",

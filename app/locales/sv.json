@@ -306,7 +306,11 @@
     "max_in_cart": "Allt i varukorg",
     "max_quantity_info": "Maxantal i lager har lagts till i varukorgen.",
     "on_demand": "På begäran",
-    "no_image": "Ingen bild tillgänglig"
+    "no_image": "Ingen bild tillgänglig",
+    "document_download": "Ladda ner",
+    "document_download_named": "Ladda ner {name}",
+    "document_open": "Öppna {name} i en ny flik",
+    "document_view": "Visa"
   },
   "configurator": {
     "required": "Obligatoriskt",

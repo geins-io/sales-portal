@@ -306,7 +306,11 @@
     "max_in_cart": "Max. im Warenkorb",
     "max_quantity_info": "Maximale Menge in den Warenkorb gelegt",
     "on_demand": "Auf Anfrage",
-    "no_image": "Kein Bild verfügbar"
+    "no_image": "Kein Bild verfügbar",
+    "document_download": "Herunterladen",
+    "document_download_named": "{name} herunterladen",
+    "document_open": "{name} in einem neuen Tab öffnen",
+    "document_view": "Ansehen"
   },
   "configurator": {
     "required": "Pflichtfeld",

@@ -33,6 +33,19 @@ query product(
     productImages {
       fileName
     }
+    # The Documents tab reads the `productfile` rows. `mediaType` is too coarse
+    # to pick an icon from (docx and xlsx are both "doc"), so it is not asked.
+    assets {
+      id
+      name
+      url
+      linkType
+      sizeBytes
+      description {
+        language
+        value
+      }
+    }
     primaryCategory {
       categoryId
       name
