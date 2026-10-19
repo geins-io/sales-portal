@@ -12,6 +12,16 @@ vi.mock('../../../server/services/company', () => ({
   getCompany: (...args: unknown[]) => mockGetCompany(...args),
 }));
 
+const { mockLoggerWarn } = vi.hoisted(() => ({ mockLoggerWarn: vi.fn() }));
+vi.mock('../../../server/utils/logger', () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: mockLoggerWarn,
+    error: vi.fn(),
+  },
+}));
+
 const mockSetMarketCookie = vi.fn();
 const mockGetMarketCookie = vi.fn();
 vi.mock('../../../server/utils/cookies', () => ({
@@ -23,6 +33,7 @@ function makeEvent() {
   return {
     context: {
       tenant: {
+        hostname: 'acme.example.test',
         config: { geinsSettings: { channel: '1', tld: 'se', market: 'se' } },
       },
     },
@@ -87,6 +98,59 @@ describe('resolveBuyerMarket (orchestrator)', () => {
     expect(mockGetChannel).not.toHaveBeenCalled();
     expect(mockSetMarketCookie).not.toHaveBeenCalled();
     expect(result).toBeNull();
+  });
+
+  it('stays on the market and says so once when the company cannot be read', async () => {
+    mockGetCompany.mockRejectedValue(new Error('502'));
+
+    const result = await resolveBuyerMarket(makeEvent(), 'token');
+
+    expect(result).toBeNull();
+    expect(mockGetChannel).not.toHaveBeenCalled();
+    expect(mockSetMarketCookie).not.toHaveBeenCalled();
+    expect(mockLoggerWarn).toHaveBeenCalledOnce();
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      '[buyer-market] company read failed; buyer stays on market se',
+      { hostname: 'acme.example.test' },
+    );
+  });
+
+  it('stays on the market and says so once when the channel cannot be read', async () => {
+    mockGetCompany.mockResolvedValue(finnishCompany);
+    mockGetChannel.mockRejectedValue(new Error('400'));
+
+    const result = await resolveBuyerMarket(makeEvent(), 'token');
+
+    expect(result).toBeNull();
+    expect(mockSetMarketCookie).not.toHaveBeenCalled();
+    expect(mockLoggerWarn).toHaveBeenCalledOnce();
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      '[buyer-market] channel read failed; buyer stays on market se',
+      { hostname: 'acme.example.test' },
+    );
+  });
+
+  it.each([
+    ['no context', {}],
+    ['no tenant', { context: {} }],
+    ['a tenant without config', { context: { tenant: { hostname: 'x' } } }],
+  ])('fails open on an event with %s', async (_, event) => {
+    mockGetMarketCookie.mockReturnValue(undefined);
+    mockGetCompany.mockRejectedValue(new Error('502'));
+
+    await expect(resolveBuyerMarket(event as never, 'token')).resolves.toBe(
+      null,
+    );
+    expect(mockLoggerWarn).toHaveBeenCalledOnce();
+  });
+
+  it('logs no warning when both reads succeed', async () => {
+    mockGetCompany.mockResolvedValue(finnishCompany);
+    mockGetChannel.mockResolvedValue(channelCatalog);
+
+    await resolveBuyerMarket(makeEvent(), 'token');
+
+    expect(mockLoggerWarn).not.toHaveBeenCalled();
   });
 
   it('does not switch when the channel catalog is empty', async () => {

@@ -25,31 +25,39 @@ import { logger } from './logger';
  *     and currency.
  *
  * Returns the new market alias only when it changed (so the client reloads onto
- * the matching `/${market}/${locale}/...` URL); null otherwise. Fails open: any
- * read error resolves to null (no forced switch).
+ * the matching `/${market}/${locale}/...` URL); null otherwise. Fails open: a
+ * read error resolves to null (no forced switch) and logs one warning, since
+ * the buyer is then left on a market that may not be theirs.
  */
 export async function resolveBuyerMarket(
   event: H3Event,
   userToken: string,
 ): Promise<string | null> {
+  const settings = event.context?.tenant?.config?.geinsSettings;
+  const currentMarket = getMarketCookie(event) ?? settings?.market ?? null;
+  const readFailed = (read: 'company' | 'channel') => {
+    logger.warn(
+      `[buyer-market] ${read} read failed; buyer stays on market ${currentMarket}`,
+      { hostname: event.context?.tenant?.hostname },
+    );
+    return null;
+  };
+
   // The company delivery country is the authoritative signal. Person buyers
   // (and anyone without a company) get null here, so nothing is switched. The
   // freshly minted auth cookie is on the response at login, not the inbound
   // request, so the token is passed explicitly.
   const company = await companyService
     .getCompany(event, userToken)
-    .catch(() => null);
+    .catch(() => readFailed('company'));
   const deliveryCountry = getCompanyDeliveryCountry(company);
   if (!deliveryCountry) return null;
 
   const channel = (await channelService
     .getChannel(event)
-    .catch(() => null)) as ChannelMarketSource | null;
+    .catch(() => readFailed('channel'))) as ChannelMarketSource | null;
   const markets = extractChannelMarkets(channel);
   if (!markets) return null;
-
-  const settings = event.context?.tenant?.config?.geinsSettings;
-  const currentMarket = getMarketCookie(event) ?? settings?.market ?? null;
 
   const picked = selectBuyerMarket(markets, deliveryCountry, currentMarket);
   if (!picked) {
