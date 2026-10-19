@@ -3,6 +3,8 @@ import type {
   TenantConfig,
   PublicTenantConfig,
 } from '#shared/types/tenant-config';
+import { logger } from '../utils/logger';
+import { getChannel } from './channels';
 
 /**
  * Tenant Config Service — sectioned accessors over TenantConfig.
@@ -86,6 +88,10 @@ export async function getPublicConfig(
   const config = await resolveConfig(event);
   if (!config) return null;
 
+  const assetBaseUrl = config.geinsSettings
+    ? await readAssetHost(event)
+    : undefined;
+
   return {
     tenantId: config.tenantId,
     hostname: config.hostname,
@@ -109,5 +115,34 @@ export async function getPublicConfig(
     imageBaseUrl: config.geinsSettings?.accountName
       ? `https://${config.geinsSettings.accountName}.commerce.services`
       : '',
+    ...(assetBaseUrl ? { assetBaseUrl } : {}),
   };
+}
+
+/** How long the config waits for the channel's asset host before going without it. */
+export const ASSET_HOST_TIMEOUT_MS = 3_000;
+
+/** The subset of a `getChannel` response this module reads. */
+interface ChannelAssetSource {
+  assetHost?: string | null;
+}
+
+/** The channel's asset library host, when it has one and it can be read. */
+async function readAssetHost(event: H3Event): Promise<string | undefined> {
+  try {
+    const channel = (await getChannel(event, {
+      timeoutMs: ASSET_HOST_TIMEOUT_MS,
+    })) as ChannelAssetSource | null;
+    const host = channel?.assetHost;
+    return typeof host === 'string' && host ? host : undefined;
+  } catch {
+    // Cached so for up to an hour: widgets fall back to `url`, JSON widgets to the legacy file.
+    logger.warn(
+      '[config] channel read failed; config served without the asset host',
+      {
+        hostname: event.context.tenant.hostname,
+      },
+    );
+    return undefined;
+  }
 }

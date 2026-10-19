@@ -2,6 +2,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { H3Event } from 'h3';
 import type { TenantConfig } from '#shared/types/tenant-config';
 
+const { mockGetChannel, mockLoggerWarn } = vi.hoisted(() => ({
+  mockGetChannel: vi.fn(),
+  mockLoggerWarn: vi.fn(),
+}));
+vi.mock('../../server/services/channels', () => ({
+  getChannel: (...args: unknown[]) => mockGetChannel(...args),
+}));
+vi.mock('../../server/utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    warn: mockLoggerWarn,
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
 const mockTenantConfig: TenantConfig = {
   tenantId: 'test-tenant',
   hostname: 'test.example.com',
@@ -61,13 +77,13 @@ const mockTenantConfig: TenantConfig = {
   updatedAt: '2026-02-01T00:00:00.000Z',
 };
 
-const createMockEvent = (): H3Event =>
+const createMockEvent = (config: TenantConfig = mockTenantConfig): H3Event =>
   ({
     context: {
       tenant: {
         hostname: 'test.example.com',
         tenantId: 'test-tenant',
-        config: mockTenantConfig,
+        config,
       },
     },
   }) as unknown as H3Event;
@@ -77,6 +93,9 @@ describe('Tenant Config Service', () => {
 
   beforeEach(async () => {
     vi.resetModules();
+    mockGetChannel.mockReset();
+    mockGetChannel.mockResolvedValue({ assetHost: null });
+    mockLoggerWarn.mockReset();
     service = await import('../../server/services/tenant-config');
   });
 
@@ -219,6 +238,68 @@ describe('Tenant Config Service', () => {
     it('should include mode', async () => {
       const pub = await service.getPublicConfig(createMockEvent());
       expect(pub?.mode).toBe('commerce');
+    });
+
+    describe('assetBaseUrl', () => {
+      it("is the channel's asset host", async () => {
+        mockGetChannel.mockResolvedValue({
+          assetHost: 'https://cdn.example.test/acme',
+        });
+        const event = createMockEvent();
+
+        const pub = await service.getPublicConfig(event);
+
+        expect(pub?.assetBaseUrl).toBe('https://cdn.example.test/acme');
+        expect(mockGetChannel).toHaveBeenCalledWith(event, {
+          timeoutMs: 3_000,
+        });
+      });
+
+      it.each([null, undefined, '', 42])(
+        'is absent when the channel host is %s',
+        async (assetHost) => {
+          mockGetChannel.mockResolvedValue({ assetHost });
+
+          const pub = await service.getPublicConfig(createMockEvent());
+
+          expect(pub).not.toHaveProperty('assetBaseUrl');
+        },
+      );
+
+      it('is absent when the channel is missing', async () => {
+        mockGetChannel.mockResolvedValue(null);
+
+        const pub = await service.getPublicConfig(createMockEvent());
+
+        expect(pub).not.toHaveProperty('assetBaseUrl');
+        expect(mockLoggerWarn).not.toHaveBeenCalled();
+      });
+
+      it('does not ask for the channel without Geins settings', async () => {
+        const pub = await service.getPublicConfig(
+          createMockEvent({
+            ...mockTenantConfig,
+            geinsSettings: undefined,
+          } as unknown as TenantConfig),
+        );
+
+        expect(mockGetChannel).not.toHaveBeenCalled();
+        expect(pub).not.toHaveProperty('assetBaseUrl');
+      });
+
+      it('serves the config without a host when the channel cannot be read', async () => {
+        mockGetChannel.mockRejectedValue(new Error('timeout'));
+
+        const pub = await service.getPublicConfig(createMockEvent());
+
+        expect(pub?.tenantId).toBe('test-tenant');
+        expect(pub).not.toHaveProperty('assetBaseUrl');
+        expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
+        expect(mockLoggerWarn).toHaveBeenCalledWith(
+          expect.stringContaining('without the asset host'),
+          { hostname: 'test.example.com' },
+        );
+      });
     });
   });
 });

@@ -3289,9 +3289,7 @@ export const CONFIG_COVERAGE_MAP = {
       kind: 'consumer',
       drives: 'field',
     },
-    note:
-      'Not served yet: the server sets it once the channel carries the asset ' +
-      'CDN host. Until then CMS images with a path stay on the legacy file.',
+    note: "Derived from the channel's assetHost rather than configured directly.",
   },
 
   // If this line is where your error points, a field or a sub-key was added to

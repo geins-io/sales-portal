@@ -93,6 +93,10 @@ describe('GraphQL loader', () => {
       expect(query).toContain('$email: String!');
     });
 
+    it('selects the asset host on the channel', () => {
+      expect(loadQuery('channels/channel.graphql')).toContain('assetHost');
+    });
+
     it('selects relationType, not the deprecated relation, on related products', () => {
       // Geins fails the whole call on `relation` for accessory and similar rows.
       const query = loadQuery('products/related-products.graphql');

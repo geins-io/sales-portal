@@ -1,5 +1,6 @@
 import { buildGeinsRawUrl } from '@geins/core';
 import type { GeinsImageType } from '@geins/core';
+import { composeAssetUrl } from './cms-image';
 
 // Re-export image URL builders from the SDK.
 export {
@@ -26,9 +27,11 @@ export interface ImageSources {
 }
 
 /**
- * One image's sources, in this order: the asset library `url` the API
- * returns; else the library `path` from CMS configuration joined to the
- * account's `assetBaseUrl`; else the legacy raw file on `imageBaseUrl`.
+ * One image's sources, in this order: the library `path` from CMS
+ * configuration joined to the account's `assetBaseUrl`; else the asset
+ * library `url` the API returns; else the legacy raw file on `imageBaseUrl`.
+ * The path goes first because a widget's `url` is matched by file name, which
+ * two folders can share.
  * A library image is resized by its CDN (`width`) and served as AVIF or WebP
  * where the browser accepts it (`format=auto`).
  */
@@ -42,12 +45,8 @@ export function buildImageSources(input: {
   widths?: number[];
 }): ImageSources {
   const library =
-    absoluteUrl(input.url) ??
-    (input.assetBaseUrl && input.path
-      ? absoluteUrl(
-          `${input.assetBaseUrl.replace(/\/+$/, '')}/${input.path.replace(/^\/+/, '')}`,
-        )
-      : undefined);
+    absoluteUrl(composeAssetUrl(input.assetBaseUrl, input.path)) ??
+    absoluteUrl(input.url);
 
   if (library) {
     const widths = input.widths ?? IMAGE_WIDTHS;

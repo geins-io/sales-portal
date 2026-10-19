@@ -3,7 +3,10 @@ import { getTenantSDK } from './_sdk';
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
 
-export async function getChannel(event: H3Event): Promise<unknown> {
+export async function getChannel(
+  event: H3Event,
+  { timeoutMs }: { timeoutMs?: number } = {},
+): Promise<unknown> {
   const sdk = await getTenantSDK(event);
   const settings = sdk.core.geinsSettings;
   const channelId = `${settings.channel}|${settings.tld}`;
@@ -12,6 +15,8 @@ export async function getChannel(event: H3Event): Promise<unknown> {
       sdk.core.graphql.query({
         queryAsString: loadQuery('channels/channel.graphql'),
         variables: { channelId },
+        // Undefined keeps the SDK's default limit.
+        requestOptions: { context: { timeoutMs } },
       }),
     'channels',
   );
