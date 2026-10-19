@@ -4,8 +4,16 @@ import ImageWidget from '../../../app/components/cms/widgets/ImageWidget.vue';
 
 const geinsImageStub = {
   template:
-    '<div class="geins-image" :data-file="fileName" :data-type="type" />',
-  props: ['fileName', 'type', 'alt'],
+    '<div class="geins-image" :data-file="fileName" :data-type="type" :data-priority="String(priority)" />',
+  props: {
+    fileName: String,
+    path: String,
+    type: String,
+    alt: String,
+    loading: String,
+    sizes: String,
+    priority: Boolean,
+  },
 };
 
 const stubs = {
@@ -36,6 +44,18 @@ function makeProps(href?: string) {
 }
 
 describe('ImageWidget', () => {
+  it.each([
+    [true, 'true'],
+    [false, 'false'],
+  ])('passes priority=%s to its image', (priority, expected) => {
+    const image = mountComponent(ImageWidget, {
+      props: { ...makeProps(), priority },
+      global: { stubs },
+    }).find('.geins-image');
+
+    expect(image.attributes('data-priority')).toBe(expected);
+  });
+
   it('renders GeinsImage with correct fileName and type', () => {
     const wrapper = mountComponent(ImageWidget, {
       props: makeProps(),

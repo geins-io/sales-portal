@@ -65,15 +65,23 @@ const baseConfig = {
   sortOrder: 0,
 };
 
-function mountJson(data: Record<string, unknown>, collapse = false) {
+function mountJson(
+  data: Record<string, unknown>,
+  collapse = false,
+  priority = false,
+) {
   return mountComponent(JsonWidget, {
-    props: { data, config: baseConfig, layout: 'full', collapse },
+    props: { data, config: baseConfig, layout: 'full', collapse, priority },
     global: {
       stubs: {
         FormWidget: formWidgetStub,
         CmsWidgetsFormWidget: formWidgetStub,
         'i18n-t': i18nTStub,
-        GeinsImage: { template: '<img data-testid="geins-image" />' },
+        GeinsImage: {
+          template:
+            '<img data-testid="geins-image" :data-priority="String(priority)" />',
+          props: { priority: Boolean },
+        },
       },
     },
   });
@@ -121,6 +129,53 @@ describe('JsonWidget routing', () => {
     expect(wrapper.find('[data-testid="form-widget-stub"]').exists()).toBe(
       false,
     );
+  });
+});
+
+describe('JsonWidget priority, when it opens the page', () => {
+  const image = { src: 'a.jpg' };
+  const priorities = (wrapper: ReturnType<typeof mountJson>) =>
+    wrapper
+      .findAll('[data-testid="geins-image"]')
+      .map((img) => img.attributes('data-priority'));
+
+  it('goes to the first banner card', () => {
+    const wrapper = mountJson(
+      { templateId: 'banner-cards', bannerImages: [{ image }, { image }] },
+      false,
+      true,
+    );
+
+    expect(priorities(wrapper)).toEqual(['true', 'false']);
+  });
+
+  it('goes to the first stacked card', () => {
+    const wrapper = mountJson(
+      { templateId: 'cards-rich', items: [{ image }, { image }] },
+      false,
+      true,
+    );
+
+    expect(priorities(wrapper)).toEqual(['true', 'false']);
+  });
+
+  it('goes to no card in a collapse slider, which renders each card twice', () => {
+    const wrapper = mountJson(
+      { templateId: 'cards-rich', items: [{ image }, { image }] },
+      true,
+      true,
+    );
+
+    expect(priorities(wrapper)).not.toContain('true');
+  });
+
+  it('goes to nothing unless the widget opens the page', () => {
+    const wrapper = mountJson({
+      templateId: 'banner-cards',
+      bannerImages: [{ image }],
+    });
+
+    expect(priorities(wrapper)).toEqual(['false']);
   });
 });
 

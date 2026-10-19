@@ -38,6 +38,7 @@ useSeoLinks('/');
     <CmsWidgetArea
       v-if="area?.containers?.length"
       :containers="area.containers"
+      priority
     />
     <div
       v-else-if="status === 'pending'"

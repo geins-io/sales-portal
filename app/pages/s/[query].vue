@@ -230,10 +230,11 @@ function clearAllFilters() {
         "
       >
         <ProductCard
-          v-for="product in products"
+          v-for="(product, index) in products"
           :key="product.productId"
           :product="product"
           :variant="viewMode"
+          :index="index"
         />
       </div>
 

@@ -4,8 +4,9 @@ import CmsWidgetArea from '../../../app/components/cms/CmsWidgetArea.vue';
 
 const stubs = {
   CmsContainer: {
-    template: '<div class="cms-container" />',
-    props: ['container'],
+    template:
+      '<div class="cms-container" :data-priority="priority ? \'true\' : \'false\'" />',
+    props: ['container', 'priority'],
   },
   // Render the boundary's default slot so the container still shows; the real
   // boundary's resilience (degrade-on-error) is covered in ErrorBoundary.test.
@@ -55,6 +56,32 @@ describe('CmsWidgetArea', () => {
     expect(wrapper.findAll('.eb-wrap')).toHaveLength(2);
     // And each boundary holds a container.
     expect(wrapper.findAll('.eb-wrap .cms-container')).toHaveLength(2);
+  });
+
+  it('hands the page’s priority to the first container only', () => {
+    const wrapper = shallowMountComponent(CmsWidgetArea, {
+      props: { containers, priority: true },
+      global: { stubs },
+    });
+
+    expect(
+      wrapper
+        .findAll('.cms-container')
+        .map((c) => c.attributes('data-priority')),
+    ).toEqual(['true', 'false']);
+  });
+
+  it('hands no container priority unless the page asks', () => {
+    const wrapper = shallowMountComponent(CmsWidgetArea, {
+      props: { containers },
+      global: { stubs },
+    });
+
+    expect(
+      wrapper
+        .findAll('.cms-container')
+        .map((c) => c.attributes('data-priority')),
+    ).toEqual(['false', 'false']);
   });
 
   it('renders nothing when containers is empty', () => {

@@ -8,6 +8,8 @@ const props = defineProps<{
   // widget; only the cards widgets (JsonWidget) act on it. Absent/false for
   // every Stack container, so non-collapse rendering is unchanged.
   collapse?: boolean;
+  // Set on a page's first widget. Forwarded; only the image widgets act on it.
+  priority?: boolean;
 }>();
 
 const widgetRegistry: Record<
@@ -65,6 +67,7 @@ const unknownType = computed(() => {
     :config="widget.config"
     :layout="layout"
     :collapse="collapse"
+    :priority="priority || undefined"
   />
   <div
     v-else-if="unknownType && isDev"

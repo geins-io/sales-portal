@@ -3,8 +3,17 @@ import { mountComponent } from '../../utils/component';
 import BannerWidget from '../../../app/components/cms/widgets/BannerWidget.vue';
 
 const geinsImageStub = {
-  template: '<div class="geins-image" :data-path="path" :data-sizes="sizes" />',
-  props: ['fileName', 'path', 'type', 'alt', 'loading', 'sizes'],
+  template:
+    '<div class="geins-image" :data-path="path" :data-sizes="sizes" :data-loading="loading" :data-priority="String(priority)" />',
+  props: {
+    fileName: String,
+    path: String,
+    type: String,
+    alt: String,
+    loading: String,
+    sizes: String,
+    priority: Boolean,
+  },
 };
 
 const stubs = {
@@ -103,6 +112,25 @@ describe('BannerWidget', () => {
       global: { stubs },
     });
     expect(wrapper.find('.geins-image').exists()).toBe(true);
+  });
+
+  it('loads eagerly, without the page’s priority, by default', () => {
+    const image = mountComponent(BannerWidget, {
+      props: makeProps({}),
+      global: { stubs },
+    }).find('.geins-image');
+
+    expect(image.attributes('data-loading')).toBe('eager');
+    expect(image.attributes('data-priority')).toBe('false');
+  });
+
+  it('gives its image the page’s priority when it opens the page', () => {
+    const image = mountComponent(BannerWidget, {
+      props: { ...makeProps({}), priority: true },
+      global: { stubs },
+    }).find('.geins-image');
+
+    expect(image.attributes('data-priority')).toBe('true');
   });
 
   it('passes the library path from the configuration', () => {

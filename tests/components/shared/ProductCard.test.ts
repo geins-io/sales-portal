@@ -21,9 +21,18 @@ vi.mock('~/stores/favorites', () => ({
 
 const stubs = {
   GeinsImage: {
-    props: ['fileName', 'url', 'type', 'alt', 'sizes', 'widths'],
+    props: [
+      'fileName',
+      'url',
+      'type',
+      'alt',
+      'sizes',
+      'widths',
+      'loading',
+      'priority',
+    ],
     template:
-      '<img data-testid="geins-image" :data-file-name="fileName" :data-url="url" :data-sizes="sizes" :data-widths="widths?.join(\',\')" :alt="alt" />',
+      '<img data-testid="geins-image" :data-file-name="fileName" :data-url="url" :data-sizes="sizes" :data-widths="widths?.join(\',\')" :data-loading="loading" :data-priority="String(priority)" :alt="alt" />',
   },
   QuantityStepper: {
     props: ['modelValue', 'min', 'max', 'disabled'],
@@ -113,6 +122,43 @@ describe('ProductCard', () => {
 
     expect(img.attributes('data-sizes')).toBe('64px');
     expect(img.attributes('data-widths')).toBe('80,160,240');
+  });
+
+  describe('the place in the grid', () => {
+    function imageAt(
+      index: number | undefined,
+      variant: 'grid' | 'list' = 'grid',
+    ) {
+      return mountComponent(ProductCard, {
+        props: { product: baseProduct, index, variant },
+        global: { stubs },
+      }).find('[data-testid="geins-image"]');
+    }
+
+    it('gives the first card the page’s priority', () => {
+      expect(imageAt(0).attributes('data-priority')).toBe('true');
+    });
+
+    it.each([1, 2, 3])('loads card %i eagerly, without priority', (index) => {
+      const img = imageAt(index);
+
+      expect(img.attributes('data-loading')).toBe('eager');
+      expect(img.attributes('data-priority')).toBe('false');
+    });
+
+    it.each([4, 10, undefined])('leaves card %s to load lazily', (index) => {
+      const img = imageAt(index);
+
+      expect(img.attributes('data-loading')).toBe('lazy');
+      expect(img.attributes('data-priority')).toBe('false');
+    });
+
+    it('never prioritises a thumbnail in the list variant', () => {
+      const img = imageAt(0, 'list');
+
+      expect(img.attributes('data-loading')).toBe('lazy');
+      expect(img.attributes('data-priority')).not.toBe('true');
+    });
   });
 
   it('renders image fallback when imageFileName is absent', () => {

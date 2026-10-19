@@ -60,6 +60,9 @@ const props = defineProps<{
   // mobile with indicator dots, while the header above stays fixed; desktop keeps
   // the grid (this is a mobile-only setting). Absent for every Stack block.
   collapse?: boolean;
+  // The page's first widget. Its first card image gets priority, except in a
+  // collapse slider, which renders every card twice (slider and grid).
+  priority?: boolean;
 }>();
 
 const templateId = computed(() => (props.data.templateId as string) ?? '');
@@ -244,6 +247,7 @@ function bannerPlacementClasses(placement?: string): string {
           type="pagewidget"
           :alt="item.image?.alt ?? ''"
           fit="natural"
+          :priority="priority && !collapse && i === 0"
           sizes="(min-width: 768px) 50vw, 100vw"
           class="w-full"
         />
@@ -333,6 +337,7 @@ function bannerPlacementClasses(placement?: string): string {
             :path="item.srcPath"
             type="pagewidget"
             :alt="item.alt ?? ''"
+            :priority="priority && !collapse && i === 0"
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
             class="size-full object-cover transition-transform group-hover:scale-105"
           />
@@ -387,6 +392,7 @@ function bannerPlacementClasses(placement?: string): string {
         :path="banner.image.srcPath"
         type="pagewidget"
         :alt="banner.image?.alt ?? ''"
+        :priority="priority && i === 0"
         sizes="(min-width: 768px) 50vw, 100vw"
         class="aspect-[16/9] w-full object-cover"
       />

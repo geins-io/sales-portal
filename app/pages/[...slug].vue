@@ -165,7 +165,11 @@ const isFramedFormPage = computed(
         <div class="min-w-0 flex-1">
           <div class="border-border rounded-lg border bg-white p-2 pt-4 md:p-8">
             <ErrorBoundary section="cms-content">
-              <CmsWidgetArea :containers="page.containers" class="max-w-2xl" />
+              <CmsWidgetArea
+                :containers="page.containers"
+                class="max-w-2xl"
+                priority
+              />
             </ErrorBoundary>
           </div>
         </div>
@@ -180,7 +184,11 @@ const isFramedFormPage = computed(
     >
       <div class="border-border rounded-lg border bg-white p-8">
         <ErrorBoundary section="cms-content">
-          <CmsWidgetArea :containers="page.containers" class="max-w-2xl" />
+          <CmsWidgetArea
+            :containers="page.containers"
+            class="max-w-2xl"
+            priority
+          />
         </ErrorBoundary>
       </div>
     </div>
@@ -190,7 +198,7 @@ const isFramedFormPage = computed(
          long-form copy stays readable (frame-rich-text). -->
     <div v-else-if="page?.containers?.length">
       <ErrorBoundary section="cms-content">
-        <CmsWidgetArea :containers="page.containers" frame-rich-text />
+        <CmsWidgetArea :containers="page.containers" frame-rich-text priority />
       </ErrorBoundary>
     </div>
 

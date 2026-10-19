@@ -7,8 +7,8 @@ import CmsContainer from '../../../app/components/cms/CmsContainer.vue';
 // forwards the collapse flag to each widget, so the stub exposes it as a data
 // attribute to assert on.
 const widgetStub = {
-  template: `<div class="cms-widget" :data-collapse="collapse ? 'true' : 'false'" />`,
-  props: ['widget', 'layout', 'collapse'],
+  template: `<div class="cms-widget" :data-collapse="collapse ? 'true' : 'false'" :data-priority="priority ? 'true' : 'false'" />`,
+  props: ['widget', 'layout', 'collapse', 'priority'],
 };
 
 const stubs = {
@@ -281,6 +281,39 @@ describe('CmsContainer', () => {
       const classes = wrapper.find('section').classes();
       expect(classes).not.toContain('bg-white');
       expect(classes).toContain('max-w-7xl');
+    });
+  });
+
+  describe('the page’s priority', () => {
+    it('goes to the first active widget only', () => {
+      const wrapper = mountComponent(CmsContainer, {
+        props: {
+          container: makeContainer('half', [
+            makeWidget({ active: false, sortOrder: 0 }),
+            makeWidget({ sortOrder: 2 }),
+            makeWidget({ sortOrder: 1 }),
+          ]),
+          priority: true,
+        },
+        global: { stubs },
+      });
+
+      expect(
+        wrapper
+          .findAll('.cms-widget')
+          .map((w) => w.attributes('data-priority')),
+      ).toEqual(['true', 'false']);
+    });
+
+    it('goes to no widget unless the container has it', () => {
+      const wrapper = mountComponent(CmsContainer, {
+        props: { container: makeContainer('full', [makeWidget()]) },
+        global: { stubs },
+      });
+
+      expect(wrapper.find('.cms-widget').attributes('data-priority')).toBe(
+        'false',
+      );
     });
   });
 

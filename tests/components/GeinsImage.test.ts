@@ -1,5 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { flushPromises } from '@vue/test-utils';
+import { useHead } from '#app/composables/head';
+import type { Ref } from 'vue';
 import { mountComponent } from '../utils/component';
 import { mockAssetBaseUrl } from '../setup-components';
 import GeinsImage from '../../app/components/shared/GeinsImage.vue';
@@ -60,10 +62,22 @@ function imagesReport(state: {
   return { restore, decode };
 }
 
+type HeadLink = Record<string, string | undefined>;
+
+/** The links the image put in the head, as the page would render them. */
+function headLinks(): HeadLink[] {
+  return vi
+    .mocked(useHead)
+    .mock.calls.flatMap(
+      ([input]) => (input as { link?: Ref<HeadLink[]> }).link?.value ?? [],
+    );
+}
+
 describe('GeinsImage Component', () => {
   let restore: (() => void) | undefined;
 
   afterEach(() => {
+    vi.mocked(useHead).mockClear();
     mockAssetBaseUrl.value = '';
     restore?.();
     restore = undefined;
@@ -189,6 +203,71 @@ describe('GeinsImage Component', () => {
     const img = mountImage({ fileName: 'img.jpg', fit }).find('img');
 
     expect(img.classes()).toEqual(expect.arrayContaining(classes));
+  });
+
+  describe('the page’s largest image (priority)', () => {
+    it('is fetched first, eagerly, and decoded at once', () => {
+      const img = mountImage({ url: LIBRARY, priority: true }).find('img');
+
+      expect(img.attributes('fetchpriority')).toBe('high');
+      expect(img.attributes('loading')).toBe('eager');
+      expect(img.attributes('decoding')).toBeUndefined();
+    });
+
+    it('is preloaded with the same candidates and sizes as the img, and its CDN preconnected', () => {
+      const img = mountImage({
+        url: LIBRARY,
+        priority: true,
+        sizes: '(min-width: 768px) 400px, 100vw',
+      }).find('img');
+
+      expect(headLinks()).toEqual([
+        {
+          key: 'image-cdn-preconnect',
+          rel: 'preconnect',
+          href: 'https://cdn.example.test',
+        },
+        {
+          key: `image-preload-${img.attributes('src')}`,
+          rel: 'preload',
+          as: 'image',
+          href: img.attributes('src'),
+          imagesrcset: img.attributes('srcset'),
+          imagesizes: img.attributes('sizes'),
+          fetchpriority: 'high',
+        },
+      ]);
+    });
+
+    it('preloads a legacy image by its one URL, with nothing to preconnect', () => {
+      mountImage({ fileName: 'shoe.jpg', priority: true });
+
+      expect(headLinks()).toEqual([
+        {
+          key: `image-preload-${BASE}/product/raw/shoe.jpg`,
+          rel: 'preload',
+          as: 'image',
+          href: `${BASE}/product/raw/shoe.jpg`,
+          imagesrcset: undefined,
+          imagesizes: undefined,
+          fetchpriority: 'high',
+        },
+      ]);
+    });
+
+    it('preloads nothing without a source', () => {
+      mountImage({ fileName: null, priority: true });
+
+      expect(headLinks()).toEqual([]);
+    });
+
+    it('leaves every other image to the browser: no head links, no fetchpriority', () => {
+      const img = mountImage({ url: LIBRARY, loading: 'eager' }).find('img');
+
+      expect(headLinks()).toEqual([]);
+      expect(img.attributes('fetchpriority')).toBeUndefined();
+      expect(img.attributes('loading')).toBe('eager');
+    });
   });
 
   describe('the skeleton', () => {

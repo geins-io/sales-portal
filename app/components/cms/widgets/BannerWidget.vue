@@ -8,6 +8,8 @@ const props = defineProps<{
   data: BannerWidgetData;
   config: ContentConfigType;
   layout: string;
+  /** The page's first widget: its image is the largest candidate. */
+  priority?: boolean;
 }>();
 
 const imageFileName = computed(() => resolveImageFileName(props.data.image));
@@ -98,6 +100,7 @@ const textColorClass = computed(() => {
       type="pagewidget"
       :alt="data.image?.altText || config.displayName || ''"
       loading="eager"
+      :priority="priority"
       :sizes="fullWidth ? '100vw' : '(min-width: 1440px) 1280px, 100vw'"
       :class="fullWidth ? 'size-full' : ''"
     />

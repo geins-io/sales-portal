@@ -80,7 +80,7 @@ const currentAlt = computed(() =>
           :url="currentImage.url"
           type="product"
           :alt="currentAlt"
-          loading="eager"
+          priority
           sizes="(min-width: 768px) 400px, calc(100vw - 66px)"
           class="size-full object-contain"
         />

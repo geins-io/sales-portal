@@ -15,6 +15,11 @@ const props = withDefaults(
     alt: string;
     aspectRatio?: string;
     loading?: 'lazy' | 'eager';
+    /**
+     * The page's largest image: fetched eagerly at high priority, decoded at
+     * once, preloaded from the head, and its CDN origin preconnected.
+     */
+    priority?: boolean;
     /** Rendered width per breakpoint; picks a candidate from the ladder. */
     sizes?: string;
     /** Width ladder for a library image; the default suits full-size images. */
@@ -36,6 +41,7 @@ const props = withDefaults(
     path: undefined,
     aspectRatio: undefined,
     loading: 'lazy',
+    priority: false,
     sizes: '100vw',
     widths: undefined,
     src: undefined,
@@ -58,6 +64,31 @@ const sources = computed(() =>
         widths: props.widths,
       }),
 );
+
+// The preload carries the img's own candidates and sizes, so both resolve to
+// one URL and the browser fetches it once.
+if (props.priority) {
+  useHead({
+    link: computed(() => {
+      const { src, srcset, origin } = sources.value;
+      if (!src) return [];
+      return [
+        ...(origin
+          ? [{ key: 'image-cdn-preconnect', rel: 'preconnect', href: origin }]
+          : []),
+        {
+          key: `image-preload-${src}`,
+          rel: 'preload',
+          as: 'image',
+          href: src,
+          imagesrcset: srcset ?? undefined,
+          imagesizes: srcset ? props.sizes : undefined,
+          fetchpriority: 'high',
+        },
+      ];
+    }),
+  });
+}
 
 const img = useTemplateRef<HTMLImageElement>('img');
 const loaded = ref(false);
@@ -114,8 +145,9 @@ watch(
       :srcset="sources.srcset ?? undefined"
       :sizes="sources.srcset ? sizes : undefined"
       :alt="alt"
-      :loading="loading"
-      decoding="async"
+      :loading="priority ? 'eager' : loading"
+      :fetchpriority="priority ? 'high' : undefined"
+      :decoding="priority ? undefined : 'async'"
       class="relative"
       :class="
         fit === 'natural'

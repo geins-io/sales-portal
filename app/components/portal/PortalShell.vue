@@ -147,6 +147,7 @@ function isActiveTab(tab: PortalTab): boolean {
         flush
         data-testid="portal-hero"
         :containers="heroArea.containers"
+        priority
       />
     </div>
 

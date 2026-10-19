@@ -14,6 +14,8 @@ const props = defineProps<{
   // start page while long-form copy stays readable in a frame. Set by the
   // catch-all CMS page for non-sidebar, non-form pages; see app/pages/[...slug].vue.
   frameRichText?: boolean;
+  // The first container of a page-opening area; its first widget gets it.
+  priority?: boolean;
 }>();
 
 const RICH_TEXT_WIDGET = 'Rich textPageWidget';
@@ -110,6 +112,7 @@ const isCollapse = computed(
           :widget="widget"
           :layout="container.layout"
           :collapse="isCollapse"
+          :priority="(priority && index === 0) || undefined"
         />
       </div>
     </div>

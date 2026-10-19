@@ -10,6 +10,9 @@ defineProps<{
   // widget self-frames (contained bordered sheet) while other blocks stay
   // full-bleed. See CmsContainer.
   frameRichText?: boolean;
+  // The area opens the page: its first widget holds the largest image
+  // candidate, which then loads at high priority.
+  priority?: boolean;
 }>();
 </script>
 
@@ -23,7 +26,7 @@ defineProps<{
       The boundary stops propagation, so the page-level boundary never trips.
     -->
     <ErrorBoundary
-      v-for="container in containers"
+      v-for="(container, index) in containers"
       :key="container.id"
       :section="`cms-container-${container.id}`"
       silent
@@ -32,6 +35,7 @@ defineProps<{
         :container="container"
         :flush="flush"
         :frame-rich-text="frameRichText"
+        :priority="priority && index === 0"
       />
     </ErrorBoundary>
   </div>

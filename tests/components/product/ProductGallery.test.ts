@@ -44,8 +44,16 @@ vi.stubGlobal('useI18n', () => ({ t: translateForTest, locale: ref('en') }));
 // Render the alt so tests can read the resolved value off the DOM.
 const geinsImageStub = {
   template:
-    '<img class="geins-image" :alt="alt" :data-url="url" :data-sizes="sizes" />',
-  props: ['fileName', 'url', 'type', 'alt', 'loading', 'sizes'],
+    '<img class="geins-image" :alt="alt" :data-url="url" :data-sizes="sizes" :data-priority="String(priority)" />',
+  props: {
+    fileName: String,
+    url: String,
+    type: String,
+    alt: String,
+    loading: String,
+    sizes: String,
+    priority: Boolean,
+  },
 };
 
 const iconStub = {
@@ -120,6 +128,15 @@ describe('ProductGallery', () => {
     expect(lightbox!.attributes('data-sizes')).toBe(
       '(min-width: 896px) 896px, 100vw',
     );
+  });
+
+  it('gives the main image the page’s priority, and not the lightbox', () => {
+    const [main, lightbox] = mountGallery(makeImages(2)).findAll(
+      '.geins-image',
+    );
+
+    expect(main!.attributes('data-priority')).toBe('true');
+    expect(lightbox!.attributes('data-priority')).not.toBe('true');
   });
 
   it('does not render thumbnail strip', () => {

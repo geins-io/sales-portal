@@ -43,8 +43,10 @@ const props = withDefaults(
     product: ProductCardProp;
     variant?: 'grid' | 'list';
     isLoading?: boolean;
+    /** Position in a page's main grid; sets how early its image loads. */
+    index?: number;
   }>(),
-  { variant: 'grid', isLoading: false },
+  { variant: 'grid', isLoading: false, index: undefined },
 );
 
 const emit = defineEmits<{
@@ -117,6 +119,13 @@ const imageUrl = computed(() => {
   if (isFullProduct(props.product)) return firstImage.value?.url ?? null;
   return props.product.imageUrl ?? null;
 });
+
+// The first card is the grid's largest image candidate; the rest of the first
+// mobile viewport (four cards) loads eagerly, everything below it lazily.
+const EAGER_CARDS = 4;
+const imageLoading = computed(() =>
+  props.index !== undefined && props.index < EAGER_CARDS ? 'eager' : 'lazy',
+);
 
 // Rendered card width per breakpoint, measured on the product grids.
 const GRID_IMAGE_SIZES =
@@ -198,7 +207,8 @@ async function addToCart() {
             :url="imageUrl"
             type="product"
             :alt="product?.name ?? ''"
-            loading="lazy"
+            :loading="imageLoading"
+            :priority="index === 0"
             :sizes="GRID_IMAGE_SIZES"
             class="size-full object-contain transition-transform group-hover:scale-105"
           />
@@ -217,7 +227,8 @@ async function addToCart() {
             :url="imageUrl"
             type="product"
             :alt="product?.name ?? ''"
-            loading="lazy"
+            :loading="imageLoading"
+            :priority="index === 0"
             :sizes="GRID_IMAGE_SIZES"
             class="size-full object-contain transition-transform group-hover:scale-105"
           />
