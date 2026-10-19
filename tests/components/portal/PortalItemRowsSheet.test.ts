@@ -80,6 +80,13 @@ describe('PortalItemRowsSheet', () => {
     expect(rows[0]!.text()).toContain('2');
   });
 
+  it('names the ordered SKU after the article number', () => {
+    const rows = mountSheet({
+      items: [{ ...items[0], skuName: 'L' }, items[1]],
+    }).findAll('[data-testid="item-rows-article-number"]');
+    expect(rows.map((r) => r.text())).toEqual(['ART-1 • L', 'ART-2']);
+  });
+
   it('links the item name when an alias is present, plain text otherwise', () => {
     const rows = mountSheet().findAll('[data-testid="item-rows-row"]');
     expect(rows[0]!.find('a').exists()).toBe(true);

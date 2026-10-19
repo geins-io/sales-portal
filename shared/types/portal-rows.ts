@@ -5,6 +5,8 @@ export interface PortalItemRow {
   key: string;
   name: string;
   articleNumber?: string;
+  /** The ordered SKU's name, on a product sold in several. */
+  skuName?: string;
   quantity: number;
   unitPriceFormatted?: string;
   totalPriceFormatted?: string;

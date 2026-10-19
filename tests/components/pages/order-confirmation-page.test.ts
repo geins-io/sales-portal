@@ -291,6 +291,26 @@ describe('Order confirmation page — placed in the app', () => {
     });
   });
 
+  it('hands the ordered SKU name to the table and the sheet', () => {
+    const data = makeOrder();
+    Object.assign(data.order.cart.items[0]!, {
+      skuId: 1115,
+      product: {
+        name: 'Widget Pro',
+        articleNumber: 'ART-001',
+        skus: [{ skuId: '1115', name: 'L' }],
+      },
+    });
+    resultFor(ORDER_URL).data.value = data;
+    const wrapper = mount();
+
+    for (const part of [OrderItemsTableStub, SheetStub]) {
+      expect(propsOf(wrapper, part).items).toEqual([
+        expect.objectContaining({ articleNumber: 'ART-001', skuName: 'L' }),
+      ]);
+    }
+  });
+
   it('follows the VAT choice', () => {
     mockShowIncVat.value = false;
     resultFor(ORDER_URL).data.value = makeOrder();

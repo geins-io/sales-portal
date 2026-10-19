@@ -1,4 +1,8 @@
-import { formatPrice, type OrderDetailType } from '#shared/types/commerce';
+import {
+  formatPrice,
+  type OrderDetailItem,
+  type OrderDetailType,
+} from '#shared/types/commerce';
 import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
 import { feeOf } from '~/utils/fee';
 
@@ -98,6 +102,19 @@ export function orderAmounts(
 }
 
 /**
+ * The ordered SKU's name, where it tells the row apart from its product. The
+ * order's product carries only the ordered SKU, its id a string.
+ */
+function skuNameOf(item: OrderDetailItem): string | undefined {
+  if (item.configuration) return undefined;
+  const sku = item.product?.skus?.find(
+    (s) => String(s.skuId) === String(item.skuId),
+  );
+  const name = sku?.name?.trim();
+  return name && name !== item.product?.name ? name : undefined;
+}
+
+/**
  * The order's rows, as the desktop table and the mobile sheet render them.
  * `replayHrefOf` gives a configured row's replay link from its canonical path
  * and position, or undefined to fall back to the product page.
@@ -124,6 +141,7 @@ export function orderRows(
       ? replayHrefOf(item.product?.canonicalUrl, index)
       : undefined,
     configuration: item.configuration,
+    skuName: skuNameOf(item),
     unitPrice: item.unitPrice,
     totalPrice: item.totalPrice,
   }));

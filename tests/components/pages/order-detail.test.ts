@@ -821,6 +821,23 @@ describe('OrderDetail', () => {
       expect(table.text()).toContain('450,00 kr');
     });
 
+    it('names the ordered SKU after the article number', () => {
+      const data = makeOrder();
+      const [first] = data.order.cart.items;
+      // The order's product carries only the ordered SKU, its id a string.
+      Object.assign(first!.product, { skus: [{ skuId: '1001', name: 'L' }] });
+      mockData.value = data;
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const cells = wrapper.findAll(
+        '[data-testid="order-item-article-number"]',
+      );
+      expect(cells.map((c) => c.text())).toEqual(['ART-001 • L', 'ART-002']);
+    });
+
     it('renders all order items', () => {
       mockData.value = makeOrder();
 

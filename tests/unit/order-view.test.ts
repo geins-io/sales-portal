@@ -261,6 +261,7 @@ describe('orderRows', () => {
       alias: 'widget',
       href: undefined,
       configuration: undefined,
+      skuName: undefined,
       unitPrice: price(125, 100),
       totalPrice: price(250, 200),
     });
@@ -290,10 +291,89 @@ describe('orderRows', () => {
         alias: null,
         href: undefined,
         configuration: undefined,
+        skuName: undefined,
         unitPrice: undefined,
         totalPrice: undefined,
       },
     ]);
+  });
+
+  // The order's product carries only the ordered SKU, its id a string.
+  describe('the ordered SKU', () => {
+    const skuNameOf = (item: Record<string, unknown>) =>
+      orderRows(
+        makeOrder({ cart: { items: [item] } }),
+        true,
+        () => undefined,
+      )[0]?.skuName;
+    const product = (skus: unknown[]) => ({
+      name: 'Skyddsglasögon klar EN 166',
+      skus,
+    });
+
+    it('names the SKU of a product sold in several', () => {
+      expect(
+        skuNameOf({
+          skuId: 1115,
+          product: product([{ skuId: '1115', name: 'L' }]),
+        }),
+      ).toBe('L');
+    });
+
+    it('names it when both ids are numbers', () => {
+      expect(
+        skuNameOf({
+          skuId: 1115,
+          product: product([{ skuId: 1115, name: 'L' }]),
+        }),
+      ).toBe('L');
+    });
+
+    it('leaves out a SKU named as its product', () => {
+      expect(
+        skuNameOf({
+          skuId: 1110,
+          product: {
+            name: 'Arbetsbord Pro',
+            skus: [{ skuId: '1110', name: 'Arbetsbord Pro' }],
+          },
+        }),
+      ).toBeUndefined();
+    });
+
+    it('leaves it out on a configured row', () => {
+      expect(
+        skuNameOf({
+          skuId: 1115,
+          product: product([{ skuId: '1115', name: 'L' }]),
+          configuration: { summary: [] },
+        }),
+      ).toBeUndefined();
+    });
+
+    it('leaves it out when no SKU matches the row', () => {
+      expect(
+        skuNameOf({
+          skuId: 1115,
+          product: product([{ skuId: '1114', name: 'M' }]),
+        }),
+      ).toBeUndefined();
+    });
+
+    it('leaves out a SKU without a name', () => {
+      expect(
+        skuNameOf({ skuId: 1115, product: product([{ skuId: '1115' }]) }),
+      ).toBeUndefined();
+    });
+
+    it('leaves out a blank name', () => {
+      expect(
+        skuNameOf({
+          skuId: 1115,
+          product: product([{ skuId: '1115', name: ' ' }]),
+        }),
+      ).toBeUndefined();
+    });
   });
 
   it('has no rows for an order without a cart', () => {

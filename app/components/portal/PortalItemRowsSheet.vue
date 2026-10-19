@@ -80,10 +80,15 @@ const open = ref(false);
                   {{ $t('cart.configured_product') }}
                 </p>
                 <p
-                  v-if="item.articleNumber"
+                  v-if="item.articleNumber || item.skuName"
                   class="text-muted-foreground text-xs"
+                  data-testid="item-rows-article-number"
                 >
-                  {{ item.articleNumber }}
+                  {{ item.articleNumber
+                  }}<span v-if="item.skuName"
+                    ><template v-if="item.articleNumber"> &bull; </template
+                    >{{ item.skuName }}</span
+                  >
                 </p>
                 <p class="text-muted-foreground mt-1 text-sm">
                   <span data-testid="item-rows-quantity">{{
