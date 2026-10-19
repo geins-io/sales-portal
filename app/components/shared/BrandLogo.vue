@@ -77,7 +77,7 @@ const tag = computed(() => (props.linked ? NuxtLink : 'span'));
 
     <template v-else>
       <!-- Symbol logo (small screens, when available) -->
-      <NuxtImg
+      <img
         v-if="effectiveSrcSymbol"
         :src="effectiveSrcSymbol"
         :alt="effectiveAlt"
@@ -85,7 +85,7 @@ const tag = computed(() => (props.linked ? NuxtLink : 'span'));
       />
 
       <!-- Full logo (light mode, or only logo) -->
-      <NuxtImg
+      <img
         :src="effectiveSrc"
         :alt="effectiveAlt"
         :class="
@@ -99,7 +99,7 @@ const tag = computed(() => (props.linked ? NuxtLink : 'span'));
       />
 
       <!-- Dark mode logo -->
-      <NuxtImg
+      <img
         v-if="effectiveSrcDark"
         :src="effectiveSrcDark"
         :alt="effectiveAlt"

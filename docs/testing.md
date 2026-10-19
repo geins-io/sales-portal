@@ -110,7 +110,6 @@ The shared mount helper at `tests/utils/component.ts` provides global stubs that
 - **`Icon`** — plain render with `data-name` attribute (matches `<Icon name="lucide:..." />`)
 - **`NuxtIcon`** — same shape as Icon. `@nuxt/icon` registers its component as `NuxtIcon`, not `Icon`. Without this stub, `Icon`-keyed stubs are silent no-ops and icon assertions pass vacuously.
 - **`NuxtLink`** — renders as `<a>` with `href` for route assertion
-- **`NuxtImg`** — renders as `<img>` with `src` passthrough
 
 ### Shared test fixtures
 
@@ -489,7 +488,7 @@ describe('myFunction', () => {
 
 ### Component Tests (components tier)
 
-Use the `mountComponent` / `shallowMountComponent` helpers from `tests/utils/component.ts`. They provide default stubs for `NuxtLink`, `NuxtImg`, `Icon`, `ClientOnly` and mocks for `$t`, `$router`, `$route`.
+Use the `mountComponent` / `shallowMountComponent` helpers from `tests/utils/component.ts`. They provide default stubs for `NuxtLink`, `Icon`, `ClientOnly` and mocks for `$t`, `$router`, `$route`.
 
 ```typescript
 import { describe, it, expect } from 'vitest';

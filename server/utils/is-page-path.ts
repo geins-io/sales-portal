@@ -3,7 +3,7 @@
  * `/{market}/{locale}` prefix and render HTML.
  *
  * Everything else is a runtime route that must pass through untouched: API
- * handlers, Nuxt internals, the image optimiser (`/_ipx/`), and the files
+ * handlers, Nuxt internals (any `/_…` route), and the files
  * served from the site root (`robots.txt`, `sitemap.xml`,
  * `.well-known/security.txt`). Prefixing any of those breaks them, and they
  * are all reachable at fixed URLs that must not move.
@@ -26,8 +26,8 @@ export function isPagePath(path: string): boolean {
   // A dot means a filename, never a page slug in this app.
   if (path.includes('.')) return false;
 
-  // Nuxt reserves a leading underscore for runtime routes; `/_ipx/` is the
-  // image optimiser and can be hit without an extension.
+  // Nuxt and its modules reserve a leading underscore for runtime routes,
+  // which can be hit without an extension.
   const firstSegment = path.split('/').filter(Boolean)[0];
   if (firstSegment?.startsWith('_')) return false;
 

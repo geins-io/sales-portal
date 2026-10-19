@@ -53,7 +53,6 @@ export default defineNuxtConfig({
     '~~/modules/graphql-loader',
     '@nuxt/eslint',
     '@nuxt/icon',
-    '@nuxt/image',
     '@nuxtjs/tailwindcss',
     '@nuxtjs/i18n',
     '@nuxtjs/seo',
@@ -158,10 +157,6 @@ export default defineNuxtConfig({
       { name: 'Geist', provider: 'fontsource', weights: [400, 500, 600, 700] },
       { name: 'Hanuman', provider: 'google', weights: [400, 700] },
     ],
-  },
-
-  image: {
-    domains: ['commerce.services'],
   },
 
   i18n: {

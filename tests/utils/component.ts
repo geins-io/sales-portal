@@ -42,10 +42,6 @@ export const defaultMountOptions: {
         template: '<a :href="to"><slot /></a>',
         props: ['to'],
       },
-      NuxtImg: {
-        template: '<img :src="src" :alt="alt" />',
-        props: ['src', 'alt'],
-      },
       Icon: {
         template: '<span class="icon" :data-name="name"></span>',
         props: ['name'],

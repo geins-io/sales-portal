@@ -30,6 +30,7 @@ ADRs document significant architectural decisions with context and consequences.
 | 022 | [Dev/main branching and release flow](022-dev-main-branching-release-flow.md)                    | accepted | 2026-06-15 |
 | 023 | [Config coverage at unit level, config-derived assertions at e2e](023-config-coverage-layers.md) | accepted | 2026-09-07 |
 | 024 | [Tenant operating timezone with no default](024-tenant-operating-timezone.md)                    | accepted | 2026-09-20 |
+| 025 | [Images are sized by the asset CDN, not by the portal](025-images-sized-by-the-asset-cdn.md)     | accepted | 2026-10-19 |
 
 ## Adding New ADRs
 

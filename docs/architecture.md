@@ -298,7 +298,6 @@ The system identifies tenants based on the request hostname. Each tenant is mapp
                             ↓
 ┌─ render:html ─────────────────────────────────────────────┐
 │  04.tenant-css          data-theme, CSS, favicon, fonts   │
-│  05.strip-img-onerror   strip NuxtImg onerror handler     │
 └───────────────────────────────────────────────────────────┘
 
   'error' / 'beforeResponse' → 01.request-logging
