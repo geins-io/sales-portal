@@ -1,4 +1,5 @@
-import type { DetailProduct } from '#shared/types/commerce';
+import type { DetailProduct, ProductImageType } from '#shared/types/commerce';
+import { buildShareImageUrl } from '#shared/utils/image';
 
 /**
  * The head every product page publishes: canonical and hreflang, the meta
@@ -21,6 +22,21 @@ export interface ProductSeoOptions {
   withOffers: boolean;
 }
 
+/** The image a share card shows: the primary one, else the first. */
+export function shareImageOf(
+  images: ProductImageType[],
+  imageBaseUrl: string,
+): string {
+  const image = images.find((i) => i.isPrimary) ?? images[0];
+  if (!image) return '';
+  return buildShareImageUrl({
+    url: image.url,
+    fileName: image.fileName,
+    type: 'product',
+    imageBaseUrl,
+  });
+}
+
 export function useProductSeo(options: ProductSeoOptions): void {
   const { product, path, breadcrumbs, localeAlternates, sku, withOffers } =
     options;
@@ -32,11 +48,9 @@ export function useProductSeo(options: ProductSeoOptions): void {
         .slice(0, 160) ?? '',
   );
 
-  const primaryImageUrl = computed(
-    () =>
-      product().productImages?.find((i) => i.isPrimary)?.url ??
-      product().productImages?.[0]?.url ??
-      '',
+  const { imageBaseUrl } = useTenant();
+  const primaryImageUrl = computed(() =>
+    shareImageOf(product().productImages ?? [], imageBaseUrl.value),
   );
 
   const { seoLinks } = useSeoLinks(path, localeAlternates);
@@ -58,9 +72,9 @@ export function useProductSeo(options: ProductSeoOptions): void {
       name: () => product().name ?? '',
       description: () => plainDescription.value,
       image: () =>
-        product()
-          .productImages?.map((img) => img.url)
-          .filter(Boolean) ?? [],
+        (product().productImages ?? [])
+          .map((image) => shareImageOf([image], imageBaseUrl.value))
+          .filter(Boolean),
       brand: () =>
         product().brand?.name
           ? { '@type': 'Brand', name: product().brand!.name }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildImageSources,
+  buildShareImageUrl,
   IMAGE_WIDTHS,
   PRINT_TILE_WIDTHS,
   THUMBNAIL_WIDTHS,
@@ -210,5 +211,45 @@ describe('buildImageSources', () => {
         imageBaseUrl: '',
       }),
     ).toEqual({ src: '', srcset: null, origin: null });
+  });
+});
+
+describe('buildShareImageUrl', () => {
+  it('asks the library for 1200 px in the original format, for crawlers', () => {
+    expect(
+      buildShareImageUrl({
+        url: LIBRARY,
+        fileName: 'shoe.jpg',
+        type: 'product',
+        imageBaseUrl: LEGACY,
+      }),
+    ).toBe(`${LIBRARY}?width=1200`);
+  });
+
+  it('keeps a query the url already carries', () => {
+    expect(
+      buildShareImageUrl({
+        url: `${LIBRARY}?v=3`,
+        type: 'product',
+        imageBaseUrl: LEGACY,
+      }),
+    ).toBe(`${LIBRARY}?v=3&width=1200`);
+  });
+
+  it('gives a legacy image its raw file', () => {
+    expect(
+      buildShareImageUrl({
+        url: null,
+        fileName: 'shoe.jpg',
+        type: 'product',
+        imageBaseUrl: LEGACY,
+      }),
+    ).toBe(`${LEGACY}/product/raw/shoe.jpg`);
+  });
+
+  it('gives nothing without a source', () => {
+    expect(buildShareImageUrl({ type: 'product', imageBaseUrl: LEGACY })).toBe(
+      '',
+    );
   });
 });

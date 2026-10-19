@@ -71,6 +71,25 @@ export function buildImageSources(input: {
   };
 }
 
+/**
+ * An image URL for crawlers (og:image, Schema.org): the library image at
+ * 1200 px in its original format, since crawlers want JPEG or PNG, not AVIF;
+ * else the legacy raw file.
+ */
+export function buildShareImageUrl(input: {
+  url?: string | null;
+  fileName?: string | null;
+  type: GeinsImageType;
+  imageBaseUrl: string;
+}): string {
+  const library = absoluteUrl(input.url);
+  if (library) {
+    library.searchParams.set('width', '1200');
+    return library.toString();
+  }
+  return buildGeinsRawUrl(input.imageBaseUrl, input.type, input.fileName ?? '');
+}
+
 function absoluteUrl(value: string | null | undefined): URL | undefined {
   if (!value) return undefined;
   try {

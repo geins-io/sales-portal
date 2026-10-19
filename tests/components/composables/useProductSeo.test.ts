@@ -36,7 +36,7 @@ vi.mock('../../../app/composables/useSeoLinks', () => ({
   }),
 }));
 
-const { useProductSeo } =
+const { useProductSeo, shareImageOf } =
   await import('../../../app/composables/useProductSeo');
 
 function makeProduct(overrides: Record<string, unknown> = {}): DetailProduct {
@@ -126,9 +126,43 @@ describe('useProductSeo', () => {
     const { product } = run(makeProduct(), false);
 
     expect(product.image!()).toEqual([
-      'https://cdn.test/a.jpg',
-      'https://cdn.test/b.jpg',
+      'https://cdn.test/a.jpg?width=1200',
+      'https://cdn.test/b.jpg?width=1200',
     ]);
+  });
+
+  it('publishes a legacy image by its raw file', () => {
+    const { product } = run(
+      makeProduct({ productImages: [{ fileName: 'old.jpg', url: null }] }),
+      false,
+    );
+
+    expect(product.image!()).toEqual([
+      'https://monitor.commerce.services/product/raw/old.jpg',
+    ]);
+  });
+
+  it.each([[[]], [undefined]])(
+    'publishes no image for a product without one (%j)',
+    (productImages) => {
+      const { product } = run(makeProduct({ productImages }), false);
+
+      expect(product.image!()).toEqual([]);
+    },
+  );
+
+  it('leaves out an image with neither a url nor a file name', () => {
+    const { product } = run(
+      makeProduct({
+        productImages: [
+          { fileName: '', url: null },
+          { fileName: 'b.jpg', url: 'https://cdn.test/b.jpg' },
+        ],
+      }),
+      false,
+    );
+
+    expect(product.image!()).toEqual(['https://cdn.test/b.jpg?width=1200']);
   });
 
   it('numbers the breadcrumb trail from one and keeps the last one hrefless', () => {
@@ -155,5 +189,43 @@ describe('useProductSeo', () => {
       run(makeProduct({ brand: { name: 'Geins' } }), false).product.brand!(),
     ).toEqual({ '@type': 'Brand', name: 'Geins' });
     expect(run(makeProduct(), false).product.brand!()).toBeUndefined();
+  });
+});
+
+describe('shareImageOf', () => {
+  const BASE = 'https://acme.commerce.services';
+
+  it('shares the primary image at 1200 px', () => {
+    expect(
+      shareImageOf(
+        [
+          { fileName: 'a.jpg', url: 'https://cdn.test/a.jpg' },
+          { fileName: 'b.jpg', url: 'https://cdn.test/b.jpg', isPrimary: true },
+        ],
+        BASE,
+      ),
+    ).toBe('https://cdn.test/b.jpg?width=1200');
+  });
+
+  it('shares the first image when none is marked primary', () => {
+    expect(
+      shareImageOf(
+        [
+          { fileName: 'a.jpg', url: 'https://cdn.test/a.jpg' },
+          { fileName: 'b.jpg', url: 'https://cdn.test/b.jpg' },
+        ],
+        BASE,
+      ),
+    ).toBe('https://cdn.test/a.jpg?width=1200');
+  });
+
+  it('shares a legacy image by its raw file', () => {
+    expect(shareImageOf([{ fileName: 'old.jpg', url: null }], BASE)).toBe(
+      `${BASE}/product/raw/old.jpg`,
+    );
+  });
+
+  it('shares nothing for a product without images', () => {
+    expect(shareImageOf([], BASE)).toBe('');
   });
 });
