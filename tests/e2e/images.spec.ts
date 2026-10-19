@@ -1,8 +1,11 @@
 import { test, expect, type Page, type Request } from '@playwright/test';
 import {
+  addToCart,
   discoverCategory,
+  discoverPurchasableProduct,
   isConfigurable,
   outOfScope,
+  signedInState,
   waitForHydration,
 } from './helpers';
 
@@ -16,6 +19,7 @@ import {
  */
 
 const LADDER = [160, 320, 480, 640, 800, 1200, 1600, 2000, 2560];
+const THUMBNAIL_LADDER = [80, 160, 240];
 
 interface ListedProduct {
   alias: string;
@@ -65,6 +69,39 @@ function recordLibraryRequests(page: Page): Request[] {
       requests.push(request);
   });
   return requests;
+}
+
+/**
+ * A library image that has loaded, asked of the CDN at a width from `ladder`
+ * in a format the browser picks.
+ */
+async function expectLibraryImage(
+  image: ReturnType<Page['locator']>,
+  ladder: number[],
+) {
+  await expect
+    .poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth))
+    .toBeGreaterThan(0);
+  const url = new URL(
+    await image.evaluate((img: HTMLImageElement) => img.currentSrc),
+  );
+  expect(url.searchParams.get('format')).toBe('auto');
+  expect(ladder).toContain(Number(url.searchParams.get('width')));
+}
+
+async function cartIdOf(page: Page): Promise<string | undefined> {
+  return (await page.context().cookies(page.url())).find(
+    (c) => c.name === 'cart_id',
+  )?.value;
+}
+
+/** The lines of the page's cart, none when there is no cart yet. */
+async function cartLines(page: Page): Promise<{ id: string }[]> {
+  const cartId = await cartIdOf(page);
+  if (!cartId) return [];
+  const cart = await page.request.get('/api/cart', { params: { cartId } });
+  if (!cart.ok()) return [];
+  return ((await cart.json()) as { items?: { id: string }[] }).items ?? [];
 }
 
 const decode = (value: string | undefined) =>
@@ -268,5 +305,72 @@ test.describe('Images from the asset library', () => {
         ),
       )
       .toBe(true);
+  });
+
+  test('a start-page widget image is fetched from the library', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await waitForHydration(page);
+
+    const images = page.locator('[data-testid="cms-widget"] img[srcset]');
+    outOfScope(
+      (await images.count()) === 0,
+      'tenant-config',
+      'no start-page widget image is in the asset library',
+    );
+    await expectLibraryImage(images.first(), LADDER);
+  });
+
+  test.describe('signed in', () => {
+    test.use({ storageState: signedInState });
+
+    test('the start-page banner is fetched from the library', async ({
+      page,
+    }) => {
+      await page.goto('/');
+      await waitForHydration(page);
+
+      const images = page.locator('[data-testid="cms-widget"] img[srcset]');
+      outOfScope(
+        (await images.count()) === 0,
+        'tenant-config',
+        'no signed-in start-page widget image is in the asset library',
+      );
+      await expectLibraryImage(images.first(), LADDER);
+    });
+
+    test('a cart line’s thumbnail is fetched from the library at thumbnail size', async ({
+      page,
+    }) => {
+      const product = await discoverPurchasableProduct(page);
+      const before = new Set((await cartLines(page)).map((line) => line.id));
+      try {
+        await addToCart(page, product.alias);
+        await page.goto('/cart');
+        await waitForHydration(page);
+
+        const thumbnail = page
+          .locator('[data-testid="cart-item-image"] img')
+          .first();
+        await expect(thumbnail).toBeAttached();
+        outOfScope(
+          !(await thumbnail.getAttribute('srcset')),
+          'tenant-config',
+          'the cart line’s image is not in the asset library',
+        );
+        await expectLibraryImage(thumbnail, THUMBNAIL_LADDER);
+      } finally {
+        // The signed-in account's cart persists: remove the line added here.
+        const cartId = await cartIdOf(page);
+        for (const line of await cartLines(page)) {
+          if (cartId && !before.has(line.id)) {
+            await page.request.delete('/api/cart/items', {
+              params: { cartId, itemId: line.id },
+            });
+          }
+        }
+      }
+    });
   });
 });
