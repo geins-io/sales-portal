@@ -314,3 +314,62 @@ describe('JsonWidget collapse slider (cards-rich / cards-simple)', () => {
     expect(stacked.find('.lg\\:grid-cols-4').classes()).toContain('grid');
   });
 });
+
+describe('JsonWidget links with an unsafe scheme', () => {
+  const unsafe = 'javascript:alert(1)';
+
+  it('cards-rich leaves out the cta in both the slider and the grid', () => {
+    const wrapper = mountJson(
+      {
+        templateId: 'cards-rich',
+        items: [
+          { heading: 'A', cta: { text: 'Go', url: unsafe } },
+          { heading: 'B', cta: { text: 'Safe', url: '/b' } },
+        ],
+      },
+      true,
+    );
+    const links = wrapper.findAll('a');
+    expect(links.length).toBeGreaterThan(0);
+    expect(links.every((link) => link.text() === 'Safe')).toBe(true);
+  });
+
+  it('cards-simple renders the card unlinked in both the slider and the grid', () => {
+    const wrapper = mountJson(
+      {
+        templateId: 'cards-simple',
+        items: [
+          { title: 'Unsafe', url: unsafe },
+          { title: 'Safe', url: '/b' },
+        ],
+      },
+      true,
+    );
+    const links = wrapper.findAll('a');
+    expect(links.length).toBeGreaterThan(0);
+    expect(links.every((link) => link.text().includes('Safe'))).toBe(true);
+    expect(links.some((link) => link.text().includes('Unsafe'))).toBe(false);
+    expect(wrapper.text()).toContain('Unsafe');
+  });
+
+  it('text-+-cta leaves out the cta', () => {
+    const wrapper = mountJson({
+      templateId: 'text-+-cta',
+      text: { header: 'Heading' },
+      cta: { label: 'Go', url: unsafe },
+    });
+    expect(wrapper.find('a').exists()).toBe(false);
+    expect(wrapper.text()).toContain('Heading');
+  });
+
+  it('banner-cards leaves out the cta', () => {
+    const wrapper = mountJson({
+      templateId: 'banner-cards',
+      bannerImages: [
+        { text: { title: 'Heading' }, cta: { text: 'Go', url: unsafe } },
+      ],
+    });
+    expect(wrapper.find('a').exists()).toBe(false);
+    expect(wrapper.text()).toContain('Heading');
+  });
+});

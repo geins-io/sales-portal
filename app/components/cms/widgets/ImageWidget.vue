@@ -4,7 +4,7 @@ import type { ContentImageType } from '@geins/types';
 import type { ImageWidgetData, ContentConfigType } from '#shared/types/cms';
 import { resolveImageFileName } from '#shared/types/cms';
 import { widgetImageUrl } from '#shared/utils/cms-image';
-import { stripGeinsPrefix } from '#shared/utils/menu';
+import { normalizeMenuUrl } from '#shared/utils/menu';
 
 const props = defineProps<{
   data: ImageWidgetData;
@@ -20,14 +20,19 @@ const imageFileName = computed(() => resolveImageFileName(props.data.image));
 const imageUrl = computed(() =>
   widgetImageUrl(props.images, imageFileName.value),
 );
-const hasLink = computed(() => !!props.data.image?.href);
+const currentHost = useRequestURL().host;
+// '' for a missing href and for an unsafe scheme: the image renders unlinked.
+const linkPath = computed(() =>
+  normalizeMenuUrl(props.data.image?.href, currentHost),
+);
+const hasLink = computed(() => !!linkPath.value);
 const { localePath } = useLocaleMarket();
 </script>
 
 <template>
   <component
     :is="hasLink ? NuxtLink : 'div'"
-    :to="hasLink ? localePath(stripGeinsPrefix(data.image.href!)) : undefined"
+    :to="hasLink ? localePath(linkPath) : undefined"
     data-testid="cms-widget"
   >
     <GeinsImage

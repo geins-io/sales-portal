@@ -4,7 +4,7 @@ import type { ContentImageType } from '@geins/types';
 import type { BannerWidgetData, ContentConfigType } from '#shared/types/cms';
 import { resolveImageFileName } from '#shared/types/cms';
 import { widgetImageUrl } from '#shared/utils/cms-image';
-import { stripGeinsPrefix } from '#shared/utils/menu';
+import { normalizeMenuUrl } from '#shared/utils/menu';
 
 const props = defineProps<{
   data: BannerWidgetData;
@@ -20,14 +20,14 @@ const imageFileName = computed(() => resolveImageFileName(props.data.image));
 const imageUrl = computed(() =>
   widgetImageUrl(props.images, imageFileName.value),
 );
-const hasLink = computed(() => !!props.data.image?.href);
+const hasLink = computed(() => !!bannerHref.value);
 const { localePath } = useLocaleMarket();
+const currentHost = useRequestURL().host;
 
-const bannerHref = computed(() => {
-  const raw = props.data.image?.href;
-  if (!raw) return '/';
-  return stripGeinsPrefix(raw);
-});
+// '' for a missing href and for an unsafe scheme: the banner renders unlinked.
+const bannerHref = computed(() =>
+  normalizeMenuUrl(props.data.image?.href, currentHost),
+);
 const hasOverlay = computed(
   () => props.data.text1 || props.data.text2 || props.data.buttonText,
 );

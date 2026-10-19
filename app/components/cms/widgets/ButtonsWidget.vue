@@ -1,10 +1,6 @@
 <script setup lang="ts">
-import type {
-  ButtonItem,
-  ButtonsWidgetData,
-  ContentConfigType,
-} from '#shared/types/cms';
-import { stripGeinsPrefix } from '#shared/utils/menu';
+import type { ButtonsWidgetData, ContentConfigType } from '#shared/types/cms';
+import { normalizeMenuUrl } from '#shared/utils/menu';
 
 const props = defineProps<{
   data: ButtonsWidgetData;
@@ -13,12 +9,15 @@ const props = defineProps<{
 }>();
 
 const { localePath } = useLocaleMarket();
+const currentHost = useRequestURL().host;
 
-// A button without a link would look clickable and lead nowhere, so it is left out.
+// normalizeMenuUrl gives '' for a missing url and for an unsafe scheme. Such a
+// button would look clickable and lead nowhere, so it is left out.
 const linkedButtons = computed(() =>
-  (props.data.buttons ?? []).filter(
-    (button): button is ButtonItem & { url: string } => !!button.url,
-  ),
+  (props.data.buttons ?? []).flatMap((button) => {
+    const path = normalizeMenuUrl(button.url, currentHost);
+    return path ? [{ text: button.buttonText, to: localePath(path) }] : [];
+  }),
 );
 </script>
 
@@ -27,10 +26,10 @@ const linkedButtons = computed(() =>
     <NuxtLink
       v-for="(button, index) in linkedButtons"
       :key="index"
-      :to="localePath(stripGeinsPrefix(button.url))"
+      :to="button.to"
       class="bg-button-background text-primary-foreground rounded px-6 py-2 font-medium transition-opacity hover:opacity-90"
     >
-      {{ button.buttonText }}
+      {{ button.text }}
     </NuxtLink>
   </div>
 </template>

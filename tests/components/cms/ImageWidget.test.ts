@@ -141,4 +141,13 @@ describe('ImageWidget', () => {
     });
     expect(wrapper.find('.geins-image').exists()).toBe(false);
   });
+
+  it('renders the image unlinked when the href has an unsafe scheme', () => {
+    const wrapper = mountComponent(ImageWidget, {
+      props: makeProps('javascript:alert(1)'),
+      global: { stubs },
+    });
+    expect(wrapper.find('a').exists()).toBe(false);
+    expect(wrapper.find('.geins-image').exists()).toBe(true);
+  });
 });

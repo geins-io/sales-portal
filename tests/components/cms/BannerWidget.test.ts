@@ -274,4 +274,13 @@ describe('BannerWidget', () => {
       expect(wrapper.find('.absolute').exists()).toBe(true);
     });
   });
+
+  it('renders the banner unlinked when the href has an unsafe scheme', () => {
+    const wrapper = mountComponent(BannerWidget, {
+      props: makeProps({ href: 'javascript:alert(1)', text1: 'Hero' }),
+      global: { stubs },
+    });
+    expect(wrapper.find('a').exists()).toBe(false);
+    expect(wrapper.text()).toContain('Hero');
+  });
 });

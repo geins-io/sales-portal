@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ArrowRight } from 'lucide-vue-next';
 import type { ContentConfigType, FormWidgetData } from '#shared/types/cms';
-import { stripGeinsPrefix } from '#shared/utils/menu';
+import { NuxtLink } from '#components';
+import { normalizeMenuUrl } from '#shared/utils/menu';
 import FormWidget from '~/components/cms/widgets/FormWidget.vue';
 import {
   Carousel,
@@ -87,6 +88,13 @@ const bannerImages = computed(
 );
 
 const { localePath } = useLocaleMarket();
+const currentHost = useRequestURL().host;
+
+/** '' when the url is missing or its scheme is unsafe: the content renders unlinked. */
+function linkTo(url: string | undefined): string {
+  const path = normalizeMenuUrl(url, currentHost);
+  return path ? localePath(path) : '';
+}
 
 // Collapse slider plumbing (cards-rich / cards-simple). Re-init Embla when the
 // item set changes so dots and scroll snaps recompute (the items swap on a
@@ -214,8 +222,8 @@ function bannerPlacementClasses(placement?: string): string {
                 {{ item.description }}
               </p>
               <NuxtLink
-                v-if="item.cta?.url"
-                :to="localePath(stripGeinsPrefix(item.cta.url))"
+                v-if="item.cta && linkTo(item.cta.url)"
+                :to="linkTo(item.cta.url)"
                 class="bg-button-background text-primary-foreground inline-block rounded-md px-4 py-2 text-sm font-medium"
               >
                 {{ item.cta.text }}
@@ -259,8 +267,8 @@ function bannerPlacementClasses(placement?: string): string {
             {{ item.description }}
           </p>
           <NuxtLink
-            v-if="item.cta?.url"
-            :to="localePath(stripGeinsPrefix(item.cta.url))"
+            v-if="item.cta && linkTo(item.cta.url)"
+            :to="linkTo(item.cta.url)"
             class="bg-button-background text-primary-foreground inline-block rounded-md px-4 py-2 text-sm font-medium"
           >
             {{ item.cta.text }}
@@ -295,8 +303,9 @@ function bannerPlacementClasses(placement?: string): string {
           :key="`simple-slide-${i}`"
           class="basis-4/5"
         >
-          <NuxtLink
-            :to="localePath(stripGeinsPrefix(item.url ?? '/'))"
+          <component
+            :is="linkTo(item.url ?? '/') ? NuxtLink : 'div'"
+            :to="linkTo(item.url ?? '/') || undefined"
             class="bg-card group block overflow-hidden rounded-md border"
           >
             <div class="bg-muted aspect-square overflow-hidden">
@@ -313,7 +322,7 @@ function bannerPlacementClasses(placement?: string): string {
             <p class="font-heading p-3 text-center text-base font-medium">
               {{ item.title }}
             </p>
-          </NuxtLink>
+          </component>
         </CarouselItem>
       </CarouselContent>
       <CarouselDots v-if="canScrollPrev || canScrollNext" class="mt-4" />
@@ -324,10 +333,11 @@ function bannerPlacementClasses(placement?: string): string {
       class="gap-6 sm:grid-cols-2 lg:grid-cols-4"
       :class="collapse ? 'hidden md:grid' : 'grid'"
     >
-      <NuxtLink
+      <component
+        :is="linkTo(item.url ?? '/') ? NuxtLink : 'div'"
         v-for="(item, i) in simpleItems"
         :key="i"
-        :to="localePath(stripGeinsPrefix(item.url ?? '/'))"
+        :to="linkTo(item.url ?? '/') || undefined"
         class="bg-card group overflow-hidden rounded-md border"
       >
         <div class="bg-muted aspect-square overflow-hidden">
@@ -345,7 +355,7 @@ function bannerPlacementClasses(placement?: string): string {
         <p class="font-heading p-3 text-center text-base font-medium">
           {{ item.title }}
         </p>
-      </NuxtLink>
+      </component>
     </div>
   </div>
 
@@ -367,8 +377,8 @@ function bannerPlacementClasses(placement?: string): string {
       {{ textBlock.description }}
     </p>
     <NuxtLink
-      v-if="cta?.url"
-      :to="localePath(stripGeinsPrefix(cta.url!))"
+      v-if="cta && linkTo(cta.url)"
+      :to="linkTo(cta.url)"
       class="text-primary hover:text-primary/80 inline-flex items-center gap-1 text-sm font-medium"
     >
       {{ cta.label || cta.text }}
@@ -410,8 +420,8 @@ function bannerPlacementClasses(placement?: string): string {
           {{ banner.text.byline }}
         </p>
         <NuxtLink
-          v-if="banner.cta?.url"
-          :to="localePath(stripGeinsPrefix(banner.cta.url))"
+          v-if="banner.cta && linkTo(banner.cta.url)"
+          :to="linkTo(banner.cta.url)"
           class="bg-button-background text-primary-foreground mt-3 inline-block rounded-md px-4 py-2 text-sm font-medium"
         >
           {{ banner.cta.text }}

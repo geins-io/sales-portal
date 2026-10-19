@@ -107,4 +107,24 @@ describe('ButtonsWidget', () => {
     });
     expect(wrapper.find('.flex').exists()).toBe(false);
   });
+
+  it('leaves out a button whose url has an unsafe scheme', () => {
+    const wrapper = mountComponent(ButtonsWidget, {
+      props: makeProps([
+        { buttonText: 'Shop', url: '/shop' },
+        { buttonText: 'Script', url: 'javascript:alert(1)' },
+        { buttonText: 'Data', url: 'data:text/html,<script>alert(1)</script>' },
+      ]),
+    });
+    expect(wrapper.findAll('a').map((link) => link.text())).toEqual(['Shop']);
+  });
+
+  it('turns an absolute url on the storefront host into an app path', () => {
+    // useRequestURL reads the page location, so this url is on the same host.
+    const url = `${window.location.origin}/se/sv/c/verktyg`;
+    const wrapper = mountComponent(ButtonsWidget, {
+      props: makeProps([{ buttonText: 'Tools', url }]),
+    });
+    expect(wrapper.find('a').attributes('href')).toBe('/se/en/c/verktyg');
+  });
 });
