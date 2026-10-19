@@ -71,6 +71,32 @@ export default createConfigForNuxt()
     },
   })
   .append({
+    // Guard: specs that run in the browser projects take `test` from
+    // tests/e2e/fixtures.ts, so its automatic fixtures cover every test. The
+    // preflight and orders projects never run on webkit and keep Playwright's.
+    files: ['tests/e2e/**/*.ts'],
+    ignores: [
+      'tests/e2e/fixtures.ts',
+      'tests/e2e/preflight/**',
+      'tests/e2e/orders/**',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@playwright/test',
+              importNames: ['test'],
+              message:
+                "Import test from './fixtures', which adds the suite's automatic fixtures.",
+            },
+          ],
+        },
+      ],
+    },
+  })
+  .append({
     // Guard: entity URLs (/p/, /c/, /b/) must be built via route-helpers, not hand-crafted literals.
     // Scoped to app code; the app/** glob already excludes shared/utils/route-helpers.ts.
     files: ['app/**/*.vue', 'app/**/*.ts'],
@@ -81,30 +107,30 @@ export default createConfigForNuxt()
         {
           // Flag localePath(`/p/...`) / localePath(`/c/...`) / localePath(`/b/...`) and navigateTo(`/p/...`)
           selector:
-            "CallExpression[callee.name=/^(localePath|navigateTo)$/] > TemplateLiteral[quasis.0.value.raw=/^[/][pcb][/]/]",
+            'CallExpression[callee.name=/^(localePath|navigateTo)$/] > TemplateLiteral[quasis.0.value.raw=/^[/][pcb][/]/]',
           message:
-            "Build entity URLs with productPath/categoryPath/brandPath from shared/utils/route-helpers, then localePath(): see docs/adr/015-type-prefixed-routing.md",
+            'Build entity URLs with productPath/categoryPath/brandPath from shared/utils/route-helpers, then localePath(): see docs/adr/015-type-prefixed-routing.md',
         },
         {
           // Flag localePath('/p/...') / navigateTo('/p/...') with a plain string literal
           selector:
-            "CallExpression[callee.name=/^(localePath|navigateTo)$/] > Literal[value=/^[/][pcb][/]/]",
+            'CallExpression[callee.name=/^(localePath|navigateTo)$/] > Literal[value=/^[/][pcb][/]/]',
           message:
-            "Build entity URLs with productPath/categoryPath/brandPath from shared/utils/route-helpers, then localePath(): see docs/adr/015-type-prefixed-routing.md",
+            'Build entity URLs with productPath/categoryPath/brandPath from shared/utils/route-helpers, then localePath(): see docs/adr/015-type-prefixed-routing.md',
         },
         {
           // Flag router.push(`/p/...`) / router.replace(`/p/...`) with a bare template literal
           selector:
             "CallExpression[callee.type='MemberExpression'][callee.object.name='router'][callee.property.name=/^(push|replace)$/] > TemplateLiteral[quasis.0.value.raw=/^[/][pcb][/]/]",
           message:
-            "Build entity URLs with productPath/categoryPath/brandPath from shared/utils/route-helpers, then localePath(): see docs/adr/015-type-prefixed-routing.md",
+            'Build entity URLs with productPath/categoryPath/brandPath from shared/utils/route-helpers, then localePath(): see docs/adr/015-type-prefixed-routing.md',
         },
         {
           // Flag router.push('/p/...') / router.replace('/p/...') with a plain string literal
           selector:
             "CallExpression[callee.type='MemberExpression'][callee.object.name='router'][callee.property.name=/^(push|replace)$/] > Literal[value=/^[/][pcb][/]/]",
           message:
-            "Build entity URLs with productPath/categoryPath/brandPath from shared/utils/route-helpers, then localePath(): see docs/adr/015-type-prefixed-routing.md",
+            'Build entity URLs with productPath/categoryPath/brandPath from shared/utils/route-helpers, then localePath(): see docs/adr/015-type-prefixed-routing.md',
         },
         // CMS-page semantic slugs: resolve via useCmsPageLink(CMS_TAGS.X) instead of
         // hardcoding. Longest-match first (contact-form before contact,
@@ -116,30 +142,30 @@ export default createConfigForNuxt()
         {
           // localePath('/contact-form...') / navigateTo('/contact-form...') template literal
           selector:
-            "CallExpression[callee.name=/^(localePath|navigateTo)$/] > TemplateLiteral[quasis.0.value.raw=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]",
+            'CallExpression[callee.name=/^(localePath|navigateTo)$/] > TemplateLiteral[quasis.0.value.raw=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]',
           message:
-            "Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md",
+            'Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md',
         },
         {
           // localePath('/contact-form...') / navigateTo('/contact-form...') plain string
           selector:
-            "CallExpression[callee.name=/^(localePath|navigateTo)$/] > Literal[value=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]",
+            'CallExpression[callee.name=/^(localePath|navigateTo)$/] > Literal[value=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]',
           message:
-            "Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md",
+            'Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md',
         },
         {
           // router.push('/contact-form...') / router.replace('/contact-form...') template literal
           selector:
             "CallExpression[callee.type='MemberExpression'][callee.object.name='router'][callee.property.name=/^(push|replace)$/] > TemplateLiteral[quasis.0.value.raw=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]",
           message:
-            "Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md",
+            'Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md',
         },
         {
           // router.push('/contact-form...') / router.replace('/contact-form...') plain string
           selector:
             "CallExpression[callee.type='MemberExpression'][callee.object.name='router'][callee.property.name=/^(push|replace)$/] > Literal[value=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]",
           message:
-            "Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md",
+            'Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md',
         },
         // B3: useRouter().push('/terms') / useRouter().replace('/terms'). The existing
         // router.push selectors only fire when the object is an identifier named 'router';
@@ -149,14 +175,14 @@ export default createConfigForNuxt()
           selector:
             "CallExpression[callee.type='MemberExpression'][callee.object.type='CallExpression'][callee.object.callee.name='useRouter'][callee.property.name=/^(push|replace)$/] > Literal[value=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]",
           message:
-            "Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md",
+            'Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md',
         },
         {
           // useRouter().push(`/contact-form...`) / useRouter().replace(...) template literal
           selector:
             "CallExpression[callee.type='MemberExpression'][callee.object.type='CallExpression'][callee.object.callee.name='useRouter'][callee.property.name=/^(push|replace)$/] > TemplateLiteral[quasis.0.value.raw=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]",
           message:
-            "Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md",
+            'Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md',
         },
         // B4: navigateTo({ path: '/terms' }) - the object-form of navigateTo evaded
         // the scalar-arg selectors above. Flag the path/to property literal inside
@@ -166,14 +192,14 @@ export default createConfigForNuxt()
           selector:
             "CallExpression[callee.name='navigateTo'] > ObjectExpression > Property[key.name=/^(path|to)$/] > Literal[value=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]",
           message:
-            "Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md",
+            'Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md',
         },
         {
           // navigateTo({ path: `/terms` }) template literal
           selector:
             "CallExpression[callee.name='navigateTo'] > ObjectExpression > Property[key.name=/^(path|to)$/] > TemplateLiteral[quasis.0.value.raw=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]",
           message:
-            "Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md",
+            'Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md',
         },
       ],
       // B2: bound :to/:href directive with a literal value matching a semantic slug.
@@ -185,16 +211,16 @@ export default createConfigForNuxt()
         {
           // :to="'/contact-form...'" (bound directive, plain string Literal)
           selector:
-            "VAttribute[directive=true][key.argument.name=/^(to|href)$/] > VExpressionContainer > Literal[value=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]",
+            'VAttribute[directive=true][key.argument.name=/^(to|href)$/] > VExpressionContainer > Literal[value=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]',
           message:
-            "Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md",
+            'Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md',
         },
         {
           // :to="`/contact-form...`" (bound directive, template literal)
           selector:
-            "VAttribute[directive=true][key.argument.name=/^(to|href)$/] > VExpressionContainer > TemplateLiteral[quasis.0.value.raw=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]",
+            'VAttribute[directive=true][key.argument.name=/^(to|href)$/] > VExpressionContainer > TemplateLiteral[quasis.0.value.raw=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]',
           message:
-            "Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md",
+            'Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md',
         },
       ],
     },

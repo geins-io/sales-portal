@@ -1,11 +1,11 @@
 import {
   expect,
-  test,
   type BrowserContextOptions,
   type Locator,
   type Page,
   type PlaywrightWorkerArgs,
 } from '@playwright/test';
+import { test } from './fixtures';
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import {
   BASE_URL,
@@ -467,10 +467,13 @@ export async function discoverCategory(
     for (const item of items) {
       if (item.type === 'category' && item.canonicalUrl) {
         // Strip market/locale prefix (e.g. /se/sv/material → /material)
-        // then add /c/ type prefix for category routing (ADR-015)
+        // then add /c/ type prefix for category routing (ADR-015), unless the
+        // menu already gives it (/se/sv/c/material).
         const stripped = stripMarketLocalePrefix(item.canonicalUrl);
         return {
-          alias: `c${stripped}`,
+          alias: stripped.startsWith('/c/')
+            ? stripped.slice(1)
+            : `c${stripped}`,
           name: item.title || item.label || 'Category',
         };
       }

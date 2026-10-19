@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Response } from '@playwright/test';
+import { test, expect, type Page, type Response } from './fixtures';
 import {
   hasE2ECredentials,
   isConfigurable,

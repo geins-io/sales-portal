@@ -1,5 +1,5 @@
 import { stat } from 'node:fs/promises';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 import { outOfScope, waitForHydration } from './helpers';
 
 /**

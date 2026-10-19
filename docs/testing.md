@@ -622,6 +622,9 @@ them before concluding the app is broken:
   Accordion (`md:hidden`); the header SearchBar is `hidden … lg:flex`. Elements exist in the DOM
   while invisible, so a click waits forever. Branch on which layout is actually visible, or skip
   on the projects where the affordance does not exist (`test.skip(isMobile, …)`).
+- **Import `test` from `./fixtures`, not `@playwright/test`.** Its automatic fixtures run for
+  every test; on webkit one drops `image/jxl` from library image requests, which Linux WebKit
+  decodes for seconds. Lint enforces it outside the preflight and orders projects.
 - **Hydration.** Anything driven by a Vue handler needs `waitForHydration(page)` first, or the
   click lands on inert SSR markup and nothing happens.
 - **WebKit commits URLs late.** `page.url()` (and `waitForLoadState`) can still report the previous

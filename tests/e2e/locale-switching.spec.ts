@@ -22,7 +22,7 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 import { outOfScope, waitForHydration } from './helpers';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../..');

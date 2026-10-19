@@ -16,7 +16,7 @@
  * language switch and URL stability on hard refresh.
  */
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures';
 import {
   discoverCategory,
   discoverProduct,

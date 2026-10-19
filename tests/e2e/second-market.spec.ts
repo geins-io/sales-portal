@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext } from '@playwright/test';
+import { test, expect, type APIRequestContext } from './fixtures';
 import { outOfScope, waitForHydration } from './helpers';
 import { BASE_URL } from './target';
 
