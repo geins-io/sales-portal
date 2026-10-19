@@ -2,6 +2,7 @@
 import { useMenuData } from '~/composables/useMenuData';
 import {
   normalizeMenuUrl,
+  isExternalUrl,
   stripGeinsPrefix,
   getMenuLabel,
   getVisibleItems,
@@ -21,6 +22,7 @@ const props = defineProps<{
 const route = useRoute();
 const { menu, pending, error } = useMenuData(props.menuLocationId);
 const { localePath } = useLocaleMarket();
+const currentHost = useRequestURL().host;
 
 const visibleItems = computed(() => {
   if (!menu.value?.menuItems) return [];
@@ -35,8 +37,9 @@ function itemUrl(
   canonicalUrl: string | undefined,
   item?: Parameters<typeof addCategoryPrefix>[1],
 ): string {
-  let normalized = normalizeMenuUrl(canonicalUrl, undefined, item?.type);
-  if (normalized && item) normalized = addCategoryPrefix(normalized, item);
+  let normalized = normalizeMenuUrl(canonicalUrl, currentHost, item?.type);
+  if (normalized && item && !isExternalUrl(normalized, currentHost))
+    normalized = addCategoryPrefix(normalized, item);
   return normalized ? localePath(normalized) : '';
 }
 
@@ -48,8 +51,9 @@ function isActive(
   canonicalUrl: string | undefined,
   item?: Parameters<typeof addCategoryPrefix>[1],
 ): boolean {
-  let normalized = normalizeMenuUrl(canonicalUrl, undefined, item?.type);
-  if (normalized && item) normalized = addCategoryPrefix(normalized, item);
+  let normalized = normalizeMenuUrl(canonicalUrl, currentHost, item?.type);
+  if (normalized && item && !isExternalUrl(normalized, currentHost))
+    normalized = addCategoryPrefix(normalized, item);
   if (normalized === '') return false;
   // route.path carries the /{market}/{locale} prefix; strip it the same way
   // normalizeMenuUrl strips it from the menu URL so the two compare like-for-like.

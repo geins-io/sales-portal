@@ -527,4 +527,84 @@ describe('PageSidebarNav', () => {
       'nav.sidebar_navigation',
     );
   });
+
+  it('keeps an external link external and an internal one in the app', () => {
+    // useRequestURL reads the page location, so this url is on the same host.
+    const internal = `${window.location.origin}/se/sv/about-us`;
+    mockMenu.value = {
+      id: '1',
+      title: 'Sidebar',
+      menuItems: [
+        { id: '1', label: 'About Us', canonicalUrl: internal, order: 1 },
+        {
+          id: '2',
+          label: 'Partner',
+          canonicalUrl: 'https://partner.example.org/page',
+          order: 2,
+        },
+      ],
+    };
+    const wrapper = mountComponent(PageSidebarNav, {
+      props: { menuLocationId: 'sidebar' },
+      global: { stubs },
+    });
+    const hrefs = (label: string) =>
+      wrapper
+        .findAll('a')
+        .filter((l) => l.text() === label)
+        .map((l) => l.attributes('href'));
+    expect(hrefs('Partner').length).toBeGreaterThan(0);
+    expect(new Set(hrefs('Partner'))).toEqual(
+      new Set(['https://partner.example.org/page']),
+    );
+    expect(new Set(hrefs('About Us'))).toEqual(new Set(['/se/en/about-us']));
+  });
+
+  it('keeps the exact href of an external item the category prefix would apply to', () => {
+    mockMenu.value = {
+      id: '1',
+      title: 'Sidebar',
+      menuItems: [
+        {
+          id: '1',
+          label: 'Typed',
+          canonicalUrl: 'https://partner.example.org/typed',
+          type: 'category',
+          order: 1,
+        },
+        {
+          // Its only child is hidden, so it renders as a link with children.
+          id: '2',
+          label: 'Parent',
+          canonicalUrl: 'https://partner.example.org/parent',
+          order: 2,
+          children: [
+            {
+              id: '3',
+              label: 'Hidden child',
+              canonicalUrl: '/se/sv/x',
+              hidden: true,
+            },
+          ],
+        },
+      ],
+    };
+    const wrapper = mountComponent(PageSidebarNav, {
+      props: { menuLocationId: 'sidebar' },
+      global: { stubs },
+    });
+    const hrefs = (label: string) =>
+      new Set(
+        wrapper
+          .findAll('a')
+          .filter((l) => l.text() === label)
+          .map((l) => l.attributes('href')),
+      );
+    expect(hrefs('Typed')).toEqual(
+      new Set(['https://partner.example.org/typed']),
+    );
+    expect(hrefs('Parent')).toEqual(
+      new Set(['https://partner.example.org/parent']),
+    );
+  });
 });
