@@ -2,6 +2,7 @@
 import type { DetailProduct, ListProduct } from '#shared/types/commerce';
 import { filterVisibleCampaigns, getStockStatus } from '#shared/types/commerce';
 import { productPath } from '#shared/utils/route-helpers';
+import { THUMBNAIL_WIDTHS } from '#shared/utils/image';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 import {
   ShoppingCart,
@@ -112,6 +113,15 @@ const imageFileName = computed(() => {
   return props.product.imageFileName ?? null;
 });
 
+const imageUrl = computed(() => {
+  if (isFullProduct(props.product)) return firstImage.value?.url ?? null;
+  return props.product.imageUrl ?? null;
+});
+
+// Rendered card width per breakpoint, measured on the product grids.
+const GRID_IMAGE_SIZES =
+  '(min-width: 1440px) 282px, (min-width: 1024px) 20vw, (min-width: 768px) 28vw, 38vw';
+
 const productUrl = computed(() => {
   if (isFullProduct(props.product)) {
     if (props.product.canonicalUrl) {
@@ -185,9 +195,11 @@ async function addToCart() {
           <GeinsImage
             v-if="imageFileName"
             :file-name="imageFileName"
+            :url="imageUrl"
             type="product"
             :alt="product?.name ?? ''"
             loading="lazy"
+            :sizes="GRID_IMAGE_SIZES"
             class="size-full object-contain transition-transform group-hover:scale-105"
           />
           <div
@@ -202,9 +214,11 @@ async function addToCart() {
           <GeinsImage
             v-if="imageFileName"
             :file-name="imageFileName"
+            :url="imageUrl"
             type="product"
             :alt="product?.name ?? ''"
             loading="lazy"
+            :sizes="GRID_IMAGE_SIZES"
             class="size-full object-contain transition-transform group-hover:scale-105"
           />
           <div
@@ -409,9 +423,12 @@ async function addToCart() {
           <GeinsImage
             v-if="imageFileName"
             :file-name="imageFileName"
+            :url="imageUrl"
             type="product"
             :alt="product?.name ?? ''"
             loading="lazy"
+            sizes="64px"
+            :widths="THUMBNAIL_WIDTHS"
             class="size-full object-contain"
           />
         </NuxtLink>
@@ -419,9 +436,12 @@ async function addToCart() {
           <GeinsImage
             v-if="imageFileName"
             :file-name="imageFileName"
+            :url="imageUrl"
             type="product"
             :alt="product?.name ?? ''"
             loading="lazy"
+            sizes="64px"
+            :widths="THUMBNAIL_WIDTHS"
             class="size-full object-contain"
           />
         </div>

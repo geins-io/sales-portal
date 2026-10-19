@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { Check } from 'lucide-vue-next';
+import { THUMBNAIL_WIDTHS } from '#shared/utils/image';
 
 /** One row of the variant sheet. A missing price leaves its column out. */
 defineProps<{
   imageFileName: string | null;
+  /** Asset library URL; the legacy file name is the fallback. */
+  imageUrl?: string | null;
   imageAlt: string;
   title: string;
   subtitle: string;
@@ -34,8 +37,11 @@ defineProps<{
       <GeinsImage
         v-if="imageFileName"
         :file-name="imageFileName"
+        :url="imageUrl"
         type="product"
         :alt="imageAlt"
+        sizes="48px"
+        :widths="THUMBNAIL_WIDTHS"
         class="size-full object-contain"
       />
     </div>

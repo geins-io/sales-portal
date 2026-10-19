@@ -20,6 +20,7 @@ import {
   categoryPath,
 } from '#shared/utils/route-helpers';
 import { ancestorCrumbs } from '#shared/utils/breadcrumb-trail';
+import { PRINT_TILE_WIDTHS } from '#shared/utils/image';
 import { resolveCombination, variantCombinations } from '~/utils/variant-tree';
 import { quantityInCart, stockLeft } from '~/utils/stock-in-cart';
 
@@ -766,7 +767,8 @@ useProductSeo({
 
       <!-- Print-only: extra product images in a 3-col grid, gated on the
          product having more than one image so the section disappears
-         cleanly when there is nothing to show. -->
+         cleanly when there is nothing to show. The tiles are lazy: inside
+         the hidden section they are not fetched on screen, only in print. -->
       <section
         v-if="additionalImages.length"
         class="hidden"
@@ -778,8 +780,9 @@ useProductSeo({
         <div class="grid grid-cols-3 gap-3">
           <GeinsImage
             v-for="(img, index) in additionalImages"
-            :key="img.fileName ?? ''"
-            :file-name="img.fileName ?? ''"
+            :key="img.fileName"
+            :file-name="img.fileName"
+            :url="img.url"
             :alt="
               buildProductImageAlt({
                 name: product.name ?? '',
@@ -789,7 +792,9 @@ useProductSeo({
               })
             "
             type="product"
-            loading="eager"
+            loading="lazy"
+            sizes="240px"
+            :widths="PRINT_TILE_WIDTHS"
             fit="contain"
             aspect-ratio="1/1"
           />

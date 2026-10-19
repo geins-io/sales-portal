@@ -21,9 +21,9 @@ vi.mock('~/stores/favorites', () => ({
 
 const stubs = {
   GeinsImage: {
-    props: ['fileName', 'type', 'alt'],
+    props: ['fileName', 'url', 'type', 'alt', 'sizes', 'widths'],
     template:
-      '<img data-testid="geins-image" :data-file-name="fileName" :alt="alt" />',
+      '<img data-testid="geins-image" :data-file-name="fileName" :data-url="url" :data-sizes="sizes" :data-widths="widths?.join(\',\')" :alt="alt" />',
   },
   QuantityStepper: {
     props: ['modelValue', 'min', 'max', 'disabled'],
@@ -84,6 +84,35 @@ describe('ProductCard', () => {
     const img = wrapper.find('[data-testid="geins-image"]');
     expect(img.exists()).toBe(true);
     expect(img.attributes('data-file-name')).toBe('widget.jpg');
+  });
+
+  it('passes the card item’s library url with its file name', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: {
+        product: {
+          ...baseProduct,
+          imageUrl: 'https://cdn.example.test/acme/products/widget.jpg',
+        },
+      },
+      global: { stubs },
+    });
+    const img = wrapper.find('[data-testid="geins-image"]');
+
+    expect(img.attributes('data-file-name')).toBe('widget.jpg');
+    expect(img.attributes('data-url')).toBe(
+      'https://cdn.example.test/acme/products/widget.jpg',
+    );
+  });
+
+  it('asks for a thumbnail in the list variant', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: baseProduct, variant: 'list' },
+      global: { stubs },
+    });
+    const img = wrapper.find('[data-testid="geins-image"]');
+
+    expect(img.attributes('data-sizes')).toBe('64px');
+    expect(img.attributes('data-widths')).toBe('80,160,240');
   });
 
   it('renders image fallback when imageFileName is absent', () => {

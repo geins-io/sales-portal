@@ -94,9 +94,11 @@ const textColorClass = computed(() => {
     <GeinsImage
       v-if="imageFileName"
       :file-name="imageFileName"
+      :path="data.image?.path"
       type="pagewidget"
       :alt="data.image?.altText || config.displayName || ''"
       loading="eager"
+      :sizes="fullWidth ? '100vw' : '(min-width: 1440px) 1280px, 100vw'"
       :class="fullWidth ? 'size-full' : ''"
     />
 

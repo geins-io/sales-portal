@@ -5,9 +5,9 @@ import ProductThumbnail from '../../../app/components/shared/ProductThumbnail.vu
 
 const stubs = {
   GeinsImage: {
-    props: ['fileName', 'type', 'alt', 'aspectRatio', 'sizes'],
+    props: ['fileName', 'url', 'type', 'alt', 'aspectRatio', 'sizes', 'widths'],
     template:
-      '<img data-testid="geins-image" :data-file-name="fileName" :data-type="type" :data-sizes="sizes" :alt="alt" />',
+      '<img data-testid="geins-image" :data-file-name="fileName" :data-url="url" :data-type="type" :data-sizes="sizes" :data-widths="widths?.join(\',\')" :alt="alt" />',
   },
   Icon: defineComponent({
     name: 'Icon',
@@ -89,6 +89,36 @@ describe('ProductThumbnail', () => {
       global: { stubs },
     });
     expect(w.classes()).toContain('rounded-md');
+  });
+
+  it('passes the library url with the thumbnail ladder', () => {
+    const w = mount(ProductThumbnail, {
+      props: {
+        fileName: 'x.png',
+        url: 'https://cdn.example.test/acme/products/x.png',
+        alt: 'x',
+      },
+      global: { stubs },
+    });
+    const img = w.find('[data-testid="geins-image"]');
+
+    expect(img.attributes('data-url')).toBe(
+      'https://cdn.example.test/acme/products/x.png',
+    );
+    expect(img.attributes('data-widths')).toBe('80,160,240');
+  });
+
+  it('renders a library image that has no file name', () => {
+    const w = mount(ProductThumbnail, {
+      props: {
+        fileName: null,
+        url: 'https://cdn.example.test/acme/products/x.png',
+        alt: 'x',
+      },
+      global: { stubs },
+    });
+
+    expect(w.find('[data-testid="geins-image"]').exists()).toBe(true);
   });
 
   it('asks for the image at 48 px when no size hint is passed', () => {

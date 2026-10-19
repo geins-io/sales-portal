@@ -3274,11 +3274,24 @@ export const CONFIG_COVERAGE_MAP = {
     status: 'has-test',
     test: {
       spec: GEINS_IMAGE,
-      title: 'renders NuxtImg with raw CDN URL',
+      title: 'renders the raw CDN URL with no width candidates',
       kind: 'consumer',
       drives: 'field',
     },
     note: 'Derived from geinsSettings.accountName rather than configured directly.',
+  },
+
+  assetBaseUrl: {
+    status: 'has-test',
+    test: {
+      spec: GEINS_IMAGE,
+      title: 'resolves a CMS path against the account base',
+      kind: 'consumer',
+      drives: 'field',
+    },
+    note:
+      'Not served yet: the server sets it once the channel carries the asset ' +
+      'CDN host. Until then CMS images with a path stay on the legacy file.',
   },
 
   // If this line is where your error points, a field or a sub-key was added to

@@ -45,8 +45,9 @@ vi.mock('../../../app/composables/useFeatureAccess', () => ({
 }));
 
 const geinsImageStub = {
-  template: '<div class="geins-image" />',
-  props: ['fileName', 'type', 'alt', 'loading'],
+  template:
+    '<div class="geins-image" :data-file-name="fileName" :data-url="url" :data-sizes="sizes" />',
+  props: ['fileName', 'url', 'type', 'alt', 'loading', 'sizes', 'widths'],
 };
 
 const mockAddItem = vi.fn();
@@ -190,6 +191,35 @@ describe('ProductCard', () => {
       global: { stubs },
     });
     expect(wrapper.find('.geins-image').exists()).toBe(true);
+  });
+
+  it('gives the first image its library url and the grid card width', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: {
+        product: makeProduct({
+          productImages: [
+            {
+              fileName: 'a.jpg',
+              url: 'https://cdn.example.test/acme/products/a.jpg',
+            },
+            {
+              fileName: 'b.jpg',
+              url: 'https://cdn.example.test/acme/products/b.jpg',
+            },
+          ],
+        }),
+      },
+      global: { stubs },
+    });
+    const image = wrapper.find('.geins-image');
+
+    expect(image.attributes('data-file-name')).toBe('a.jpg');
+    expect(image.attributes('data-url')).toBe(
+      'https://cdn.example.test/acme/products/a.jpg',
+    );
+    expect(image.attributes('data-sizes')).toBe(
+      '(min-width: 1440px) 282px, (min-width: 1024px) 20vw, (min-width: 768px) 28vw, 38vw',
+    );
   });
 
   it('renders PriceDisplay with unitPrice', () => {

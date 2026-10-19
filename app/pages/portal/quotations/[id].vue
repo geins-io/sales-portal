@@ -213,6 +213,7 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
                       <div class="flex items-center gap-3">
                         <ProductThumbnail
                           :file-name="item.imageFileName"
+                          :url="item.imageUrl"
                           :alt="item.name"
                         />
                         <NuxtLink

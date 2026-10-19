@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import { ImageOff } from 'lucide-vue-next';
+import { THUMBNAIL_WIDTHS } from '#shared/utils/image';
 
 /**
  * The image box of a row in a group with an image column: the option's image,
  * or a placeholder of the same size, so every row of the group has one shape.
  */
-const { fileName, alt } = defineProps<{
+const {
+  fileName,
+  url = null,
+  alt,
+} = defineProps<{
   fileName: string | undefined;
+  url?: string | null;
   alt: string;
 }>();
 </script>
@@ -20,8 +26,11 @@ const { fileName, alt } = defineProps<{
     <GeinsImage
       v-if="fileName"
       :file-name="fileName"
+      :url="url"
       type="product"
       :alt="alt"
+      sizes="40px"
+      :widths="THUMBNAIL_WIDTHS"
       class="size-full"
     />
     <ImageOff

@@ -57,6 +57,7 @@ const { showPrice } = usePriceVisibility();
               <div class="flex items-center gap-3">
                 <ProductThumbnail
                   :file-name="item.imageFileName ?? null"
+                  :url="item.imageUrl ?? null"
                   :alt="item.name"
                 />
                 <div>

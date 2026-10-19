@@ -263,13 +263,6 @@ function rowProductName(dimensionName: string, value: string): string {
   );
 }
 
-const primaryImageFileName = computed<string | null>(() => {
-  const images = props.productImages ?? [];
-  return (
-    images.find((i) => i.isPrimary)?.fileName ?? images[0]?.fileName ?? null
-  );
-});
-
 const primaryImage = computed(() => {
   const images = props.productImages ?? [];
   return images.find((i) => i.isPrimary) ?? images[0] ?? null;
@@ -478,7 +471,8 @@ const { showPrice } = usePriceVisibility();
               <VariantSheetRow
                 data-testid="variant-option"
                 :data-value="sku.skuId"
-                :image-file-name="primaryImageFileName"
+                :image-file-name="primaryImage?.fileName ?? null"
+                :image-url="primaryImage?.url ?? null"
                 :image-alt="
                   buildProductImageAlt({
                     name: productName || sku.name || '',
@@ -514,7 +508,8 @@ const { showPrice } = usePriceVisibility();
               <VariantSheetRow
                 data-testid="variant-option"
                 :data-value="value"
-                :image-file-name="primaryImageFileName"
+                :image-file-name="primaryImage?.fileName ?? null"
+                :image-url="primaryImage?.url ?? null"
                 :image-alt="thumbnailAlt(activeDimension.dimensionName, value)"
                 :title="rowProductName(activeDimension.dimensionName, value)"
                 :subtitle="labelFor(activeDimension.dimensionName, value)"

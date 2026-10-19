@@ -1,127 +1,309 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { flushPromises } from '@vue/test-utils';
 import { mountComponent } from '../utils/component';
+import { mockAssetBaseUrl } from '../setup-components';
 import GeinsImage from '../../app/components/shared/GeinsImage.vue';
 
 const BASE = 'https://monitor.commerce.services';
+const LIBRARY = 'https://cdn.example.test/acme/products/shoe.jpg';
 
 const iconStub = {
   template: '<span class="icon" :data-name="name"></span>',
   props: ['name'],
 };
 
-const nuxtImgStub = {
-  template:
-    '<img :src="src" :alt="alt" :loading="loading" :sizes="sizes" v-bind="$attrs" />',
-  props: ['src', 'alt', 'loading', 'sizes'],
-};
-
 const stubs = {
   Icon: iconStub,
   NuxtIcon: iconStub,
-  NuxtImg: nuxtImgStub,
 };
 
+function mountImage(props: Record<string, unknown>) {
+  return mountComponent(GeinsImage, {
+    props: { type: 'product', alt: 'test', ...props },
+    global: { stubs },
+  });
+}
+
+/**
+ * Makes every <img> report the given state, as a browser would: whether it
+ * finished, its intrinsic width, and whether decoding it succeeds.
+ */
+function imagesReport(state: {
+  complete: boolean;
+  naturalWidth: number;
+  decodes: boolean;
+}) {
+  const proto = HTMLImageElement.prototype;
+  const saved = (['complete', 'naturalWidth', 'decode'] as const).map(
+    (key) => [key, Object.getOwnPropertyDescriptor(proto, key)] as const,
+  );
+  const decode = vi.fn(() =>
+    state.decodes
+      ? Promise.resolve()
+      : Promise.reject(new DOMException('broken', 'EncodingError')),
+  );
+  Object.defineProperty(proto, 'complete', {
+    configurable: true,
+    get: () => state.complete,
+  });
+  Object.defineProperty(proto, 'naturalWidth', {
+    configurable: true,
+    get: () => state.naturalWidth,
+  });
+  Object.defineProperty(proto, 'decode', { configurable: true, value: decode });
+  const restore = () => {
+    for (const [key, descriptor] of saved) {
+      if (descriptor) Object.defineProperty(proto, key, descriptor);
+      else Reflect.deleteProperty(proto, key);
+    }
+  };
+  return { restore, decode };
+}
+
 describe('GeinsImage Component', () => {
-  it('renders NuxtImg with raw CDN URL', () => {
-    const wrapper = mountComponent(GeinsImage, {
-      props: {
+  let restore: (() => void) | undefined;
+
+  afterEach(() => {
+    mockAssetBaseUrl.value = '';
+    restore?.();
+    restore = undefined;
+  });
+
+  describe('a legacy image', () => {
+    it('renders the raw CDN URL with no width candidates', () => {
+      const img = mountImage({ fileName: 'shoe.jpg', alt: 'A shoe' }).find(
+        'img',
+      );
+
+      expect(img.attributes('src')).toBe(`${BASE}/product/raw/shoe.jpg`);
+      expect(img.attributes('alt')).toBe('A shoe');
+      expect(img.attributes('srcset')).toBeUndefined();
+      expect(img.attributes('sizes')).toBeUndefined();
+    });
+
+    it('falls back to the raw file when the url is null', () => {
+      const img = mountImage({ fileName: 'shoe.jpg', url: null }).find('img');
+
+      expect(img.attributes('src')).toBe(`${BASE}/product/raw/shoe.jpg`);
+    });
+  });
+
+  describe('a library image', () => {
+    it('renders every ladder width and lets sizes pick one', () => {
+      const img = mountImage({
         fileName: 'shoe.jpg',
-        type: 'product',
-        alt: 'A shoe',
-      },
-      global: { stubs },
+        url: LIBRARY,
+        sizes: '(min-width: 768px) 400px, 100vw',
+      }).find('img');
+
+      expect(img.attributes('src')).toBe(`${LIBRARY}?width=2560&format=auto`);
+      expect(img.attributes('srcset')).toContain(
+        `${LIBRARY}?width=160&format=auto 160w`,
+      );
+      expect(img.attributes('srcset')).toContain(
+        `${LIBRARY}?width=2560&format=auto 2560w`,
+      );
+      expect(img.attributes('sizes')).toBe('(min-width: 768px) 400px, 100vw');
     });
 
-    const img = wrapper.find('img');
-    expect(img.exists()).toBe(true);
-    expect(img.attributes('src')).toBe(`${BASE}/product/raw/shoe.jpg`);
-    expect(img.attributes('alt')).toBe('A shoe');
+    it('defaults sizes to the full viewport width', () => {
+      const img = mountImage({ url: LIBRARY }).find('img');
+
+      expect(img.attributes('sizes')).toBe('100vw');
+    });
+
+    it('takes a ladder of its own', () => {
+      const img = mountImage({ url: LIBRARY, widths: [80, 160] }).find('img');
+
+      expect(img.attributes('srcset')).toBe(
+        `${LIBRARY}?width=80&format=auto 80w, ${LIBRARY}?width=160&format=auto 160w`,
+      );
+    });
+
+    it('resolves a CMS path against the account base', () => {
+      mockAssetBaseUrl.value = 'https://cdn.example.test/acme';
+      const img = mountImage({
+        type: 'pagewidget',
+        fileName: 'banner4.jpg',
+        path: 'content/banner4.jpg',
+      }).find('img');
+
+      expect(img.attributes('src')).toBe(
+        'https://cdn.example.test/acme/content/banner4.jpg?width=2560&format=auto',
+      );
+    });
+
+    it('keeps a CMS path on the legacy file while the account has no base', () => {
+      const img = mountImage({
+        type: 'pagewidget',
+        fileName: 'banner4.jpg',
+        path: 'content/banner4.jpg',
+      }).find('img');
+
+      expect(img.attributes('src')).toBe(`${BASE}/pagewidget/raw/banner4.jpg`);
+    });
   });
 
-  it('applies loading="lazy" by default', () => {
-    const wrapper = mountComponent(GeinsImage, {
-      props: { fileName: 'img.jpg', type: 'cms', alt: 'test' },
-      global: { stubs },
-    });
-
-    expect(wrapper.find('img').attributes('loading')).toBe('lazy');
+  it('renders nothing without a source', () => {
+    expect(mountImage({ fileName: null }).find('img').exists()).toBe(false);
+    expect(mountImage({ fileName: '' }).find('img').exists()).toBe(false);
   });
 
-  it('passes sizes attribute through', () => {
-    const wrapper = mountComponent(GeinsImage, {
-      props: {
-        fileName: 'img.jpg',
-        type: 'product',
-        alt: 'test',
-        sizes: '(max-width: 768px) 100vw, 50vw',
-      },
-      global: { stubs },
-    });
+  it('applies loading="lazy" by default, and decodes off the main thread', () => {
+    const img = mountImage({ fileName: 'img.jpg' }).find('img');
 
-    expect(wrapper.find('img').attributes('sizes')).toBe(
-      '(max-width: 768px) 100vw, 50vw',
+    expect(img.attributes('loading')).toBe('lazy');
+    expect(img.attributes('decoding')).toBe('async');
+  });
+
+  it('passes loading="eager" through', () => {
+    const img = mountImage({ fileName: 'img.jpg', loading: 'eager' }).find(
+      'img',
     );
+
+    expect(img.attributes('loading')).toBe('eager');
   });
 
   it('uses src override when provided', () => {
-    const wrapper = mountComponent(GeinsImage, {
-      props: {
-        fileName: 'ignored.jpg',
-        type: 'product',
-        alt: 'test',
-        src: '/custom/path.jpg',
-      },
-      global: { stubs },
-    });
+    const img = mountImage({
+      fileName: 'ignored.jpg',
+      url: LIBRARY,
+      src: '/custom/path.jpg',
+    }).find('img');
 
-    expect(wrapper.find('img').attributes('src')).toBe('/custom/path.jpg');
+    expect(img.attributes('src')).toBe('/custom/path.jpg');
+    expect(img.attributes('srcset')).toBeUndefined();
   });
 
   it('applies aspect-ratio class when prop is set', () => {
-    const wrapper = mountComponent(GeinsImage, {
-      props: {
-        fileName: 'img.jpg',
-        type: 'product',
-        alt: 'test',
-        aspectRatio: '1/1',
-      },
-      global: { stubs },
-    });
+    const wrapper = mountImage({ fileName: 'img.jpg', aspectRatio: '1/1' });
 
-    const container = wrapper.find('div');
-    expect(container.classes()).toContain('aspect-[1/1]');
+    expect(wrapper.find('div').classes()).toContain('aspect-[1/1]');
   });
 
-  it('shows skeleton placeholder initially', () => {
-    const wrapper = mountComponent(GeinsImage, {
-      props: { fileName: 'img.jpg', type: 'product', alt: 'test' },
-      global: { stubs },
-    });
+  it.each([
+    ['cover', ['size-full', 'object-cover']],
+    ['contain', ['size-full', 'object-contain']],
+    ['natural', ['block', 'h-auto', 'w-full']],
+  ])('sizes the img for fit=%s', (fit, classes) => {
+    const img = mountImage({ fileName: 'img.jpg', fit }).find('img');
 
-    expect(wrapper.find('.animate-pulse').exists()).toBe(true);
+    expect(img.classes()).toEqual(expect.arrayContaining(classes));
   });
 
-  it('shows error fallback on image error', async () => {
-    const { ImageOff } = await import('lucide-vue-next');
-    const wrapper = mountComponent(GeinsImage, {
-      props: { fileName: 'broken.jpg', type: 'product', alt: 'test' },
-      global: { stubs },
+  describe('the skeleton', () => {
+    it('sits behind the image, so a server-rendered image shows before hydration', () => {
+      const wrapper = mountImage({ fileName: 'img.jpg' });
+      const skeleton = wrapper.find('.animate-pulse');
+      const img = wrapper.find('img');
+
+      expect(skeleton.exists()).toBe(true);
+      expect(skeleton.classes()).toContain('absolute');
+      // A positioned element later in the box paints over an earlier one.
+      expect(img.classes()).toContain('relative');
+      expect(
+        skeleton.element.compareDocumentPosition(img.element) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
     });
 
-    await wrapper.find('img').trigger('error');
+    it('goes when the image loads', async () => {
+      const wrapper = mountImage({ fileName: 'img.jpg' });
 
-    expect(wrapper.find('img').exists()).toBe(false);
-    expect(wrapper.findComponent(ImageOff).exists()).toBe(true);
+      await wrapper.find('img').trigger('load');
+
+      expect(wrapper.find('.animate-pulse').exists()).toBe(false);
+    });
+
+    it('goes at mount for an image that finished loading before hydration', async () => {
+      const report = imagesReport({
+        complete: true,
+        naturalWidth: 800,
+        decodes: true,
+      });
+      restore = report.restore;
+      const wrapper = mountImage({ fileName: 'img.jpg' });
+      await flushPromises();
+
+      expect(wrapper.find('.animate-pulse').exists()).toBe(false);
+      expect(wrapper.find('img').exists()).toBe(true);
+    });
+
+    it('keeps a finished image that reports no intrinsic width but decodes, such as an SVG', async () => {
+      const report = imagesReport({
+        complete: true,
+        naturalWidth: 0,
+        decodes: true,
+      });
+      restore = report.restore;
+      const wrapper = mountImage({ fileName: 'logo.svg' });
+      await flushPromises();
+
+      expect(wrapper.find('img').exists()).toBe(true);
+      expect(wrapper.find('.animate-pulse').exists()).toBe(false);
+    });
+
+    it('stays at mount for an image still loading, and leaves it to the load event', async () => {
+      const report = imagesReport({
+        complete: false,
+        naturalWidth: 0,
+        decodes: true,
+      });
+      restore = report.restore;
+      const wrapper = mountImage({ fileName: 'img.jpg' });
+      await flushPromises();
+
+      expect(wrapper.find('.animate-pulse').exists()).toBe(true);
+      expect(report.decode).not.toHaveBeenCalled();
+    });
+
+    it('comes back when the image changes', async () => {
+      const wrapper = mountImage({ url: LIBRARY });
+      await wrapper.find('img').trigger('load');
+
+      await wrapper.setProps({
+        url: 'https://cdn.example.test/acme/products/other.jpg',
+      });
+
+      expect(wrapper.find('.animate-pulse').exists()).toBe(true);
+    });
   });
 
-  it('hides skeleton after image loads', async () => {
-    const wrapper = mountComponent(GeinsImage, {
-      props: { fileName: 'img.jpg', type: 'product', alt: 'test' },
-      global: { stubs },
+  describe('the error state', () => {
+    it('replaces the image on an error event', async () => {
+      const { ImageOff } = await import('lucide-vue-next');
+      const wrapper = mountImage({ fileName: 'broken.jpg' });
+
+      await wrapper.find('img').trigger('error');
+
+      expect(wrapper.find('img').exists()).toBe(false);
+      expect(wrapper.findComponent(ImageOff).exists()).toBe(true);
     });
 
-    await wrapper.find('img').trigger('load');
+    it('shows at mount for an image that failed before hydration', async () => {
+      const { ImageOff } = await import('lucide-vue-next');
+      const report = imagesReport({
+        complete: true,
+        naturalWidth: 0,
+        decodes: false,
+      });
+      restore = report.restore;
+      const wrapper = mountImage({ fileName: 'broken.jpg' });
+      await flushPromises();
 
-    expect(wrapper.find('.animate-pulse').exists()).toBe(false);
+      expect(wrapper.find('img').exists()).toBe(false);
+      expect(wrapper.findComponent(ImageOff).exists()).toBe(true);
+    });
+
+    it('clears when the image changes', async () => {
+      const wrapper = mountImage({ fileName: 'broken.jpg' });
+      await wrapper.find('img').trigger('error');
+
+      await wrapper.setProps({ fileName: 'fixed.jpg' });
+
+      expect(wrapper.find('img').attributes('src')).toBe(
+        `${BASE}/product/raw/fixed.jpg`,
+      );
+    });
   });
 });

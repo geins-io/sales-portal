@@ -184,6 +184,8 @@ export interface PublicTenantConfig {
   availableLocales: string[];
   availableMarkets: string[];
   imageBaseUrl: string;
+  /** Asset library base, `https://{cdnHost}/{account}`; unset until the channel carries the CDN host. */
+  assetBaseUrl?: string;
 }
 
 /**

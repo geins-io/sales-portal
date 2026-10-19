@@ -15,6 +15,8 @@ import {
 
 interface JsonWidgetImage {
   src?: string;
+  /** Asset library path of `src`, e.g. `content/banner4.jpg`. */
+  srcPath?: string | null;
   alt?: string;
 }
 
@@ -37,6 +39,7 @@ interface CardsSimpleItem {
   title?: string;
   url?: string;
   src?: string;
+  srcPath?: string | null;
   alt?: string;
 }
 
@@ -190,9 +193,11 @@ function bannerPlacementClasses(placement?: string): string {
             <GeinsImage
               v-if="item.image?.src"
               :file-name="item.image.src"
+              :path="item.image.srcPath"
               type="pagewidget"
               :alt="item.image?.alt ?? ''"
               fit="natural"
+              sizes="80vw"
               class="w-full"
             />
             <div class="space-y-2 p-4">
@@ -202,10 +207,7 @@ function bannerPlacementClasses(placement?: string): string {
               >
                 {{ item.heading }}
               </h3>
-              <p
-                v-if="item.description"
-                class="text-muted-foreground text-sm"
-              >
+              <p v-if="item.description" class="text-muted-foreground text-sm">
                 {{ item.description }}
               </p>
               <NuxtLink
@@ -238,9 +240,11 @@ function bannerPlacementClasses(placement?: string): string {
         <GeinsImage
           v-if="item.image?.src"
           :file-name="item.image.src"
+          :path="item.image.srcPath"
           type="pagewidget"
           :alt="item.image?.alt ?? ''"
           fit="natural"
+          sizes="(min-width: 768px) 50vw, 100vw"
           class="w-full"
         />
         <div class="space-y-2 p-4">
@@ -295,8 +299,10 @@ function bannerPlacementClasses(placement?: string): string {
               <GeinsImage
                 v-if="item.src"
                 :file-name="item.src"
+                :path="item.srcPath"
                 type="pagewidget"
                 :alt="item.alt ?? ''"
+                sizes="80vw"
                 class="size-full object-cover transition-transform group-hover:scale-105"
               />
             </div>
@@ -324,8 +330,10 @@ function bannerPlacementClasses(placement?: string): string {
           <GeinsImage
             v-if="item.src"
             :file-name="item.src"
+            :path="item.srcPath"
             type="pagewidget"
             :alt="item.alt ?? ''"
+            sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
             class="size-full object-cover transition-transform group-hover:scale-105"
           />
         </div>
@@ -376,8 +384,10 @@ function bannerPlacementClasses(placement?: string): string {
       <GeinsImage
         v-if="banner.image?.src"
         :file-name="banner.image.src"
+        :path="banner.image.srcPath"
         type="pagewidget"
         :alt="banner.image?.alt ?? ''"
+        sizes="(min-width: 768px) 50vw, 100vw"
         class="aspect-[16/9] w-full object-cover"
       />
       <div

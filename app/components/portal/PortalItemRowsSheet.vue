@@ -61,6 +61,7 @@ const open = ref(false);
             >
               <ProductThumbnail
                 :file-name="item.imageFileName ?? null"
+                :url="item.imageUrl ?? null"
                 :alt="item.name"
               />
               <div class="min-w-0 flex-1">

@@ -3,8 +3,8 @@ import { mountComponent } from '../../utils/component';
 import BannerWidget from '../../../app/components/cms/widgets/BannerWidget.vue';
 
 const geinsImageStub = {
-  template: '<div class="geins-image" />',
-  props: ['fileName', 'type', 'alt', 'loading'],
+  template: '<div class="geins-image" :data-path="path" :data-sizes="sizes" />',
+  props: ['fileName', 'path', 'type', 'alt', 'loading', 'sizes'],
 };
 
 const stubs = {
@@ -32,6 +32,7 @@ function makeProps(
       active: true,
       image: {
         filename: 'hero.jpg',
+        path: 'content/hero.jpg',
         ...(overrides.href ? { href: overrides.href } : {}),
       },
       text1: overrides.text1,
@@ -102,6 +103,29 @@ describe('BannerWidget', () => {
       global: { stubs },
     });
     expect(wrapper.find('.geins-image').exists()).toBe(true);
+  });
+
+  it('passes the library path from the configuration', () => {
+    const wrapper = mountComponent(BannerWidget, {
+      props: makeProps({}),
+      global: { stubs },
+    });
+
+    expect(wrapper.find('.geins-image').attributes('data-path')).toBe(
+      'content/hero.jpg',
+    );
+  });
+
+  it.each([
+    ['full', 'full', '100vw'],
+    ['half', 'column', '(min-width: 1440px) 1280px, 100vw'],
+  ])('asks for the width a %s banner is shown at', (size, layout, sizes) => {
+    const wrapper = mountComponent(BannerWidget, {
+      props: makeProps({ size, layout }),
+      global: { stubs },
+    });
+
+    expect(wrapper.find('.geins-image').attributes('data-sizes')).toBe(sizes);
   });
 
   /**

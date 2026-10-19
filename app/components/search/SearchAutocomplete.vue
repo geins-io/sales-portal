@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Loader2 } from 'lucide-vue-next';
 import type { ProductListResponse } from '#shared/types/commerce';
+import { THUMBNAIL_WIDTHS } from '#shared/utils/image';
 import { Button } from '~/components/ui/button';
 
 withDefaults(
@@ -65,9 +66,12 @@ onUnmounted(() => {
           @click="emit('select-product', product.alias)"
         >
           <GeinsImage
-            :file-name="product.productImages?.[0]?.fileName ?? ''"
+            :file-name="product.productImages?.[0]?.fileName"
+            :url="product.productImages?.[0]?.url"
             type="product"
             :alt="product.name"
+            sizes="40px"
+            :widths="THUMBNAIL_WIDTHS"
             class="size-10 shrink-0 rounded"
           />
           <div class="min-w-0 flex-1">

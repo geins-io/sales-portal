@@ -577,6 +577,30 @@ describe('useTenant', () => {
     });
   });
 
+  describe('assetBaseUrl', () => {
+    it('exposes the asset library base when the config carries one', () => {
+      mockData.value = createMockTenantConfig({
+        assetBaseUrl: 'https://cdn.example.test/acme',
+      });
+
+      const { assetBaseUrl } = useTenant();
+
+      expect(assetBaseUrl.value).toBe('https://cdn.example.test/acme');
+    });
+
+    it('is empty when the config has none', () => {
+      mockData.value = createMockTenantConfig();
+
+      expect(useTenant().assetBaseUrl.value).toBe('');
+    });
+
+    it('is empty when config is null', () => {
+      mockData.value = null;
+
+      expect(useTenant().assetBaseUrl.value).toBe('');
+    });
+  });
+
   describe('contact', () => {
     it('exposes contact from config when set', () => {
       mockData.value = createMockTenantConfig({

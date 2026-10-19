@@ -88,6 +88,7 @@ function handleSortProduct() {
         >
           <ProductThumbnail
             :file-name="product.imageFileName"
+            :url="product.imageUrl"
             :alt="product.name"
             size="size-16"
           />
@@ -177,6 +178,7 @@ function handleSortProduct() {
             <td class="py-3 pr-4">
               <ProductThumbnail
                 :file-name="product.imageFileName"
+                :url="product.imageUrl"
                 :alt="product.name"
                 size="size-10"
               />

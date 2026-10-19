@@ -103,6 +103,7 @@ export function useTenant() {
   const market = computed(() => tenant.value?.market ?? '');
 
   const imageBaseUrl = computed(() => tenant.value?.imageBaseUrl ?? '');
+  const assetBaseUrl = computed(() => tenant.value?.assetBaseUrl ?? '');
 
   return {
     tenant,
@@ -129,6 +130,7 @@ export function useTenant() {
     availableMarkets,
     market,
     imageBaseUrl,
+    assetBaseUrl,
     features,
     hasFeature,
     isFeatureConfigured,

@@ -24,6 +24,7 @@ const { localePath } = useLocaleMarket();
     <GeinsImage
       v-if="imageFileName"
       :file-name="imageFileName"
+      :path="data.image?.path"
       type="pagewidget"
       :alt="data.image?.altText || config.displayName || ''"
     />

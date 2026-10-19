@@ -17,6 +17,7 @@ import { CMS_SLOTS } from '#shared/types/cms-slots';
 import type { DetailProduct, ListProduct } from '#shared/types/commerce';
 import type { ConfigurationChange } from '#shared/types/configurator';
 import { ancestorCrumbs } from '#shared/utils/breadcrumb-trail';
+import { PRINT_TILE_WIDTHS } from '#shared/utils/image';
 import { categoryPath } from '#shared/utils/route-helpers';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
@@ -1342,7 +1343,8 @@ function onRetryOpen(): void {
         </TabsContent>
       </Tabs>
 
-      <!-- Print-only: extra product images in a 3-col grid. -->
+      <!-- Print-only: extra product images in a 3-col grid. The tiles are
+         lazy: inside the hidden section they are not fetched on screen. -->
       <section
         v-if="additionalImages.length"
         class="hidden"
@@ -1354,8 +1356,9 @@ function onRetryOpen(): void {
         <div class="grid grid-cols-3 gap-3">
           <GeinsImage
             v-for="(img, index) in additionalImages"
-            :key="img.fileName ?? ''"
-            :file-name="img.fileName ?? ''"
+            :key="img.fileName"
+            :file-name="img.fileName"
+            :url="img.url"
             :alt="
               buildProductImageAlt({
                 name: product.name ?? '',
@@ -1365,7 +1368,9 @@ function onRetryOpen(): void {
               })
             "
             type="product"
-            loading="eager"
+            loading="lazy"
+            sizes="240px"
+            :widths="PRINT_TILE_WIDTHS"
             fit="contain"
             aspect-ratio="1/1"
           />

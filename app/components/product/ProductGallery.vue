@@ -76,10 +76,12 @@ const currentAlt = computed(() =>
         @click="openLightbox"
       >
         <GeinsImage
-          :file-name="currentImage.fileName ?? ''"
+          :file-name="currentImage.fileName"
+          :url="currentImage.url"
           type="product"
           :alt="currentAlt"
           loading="eager"
+          sizes="(min-width: 768px) 400px, calc(100vw - 66px)"
           class="size-full object-contain"
         />
       </Button>
@@ -128,10 +130,12 @@ const currentAlt = computed(() =>
         <div class="relative flex items-center justify-center">
           <GeinsImage
             v-if="currentImage"
-            :file-name="currentImage.fileName ?? ''"
+            :file-name="currentImage.fileName"
+            :url="currentImage.url"
             type="product"
             :alt="currentAlt"
             loading="eager"
+            sizes="(min-width: 896px) 896px, 100vw"
             class="max-h-[80vh] w-full object-contain"
           />
 

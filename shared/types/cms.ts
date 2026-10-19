@@ -50,6 +50,8 @@ export interface WidgetImage {
   filename: string;
   /** GraphQL images use camelCase `fileName` */
   fileName?: string;
+  /** Asset library path, e.g. `content/banner.jpg`; set on library uploads. */
+  path?: string | null;
   href?: string;
   altText?: string;
   text?: string | null;

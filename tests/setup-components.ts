@@ -20,6 +20,10 @@ export const mockIsCatalogMode = ref(false);
 // `timeZone` Intl option at all, so dates render in the runtime's own zone.
 export const mockTenantTimezone = ref<string | undefined>(undefined);
 
+// Exported ref so component tests can give the tenant an asset library base.
+// Empty is the real default until the channel carries the CDN host.
+export const mockAssetBaseUrl = ref('');
+
 // Exported ref so component tests can drive the VAT-display preference.
 // PriceDisplay (and every component that renders it) calls useVatDisplay,
 // so it must be mocked at the setup tier. Defaults to incl-VAT.
@@ -241,6 +245,7 @@ vi.mock('../app/composables/useTenant', () => {
       availableMarkets: computed(() => []),
       market: computed(() => ''),
       imageBaseUrl: computed(() => 'https://monitor.commerce.services'),
+      assetBaseUrl: computed(() => mockAssetBaseUrl.value),
       features: computed(() => tenant.value?.features),
       contact: computed(() => null),
       hasFeature: (name: string) => {
