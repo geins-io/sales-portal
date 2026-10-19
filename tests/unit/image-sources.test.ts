@@ -71,7 +71,7 @@ describe('buildImageSources', () => {
     ]);
   });
 
-  it('prefers the account host and path over the url', () => {
+  it('prefers the url over the account host and path', () => {
     const sources = buildImageSources({
       url: LIBRARY,
       path: 'content/other.jpg',
@@ -81,26 +81,26 @@ describe('buildImageSources', () => {
       widths: [80],
     });
 
-    expect(sources.src).toBe(
-      'https://cdn.example.test/acme/content/other.jpg?width=80&format=auto',
-    );
-  });
-
-  it.each([
-    ['without an account host', '', 'content/other.jpg'],
-    ['without a path', 'https://cdn.example.test/acme', null],
-  ])('falls back to the url %s', (_, assetBaseUrl, path) => {
-    const sources = buildImageSources({
-      url: LIBRARY,
-      path,
-      assetBaseUrl,
-      type: 'pagewidget',
-      imageBaseUrl: LEGACY,
-      widths: [80],
-    });
-
     expect(sources.src).toBe(`${LIBRARY}?width=80&format=auto`);
   });
+
+  it.each([null, undefined, '', 'not a url'])(
+    'uses the account host and path when the url is %s',
+    (url) => {
+      const sources = buildImageSources({
+        url,
+        path: 'content/other.jpg',
+        assetBaseUrl: 'https://cdn.example.test/acme',
+        type: 'pagewidget',
+        imageBaseUrl: LEGACY,
+        widths: [80],
+      });
+
+      expect(sources.src).toBe(
+        'https://cdn.example.test/acme/content/other.jpg?width=80&format=auto',
+      );
+    },
+  );
 
   describe('a library path joined to the account base', () => {
     const input = {

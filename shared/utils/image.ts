@@ -27,11 +27,12 @@ export interface ImageSources {
 }
 
 /**
- * One image's sources, in this order: the library `path` from CMS
- * configuration joined to the account's `assetBaseUrl`; else the asset
- * library `url` the API returns; else the legacy raw file on `imageBaseUrl`.
- * The path goes first because a widget's `url` is matched by file name, which
- * two folders can share.
+ * One image's sources, in this order: the asset library `url` the API
+ * returns; else the library `path` from CMS configuration joined to the
+ * account's `assetBaseUrl`, the only route for JSON widgets, which have no
+ * `url`; else the legacy raw file on `imageBaseUrl`. The `url` goes first
+ * because a saved `path` can go stale after a move or rename while the `url`
+ * still works.
  * A library image is resized by its CDN (`width`) and served as AVIF or WebP
  * where the browser accepts it (`format=auto`).
  */
@@ -45,8 +46,8 @@ export function buildImageSources(input: {
   widths?: number[];
 }): ImageSources {
   const library =
-    absoluteUrl(composeAssetUrl(input.assetBaseUrl, input.path)) ??
-    absoluteUrl(input.url);
+    absoluteUrl(input.url) ??
+    absoluteUrl(composeAssetUrl(input.assetBaseUrl, input.path));
 
   if (library) {
     const widths = input.widths ?? IMAGE_WIDTHS;
