@@ -104,15 +104,16 @@ export interface BannerWidgetData {
   classNames?: string;
 }
 
+/** A button saved without a link arrives with an empty or missing `url`. */
 export interface ButtonItem {
-  text: string;
-  href: string;
+  buttonText?: string;
+  url?: string;
 }
 
 export interface ButtonsWidgetData {
   name: string;
   active: boolean;
-  buttons: ButtonItem[];
+  buttons?: ButtonItem[];
 }
 
 export interface VideoWidgetData {

@@ -154,8 +154,11 @@ vi.mock('../app/composables/useLocaleMarket', () => ({
   useLocaleMarket: () => ({
     currentMarket: computed(() => 'se'),
     currentLocale: computed(() => 'en'),
+    // External URLs pass through, as in localePath in app/composables/useLocaleMarket.ts.
     localePath: (path: string) =>
-      `/se/en${path.startsWith('/') ? path : '/' + path}`,
+      /^(https?:)?\/\//.test(path)
+        ? path
+        : `/se/en${path.startsWith('/') ? path : '/' + path}`,
     localeQuery: computed(() => ({ locale: 'en', market: 'se' })),
     getCleanPath: () => '/',
     switchLocale: vi.fn(),
