@@ -261,6 +261,8 @@
     "sort_name_desc": "Navn: Å-A",
     "select_variant": "Velg en variant",
     "select_variant_placeholder": "Velg",
+    "variant_heading": "Variant",
+    "choose_variant": "Velg variant",
     "variant_search_placeholder": "Søk",
     "image_counter": "Bilde {current} av {total}",
     "image_alt_counter": "{name} ({current} av {total})",

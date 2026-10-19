@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Check, ChevronDown, Search } from 'lucide-vue-next';
+import { ChevronDown, Search } from 'lucide-vue-next';
 import type {
   VariantDimensionRow,
   VariantNode,
@@ -8,6 +8,7 @@ import type {
 import type { SkuType } from '@geins/types';
 import {
   dimensionsOf,
+  isInternalDimension,
   resolveCombination,
   type VariantCombination,
 } from '~/utils/variant-tree';
@@ -55,6 +56,11 @@ const props = defineProps<{
       }
     | undefined
   >;
+  // The product's own SKUs when it is sold in several. The buyer picks one;
+  // the pick travels as `skuId`, apart from the dimension selection, so it
+  // never reads as a switch to a sibling product.
+  skuOptions?: SkuType[];
+  skuId?: number | null;
 }>();
 
 interface GroupedDimension {
@@ -106,20 +112,68 @@ const groupedDimensions = computed<GroupedDimension[]>(() => {
   }));
 });
 
+// A product without variants still carries one internal dimension, its own
+// name the only value. That is no choice, so it gets no picker.
+const visibleDimensions = computed(() =>
+  groupedDimensions.value.filter(
+    (d) => !isInternalDimension(d.dimensionName) || d.values.length > 1,
+  ),
+);
+
+const { t } = useI18n();
+
+function dimensionHeading(dimensionName: string): string {
+  return isInternalDimension(dimensionName)
+    ? t('product.variant_heading')
+    : dimensionName;
+}
+
 const emit = defineEmits<{
   'update:modelValue': [value: Record<string, string>];
+  'update:skuId': [value: number];
 }>();
 
 const openDimension = ref<string | null>(null);
+const skuSheetOpen = ref(false);
 const searchQuery = ref('');
 
 function openSheet(dimensionName: string) {
   openDimension.value = dimensionName;
+  skuSheetOpen.value = false;
   searchQuery.value = '';
 }
 
+function openSkuSheet() {
+  openDimension.value = null;
+  skuSheetOpen.value = true;
+  searchQuery.value = '';
+}
+
+defineExpose({ openSkuSheet });
+
 function closeSheet() {
   openDimension.value = null;
+  skuSheetOpen.value = false;
+}
+
+const showSkuGroup = computed(() => (props.skuOptions?.length ?? 0) > 1);
+
+const pickedSku = computed(
+  () => props.skuOptions?.find((s) => s.skuId === props.skuId) ?? null,
+);
+
+const filteredSkus = computed(() => {
+  const skus = props.skuOptions ?? [];
+  const q = searchQuery.value.trim().toLowerCase();
+  if (!q) return skus;
+  return skus.filter((s) =>
+    [s.name, s.articleNumber].some((text) => text?.toLowerCase().includes(q)),
+  );
+});
+
+function selectSku(skuId: number) {
+  emit('update:skuId', skuId);
+  closeSheet();
 }
 
 function filteredValues(dimensionName: string, values: string[]): string[] {
@@ -304,6 +358,21 @@ const activeDimension = computed(
     ) ?? null,
 );
 
+const sheetHeading = computed(() => {
+  if (skuSheetOpen.value) return t('product.variant_heading');
+  return activeDimension.value
+    ? dimensionHeading(activeDimension.value.dimensionName)
+    : null;
+});
+
+// Every SKU of a product shares its price.
+const productPriceFormatted = computed(
+  () =>
+    (showIncVat.value
+      ? props.priceIncVatFormatted
+      : props.priceExVatFormatted) || null,
+);
+
 const { showStock } = useStockVisibility();
 const { showPrice } = usePriceVisibility();
 </script>
@@ -311,12 +380,12 @@ const { showPrice } = usePriceVisibility();
 <template>
   <div class="flex flex-col gap-3" data-testid="variant-selector">
     <div
-      v-for="dimension in groupedDimensions"
+      v-for="dimension in visibleDimensions"
       :key="dimension.dimensionName"
       class="flex flex-col gap-1.5"
     >
       <span class="font-medium">
-        {{ dimension.dimensionName }}
+        {{ dimensionHeading(dimension.dimensionName) }}
       </span>
       <Button
         type="button"
@@ -339,8 +408,30 @@ const { showPrice } = usePriceVisibility();
       </Button>
     </div>
 
+    <div v-if="showSkuGroup" class="flex flex-col gap-1.5">
+      <span class="font-medium">
+        {{ $t('product.variant_heading') }}
+      </span>
+      <Button
+        type="button"
+        variant="outline"
+        class="border-input flex h-[50px] w-4/5 items-center justify-between rounded-md px-3 font-normal"
+        data-testid="variant-trigger-sku"
+        @click="openSkuSheet"
+      >
+        <span class="truncate">
+          {{
+            pickedSku
+              ? pickedSku.name || pickedSku.articleNumber
+              : $t('product.select_variant_placeholder')
+          }}
+        </span>
+        <ChevronDown class="size-4 shrink-0 opacity-50" />
+      </Button>
+    </div>
+
     <Sheet
-      :open="openDimension !== null"
+      :open="openDimension !== null || skuSheetOpen"
       @update:open="(v) => !v && closeSheet()"
     >
       <!-- Same reasoning as the product filter sheet: don't auto-focus the
@@ -355,14 +446,14 @@ const { showPrice } = usePriceVisibility();
         <SheetHeader class="border-b px-6 py-4">
           <SheetTitle class="text-lg">
             {{
-              activeDimension
-                ? `${$t('product.select_variant')} — ${activeDimension.dimensionName}`
+              sheetHeading
+                ? `${$t('product.select_variant')} — ${sheetHeading}`
                 : $t('product.select_variant')
             }}
           </SheetTitle>
         </SheetHeader>
 
-        <div v-if="activeDimension" class="border-b px-6 py-3">
+        <div v-if="activeDimension || skuSheetOpen" class="border-b px-6 py-3">
           <div class="relative">
             <Search
               class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2"
@@ -378,7 +469,37 @@ const { showPrice } = usePriceVisibility();
         </div>
 
         <div
-          v-if="activeDimension"
+          v-if="skuSheetOpen"
+          class="flex-1 overflow-y-auto px-6 py-4"
+          data-testid="variant-sheet-options"
+        >
+          <ul class="flex flex-col gap-2">
+            <li v-for="sku in filteredSkus" :key="sku.skuId">
+              <VariantSheetRow
+                data-testid="variant-option"
+                :data-value="sku.skuId"
+                :image-file-name="primaryImageFileName"
+                :image-alt="
+                  buildProductImageAlt({
+                    name: productName || sku.name || '',
+                    manualAlt: primaryImage?.altText,
+                  })
+                "
+                :title="productName || sku.name || ''"
+                :subtitle="sku.name ?? ''"
+                :article-number="sku.articleNumber"
+                :show-stock="showStock"
+                :in-stock="(sku.stock?.totalStock ?? 0) > 0"
+                :price="showPrice ? productPriceFormatted : null"
+                :selected="sku.skuId === skuId"
+                @click="selectSku(sku.skuId)"
+              />
+            </li>
+          </ul>
+        </div>
+
+        <div
+          v-else-if="activeDimension"
           class="flex-1 overflow-y-auto px-6 py-4"
           data-testid="variant-sheet-options"
         >
@@ -390,110 +511,30 @@ const { showPrice } = usePriceVisibility();
               )"
               :key="value"
             >
-              <button
-                type="button"
+              <VariantSheetRow
                 data-testid="variant-option"
                 :data-value="value"
+                :image-file-name="primaryImageFileName"
+                :image-alt="thumbnailAlt(activeDimension.dimensionName, value)"
+                :title="rowProductName(activeDimension.dimensionName, value)"
+                :subtitle="labelFor(activeDimension.dimensionName, value)"
+                :article-number="
+                  variantInfoFor(activeDimension.dimensionName, value)
+                    ?.articleNumber
+                "
+                :show-stock="showStock"
+                :in-stock="isValueInStock(activeDimension.dimensionName, value)"
+                :price="
+                  showPrice
+                    ? rowPriceFormatted(activeDimension.dimensionName, value)
+                    : null
+                "
+                :selected="modelValue[activeDimension.dimensionName] === value"
                 :disabled="
                   !isValueSelectable(activeDimension.dimensionName, value)
                 "
-                :class="[
-                  'border-border hover:border-foreground/40 flex w-full items-center gap-3 rounded-md border bg-transparent p-3 text-left transition-colors',
-                  modelValue[activeDimension.dimensionName] === value
-                    ? 'border-foreground'
-                    : '',
-                  !isValueSelectable(activeDimension.dimensionName, value)
-                    ? 'pointer-events-none opacity-40'
-                    : '',
-                ]"
-                :aria-pressed="
-                  modelValue[activeDimension.dimensionName] === value
-                "
                 @click="selectValue(activeDimension.dimensionName, value)"
-              >
-                <!-- Thumbnail uses the product's primary image. Geins
-                     doesn't expose per-variant imagery; this keeps the
-                     visual rhythm of the list consistent with Figma. -->
-                <div
-                  class="bg-muted size-12 shrink-0 overflow-hidden rounded-md"
-                >
-                  <GeinsImage
-                    v-if="primaryImageFileName"
-                    :file-name="primaryImageFileName"
-                    type="product"
-                    :alt="thumbnailAlt(activeDimension.dimensionName, value)"
-                    class="size-full object-contain"
-                  />
-                </div>
-
-                <div class="min-w-0 flex-1">
-                  <div class="truncate text-sm font-medium">
-                    {{ rowProductName(activeDimension.dimensionName, value) }}
-                  </div>
-                  <div class="text-muted-foreground truncate text-sm">
-                    {{ labelFor(activeDimension.dimensionName, value) }}
-                  </div>
-                  <div
-                    v-if="
-                      variantInfoFor(activeDimension.dimensionName, value)
-                        ?.articleNumber
-                    "
-                    class="text-muted-foreground mt-0.5 truncate text-xs"
-                  >
-                    {{
-                      $t('product.article_number', {
-                        number: variantInfoFor(
-                          activeDimension.dimensionName,
-                          value,
-                        )?.articleNumber,
-                      })
-                    }}
-                  </div>
-                  <div
-                    v-if="showStock"
-                    class="mt-1 flex items-center gap-1 text-xs"
-                    :class="
-                      isValueInStock(activeDimension.dimensionName, value)
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-muted-foreground'
-                    "
-                  >
-                    <span
-                      class="size-1.5 rounded-full"
-                      :class="
-                        isValueInStock(activeDimension.dimensionName, value)
-                          ? 'bg-emerald-500'
-                          : 'bg-muted-foreground'
-                      "
-                    />
-                    {{
-                      isValueInStock(activeDimension.dimensionName, value)
-                        ? $t('product.in_stock')
-                        : $t('product.out_of_stock')
-                    }}
-                  </div>
-                </div>
-
-                <!-- Price column: prefer each sibling variant's own
-                     resolved price (passed via variantProducts), then
-                     fall back to the parent's price. Hide entirely when
-                     no formatted price is available or pricing is off. -->
-                <span
-                  v-if="
-                    showPrice &&
-                    rowPriceFormatted(activeDimension.dimensionName, value)
-                  "
-                  class="shrink-0 text-sm font-medium"
-                  data-testid="variant-row-price"
-                >
-                  {{ rowPriceFormatted(activeDimension.dimensionName, value) }}
-                </span>
-
-                <Check
-                  v-if="modelValue[activeDimension.dimensionName] === value"
-                  class="size-4 shrink-0"
-                />
-              </button>
+              />
             </li>
           </ul>
         </div>

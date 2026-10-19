@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   dimensionsOf,
+  isInternalDimension,
   resolveCombination,
   variantCombinations,
   type VariantCombination,
@@ -133,4 +134,17 @@ describe('dimensionsOf', () => {
       },
     ]);
   });
+});
+
+describe('isInternalDimension', () => {
+  it.each(['DefaultProduct', 'DefaultSku'])('is true for %s', (name) => {
+    expect(isInternalDimension(name)).toBe(true);
+  });
+
+  it.each(['Färg', 'Variant', 'defaultproduct', ''])(
+    'is false for %j',
+    (name) => {
+      expect(isInternalDimension(name)).toBe(false);
+    },
+  );
 });

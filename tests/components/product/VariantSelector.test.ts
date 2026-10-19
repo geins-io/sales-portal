@@ -9,6 +9,7 @@ import type {
   VariantDimensionRow,
   VariantNode,
 } from '#shared/types/commerce';
+import type { SkuType } from '@geins/types';
 import { variantCombinations } from '../../../app/utils/variant-tree';
 import { twoDimensionTree } from '../../fixtures/variant-trees';
 
@@ -606,5 +607,209 @@ describe('VariantSelector on a two-dimension variant tree', () => {
       .findAll('li');
     expect(rows).toHaveLength(1);
     expect(rows[0]!.find('.font-medium').text()).toBe('Sexkantskruv M8x40');
+  });
+});
+
+// A product sold in several SKUs of its own, shaped as the API sends it: one
+// `DefaultProduct` dimension row and node, the choice only in `skus`.
+describe('VariantSelector SKU choice', () => {
+  const interpolatingT = (key: string, params?: { number?: string }) =>
+    params?.number ? `Art nr. ${params.number}` : key;
+  const ownDimension: VariantDimensionRow[] = [
+    {
+      dimension: 'DefaultProduct',
+      value: 'skyddsglasögon klar en 166',
+      label: 'Skyddsglasögon klar EN 166',
+      level: 1,
+    },
+  ];
+  const ownNode: VariantNode[] = [
+    {
+      alias: 'skyddsglasogon-klar-en-166',
+      dimension: 'DefaultProduct',
+      value: 'skyddsglasögon klar en 166',
+      label: 'Skyddsglasögon klar EN 166',
+      skuId: 0,
+    },
+  ];
+  const skus: SkuType[] = [
+    {
+      skuId: 1099,
+      name: 'Skyddsglasögon klar',
+      articleNumber: 'SKY-GLAS-KLAR',
+      stock: stock(284),
+    },
+    {
+      skuId: 1113,
+      name: 'S',
+      articleNumber: 'SKY-GLAS-KLAR-S',
+      stock: stock(5),
+    },
+    {
+      skuId: 1114,
+      name: 'M',
+      articleNumber: 'SKY-GLAS-KLAR-M',
+      stock: stock(0),
+    },
+  ];
+
+  function mountSkuChoice(
+    props: Record<string, unknown> = {},
+  ): ReturnType<typeof mountComponent> {
+    return mountComponent(VariantSelector, {
+      props: {
+        variantDimensions: ownDimension,
+        variants: ownNode,
+        modelValue: {},
+        productName: 'Skyddsglasögon klar EN 166',
+        productArticleNumber: 'SKY-GLAS-KLAR',
+        priceIncVatFormatted: '112,50 kr',
+        priceExVatFormatted: '90 kr',
+        skuOptions: skus,
+        skuId: null,
+        ...props,
+      },
+      global: { stubs: sheetStubs, mocks: { $t: interpolatingT } },
+    });
+  }
+
+  it('shows no DefaultProduct group, only the SKU group under the generic heading', () => {
+    const wrapper = mountSkuChoice();
+
+    expect(wrapper.text()).not.toContain('DefaultProduct');
+    expect(
+      wrapper.find('[data-testid="variant-trigger-DefaultProduct"]').exists(),
+    ).toBe(false);
+    expect(wrapper.find('[data-testid="variant-trigger-sku"]').text()).toBe(
+      'product.select_variant_placeholder',
+    );
+    expect(wrapper.text()).toContain('product.variant_heading');
+  });
+
+  it('names the picked SKU on the trigger', () => {
+    const wrapper = mountSkuChoice({ skuId: 1113 });
+
+    expect(wrapper.find('[data-testid="variant-trigger-sku"]').text()).toBe(
+      'S',
+    );
+  });
+
+  it('lists every SKU with its own name, article number, stock and the product price', async () => {
+    const wrapper = mountSkuChoice();
+    await wrapper.find('[data-testid="variant-trigger-sku"]').trigger('click');
+
+    const rows = wrapper.findAll('[data-testid="variant-option"]');
+    expect(rows.map((r) => r.attributes('data-value'))).toEqual([
+      '1099',
+      '1113',
+      '1114',
+    ]);
+    const m = rows[2]!;
+    expect(m.find('.font-medium').text()).toBe('Skyddsglasögon klar EN 166');
+    expect(m.text()).toContain('M');
+    expect(m.text()).toContain('Art nr. SKY-GLAS-KLAR-M');
+    expect(m.text()).toContain('product.out_of_stock');
+    expect(rows[1]!.text()).toContain('product.in_stock');
+    expect(m.find('[data-testid="variant-row-price"]').text()).toBe(
+      '112,50 kr',
+    );
+    expect(m.attributes('disabled')).toBeUndefined();
+    expect(wrapper.find('h2').text()).toBe(
+      'product.select_variant — product.variant_heading',
+    );
+  });
+
+  it('emits the picked skuId, never a dimension selection', async () => {
+    const wrapper = mountSkuChoice();
+    await wrapper.find('[data-testid="variant-trigger-sku"]').trigger('click');
+
+    await wrapper.find('[data-value="1114"]').trigger('click');
+
+    expect(wrapper.emitted('update:skuId')).toEqual([[1114]]);
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+  });
+
+  it('marks the picked SKU in the sheet', async () => {
+    const wrapper = mountSkuChoice({ skuId: 1113 });
+    await wrapper.find('[data-testid="variant-trigger-sku"]').trigger('click');
+
+    const pressed = wrapper
+      .findAll('[data-testid="variant-option"]')
+      .map((r) => r.attributes('aria-pressed'));
+    expect(pressed).toEqual(['false', 'true', 'false']);
+  });
+
+  it('searches the SKUs on name and article number', async () => {
+    const wrapper = mountSkuChoice();
+    await wrapper.find('[data-testid="variant-trigger-sku"]').trigger('click');
+
+    await wrapper
+      .find('[data-testid="variant-sheet-search"]')
+      .setValue('klar-s');
+    expect(
+      wrapper
+        .findAll('[data-testid="variant-option"]')
+        .map((r) => r.attributes('data-value')),
+    ).toEqual(['1113']);
+
+    await wrapper.find('[data-testid="variant-sheet-search"]').setValue('m');
+    expect(
+      wrapper
+        .findAll('[data-testid="variant-option"]')
+        .map((r) => r.attributes('data-value')),
+    ).toEqual(['1114']);
+  });
+
+  it('opens the SKU sheet when the page asks for it', async () => {
+    const wrapper = mountSkuChoice();
+    expect(wrapper.find('[data-testid="variant-sheet-options"]').exists()).toBe(
+      false,
+    );
+
+    (wrapper.vm as unknown as { openSkuSheet: () => void }).openSkuSheet();
+    await nextTick();
+
+    expect(
+      wrapper.findAll('[data-testid="variant-option"]').map((r) => r.text()),
+    ).toHaveLength(3);
+  });
+
+  it('renders no SKU group for a single SKU', () => {
+    const wrapper = mountSkuChoice({ skuOptions: skus.slice(0, 1) });
+
+    expect(wrapper.find('[data-testid="variant-trigger-sku"]').exists()).toBe(
+      false,
+    );
+  });
+
+  it('keeps sibling dimensions and adds the SKU group below them', () => {
+    const wrapper = mountSkuChoice({
+      variantDimensions: [row('Färg', 'klar')],
+      variants: [
+        { alias: 'a', dimension: 'Färg', value: 'klar' },
+        { alias: 'b', dimension: 'Färg', value: 'tonad' },
+      ] satisfies VariantNode[],
+    });
+
+    const triggers = wrapper
+      .findAll('[data-testid^="variant-trigger-"]')
+      .map((t) => t.attributes('data-testid'));
+    expect(triggers).toEqual(['variant-trigger-Färg', 'variant-trigger-sku']);
+  });
+
+  it('shows an internal dimension with several values under the generic heading', () => {
+    const wrapper = mountSkuChoice({
+      skuOptions: [],
+      variants: [
+        { alias: 'a', dimension: 'DefaultProduct', value: 'a', label: 'A' },
+        { alias: 'b', dimension: 'DefaultProduct', value: 'b', label: 'B' },
+      ] satisfies VariantNode[],
+    });
+
+    expect(
+      wrapper.find('[data-testid="variant-trigger-DefaultProduct"]').exists(),
+    ).toBe(true);
+    expect(wrapper.text()).not.toContain('DefaultProduct');
+    expect(wrapper.text()).toContain('product.variant_heading');
   });
 });

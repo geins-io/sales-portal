@@ -97,3 +97,13 @@ export function dimensionsOf(
     values: Array.from(values, ([value, label]) => ({ value, label })),
   }));
 }
+
+/**
+ * Geins's names for the dimension of a product without variants and for its
+ * SKUs. They label no choice a buyer makes.
+ */
+const INTERNAL_DIMENSIONS = new Set(['DefaultProduct', 'DefaultSku']);
+
+export function isInternalDimension(name: string): boolean {
+  return INTERNAL_DIMENSIONS.has(name);
+}

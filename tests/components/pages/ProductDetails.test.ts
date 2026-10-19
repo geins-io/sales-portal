@@ -11,6 +11,7 @@ import { ref, defineComponent, h, Suspense } from 'vue';
 import { flushPromises } from '@vue/test-utils';
 import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductDetails from '../../../app/components/pages/ProductDetails.vue';
+import ProductTopArea from '../../../app/components/product/ProductTopArea.vue';
 import type { DetailProduct } from '../../../shared/types/commerce';
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { mockIsCatalogMode } from '../../setup-components';
@@ -1217,6 +1218,230 @@ describe('ProductDetails', () => {
   // The page loads the product and hands it down. If this component ever asks
   // for one again, every PDP pays for two requests — so the mock is watched for
   // a product-by-alias url rather than trusted not to see one.
+  // A product sold in several SKUs of its own, as the API sends it: one
+  // `DefaultProduct` dimension row and node, the choice only in `skus`.
+  describe('a product sold in several SKUs', () => {
+    const stock = (totalStock: number) => ({
+      inStock: totalStock,
+      oversellable: 0,
+      totalStock,
+      static: 0,
+    });
+    const product = makeProduct({
+      productId: 1099,
+      alias: 'skyddsglasogon-klar-en-166',
+      name: 'Skyddsglasögon klar EN 166',
+      articleNumber: 'SKY-GLAS-KLAR',
+      totalStock: stock(289),
+      skus: [
+        {
+          skuId: 1099,
+          name: 'Skyddsglasögon klar',
+          articleNumber: 'SKY-GLAS-KLAR',
+          stock: stock(284),
+        },
+        {
+          skuId: 1113,
+          name: 'S',
+          articleNumber: 'SKY-GLAS-KLAR-S',
+          stock: stock(5),
+        },
+        {
+          skuId: 1114,
+          name: 'M',
+          articleNumber: 'SKY-GLAS-KLAR-M',
+          stock: stock(0),
+        },
+      ],
+      variantDimensions: [
+        {
+          dimension: 'DefaultProduct',
+          value: 'skyddsglasögon klar en 166',
+          label: 'Skyddsglasögon klar EN 166',
+        },
+      ],
+      variantGroup: {
+        variants: [
+          {
+            alias: 'skyddsglasogon-klar-en-166',
+            dimension: 'DefaultProduct',
+            value: 'skyddsglasögon klar en 166',
+            skuId: 0,
+          },
+        ],
+      },
+    });
+
+    const openSkuSheet = vi.fn();
+    const received = { skuOptions: [] as { skuId: number }[] };
+
+    const Selector = defineComponent({
+      props: ['modelValue', 'skuOptions', 'skuId'],
+      emits: ['update:modelValue', 'update:skuId'],
+      setup(p, { emit, expose }) {
+        expose({ openSkuSheet });
+        return () => {
+          received.skuOptions = (p.skuOptions as { skuId: number }[]) ?? [];
+          return h(
+            'div',
+            { 'data-testid': 'sku-selector-stub' },
+            [1113, 1114].map((skuId) =>
+              h('button', {
+                'data-testid': `pick-${skuId}`,
+                onClick: () => emit('update:skuId', skuId),
+              }),
+            ),
+          );
+        };
+      },
+    });
+
+    const stubs = {
+      ...defaultStubs,
+      VariantSelector: Selector,
+      StockBadge: {
+        template:
+          '<span class="stock-badge" :data-total="stock?.totalStock" />',
+        props: ['stock'],
+      },
+      QuantityInput: {
+        template:
+          '<div class="quantity-input" :data-max="max"><button data-testid="set-quantity-20" @click="$emit(\'update:modelValue\', 20)" /></div>',
+        props: ['modelValue', 'min', 'max'],
+        emits: ['update:modelValue'],
+      },
+    };
+
+    async function mountSkuProduct(p: DetailProduct = product) {
+      return mountProductDetails(
+        { product: p, alias: p.alias },
+        { global: { stubs } },
+      );
+    }
+
+    async function pick(
+      wrapper: Awaited<ReturnType<typeof mountSkuProduct>>,
+      skuId: number,
+    ) {
+      await wrapper.find(`[data-testid="pick-${skuId}"]`).trigger('click');
+      await flushPromises();
+    }
+
+    const addButton = (wrapper: Awaited<ReturnType<typeof mountSkuProduct>>) =>
+      wrapper.find('[data-testid="add-to-cart-button"]');
+
+    beforeEach(() => {
+      mockAddItem.mockClear();
+      openSkuSheet.mockClear();
+      received.skuOptions = [];
+    });
+
+    it('hands every SKU to the selector', async () => {
+      await mountSkuProduct();
+
+      expect(received.skuOptions.map((s) => s.skuId)).toEqual([
+        1099, 1113, 1114,
+      ]);
+    });
+
+    it('asks for a pick instead of adding before one is made', async () => {
+      const wrapper = await mountSkuProduct();
+
+      expect(addButton(wrapper).text()).toBe('product.choose_variant');
+      await addButton(wrapper).trigger('click');
+
+      expect(openSkuSheet).toHaveBeenCalledOnce();
+      expect(mockAddItem).not.toHaveBeenCalled();
+    });
+
+    it('adds the picked SKU, not the first one', async () => {
+      const wrapper = await mountSkuProduct();
+      await pick(wrapper, 1113);
+
+      expect(addButton(wrapper).text()).toBe('product.add_to_cart');
+      await addButton(wrapper).trigger('click');
+
+      expect(mockAddItem).toHaveBeenCalledWith(1113, 1);
+      expect(openSkuSheet).not.toHaveBeenCalled();
+    });
+
+    it('shows the product stock before a pick and the picked SKU stock after', async () => {
+      const wrapper = await mountSkuProduct();
+      const badge = () => wrapper.find('.stock-badge').attributes('data-total');
+
+      expect(badge()).toBe('289');
+      await pick(wrapper, 1113);
+      expect(badge()).toBe('5');
+    });
+
+    it('caps the quantity at the picked SKU stock', async () => {
+      const wrapper = await mountSkuProduct();
+      await pick(wrapper, 1113);
+
+      expect(wrapper.find('.quantity-input').attributes('data-max')).toBe('5');
+    });
+
+    it('lowers a quantity set before the pick to the picked SKU stock', async () => {
+      const wrapper = await mountSkuProduct();
+      await wrapper.find('[data-testid="set-quantity-20"]').trigger('click');
+      await pick(wrapper, 1113);
+
+      await addButton(wrapper).trigger('click');
+
+      expect(mockAddItem).toHaveBeenCalledWith(1113, 5);
+    });
+
+    it('shows the out-of-stock block for a picked SKU without stock', async () => {
+      const wrapper = await mountSkuProduct();
+      await pick(wrapper, 1114);
+
+      expect(wrapper.find('[data-testid="oos-block"]').exists()).toBe(true);
+      expect(addButton(wrapper).exists()).toBe(false);
+      // The picker stays, so another SKU can still be chosen.
+      expect(wrapper.find('[data-testid="sku-selector-stub"]').exists()).toBe(
+        true,
+      );
+    });
+
+    it('hands the picked SKU article number to the top area', async () => {
+      const wrapper = await mountSkuProduct();
+      const artNr = () =>
+        wrapper.findComponent(ProductTopArea).props('articleNumber');
+
+      expect(artNr()).toBeUndefined();
+      await pick(wrapper, 1113);
+      expect(artNr()).toBe('SKY-GLAS-KLAR-S');
+    });
+
+    it('leaves a single-SKU product on its own article number', async () => {
+      const wrapper = await mountSkuProduct(
+        makeProduct({
+          skus: [{ skuId: 101, articleNumber: 'SKU-OWN', stock: stock(10) }],
+        }),
+      );
+
+      expect(
+        wrapper.findComponent(ProductTopArea).props('articleNumber'),
+      ).toBeUndefined();
+    });
+
+    it('renders no selector for a single-SKU product with only its own DefaultProduct row', async () => {
+      const wrapper = await mountSkuProduct(
+        makeProduct({
+          variantDimensions: product.variantDimensions,
+          variantGroup: product.variantGroup,
+        }),
+      );
+
+      expect(wrapper.find('[data-testid="sku-selector-stub"]').exists()).toBe(
+        false,
+      );
+      expect(addButton(wrapper).text()).toBe('product.add_to_cart');
+      await addButton(wrapper).trigger('click');
+      expect(mockAddItem).toHaveBeenCalledWith(101, 1);
+    });
+  });
+
   describe('the product it is given', () => {
     it('makes no request for the product', async () => {
       const product = makeProduct();

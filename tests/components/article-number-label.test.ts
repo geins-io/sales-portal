@@ -102,6 +102,25 @@ describe('article number label', () => {
   }
 });
 
+describe('article number of a picked SKU', () => {
+  beforeEach(() => {
+    real.global.locale.value = 'de';
+  });
+
+  it.each([
+    ['the picked SKU number', 'ART-001-M', 'Art.-Nr. ART-001-M'],
+    ['the product number without a pick', null, 'Art.-Nr. ART-001'],
+  ])('shows %s on the product page', (_, articleNumber, label) => {
+    const wrapper = mountComponent(ProductTopArea, {
+      props: { product: product as unknown as DetailProduct, articleNumber },
+      global,
+    });
+    expect(wrapper.find('[data-testid="product-article-number"]').text()).toBe(
+      label,
+    );
+  });
+});
+
 describe('article number locale texts', () => {
   const dir = resolve(__dirname, '../../app/locales');
   const files = readdirSync(dir).filter((f) => f.endsWith('.json'));

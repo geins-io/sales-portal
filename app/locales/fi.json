@@ -261,6 +261,8 @@
     "sort_name_desc": "Nimi: Ö-A",
     "select_variant": "Valitse vaihtoehto",
     "select_variant_placeholder": "Valitse",
+    "variant_heading": "Variantti",
+    "choose_variant": "Valitse variantti",
     "variant_search_placeholder": "Hae",
     "image_counter": "Kuva {current}/{total}",
     "image_alt_counter": "{name} ({current}/{total})",

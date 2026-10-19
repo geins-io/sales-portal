@@ -261,6 +261,8 @@
     "sort_name_desc": "Name: Z-A",
     "select_variant": "Variante auswählen",
     "select_variant_placeholder": "Auswählen",
+    "variant_heading": "Variante",
+    "choose_variant": "Variante wählen",
     "variant_search_placeholder": "Suchen",
     "image_counter": "Bild {current} von {total}",
     "image_alt_counter": "{name} ({current} von {total})",

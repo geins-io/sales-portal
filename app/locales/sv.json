@@ -261,6 +261,8 @@
     "sort_name_desc": "Namn: Ö-A",
     "select_variant": "Välj en variant",
     "select_variant_placeholder": "Välj",
+    "variant_heading": "Variant",
+    "choose_variant": "Välj variant",
     "variant_search_placeholder": "Sök",
     "image_counter": "Bild {current} av {total}",
     "image_alt_counter": "{name} ({current} av {total})",

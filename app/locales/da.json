@@ -261,6 +261,8 @@
     "sort_name_desc": "Navn: Å-A",
     "select_variant": "Vælg en variant",
     "select_variant_placeholder": "Vælg",
+    "variant_heading": "Variant",
+    "choose_variant": "Vælg variant",
     "variant_search_placeholder": "Søg",
     "image_counter": "Billede {current} af {total}",
     "image_alt_counter": "{name} ({current} af {total})",
