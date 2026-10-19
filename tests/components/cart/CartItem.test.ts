@@ -89,6 +89,53 @@ describe('CartItem', () => {
     expect(wrapper.find('[data-testid="geins-image"]').exists()).toBe(true);
   });
 
+  describe('thumbnail', () => {
+    const stubs = {
+      GeinsImage: {
+        template:
+          '<img data-testid="thumb" :data-file="fileName" :data-url="url" />',
+        props: ['fileName', 'url', 'type', 'alt', 'sizes', 'widths'],
+      },
+      QuantityInput: {
+        template: '<div />',
+        props: ['modelValue', 'min', 'max'],
+      },
+    };
+    const withImages = (
+      productImages: { fileName: string; url?: string | null }[],
+    ) => ({
+      ...mockItem,
+      product: { ...mockItem.product, productImages },
+    });
+
+    it('passes the library url of the first image', () => {
+      const thumb = mountComponent(CartItem, {
+        props: {
+          item: withImages([
+            {
+              fileName: 'test.jpg',
+              url: 'https://cdn.litium.media/acme/products/test-image.jpg',
+            },
+          ]),
+        },
+        global: { stubs },
+      }).find('[data-testid="thumb"]');
+      expect(thumb.attributes('data-file')).toBe('test.jpg');
+      expect(thumb.attributes('data-url')).toBe(
+        'https://cdn.litium.media/acme/products/test-image.jpg',
+      );
+    });
+
+    it('passes no library url for an image outside the library', () => {
+      const thumb = mountComponent(CartItem, {
+        props: { item: withImages([{ fileName: 'test.jpg', url: null }]) },
+        global: { stubs },
+      }).find('[data-testid="thumb"]');
+      expect(thumb.attributes('data-file')).toBe('test.jpg');
+      expect(thumb.attributes('data-url')).toBeUndefined();
+    });
+  });
+
   it('renders the line total', () => {
     const wrapper = mountComponent(CartItem, {
       props: { item: mockItem },

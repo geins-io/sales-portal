@@ -40,6 +40,9 @@ const productUrl = computed(() =>
 const imageFileName = computed(
   () => props.item.product?.productImages?.[0]?.fileName ?? '',
 );
+const imageUrl = computed(
+  () => props.item.product?.productImages?.[0]?.url ?? null,
+);
 
 const skuName = computed(() => {
   if (!props.item.skuId || !props.item.product?.skus?.length) return '';
@@ -155,6 +158,7 @@ const maxQuantity = computed(() => {
     <div class="flex gap-4">
       <ProductThumbnail
         :file-name="imageFileName"
+        :url="imageUrl"
         :alt="item.product?.name ?? ''"
         size="size-12"
         radius="rounded-md"

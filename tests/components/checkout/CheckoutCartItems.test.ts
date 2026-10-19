@@ -45,8 +45,8 @@ vi.mock('../../../app/stores/cart', () => ({
 
 const stubs = {
   GeinsImage: {
-    template: '<img :data-file-name="fileName" />',
-    props: ['fileName', 'type', 'alt', 'aspectRatio', 'sizes'],
+    template: '<img :data-file-name="fileName" :data-url="url" />',
+    props: ['fileName', 'url', 'type', 'alt', 'aspectRatio', 'sizes', 'widths'],
   },
   PriceDisplay: {
     template:
@@ -227,6 +227,29 @@ describe('CheckoutCartItems', () => {
     const wrapper = mountItems([createItem()]);
     const img = wrapper.find('img');
     expect(img.attributes('data-file-name')).toBe('test-image.jpg');
+  });
+
+  it('passes the library url of the first image', () => {
+    const item = createItem();
+    item.product!.productImages = [
+      {
+        fileName: 'test-image.jpg',
+        url: 'https://cdn.litium.media/acme/products/test-image.jpg',
+      },
+    ];
+    const img = mountItems([item]).find('img');
+    expect(img.attributes('data-file-name')).toBe('test-image.jpg');
+    expect(img.attributes('data-url')).toBe(
+      'https://cdn.litium.media/acme/products/test-image.jpg',
+    );
+  });
+
+  it('passes no library url for an image outside the library', () => {
+    const item = createItem();
+    item.product!.productImages = [{ fileName: 'test-image.jpg', url: null }];
+    expect(
+      mountItems([item]).find('img').attributes('data-url'),
+    ).toBeUndefined();
   });
 
   it('renders PriceDisplay stub with totalPrice prop', () => {

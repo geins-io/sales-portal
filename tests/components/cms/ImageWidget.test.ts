@@ -4,9 +4,10 @@ import ImageWidget from '../../../app/components/cms/widgets/ImageWidget.vue';
 
 const geinsImageStub = {
   template:
-    '<div class="geins-image" :data-file="fileName" :data-type="type" :data-priority="String(priority)" />',
+    '<div class="geins-image" :data-file="fileName" :data-url="url" :data-type="type" :data-priority="String(priority)" />',
   props: {
     fileName: String,
+    url: String,
     path: String,
     type: String,
     alt: String,
@@ -54,6 +55,38 @@ describe('ImageWidget', () => {
     }).find('.geins-image');
 
     expect(image.attributes('data-priority')).toBe(expected);
+  });
+
+  it('passes the library url of the image the configuration names', () => {
+    const image = mountComponent(ImageWidget, {
+      props: {
+        ...makeProps(),
+        images: [
+          {
+            fileName: 'banner.jpg',
+            url: 'https://cdn.litium.media/acme/content/banner.jpg',
+            largestSize: null,
+          },
+        ],
+      },
+      global: { stubs },
+    }).find('.geins-image');
+
+    expect(image.attributes('data-url')).toBe(
+      'https://cdn.litium.media/acme/content/banner.jpg',
+    );
+  });
+
+  it('passes no library url when the matching image has none', () => {
+    const image = mountComponent(ImageWidget, {
+      props: {
+        ...makeProps(),
+        images: [{ fileName: 'banner.jpg', url: null, largestSize: null }],
+      },
+      global: { stubs },
+    }).find('.geins-image');
+
+    expect(image.attributes('data-url')).toBeUndefined();
   });
 
   it('renders GeinsImage with correct fileName and type', () => {

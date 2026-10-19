@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { shallowMountComponent } from '../../utils/component';
+import { describe, it, expect, vi } from 'vitest';
+import { mountComponent, shallowMountComponent } from '../../utils/component';
 import CmsWidget from '../../../app/components/cms/CmsWidget.vue';
 
 const textWidgetStub = {
@@ -40,6 +40,17 @@ const stubs = {
   CmsWidgetsButtonsWidget: buttonsWidgetStub,
   VideoWidget: videoWidgetStub,
   CmsWidgetsVideoWidget: videoWidgetStub,
+};
+
+const imagesProbe = {
+  name: 'ImagesProbe',
+  template: '<div class="images-probe" />',
+  props: ['data', 'config', 'layout', 'collapse', 'priority', 'images'],
+};
+const imageStubs = {
+  ImageWidget: imagesProbe,
+  BannerWidget: imagesProbe,
+  TextWidget: { ...imagesProbe, props: ['data', 'config', 'layout'] },
 };
 
 function makeWidget(type: string) {
@@ -106,6 +117,45 @@ describe('CmsWidget', () => {
       global: { stubs },
     });
     expect(wrapper.html()).not.toBe('');
+  });
+
+  describe('widget images', () => {
+    const images = [
+      {
+        fileName: 'hero.jpg',
+        url: 'https://cdn.litium.media/acme/content/hero.jpg',
+        largestSize: null,
+      },
+    ];
+    const withImages = (type: string) => {
+      const props = makeWidget(type);
+      return { ...props, widget: { ...props.widget, images } };
+    };
+
+    // The widgets are async components: wait for the stub to render.
+    async function mountProbe(type: string) {
+      const wrapper = mountComponent(CmsWidget, {
+        props: withImages(type),
+        global: { stubs: imageStubs },
+      });
+      await vi.waitFor(() =>
+        expect(wrapper.find('.images-probe').exists()).toBe(true),
+      );
+      return wrapper.findComponent(imagesProbe);
+    }
+
+    it.each(['ImagePageWidget', 'BannerPageWidget'])(
+      'forwards them to a %s',
+      async (type) => {
+        expect((await mountProbe(type)).props('images')).toEqual(images);
+      },
+    );
+
+    it('does not forward them to another widget', async () => {
+      const probe = await mountProbe('TextPageWidget');
+      expect(probe.props('images')).toBeUndefined();
+      expect(probe.attributes('images')).toBeUndefined();
+    });
   });
 
   it('shows dev warning for unknown widget type', () => {

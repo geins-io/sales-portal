@@ -4,9 +4,10 @@ import BannerWidget from '../../../app/components/cms/widgets/BannerWidget.vue';
 
 const geinsImageStub = {
   template:
-    '<div class="geins-image" :data-path="path" :data-sizes="sizes" :data-loading="loading" :data-priority="String(priority)" />',
+    '<div class="geins-image" :data-path="path" :data-url="url" :data-sizes="sizes" :data-loading="loading" :data-priority="String(priority)" />',
   props: {
     fileName: String,
+    url: String,
     path: String,
     type: String,
     alt: String,
@@ -131,6 +132,40 @@ describe('BannerWidget', () => {
     }).find('.geins-image');
 
     expect(image.attributes('data-priority')).toBe('true');
+  });
+
+  it('passes the library url of the image the configuration names', () => {
+    const wrapper = mountComponent(BannerWidget, {
+      props: {
+        ...makeProps({}),
+        images: [
+          {
+            fileName: 'other.jpg',
+            url: 'https://cdn.litium.media/acme/content/other.jpg',
+            largestSize: null,
+          },
+          {
+            fileName: 'hero.jpg',
+            url: 'https://cdn.litium.media/acme/content/hero.jpg',
+            largestSize: null,
+          },
+        ],
+      },
+      global: { stubs },
+    });
+
+    expect(wrapper.find('.geins-image').attributes('data-url')).toBe(
+      'https://cdn.litium.media/acme/content/hero.jpg',
+    );
+  });
+
+  it('passes no library url when the widget has no matching image', () => {
+    const wrapper = mountComponent(BannerWidget, {
+      props: makeProps({}),
+      global: { stubs },
+    });
+
+    expect(wrapper.find('.geins-image').attributes('data-url')).toBeUndefined();
   });
 
   it('passes the library path from the configuration', () => {

@@ -51,6 +51,15 @@ const resolvedComponent = computed(() => {
   return widgetRegistry[type] ?? null;
 });
 
+// Only these widgets declare `images`; on any other it would fall through as
+// an attribute on the widget's root element.
+const IMAGE_WIDGET_TYPES = new Set(['ImagePageWidget', 'BannerPageWidget']);
+const images = computed(() =>
+  IMAGE_WIDGET_TYPES.has(props.widget.config?.type ?? '')
+    ? props.widget.images
+    : undefined,
+);
+
 const isDev = import.meta.env.DEV;
 
 const unknownType = computed(() => {
@@ -68,6 +77,7 @@ const unknownType = computed(() => {
     :layout="layout"
     :collapse="collapse"
     :priority="priority || undefined"
+    :images="images"
   />
   <div
     v-else-if="unknownType && isDev"

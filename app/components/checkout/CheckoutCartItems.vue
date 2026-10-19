@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ImageOff, Loader2, ShoppingCart, Trash2 } from 'lucide-vue-next';
 import type { CartItemType } from '#shared/types/commerce';
+import { THUMBNAIL_WIDTHS } from '#shared/utils/image';
 import { Card, CardContent } from '~/components/ui/card';
 import CheckoutCardHeader from './CheckoutCardHeader.vue';
 import { Button } from '~/components/ui/button';
@@ -21,6 +22,10 @@ const props = withDefaults(
 
 function getImageFileName(item: CartItemType): string {
   return item.product?.productImages?.[0]?.fileName ?? '';
+}
+
+function getImageUrl(item: CartItemType): string | null {
+  return item.product?.productImages?.[0]?.url ?? null;
 }
 
 function getSkuName(item: CartItemType): string {
@@ -83,10 +88,12 @@ function handleRemove(item: CartItemType) {
             <GeinsImage
               v-if="getImageFileName(item)"
               :file-name="getImageFileName(item)"
+              :url="getImageUrl(item)"
               type="product"
               :alt="item.product?.name ?? ''"
               aspect-ratio="1"
               sizes="64px"
+              :widths="THUMBNAIL_WIDTHS"
             />
             <div
               v-else
