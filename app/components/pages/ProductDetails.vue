@@ -767,8 +767,9 @@ useProductSeo({
 
       <!-- Print-only: extra product images in a 3-col grid, gated on the
          product having more than one image so the section disappears
-         cleanly when there is nothing to show. The tiles are lazy: inside
-         the hidden section they are not fetched on screen, only in print. -->
+         cleanly when there is nothing to show. The tiles load with the
+         page: window.print() lays out at once and does not wait for a lazy
+         image that print has just revealed. -->
       <section
         v-if="additionalImages.length"
         class="hidden"
@@ -792,7 +793,7 @@ useProductSeo({
               })
             "
             type="product"
-            loading="lazy"
+            loading="eager"
             sizes="240px"
             :widths="PRINT_TILE_WIDTHS"
             fit="contain"

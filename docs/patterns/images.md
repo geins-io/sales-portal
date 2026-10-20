@@ -82,9 +82,11 @@ areas, the product page's area) does not take `priority`.
 ## Print-only images
 
 An image that only print shows sits in a `hidden` section with
-`loading="lazy"`: Chromium and WebKit do not fetch a lazy image under
-`display: none`, and print loads it when the section shows. Firefox is
-unverified.
+`loading="eager"`, so it is fetched with the page. A lazy image under
+`display: none` is not fetched on screen, and `window.print()` lays the page
+out at once, before the image that print has just revealed arrives: the data
+sheet's button printed grey boxes. Keep these tiles small (`PRINT_TILE_WIDTHS`),
+since every view pays for them.
 
 ## Crawlers
 

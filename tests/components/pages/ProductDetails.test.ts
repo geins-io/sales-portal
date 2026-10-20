@@ -1826,3 +1826,28 @@ describe('ProductDetails', () => {
     });
   });
 });
+
+describe('ProductDetails print-only extra images', () => {
+  it('loads them with the page, so the data sheet prints them', async () => {
+    const product = makeProduct({
+      productImages: [
+        { fileName: 'product.jpg', isPrimary: true, url: '' },
+        { fileName: 'product-side.jpg', url: '' },
+        { fileName: 'product-back.jpg', url: '' },
+      ],
+    });
+    const wrapper = await mountProductDetails(
+      { product, alias: product.alias ?? '' },
+      { global: { stubs: defaultStubs } },
+    );
+
+    const tiles = wrapper.findAll(
+      '[data-testid="pdp-print-extra-images"] geins-image-stub',
+    );
+    expect(tiles).toHaveLength(2);
+    expect(tiles.map((tile) => tile.attributes('loading'))).toEqual([
+      'eager',
+      'eager',
+    ]);
+  });
+});

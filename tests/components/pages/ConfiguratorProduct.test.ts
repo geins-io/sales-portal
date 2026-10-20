@@ -304,7 +304,8 @@ const stubs = {
     props: ['items'],
   },
   GeinsImage: {
-    template: '<img data-testid="product-image" :alt="alt" :src="fileName" />',
+    template:
+      '<img data-testid="product-image" :alt="alt" :src="fileName" :loading="loading" />',
     props: ['fileName', 'alt', 'type', 'loading', 'fit', 'aspectRatio'],
   },
   ProductGallery: {
@@ -1454,6 +1455,25 @@ describe('ConfiguratorProduct frame', () => {
 
     rows[0]!.trigger('click');
     expect(printSpy).toHaveBeenCalled();
+  });
+
+  it('loads the print-only extra images with the page, so the data sheet prints them', () => {
+    const wrapper = mountPage(
+      makeProduct({
+        productImages: [
+          { fileName: 'workbench.jpg', isPrimary: true, url: '' },
+          { fileName: 'workbench-side.jpg', url: '' },
+          { fileName: 'workbench-top.jpg', url: '' },
+        ],
+      }),
+    );
+
+    const tiles = wrapper.findAll('[data-testid="pdp-print-extra-images"] img');
+    expect(tiles).toHaveLength(2);
+    expect(tiles.map((tile) => tile.attributes('loading'))).toEqual([
+      'eager',
+      'eager',
+    ]);
   });
 
   it('renders the tenant CMS zone under the tabs', async () => {

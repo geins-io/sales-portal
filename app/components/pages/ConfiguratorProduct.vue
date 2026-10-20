@@ -1343,8 +1343,8 @@ function onRetryOpen(): void {
         </TabsContent>
       </Tabs>
 
-      <!-- Print-only: extra product images in a 3-col grid. The tiles are
-         lazy: inside the hidden section they are not fetched on screen. -->
+      <!-- Print-only: extra product images in a 3-col grid. The tiles load
+         with the page, so window.print() finds them ready. -->
       <section
         v-if="additionalImages.length"
         class="hidden"
@@ -1368,7 +1368,7 @@ function onRetryOpen(): void {
               })
             "
             type="product"
-            loading="lazy"
+            loading="eager"
             sizes="240px"
             :widths="PRINT_TILE_WIDTHS"
             fit="contain"

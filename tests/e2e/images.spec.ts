@@ -328,7 +328,7 @@ test.describe('Images from the asset library', () => {
     expect(requests.filter((r) => r.url() === currentSrc)).toHaveLength(1);
   });
 
-  test('print-only images are not fetched on screen, and load in print', async ({
+  test('the data sheet button prints the extra images, loaded when it prints', async ({
     page,
   }) => {
     const product = await libraryProduct(page, 2);
@@ -338,31 +338,31 @@ test.describe('Images from the asset library', () => {
       'no ordinary product with two or more library images',
     );
 
-    const requests = recordLibraryRequests(page);
+    // Records the print-only tiles at the moment the button prints, which is
+    // what the browser lays out; the stub keeps the print dialog away.
+    await page.addInitScript(() => {
+      window.print = () => {
+        const tiles = [
+          ...document.querySelectorAll<HTMLImageElement>(
+            '[data-testid="pdp-print-extra-images"] img',
+          ),
+        ];
+        document.body.dataset.tilesAtPrint = JSON.stringify(
+          tiles.map((img) => img.complete && img.naturalWidth > 0),
+        );
+      };
+    });
     await page.goto(`/p/${product!.alias}`);
     await waitForHydration(page);
-    const tiles = page.locator('[data-testid="pdp-print-extra-images"] img');
-    await expect(tiles.first()).toBeAttached();
-    const tileUrls = await tiles.evaluateAll((els) =>
-      els.map((el) => (el as HTMLImageElement).src.split('?')[0]),
-    );
-    expect(
-      requests.filter((r) => tileUrls.includes(r.url().split('?')[0])),
-    ).toHaveLength(0);
+    await page.waitForLoadState('load');
 
-    await page.emulateMedia({ media: 'print' });
+    await page.getByTestId('pdp-print').click();
 
-    await expect
-      .poll(() =>
-        tiles.evaluateAll((els) =>
-          els.every(
-            (el) =>
-              (el as HTMLImageElement).complete &&
-              (el as HTMLImageElement).naturalWidth > 0,
-          ),
-        ),
-      )
-      .toBe(true);
+    const printed = JSON.parse(
+      (await page.locator('body').getAttribute('data-tiles-at-print')) ?? '[]',
+    ) as boolean[];
+    expect(printed.length).toBeGreaterThan(0);
+    expect(printed).toEqual(printed.map(() => true));
   });
 
   test('a start-page widget image is fetched from the library', async ({
