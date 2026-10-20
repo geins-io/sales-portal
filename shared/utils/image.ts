@@ -30,6 +30,13 @@ export const COVER_RANGES = [
   { media: '(min-width: 1280px)', width: 1920 },
 ];
 
+/**
+ * Viewports that get a separate mobile image, and the rest. The mobile query
+ * is the first cover range, so a mobile image takes exactly that range's place.
+ */
+export const MOBILE_MEDIA = COVER_RANGES[0]!.media;
+export const DESKTOP_MEDIA = '(min-width: 768px)';
+
 const COVER_DENSITIES = [1, 2, 3];
 const MAX_COVER_WIDTH = 3840;
 
@@ -41,16 +48,32 @@ export interface ImageSources {
   origin: string | null;
 }
 
-export interface CoverSources extends ImageSources {
-  /** One `<source>` per viewport range; empty for a legacy image. */
-  sources: { media: string; srcset: string }[];
+export interface PictureSource {
+  media: string;
+  srcset: string;
+  /** Set when the candidates are widths. */
+  sizes?: string;
+  /** The URL a preload falls back to; the img's `src` when absent. */
+  src?: string;
 }
 
-interface SourceInput {
+export interface CoverSources extends ImageSources {
+  /**
+   * One `<source>` per viewport range; empty for a legacy image without a
+   * mobile image.
+   */
+  sources: PictureSource[];
+}
+
+/** Where one image lives: its library `url`, library `path`, or legacy file. */
+export interface ImageRef {
   url?: string | null;
   path?: string | null;
-  assetBaseUrl?: string;
   fileName?: string | null;
+}
+
+interface SourceInput extends ImageRef {
+  assetBaseUrl?: string;
   type: GeinsImageType;
   imageBaseUrl: string;
 }
@@ -95,28 +118,69 @@ export function buildImageSources(
  * widest box. `fit=cover` returns the whole image scaled to cover both sizes,
  * and the img's `object-cover` crops it as before. The img takes the widest
  * range; a legacy image has no sources.
+ *
+ * A `mobile` image replaces the first range, asked for the same way, or as
+ * its one raw file when legacy. A legacy image with a mobile image gets a
+ * desktop source too, so a preload never fetches it on a phone.
  */
 export function buildCoverSources(
-  input: SourceInput & { height: number },
+  input: SourceInput & { height: number; mobile?: ImageRef },
 ): CoverSources {
+  const mobileLibrary =
+    input.mobile && libraryUrl({ ...input, ...refOf(input.mobile) });
+  const mobile = input.mobile && mobileCoverSource(input, input.mobile);
   const library = libraryUrl(input);
-  if (!library) return { ...legacySources(input), sources: [] };
+  if (!library) {
+    const legacy = legacySources(input);
+    return {
+      ...legacy,
+      origin: legacy.origin ?? mobileLibrary?.origin ?? null,
+      sources: mobile
+        ? [
+            mobile,
+            { media: DESKTOP_MEDIA, srcset: legacy.src, src: legacy.src },
+          ]
+        : [],
+    };
+  }
 
-  const at = (width: number, density: number) =>
-    sized(library, Math.min(width * density, MAX_COVER_WIDTH), {
-      height: input.height * density,
-      fit: 'cover',
-    });
-  const sources = COVER_RANGES.map(({ media, width }) => ({
+  const sources: PictureSource[] = COVER_RANGES.map(({ media, width }) => ({
     media,
-    srcset: COVER_DENSITIES.map((d) => `${at(width, d)} ${d}x`).join(', '),
+    srcset: coverSrcset(library, width, input.height),
   }));
+  if (mobile) sources[0] = mobile;
   const widest = COVER_RANGES.at(-1)!.width;
   return {
-    src: at(widest, 1),
+    src: coverUrl(library, widest, input.height, 1),
     srcset: sources.at(-1)!.srcset,
     origin: library.origin,
     sources,
+  };
+}
+
+/**
+ * Sources for an image whose box is sized by width (see `buildImageSources`)
+ * with a separate `mobile` image: a mobile source below `MOBILE_MEDIA`, then
+ * the desktop candidates above it, each with `sizes` when they are widths.
+ * The img keeps the desktop candidates for browsers without `<picture>`.
+ */
+export function buildMobileSources(
+  input: SourceInput & {
+    mobile: ImageRef;
+    sizes: string;
+    widths?: number[];
+    ratio?: number;
+  },
+): CoverSources {
+  const desktop = buildImageSources(input);
+  const mobile = buildImageSources({ ...input, ...refOf(input.mobile) });
+  return {
+    ...desktop,
+    origin: desktop.origin ?? mobile.origin,
+    sources: [
+      pictureSource(MOBILE_MEDIA, mobile, input.sizes),
+      pictureSource(DESKTOP_MEDIA, desktop, input.sizes),
+    ],
   };
 }
 
@@ -146,6 +210,55 @@ function legacySources(input: SourceInput): ImageSources {
     srcset: null,
     origin: null,
   };
+}
+
+/** Only the image's own fields, so none of the desktop image's leak in. */
+function refOf(ref: ImageRef): ImageRef {
+  return { url: ref.url, path: ref.path, fileName: ref.fileName };
+}
+
+function mobileCoverSource(
+  input: SourceInput & { height: number },
+  mobile: ImageRef,
+): PictureSource {
+  const ref = { ...input, ...refOf(mobile) };
+  const library = libraryUrl(ref);
+  if (!library) {
+    const { src } = legacySources(ref);
+    return { media: MOBILE_MEDIA, srcset: src, src };
+  }
+  const width = COVER_RANGES[0]!.width;
+  return {
+    media: MOBILE_MEDIA,
+    srcset: coverSrcset(library, width, input.height),
+    src: coverUrl(library, width, input.height, 1),
+  };
+}
+
+function pictureSource(
+  media: string,
+  { src, srcset }: ImageSources,
+  sizes: string,
+): PictureSource {
+  return srcset ? { media, srcset, sizes, src } : { media, srcset: src, src };
+}
+
+function coverSrcset(library: URL, width: number, height: number): string {
+  return COVER_DENSITIES.map(
+    (d) => `${coverUrl(library, width, height, d)} ${d}x`,
+  ).join(', ');
+}
+
+function coverUrl(
+  library: URL,
+  width: number,
+  height: number,
+  density: number,
+): string {
+  return sized(library, Math.min(width * density, MAX_COVER_WIDTH), {
+    height: height * density,
+    fit: 'cover',
+  });
 }
 
 function sized(

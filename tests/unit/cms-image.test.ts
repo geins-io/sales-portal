@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { composeAssetUrl, widgetImageUrl } from '../../shared/utils/cms-image';
+import {
+  composeAssetUrl,
+  widgetImageUrl,
+  widgetMobileImage,
+} from '../../shared/utils/cms-image';
 
 const LIBRARY = 'https://cdn.litium.media/acme/content/hero.png';
 
@@ -41,6 +45,50 @@ describe('widgetImageUrl', () => {
     expect(widgetImageUrl(null, 'hero.png')).toBeNull();
     expect(widgetImageUrl([], 'hero.png')).toBeNull();
   });
+});
+
+describe('widgetMobileImage', () => {
+  const MOBILE = 'https://cdn.litium.media/acme/content/hero-mobile.png';
+  const image = {
+    filename: 'hero.png',
+    path: 'content/hero.png',
+    filenameForMobileDevice: 'hero-mobile.png',
+    pathForMobileDevice: 'content/hero-mobile.png',
+  };
+
+  it('locates the mobile image by its own file name and path', () => {
+    expect(
+      widgetMobileImage(image, [
+        { fileName: 'hero.png', url: LIBRARY },
+        { fileName: 'hero-mobile.png', url: MOBILE },
+      ]),
+    ).toEqual({
+      fileName: 'hero-mobile.png',
+      url: MOBILE,
+      path: 'content/hero-mobile.png',
+    });
+  });
+
+  it('leaves the url null for a mobile image outside the library', () => {
+    expect(
+      widgetMobileImage(
+        { filename: 'hero.png', filenameForMobileDevice: 'hero-mobile.png' },
+        [{ fileName: 'hero.png', url: LIBRARY }],
+      ),
+    ).toEqual({ fileName: 'hero-mobile.png', url: null, path: undefined });
+  });
+
+  it.each([null, undefined, ''])(
+    'gives nothing when the editor set no mobile image (%s)',
+    (filenameForMobileDevice) => {
+      expect(
+        widgetMobileImage({ ...image, filenameForMobileDevice }, [
+          { fileName: 'hero.png', url: LIBRARY },
+        ]),
+      ).toBeUndefined();
+      expect(widgetMobileImage(undefined, [])).toBeUndefined();
+    },
+  );
 });
 
 describe('composeAssetUrl', () => {

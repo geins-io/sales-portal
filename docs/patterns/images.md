@@ -67,6 +67,38 @@ returns the source.
   fetched. Give it to one image per page.
 - **`loading`** stays `lazy` by default. Product grids pass the card's
   `index`: card 0 gets `priority`, cards 1–3 load eagerly, the rest lazily.
+- **`mobile`** is a separate image for viewports below 768 px (`MOBILE_MEDIA`),
+  given as `{ url, path, fileName }` and located in the same order as the
+  image itself. See below.
+
+## A separate mobile image
+
+The Image and Banner widgets let an editor pick a second image under
+**Mobile** (`filenameForMobileDevice`, `pathForMobileDevice`, plus its own
+entry in the widget's `images`). `widgetMobileImage` in
+`shared/utils/cms-image.ts` locates it, and `GeinsImage` switches to it with a
+`<picture>`:
+
+| Box                                     | Sources                                                                                      |
+| --------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Sized by width (Image, non-full Banner) | mobile below 768 px, desktop from 768 px, both with the img's `sizes`; the img keeps desktop |
+| Fixed height (`coverHeight`)            | the mobile image takes the first `COVER_RANGES` range; the other three stay desktop          |
+
+- **One `<picture>`, not two imgs.** The browser picks one source, so a phone
+  fetches only the mobile file and it is the LCP image. A hidden second
+  `<img>` that is eager or `priority` is still fetched.
+- **The viewport decides, not the widget's width.** A `<source media>` sees
+  only the viewport. Below 768 px containers stack to one column, so the
+  widget is phone-wide anyway, except a quarter widget from 640 px.
+- **Each image resolves on its own.** A library desktop image can have a
+  legacy mobile image, or the reverse. A legacy image is one raw candidate.
+- **Priority** preloads each source for its own `media`, with that source's
+  candidates and `sizes`, so exactly one preload matches and it is the file
+  the `<picture>` picks.
+- **The box can change shape at 768 px.** A width-sized box follows the image
+  that was picked. A fixed-height box crops either one.
+- Without a mobile image nothing changes: no `<picture>` for a width-sized box,
+  the same four ranges for a fixed-height one.
 
 ## Which image gets priority
 

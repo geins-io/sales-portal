@@ -162,6 +162,51 @@ async function loadEveryImage(page: Page) {
     .toBe(true);
 }
 
+/**
+ * The desktop and mobile file names of every Image or Banner widget with a
+ * mobile image, read from the CMS data the page was rendered from rather than
+ * from its markup, so a page that ignores the mobile image still finds them.
+ */
+async function widgetsWithMobileImage(
+  page: Page,
+): Promise<{ desktop: string; mobile: string }[]> {
+  return page.evaluate(() => {
+    interface Node {
+      config?: { type?: string };
+      data?: {
+        image?: { filename?: string; filenameForMobileDevice?: string | null };
+      };
+    }
+    const root = document.querySelector('#__nuxt') as
+      | (Element & {
+          __vue_app__?: {
+            config: { globalProperties: { $nuxt?: { payload: object } } };
+          };
+        })
+      | null;
+    const found: { desktop: string; mobile: string }[] = [];
+    const seen = new Set<object>();
+    const walk = (value: unknown) => {
+      if (!value || typeof value !== 'object' || seen.has(value)) return;
+      seen.add(value);
+      const { config, data } = value as Node;
+      const image = data?.image;
+      if (
+        /^(Image|Banner)PageWidget$/.test(config?.type ?? '') &&
+        image?.filename &&
+        image.filenameForMobileDevice
+      )
+        found.push({
+          desktop: image.filename,
+          mobile: image.filenameForMobileDevice,
+        });
+      Object.values(value).forEach(walk);
+    };
+    walk(root?.__vue_app__?.config.globalProperties.$nuxt?.payload);
+    return found;
+  });
+}
+
 const decode = (value: string | undefined) =>
   (value ?? '').replaceAll('&amp;', '&');
 
@@ -558,6 +603,67 @@ test.describe('Images from the asset library', () => {
       expect(url.searchParams.has('fit'), img.currentSrc).toBe(false);
     }
   });
+
+  for (const { device, viewport, mobile } of [
+    { device: 'a phone', viewport: { width: 390, height: 844 }, mobile: true },
+    {
+      device: 'a desktop',
+      viewport: { width: 1440, height: 900 },
+      mobile: false,
+    },
+  ]) {
+    test(`a widget with a mobile image fetches only the one for ${device}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      const requested: string[] = [];
+      page.on('request', (request) => requested.push(request.url()));
+
+      // The start page, then the unlinked image test page.
+      let pairs: { desktop: string; mobile: string }[] = [];
+      for (const path of ['/', '/images']) {
+        requested.length = 0;
+        await page.goto(path);
+        await waitForHydration(page);
+        await loadEveryImage(page);
+        pairs = await widgetsWithMobileImage(page);
+        if (pairs.length) break;
+      }
+      outOfScope(
+        pairs.length === 0,
+        'tenant-config',
+        'no Image or Banner widget with a mobile image on the start page or /images',
+      );
+
+      const shownFiles = await page
+        .locator('[data-testid="cms-widget"] img')
+        .evaluateAll((imgs) =>
+          (imgs as HTMLImageElement[]).map((img) => img.currentSrc),
+        );
+      // Library and legacy URLs both end in the file name, percent-encoded.
+      const isFile = (url: string, fileName: string) =>
+        decodeURIComponent(new URL(url, 'http://x').pathname).endsWith(
+          `/${fileName}`,
+        );
+      for (const pair of pairs) {
+        const [shown, skipped] = mobile
+          ? [pair.mobile, pair.desktop]
+          : [pair.desktop, pair.mobile];
+        expect(
+          shownFiles.filter((src) => isFile(src, shown)),
+          shown,
+        ).toHaveLength(1);
+        expect(
+          requested.filter((url) => isFile(url, shown)),
+          shown,
+        ).toHaveLength(1);
+        expect(
+          requested.filter((url) => isFile(url, skipped)),
+          skipped,
+        ).toEqual([]);
+      }
+    });
+  }
 
   test.describe('signed in', () => {
     test.use({ storageState: signedInState });

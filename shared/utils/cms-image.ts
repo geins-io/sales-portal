@@ -1,4 +1,6 @@
 import type { ContentImageType } from '@geins/types';
+import type { WidgetImage } from '#shared/types/cms';
+import type { ImageRef } from './image';
 
 /**
  * The asset library URL of a widget's configured image: the entry in the
@@ -14,6 +16,26 @@ export function widgetImageUrl(
 ): string | null {
   if (!fileName) return null;
   return images?.find((image) => image.fileName === fileName)?.url ?? null;
+}
+
+/**
+ * The image an Image or Banner widget shows on small screens, located like
+ * its desktop image; undefined when the editor set none.
+ */
+export function widgetMobileImage(
+  image: WidgetImage | undefined,
+  images:
+    | readonly Pick<ContentImageType, 'fileName' | 'url'>[]
+    | null
+    | undefined,
+): ImageRef | undefined {
+  const fileName = image?.filenameForMobileDevice;
+  if (!fileName) return undefined;
+  return {
+    fileName,
+    url: widgetImageUrl(images, fileName),
+    path: image.pathForMobileDevice,
+  };
 }
 
 /**

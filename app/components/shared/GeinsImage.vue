@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ImageOff } from 'lucide-vue-next';
 import type { GeinsImageType } from '#shared/constants/image';
-import type { CoverSources } from '#shared/utils/image';
+import type { CoverSources, ImageRef } from '#shared/utils/image';
 import {
   buildCoverSources,
   buildImageSources,
+  buildMobileSources,
   parseAspectRatio,
 } from '#shared/utils/image';
 
@@ -16,6 +17,12 @@ const props = withDefaults(
     url?: string | null;
     /** Asset library path from CMS configuration, e.g. `content/banner.jpg`. */
     path?: string | null;
+    /**
+     * A separate image for viewports below 768 px, located the same way.
+     * Only that one file is fetched there; a width-sized box takes its shape,
+     * a fixed-height box crops it.
+     */
+    mobile?: ImageRef | null;
     type: GeinsImageType;
     alt: string;
     /**
@@ -53,6 +60,7 @@ const props = withDefaults(
     fileName: undefined,
     url: undefined,
     path: undefined,
+    mobile: undefined,
     aspectRatio: undefined,
     coverHeight: undefined,
     loading: 'lazy',
@@ -79,17 +87,27 @@ const sources = computed<CoverSources>(() => {
     type: props.type,
     imageBaseUrl: imageBaseUrl.value,
   };
+  const { mobile: given } = props;
+  const mobile =
+    given && (given.url || given.path || given.fileName) ? given : undefined;
   if (props.fit === 'cover' && props.coverHeight)
-    return buildCoverSources({ ...input, height: props.coverHeight });
-  return {
-    ...buildImageSources({
-      ...input,
-      widths: props.widths,
-      ratio: props.fit === 'cover' ? ratio.value : undefined,
-    }),
-    sources: [],
+    return buildCoverSources({ ...input, height: props.coverHeight, mobile });
+  const sized = {
+    ...input,
+    widths: props.widths,
+    ratio: props.fit === 'cover' ? ratio.value : undefined,
   };
+  if (mobile)
+    return buildMobileSources({ ...sized, mobile, sizes: props.sizes });
+  return { ...buildImageSources(sized), sources: [] };
 });
+
+// Width candidates need `sizes`; a cover box's density candidates do not.
+const imgSizes = computed(() =>
+  sources.value.srcset && !(props.fit === 'cover' && props.coverHeight)
+    ? props.sizes
+    : undefined,
+);
 
 // The preload carries the img's own candidates and sizes, so both resolve to
 // one URL and the browser fetches it once. A <picture> gets one preload per
@@ -118,9 +136,10 @@ if (props.priority) {
           : []),
         ...(ranges.length
           ? ranges.map((range, i) =>
-              preload(`image-preload-${src}-${i}`, src, {
+              preload(`image-preload-${src}-${i}`, range.src ?? src, {
                 media: range.media,
                 imagesrcset: range.srcset,
+                ...(range.sizes && { imagesizes: range.sizes }),
               }),
             )
           : [
@@ -188,16 +207,26 @@ watch(
         :key="range.media"
         :media="range.media"
         :srcset="range.srcset"
+        :sizes="range.sizes"
       />
       <img
         ref="img"
         :src="sources.src"
         :srcset="sources.srcset ?? undefined"
+        :sizes="imgSizes"
         :alt="alt"
         :loading="priority ? 'eager' : loading"
         :fetchpriority="priority ? 'high' : undefined"
         :decoding="priority ? undefined : 'async'"
-        class="relative size-full object-cover"
+        class="relative"
+        :class="
+          fit === 'natural'
+            ? 'block h-auto w-full'
+            : [
+                'size-full',
+                fit === 'contain' ? 'object-contain' : 'object-cover',
+              ]
+        "
         @load="onLoad"
         @error="onError"
       />
@@ -207,7 +236,7 @@ watch(
       ref="img"
       :src="sources.src"
       :srcset="sources.srcset ?? undefined"
-      :sizes="sources.srcset ? sizes : undefined"
+      :sizes="imgSizes"
       :alt="alt"
       :loading="priority ? 'eager' : loading"
       :fetchpriority="priority ? 'high' : undefined"

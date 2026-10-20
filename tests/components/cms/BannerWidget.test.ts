@@ -308,4 +308,96 @@ describe('BannerWidget', () => {
     expect(wrapper.find('a').exists()).toBe(false);
     expect(wrapper.text()).toContain('Hero');
   });
+
+  describe('a mobile image', () => {
+    const DESKTOP_URL = 'https://cdn.litium.media/acme/content/hero.jpg';
+    const MOBILE_URL = 'https://cdn.litium.media/acme/content/hero-mobile.jpg';
+    const RAW = 'https://monitor.commerce.services/pagewidget/raw';
+
+    /** The banner with its real image, which builds the sources. */
+    function mountWithMobile(
+      overrides: Parameters<typeof makeProps>[0],
+      image: Record<string, unknown>,
+      images: { fileName: string; url: string | null }[] = [],
+    ) {
+      const props = makeProps(overrides);
+      return mountComponent(BannerWidget, {
+        props: {
+          ...props,
+          data: { ...props.data, image: { ...props.data.image, ...image } },
+          images: images.map((i) => ({ ...i, largestSize: null })),
+        },
+      });
+    }
+
+    const sources = (wrapper: ReturnType<typeof mountWithMobile>) =>
+      wrapper
+        .findAll('picture > source')
+        .map((s) => [s.attributes('media'), s.attributes('srcset')]);
+
+    const migrated = [
+      { fileName: 'hero.jpg', url: DESKTOP_URL },
+      { fileName: 'hero-mobile.jpg', url: MOBILE_URL },
+    ];
+
+    it('gives a full-width banner’s phone range the mobile image, covering the box', () => {
+      const [mobile, ...desktop] = sources(
+        mountWithMobile(
+          { size: 'full' },
+          { filenameForMobileDevice: 'hero-mobile.jpg' },
+          migrated,
+        ),
+      );
+
+      expect(mobile).toEqual([
+        '(max-width: 767px)',
+        expect.stringContaining(
+          `${MOBILE_URL}?width=768&height=400&fit=cover&format=auto 1x`,
+        ),
+      ]);
+      expect(desktop).toHaveLength(3);
+      for (const [, srcset] of desktop) expect(srcset).toContain(DESKTOP_URL);
+    });
+
+    it('switches a banner that is not full width by width', () => {
+      const wrapper = mountWithMobile(
+        { size: 'half', layout: 'half' },
+        { filenameForMobileDevice: 'hero-mobile.jpg' },
+        migrated,
+      );
+
+      expect(sources(wrapper).map(([media]) => media)).toEqual([
+        '(max-width: 767px)',
+        '(min-width: 768px)',
+      ]);
+      expect(sources(wrapper)[0]![1]).toContain(`${MOBILE_URL}?width=160`);
+      expect(wrapper.find('picture > source').attributes('sizes')).toBe(
+        '(min-width: 1440px) 1280px, 100vw',
+      );
+    });
+
+    it('shows a legacy account’s mobile file raw on phones only', () => {
+      const wrapper = mountWithMobile(
+        { size: 'full' },
+        { filenameForMobileDevice: 'hero-mobile.jpg', path: null },
+      );
+
+      expect(sources(wrapper)).toEqual([
+        ['(max-width: 767px)', `${RAW}/hero-mobile.jpg`],
+        ['(min-width: 768px)', `${RAW}/hero.jpg`],
+      ]);
+    });
+
+    it('keeps the four desktop ranges without one', () => {
+      const wrapper = mountWithMobile(
+        { size: 'full' },
+        { filenameForMobileDevice: null },
+        migrated,
+      );
+
+      expect(sources(wrapper)).toHaveLength(4);
+      for (const [, srcset] of sources(wrapper))
+        expect(srcset).not.toContain('hero-mobile');
+    });
+  });
 });

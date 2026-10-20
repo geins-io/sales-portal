@@ -326,6 +326,135 @@ describe('GeinsImage Component', () => {
     );
   });
 
+  describe('a separate mobile image', () => {
+    const MOBILE = 'https://cdn.example.test/acme/content/hero-mobile.png';
+    const SIZES = '(min-width: 1440px) 1280px, 100vw';
+
+    it('is a source below 768 px; the desktop image keeps its widths and box above', () => {
+      const wrapper = mountImage({
+        url: LIBRARY,
+        mobile: { url: MOBILE },
+        sizes: SIZES,
+        fit: 'natural',
+      });
+      const [mobile, desktop] = wrapper.findAll('picture > source');
+      const img = wrapper.find('picture > img');
+
+      expect(mobile!.attributes()).toMatchObject({
+        media: '(max-width: 767px)',
+        sizes: SIZES,
+      });
+      expect(mobile!.attributes('srcset')).toContain(
+        `${MOBILE}?width=160&format=auto 160w`,
+      );
+      expect(desktop!.attributes()).toMatchObject({
+        media: '(min-width: 768px)',
+        srcset: img.attributes('srcset'),
+        sizes: SIZES,
+      });
+      expect(img.attributes('srcset')).toContain(
+        `${LIBRARY}?width=160&format=auto 160w`,
+      );
+      expect(img.attributes('sizes')).toBe(SIZES);
+      expect(img.classes()).toEqual(
+        expect.arrayContaining(['block', 'h-auto', 'w-full']),
+      );
+    });
+
+    it('takes the first range of a cover box and leaves the others', () => {
+      const plain = mountImage({ url: LIBRARY, coverHeight: 400 });
+      const wrapper = mountImage({
+        url: LIBRARY,
+        coverHeight: 400,
+        mobile: { url: MOBILE },
+      });
+      const sources = wrapper.findAll('picture > source');
+
+      expect(sources[0]!.attributes('srcset')).toContain(
+        `${MOBILE}?width=768&height=400&fit=cover&format=auto 1x`,
+      );
+      expect(sources[0]!.attributes('sizes')).toBeUndefined();
+      expect(wrapper.find('picture').html()).not.toBe(
+        plain.find('picture').html(),
+      );
+      expect(sources.slice(1).map((s) => s.html())).toEqual(
+        plain
+          .findAll('picture > source')
+          .slice(1)
+          .map((s) => s.html()),
+      );
+      expect(wrapper.find('img').html()).toBe(plain.find('img').html());
+    });
+
+    it('serves a legacy mobile image as its raw file', () => {
+      const source = mountImage({
+        url: LIBRARY,
+        type: 'pagewidget',
+        mobile: { fileName: 'hero-mobile.png' },
+      }).find('picture > source');
+
+      expect(source.attributes('srcset')).toBe(
+        `${BASE}/pagewidget/raw/hero-mobile.png`,
+      );
+      expect(source.attributes('sizes')).toBeUndefined();
+    });
+
+    it.each([null, {}, { url: null, path: null, fileName: '' }])(
+      'renders as without one when it locates nothing (%o)',
+      (mobile) => {
+        const wrapper = mountImage({ url: LIBRARY, mobile });
+
+        expect(wrapper.find('picture').exists()).toBe(false);
+        expect(wrapper.html()).toBe(mountImage({ url: LIBRARY }).html());
+      },
+    );
+
+    it('preloads each image for its own viewports, so only one is fetched', () => {
+      const wrapper = mountImage({
+        url: LIBRARY,
+        mobile: { url: MOBILE },
+        sizes: SIZES,
+        priority: true,
+      });
+      const src = wrapper.find('img').attributes('src');
+      const preloads = headLinks().filter((l) => l.rel === 'preload');
+
+      expect(preloads).toEqual(
+        wrapper.findAll('picture > source').map((source, i) => ({
+          key: `image-preload-${src}-${i}`,
+          rel: 'preload',
+          as: 'image',
+          href: expect.stringMatching(
+            i === 0
+              ? /^https:\/\/cdn\.example\.test\/acme\/content\/hero-mobile\.png\?width=2560/
+              : /shoe\.jpg\?width=2560/,
+          ),
+          media: source.attributes('media'),
+          imagesrcset: source.attributes('srcset'),
+          imagesizes: SIZES,
+          fetchpriority: 'high',
+        })),
+      );
+    });
+
+    it('preloads the mobile range of a cover box from the mobile image', () => {
+      mountImage({
+        url: LIBRARY,
+        coverHeight: 400,
+        mobile: { url: MOBILE },
+        priority: true,
+      });
+      const preloads = headLinks().filter((l) => l.rel === 'preload');
+
+      expect(preloads.map((l) => l.href)).toEqual([
+        `${MOBILE}?width=768&height=400&fit=cover&format=auto`,
+        `${LIBRARY}?width=1920&height=400&fit=cover&format=auto`,
+        `${LIBRARY}?width=1920&height=400&fit=cover&format=auto`,
+        `${LIBRARY}?width=1920&height=400&fit=cover&format=auto`,
+      ]);
+    });
+  });
+
   it.each([
     ['cover', ['size-full', 'object-cover']],
     ['contain', ['size-full', 'object-contain']],

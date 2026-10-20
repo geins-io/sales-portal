@@ -3,7 +3,7 @@ import { NuxtLink } from '#components';
 import type { ContentImageType } from '@geins/types';
 import type { ImageWidgetData, ContentConfigType } from '#shared/types/cms';
 import { resolveImageFileName } from '#shared/types/cms';
-import { widgetImageUrl } from '#shared/utils/cms-image';
+import { widgetImageUrl, widgetMobileImage } from '#shared/utils/cms-image';
 import { normalizeMenuUrl } from '#shared/utils/menu';
 
 const props = defineProps<{
@@ -19,6 +19,9 @@ const props = defineProps<{
 const imageFileName = computed(() => resolveImageFileName(props.data.image));
 const imageUrl = computed(() =>
   widgetImageUrl(props.images, imageFileName.value),
+);
+const mobileImage = computed(() =>
+  widgetMobileImage(props.data.image, props.images),
 );
 const currentHost = useRequestURL().host;
 // '' for a missing href and for an unsafe scheme: the image renders unlinked.
@@ -40,6 +43,7 @@ const { localePath } = useLocaleMarket();
       :file-name="imageFileName"
       :url="imageUrl"
       :path="data.image?.path"
+      :mobile="mobileImage"
       type="pagewidget"
       :priority="priority"
       :alt="data.image?.altText || config.displayName || ''"

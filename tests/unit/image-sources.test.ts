@@ -2,9 +2,12 @@ import { describe, it, expect } from 'vitest';
 import {
   buildCoverSources,
   buildImageSources,
+  buildMobileSources,
   buildShareImageUrl,
   COVER_RANGES,
+  DESKTOP_MEDIA,
   IMAGE_WIDTHS,
+  MOBILE_MEDIA,
   parseAspectRatio,
   PRINT_TILE_WIDTHS,
   THUMBNAIL_WIDTHS,
@@ -392,6 +395,171 @@ describe('buildCoverSources', () => {
       origin: null,
       sources: [],
     });
+  });
+
+  describe('with a mobile image', () => {
+    const MOBILE = 'https://cdn.example.test/acme/content/hero-mobile.png';
+    const withMobile = (desktop: object, mobile: object) =>
+      buildCoverSources({
+        type: 'pagewidget',
+        imageBaseUrl: LEGACY,
+        height: 400,
+        ...desktop,
+        mobile,
+      });
+
+    it('takes the first range only, asked for the same way', () => {
+      const plain = cover();
+      const { sources, ...img } = withMobile({ url: LIBRARY }, { url: MOBILE });
+      const { sources: plainSources, ...plainImg } = plain;
+
+      expect(sources[0]).toEqual({
+        media: MOBILE_MEDIA,
+        srcset: [
+          `${MOBILE}?width=768&height=400&fit=cover&format=auto 1x`,
+          `${MOBILE}?width=1536&height=800&fit=cover&format=auto 2x`,
+          `${MOBILE}?width=2304&height=1200&fit=cover&format=auto 3x`,
+        ].join(', '),
+        src: `${MOBILE}?width=768&height=400&fit=cover&format=auto`,
+      });
+      expect(sources.slice(1)).toEqual(plainSources.slice(1));
+      expect(img).toEqual(plainImg);
+    });
+
+    it('is the range a mobile image replaces', () => {
+      expect(MOBILE_MEDIA).toBe(COVER_RANGES[0]!.media);
+      expect(DESKTOP_MEDIA).toBe('(min-width: 768px)');
+    });
+
+    it('finds a mobile image by its own path, never the desktop one', () => {
+      const { sources } = withMobile(
+        { url: LIBRARY, path: 'content/hero.png' },
+        { path: 'content/hero-mobile.png', fileName: 'hero-mobile.png' },
+      );
+
+      expect(sources[0]!.src).toBe(`${LEGACY}/pagewidget/raw/hero-mobile.png`);
+    });
+
+    it('serves a legacy mobile image as its one raw file', () => {
+      const { sources } = withMobile(
+        { url: LIBRARY },
+        { fileName: 'hero-mobile.png', url: null },
+      );
+      const raw = `${LEGACY}/pagewidget/raw/hero-mobile.png`;
+
+      expect(sources[0]).toEqual({
+        media: MOBILE_MEDIA,
+        srcset: raw,
+        src: raw,
+      });
+      expect(sources).toHaveLength(COVER_RANGES.length);
+    });
+
+    it('gives a legacy image a desktop source, so a phone never fetches it', () => {
+      const raw = `${LEGACY}/pagewidget/raw/hero.png`;
+
+      expect(
+        withMobile({ fileName: 'hero.png' }, { url: MOBILE }).sources,
+      ).toEqual([
+        expect.objectContaining({ media: MOBILE_MEDIA }),
+        { media: DESKTOP_MEDIA, srcset: raw, src: raw },
+      ]);
+    });
+
+    it('preconnects to the library a legacy image’s mobile image comes from', () => {
+      expect(withMobile({ fileName: 'hero.png' }, { url: MOBILE }).origin).toBe(
+        'https://cdn.example.test',
+      );
+      expect(
+        withMobile({ fileName: 'hero.png' }, { fileName: 'hero-mobile.png' })
+          .origin,
+      ).toBeNull();
+    });
+  });
+});
+
+describe('buildMobileSources', () => {
+  const MOBILE = 'https://cdn.example.test/acme/content/banner-mobile.png';
+  const SIZES = '(min-width: 1440px) 1280px, 100vw';
+  const build = (desktop: object, mobile: object, extra: object = {}) =>
+    buildMobileSources({
+      type: 'pagewidget',
+      imageBaseUrl: LEGACY,
+      sizes: SIZES,
+      ...desktop,
+      mobile,
+      ...extra,
+    });
+
+  it('shows the mobile image below 768 px and the desktop one above, by width', () => {
+    const desktop = buildImageSources({
+      url: LIBRARY,
+      type: 'pagewidget',
+      imageBaseUrl: LEGACY,
+    });
+    const mobile = buildImageSources({
+      url: MOBILE,
+      type: 'pagewidget',
+      imageBaseUrl: LEGACY,
+    });
+
+    expect(build({ url: LIBRARY }, { url: MOBILE })).toEqual({
+      ...desktop,
+      sources: [
+        {
+          media: MOBILE_MEDIA,
+          srcset: mobile.srcset,
+          sizes: SIZES,
+          src: mobile.src,
+        },
+        {
+          media: DESKTOP_MEDIA,
+          srcset: desktop.srcset,
+          sizes: SIZES,
+          src: desktop.src,
+        },
+      ],
+    });
+  });
+
+  it('keeps the ladder and crop of the image it stands in for', () => {
+    const { sources } = build(
+      { url: LIBRARY },
+      { url: MOBILE },
+      { widths: [320, 640], ratio: 2 },
+    );
+
+    expect(sources[0]!.srcset).toBe(
+      `${MOBILE}?width=320&height=160&fit=crop&format=auto 320w, ${MOBILE}?width=640&height=320&fit=crop&format=auto 640w`,
+    );
+  });
+
+  it('serves a legacy image on either side as its one raw file, without sizes', () => {
+    const { sources, origin } = build(
+      { fileName: 'banner.png' },
+      { fileName: 'banner-mobile.png' },
+    );
+    const raw = (name: string) => `${LEGACY}/pagewidget/raw/${name}`;
+
+    expect(sources).toEqual([
+      {
+        media: MOBILE_MEDIA,
+        srcset: raw('banner-mobile.png'),
+        src: raw('banner-mobile.png'),
+      },
+      {
+        media: DESKTOP_MEDIA,
+        srcset: raw('banner.png'),
+        src: raw('banner.png'),
+      },
+    ]);
+    expect(origin).toBeNull();
+  });
+
+  it('preconnects to the library a legacy image’s mobile image comes from', () => {
+    expect(build({ fileName: 'banner.png' }, { url: MOBILE }).origin).toBe(
+      'https://cdn.example.test',
+    );
   });
 });
 

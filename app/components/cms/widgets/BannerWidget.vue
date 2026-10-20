@@ -3,7 +3,7 @@ import { NuxtLink } from '#components';
 import type { ContentImageType } from '@geins/types';
 import type { BannerWidgetData, ContentConfigType } from '#shared/types/cms';
 import { resolveImageFileName } from '#shared/types/cms';
-import { widgetImageUrl } from '#shared/utils/cms-image';
+import { widgetImageUrl, widgetMobileImage } from '#shared/utils/cms-image';
 import { normalizeMenuUrl } from '#shared/utils/menu';
 
 const props = defineProps<{
@@ -22,6 +22,9 @@ const FULL_WIDTH_HEIGHT = 400;
 const imageFileName = computed(() => resolveImageFileName(props.data.image));
 const imageUrl = computed(() =>
   widgetImageUrl(props.images, imageFileName.value),
+);
+const mobileImage = computed(() =>
+  widgetMobileImage(props.data.image, props.images),
 );
 const hasLink = computed(() => !!bannerHref.value);
 const { localePath } = useLocaleMarket();
@@ -108,6 +111,7 @@ const textColorClass = computed(() => {
       :file-name="imageFileName"
       :url="imageUrl"
       :path="data.image?.path"
+      :mobile="mobileImage"
       type="pagewidget"
       :alt="data.image?.altText || config.displayName || ''"
       loading="eager"

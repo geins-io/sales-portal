@@ -56,7 +56,10 @@ export interface WidgetImage {
   altText?: string;
   text?: string | null;
   title?: string | null;
+  /** The image shown on small screens instead; null when the editor set none. */
   filenameForMobileDevice?: string | null;
+  /** Asset library path of the mobile image. */
+  pathForMobileDevice?: string | null;
   largestSize?: { imageWidth: number; imageHeight: number; imageRatio: number };
 }
 
