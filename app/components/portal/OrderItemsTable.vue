@@ -96,11 +96,13 @@ const { showPrice } = usePriceVisibility();
               </div>
             </td>
             <td
-              data-testid="order-item-article-number"
+              data-testid="order-item-article-cell"
               class="text-muted-foreground h-24 px-4 py-2"
             >
-              {{ item.articleNumber
-              }}<span v-if="item.skuName"
+              <span data-testid="order-item-article-number">{{
+                item.articleNumber
+              }}</span
+              ><span v-if="item.skuName"
                 ><template v-if="item.articleNumber"> &bull; </template
                 >{{ item.skuName }}</span
               >

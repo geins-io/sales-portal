@@ -81,10 +81,13 @@ describe('PortalItemRowsSheet', () => {
   });
 
   it('names the ordered SKU after the article number', () => {
-    const rows = mountSheet({
+    const wrapper = mountSheet({
       items: [{ ...items[0], skuName: 'L' }, items[1]],
-    }).findAll('[data-testid="item-rows-article-number"]');
-    expect(rows.map((r) => r.text())).toEqual(['ART-1 • L', 'ART-2']);
+    });
+    const cells = wrapper.findAll('[data-testid="item-rows-article-cell"]');
+    expect(cells.map((c) => c.text())).toEqual(['ART-1 • L', 'ART-2']);
+    const numbers = wrapper.findAll('[data-testid="item-rows-article-number"]');
+    expect(numbers.map((n) => n.text())).toEqual(['ART-1', 'ART-2']);
   });
 
   it('links the item name when an alias is present, plain text otherwise', () => {

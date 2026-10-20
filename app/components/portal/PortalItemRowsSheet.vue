@@ -83,10 +83,12 @@ const open = ref(false);
                 <p
                   v-if="item.articleNumber || item.skuName"
                   class="text-muted-foreground text-xs"
-                  data-testid="item-rows-article-number"
+                  data-testid="item-rows-article-cell"
                 >
-                  {{ item.articleNumber
-                  }}<span v-if="item.skuName"
+                  <span data-testid="item-rows-article-number">{{
+                    item.articleNumber
+                  }}</span
+                  ><span v-if="item.skuName"
                     ><template v-if="item.articleNumber"> &bull; </template
                     >{{ item.skuName }}</span
                   >

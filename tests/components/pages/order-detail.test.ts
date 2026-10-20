@@ -832,10 +832,12 @@ describe('OrderDetail', () => {
         global: { stubs: defaultStubs },
       });
 
-      const cells = wrapper.findAll(
+      const cells = wrapper.findAll('[data-testid="order-item-article-cell"]');
+      expect(cells.map((c) => c.text())).toEqual(['ART-001 • L', 'ART-002']);
+      const numbers = wrapper.findAll(
         '[data-testid="order-item-article-number"]',
       );
-      expect(cells.map((c) => c.text())).toEqual(['ART-001 • L', 'ART-002']);
+      expect(numbers.map((n) => n.text())).toEqual(['ART-001', 'ART-002']);
     });
 
     it('renders all order items', () => {
