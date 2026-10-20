@@ -201,15 +201,17 @@
     display: none !important;
   }
 
-  /* Product gallery on print: keep the main image, drop the arrow
-     buttons. The main image is wrapped in a Button for lightbox
-     click, so the rule must target only the arrow buttons, not
-     every button under the gallery. */
+  /* Product gallery on print: the primary image in place of the one
+     the visitor browsed to, and no arrows or counter. */
+  [data-testid='gallery-main'],
   [data-testid='gallery-prev'],
   [data-testid='gallery-next'],
   [data-testid='gallery-thumbs'],
   [data-testid='image-counter'] {
     display: none !important;
+  }
+  [data-testid='gallery-print-primary'] {
+    display: block !important;
   }
   /* Gallery wrapper: drop the dark bg-muted background and round
      corners; per the spec preview the image sits in a light box

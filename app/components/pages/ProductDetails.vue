@@ -23,6 +23,7 @@ import { ancestorCrumbs } from '#shared/utils/breadcrumb-trail';
 import { PRINT_TILE_WIDTHS } from '#shared/utils/image';
 import { resolveCombination, variantCombinations } from '~/utils/variant-tree';
 import { quantityInCart, stockLeft } from '~/utils/stock-in-cart';
+import { primaryProductImage } from '~/utils/product-images';
 
 const props = defineProps<{
   product: DetailProduct;
@@ -237,7 +238,7 @@ const printUrl = computed(() => {
 const additionalImages = computed(() => {
   const images = product.value?.productImages ?? [];
   if (images.length <= 1) return [];
-  const primary = images.find((i) => i.isPrimary) ?? images[0];
+  const primary = primaryProductImage(images);
   return images.filter((i) => i.fileName && i !== primary);
 });
 

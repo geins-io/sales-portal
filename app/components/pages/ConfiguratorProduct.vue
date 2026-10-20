@@ -73,6 +73,7 @@ import {
   type ProductTabValue,
 } from '~/utils/product-tabs';
 import { productDocuments } from '~/utils/product-documents';
+import { primaryProductImage } from '~/utils/product-images';
 
 /**
  * The page a configurable product gets.
@@ -160,7 +161,7 @@ function printDataSheet() {
 const additionalImages = computed(() => {
   const images = product.productImages ?? [];
   if (images.length <= 1) return [];
-  const primary = images.find((i) => i.isPrimary) ?? images[0];
+  const primary = primaryProductImage(images);
   return images.filter((i) => i.fileName && i !== primary);
 });
 

@@ -365,6 +365,69 @@ test.describe('Images from the asset library', () => {
     expect(printed).toEqual(printed.map(() => true));
   });
 
+  test('the data sheet prints the primary image on top after the gallery moved on', async ({
+    page,
+  }) => {
+    const product = await libraryProduct(page, 2);
+    outOfScope(
+      !product,
+      'tenant-config',
+      'no ordinary product with two or more library images',
+    );
+    const pathOf = (url: string) => new URL(url).pathname;
+    const primary = pathOf(product!.productImages![0]!.url!);
+
+    // Records the print-only top image and the extra tiles at the moment the
+    // button prints, which is what the browser lays out; the stub keeps the
+    // print dialog away.
+    await page.addInitScript(() => {
+      window.print = () => {
+        const shot = (selector: string) =>
+          [...document.querySelectorAll<HTMLImageElement>(selector)].map(
+            (img) => ({
+              path: new URL(img.currentSrc || img.src).pathname,
+              loaded: img.complete && img.naturalWidth > 0,
+            }),
+          );
+        document.body.dataset.printed = JSON.stringify({
+          top: shot('[data-testid="gallery-print-primary"] img'),
+          tiles: shot('[data-testid="pdp-print-extra-images"] img'),
+        });
+      };
+    });
+    await page.goto(`/p/${product!.alias}`);
+    await waitForHydration(page);
+    await page.waitForLoadState('load');
+
+    await page.getByTestId('gallery-next').click();
+    const shown = page.getByTestId('gallery-main').locator('img');
+    await expect
+      .poll(async () =>
+        pathOf(await shown.evaluate((img: HTMLImageElement) => img.src)),
+      )
+      .not.toBe(primary);
+
+    await page.getByTestId('pdp-print').click();
+
+    const printed = JSON.parse(
+      (await page.locator('body').getAttribute('data-printed')) ?? '{}',
+    ) as {
+      top: { path: string; loaded: boolean }[];
+      tiles: { path: string; loaded: boolean }[];
+    };
+    expect(printed.top).toEqual([{ path: primary, loaded: true }]);
+    expect(printed.tiles.length).toBeGreaterThan(0);
+    expect(printed.tiles.map((t) => t.path)).not.toContain(primary);
+
+    // The print layout shows that image, not the one the gallery moved to.
+    await page.emulateMedia({ media: 'print' });
+    const top = page.getByTestId('product-gallery').locator('img:visible');
+    await expect(top).toHaveCount(1);
+    expect(
+      pathOf(await top.evaluate((img: HTMLImageElement) => img.currentSrc)),
+    ).toBe(primary);
+  });
+
   test('a start-page widget image is fetched from the library', async ({
     page,
   }) => {

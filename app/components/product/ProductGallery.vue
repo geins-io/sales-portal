@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import type { ProductImageType } from '#shared/types/commerce';
 import { Button } from '~/components/ui/button';
 import { Dialog, DialogContent } from '~/components/ui/dialog';
+import { primaryProductImage } from '~/utils/product-images';
 
 const props = defineProps<{
   images: ProductImageType[];
@@ -57,6 +58,18 @@ const currentAlt = computed(() =>
     manualAlt: props.images[selectedIndex.value]?.altText,
   }),
 );
+
+// The data sheet prints the primary whichever image the visitor browsed to;
+// the extra-images list on print leaves out the same one.
+const primaryImage = computed(() => primaryProductImage(props.images));
+const primaryAlt = computed(() =>
+  buildProductImageAlt({
+    name: props.productName,
+    index: primaryImage.value ? props.images.indexOf(primaryImage.value) : 0,
+    total: props.images.length,
+    manualAlt: primaryImage.value?.altText,
+  }),
+);
 </script>
 
 <template>
@@ -73,6 +86,7 @@ const currentAlt = computed(() =>
         v-if="currentImage"
         variant="ghost"
         class="size-full cursor-pointer p-0"
+        data-testid="gallery-main"
         @click="openLightbox"
       >
         <GeinsImage
@@ -86,6 +100,24 @@ const currentAlt = computed(() =>
           class="size-full object-contain"
         />
       </Button>
+
+      <!-- Print-only: shown in place of the main image by print.css. Eager,
+           because window.print() lays out at once and a lazy image inside a
+           hidden element has not loaded by then. Same sizes as the main
+           image, so when the primary is the first image it reuses the
+           request the page already made. -->
+      <GeinsImage
+        v-if="primaryImage"
+        :file-name="primaryImage.fileName"
+        :url="primaryImage.url"
+        type="product"
+        :alt="primaryAlt"
+        loading="eager"
+        sizes="(min-width: 768px) 400px, calc(100vw - 66px)"
+        aspect-ratio="1"
+        class="hidden size-full object-contain"
+        data-testid="gallery-print-primary"
+      />
 
       <Button
         v-if="hasMultiple"

@@ -45,7 +45,7 @@ vi.stubGlobal('useI18n', () => ({ t: translateForTest, locale: ref('en') }));
 // Render the alt so tests can read the resolved value off the DOM.
 const geinsImageStub = {
   template:
-    '<img class="geins-image" :alt="alt" :data-url="url" :data-sizes="sizes" :data-priority="String(priority)" />',
+    '<img class="geins-image" :alt="alt" :data-url="url" :data-sizes="sizes" :data-loading="loading" :data-priority="String(priority)" />',
   props: {
     fileName: String,
     url: String,
@@ -115,29 +115,79 @@ describe('ProductGallery', () => {
         url: 'https://cdn.example.test/acme/products/a.jpg',
       },
     ]);
-    const [main, lightbox] = wrapper.findAll('.geins-image');
+    const main = wrapper.find('[data-testid="gallery-main"] .geins-image');
+    const lightbox = wrapper.find('.dialog-content .geins-image');
 
-    expect(main!.attributes('data-url')).toBe(
+    expect(main.attributes('data-url')).toBe(
       'https://cdn.example.test/acme/products/a.jpg',
     );
-    expect(main!.attributes('data-sizes')).toBe(
+    expect(main.attributes('data-sizes')).toBe(
       '(min-width: 768px) 400px, calc(100vw - 66px)',
     );
-    expect(lightbox!.attributes('data-url')).toBe(
+    expect(lightbox.attributes('data-url')).toBe(
       'https://cdn.example.test/acme/products/a.jpg',
     );
-    expect(lightbox!.attributes('data-sizes')).toBe(
+    expect(lightbox.attributes('data-sizes')).toBe(
       '(min-width: 896px) 896px, 100vw',
     );
   });
 
   it('gives the main image the page’s priority, and not the lightbox', () => {
-    const [main, lightbox] = mountGallery(makeImages(2)).findAll(
-      '.geins-image',
-    );
+    const wrapper = mountGallery(makeImages(2));
+    const main = wrapper.find('[data-testid="gallery-main"] .geins-image');
+    const lightbox = wrapper.find('.dialog-content .geins-image');
 
-    expect(main!.attributes('data-priority')).toBe('true');
-    expect(lightbox!.attributes('data-priority')).not.toBe('true');
+    expect(main.attributes('data-priority')).toBe('true');
+    expect(lightbox.attributes('data-priority')).not.toBe('true');
+  });
+
+  describe('print image', () => {
+    const printImage = (wrapper: ReturnType<typeof mountGallery>) =>
+      wrapper.find('[data-testid="gallery-print-primary"]');
+
+    it('stays on the primary while the gallery navigates', async () => {
+      const wrapper = mountGallery(makeImages(3));
+      const main = () =>
+        wrapper.find('[data-testid="gallery-main"] .geins-image');
+
+      for (let i = 0; i < 2; i++) {
+        await wrapper.find('[data-testid="gallery-next"]').trigger('click');
+      }
+
+      expect(main().attributes('data-url')).toBe('/i/product-3.jpg');
+      expect(printImage(wrapper).attributes('data-url')).toBe(
+        '/i/product-1.jpg',
+      );
+    });
+
+    it('is the image flagged primary when it is not the first', () => {
+      const images = makeImages(3).map((img, i) => ({
+        ...img,
+        isPrimary: i === 1,
+      }));
+
+      expect(printImage(mountGallery(images)).attributes('data-url')).toBe(
+        '/i/product-2.jpg',
+      );
+    });
+
+    // window.print() lays out at once: a lazy image inside a hidden element
+    // has not loaded by then and prints as a grey box.
+    it('loads with the page, without a second preload, at the main image’s sizes', () => {
+      const image = printImage(mountGallery(makeImages(2)));
+
+      expect(image.attributes('data-loading')).toBe('eager');
+      expect(image.attributes('data-priority')).not.toBe('true');
+      expect(image.attributes('data-sizes')).toBe(
+        '(min-width: 768px) 400px, calc(100vw - 66px)',
+      );
+    });
+
+    it('is hidden on screen', () => {
+      expect(printImage(mountGallery(makeImages(2))).classes()).toContain(
+        'hidden',
+      );
+    });
   });
 
   it('does not render thumbnail strip', () => {
