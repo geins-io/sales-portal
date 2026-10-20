@@ -2,11 +2,42 @@ import { test as base } from '@playwright/test';
 
 export * from '@playwright/test';
 
+const VIDEO_PLAYER_HOSTS = [
+  'youtube.com',
+  'youtube-nocookie.com',
+  'ytimg.com',
+  'player.vimeo.com',
+  'vimeocdn.com',
+];
+
+/** The CMS video widget's embed and the player assets it pulls in. */
+export function isVideoPlayerUrl(url: string): boolean {
+  const { hostname } = new URL(url, 'http://localhost');
+  return VIDEO_PLAYER_HOSTS.some(
+    (host) => hostname === host || hostname.endsWith(`.${host}`),
+  );
+}
+
 /**
- * The suite's `test`: Playwright's, plus one automatic fixture. Specs import
- * `test` from here so the fixture runs for every test in every project.
+ * The suite's `test`: Playwright's, plus automatic fixtures. Specs import
+ * `test` from here so the fixtures run for every test in every project.
  */
-export const test = base.extend<{ libraryImageAccept: undefined }>({
+export const test = base.extend<{
+  videoPlayerAbort: undefined;
+  libraryImageAccept: undefined;
+}>({
+  // A video frame holds `load` until the provider answers, so an outage there
+  // times out `goto` on a page that has already rendered.
+  videoPlayerAbort: [
+    async ({ context }, use) => {
+      await context.route(
+        (url) => isVideoPlayerUrl(url.href),
+        (route) => route.abort('blockedbyclient'),
+      );
+      await use(undefined);
+    },
+    { auto: true },
+  ],
   libraryImageAccept: [
     async ({ context, browserName }, use) => {
       if (browserName === 'webkit') {

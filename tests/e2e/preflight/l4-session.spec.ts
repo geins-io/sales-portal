@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures';
 import { login, outOfScope, STORAGE_STATE } from '../helpers';
 import { hasE2ECredentials } from '../target';
 
