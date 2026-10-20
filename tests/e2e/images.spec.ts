@@ -625,7 +625,6 @@ test.describe('Images from the asset library', () => {
         requested.length = 0;
         await page.goto(path);
         await waitForHydration(page);
-        await loadEveryImage(page);
         pairs = await widgetsWithMobileImage(page);
         if (pairs.length) break;
       }
@@ -635,16 +634,42 @@ test.describe('Images from the asset library', () => {
         'no Image or Banner widget with a mobile image on the start page or /images',
       );
 
-      const shownFiles = await page
-        .locator('[data-testid="cms-widget"] img')
-        .evaluateAll((imgs) =>
-          (imgs as HTMLImageElement[]).map((img) => img.currentSrc),
-        );
       // Library and legacy URLs both end in the file name, percent-encoded.
       const isFile = (url: string, fileName: string) =>
         decodeURIComponent(new URL(url, 'http://x').pathname).endsWith(
           `/${fileName}`,
         );
+      // Only the widgets asserted on are waited for, each scrolled into view:
+      // WebKit leaves a lazy image it has scrolled past unloaded, so waiting
+      // for every image on a phone-sized page never ends.
+      const files = pairs.flatMap((pair) => [pair.desktop, pair.mobile]);
+      const shownFiles: string[] = [];
+      for (const widget of await page
+        .locator('[data-testid="cms-widget"]')
+        .all()) {
+        const urls = await widget.evaluate((el) =>
+          [...el.querySelectorAll('img, source')].flatMap((node) => [
+            node.getAttribute('src') ?? '',
+            ...(node.getAttribute('srcset') ?? '')
+              .split(',')
+              .map((candidate) => candidate.trim().split(/\s+/)[0] ?? ''),
+          ]),
+        );
+        if (!urls.some((url) => url && files.some((f) => isFile(url, f))))
+          continue;
+        const img = widget.locator('img').first();
+        await img.scrollIntoViewIfNeeded();
+        await expect
+          .poll(() =>
+            img.evaluate(
+              (el: HTMLImageElement) => el.complete && !!el.currentSrc,
+            ),
+          )
+          .toBe(true);
+        shownFiles.push(
+          await img.evaluate((el: HTMLImageElement) => el.currentSrc),
+        );
+      }
       for (const pair of pairs) {
         const [shown, skipped] = mobile
           ? [pair.mobile, pair.desktop]
