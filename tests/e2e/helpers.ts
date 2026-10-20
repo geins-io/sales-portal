@@ -1085,8 +1085,40 @@ export async function fetchOrder(
 const ORDERS_READ_IN_FULL = 12;
 
 /**
+ * Detail reads in flight at once. Upstream answers a detail read in 0.3–1.8 s
+ * but now and then in 20–25 s; read one after another, every slow answer adds
+ * to the test. Four lets one slow answer overlap the other reads instead of
+ * adding to them, without putting a burst on upstream while the other workers
+ * read too.
+ */
+const ORDER_READS_IN_FLIGHT = 4;
+
+/**
+ * `fn` over `items` with at most `limit` calls in flight. The results keep the
+ * order of `items`, not the order the calls finish in.
+ */
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index]!);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker),
+  );
+  return results;
+}
+
+/**
  * The oldest {@link ORDERS_READ_IN_FULL} orders the account owns, each read in
- * full.
+ * full, oldest first, {@link ORDER_READS_IN_FLIGHT} reads at a time.
  *
  * The list endpoint carries only the totals and no lines, so choosing
  * an order by what it contains means reading each one. It is deliberately not
@@ -1128,11 +1160,9 @@ export async function fetchOrders(
     .sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''))
     .slice(0, limit);
 
-  const result: ApiOrder[] = [];
-  for (const order of oldestFirst) {
-    result.push(await fetchOrder(page, order.publicId!));
-  }
-  return result;
+  return mapWithConcurrency(oldestFirst, ORDER_READS_IN_FLIGHT, (order) =>
+    fetchOrder(page, order.publicId!),
+  );
 }
 
 /**
