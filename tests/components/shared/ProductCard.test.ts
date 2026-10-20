@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { mountComponent } from '../../utils/component';
+import { requestedShapes } from '../../utils/image';
 import ProductCard from '../../../app/components/shared/ProductCard.vue';
 
 // useTenant and useLocaleMarket mocks are provided by setup-components.ts
@@ -221,4 +222,28 @@ describe('ProductCard', () => {
     const button = wrapper.find('[data-testid="add-to-cart-button"]');
     expect(button.attributes('disabled')).toBeDefined();
   });
+});
+
+describe('ProductCard image box', () => {
+  const product = {
+    ...baseProduct,
+    imageUrl: 'https://cdn.example.test/acme/products/widget.jpg',
+  };
+
+  it.each(['grid', 'list'] as const)(
+    'asks the CDN for the square its %s box shows',
+    (variant) => {
+      const wrapper = mountComponent(ProductCard, {
+        props: { product, variant },
+        global: { stubs: { ...stubs, GeinsImage: false } },
+      });
+      const img = wrapper.find('img');
+
+      const shapes = requestedShapes(img.attributes('srcset'));
+      expect(shapes.length).toBeGreaterThan(0);
+      expect(shapes.every((s) => s.ratio === 1 && s.fit === 'crop')).toBe(true);
+      expect(img.element.parentElement!.style.aspectRatio).toBe('1 / 1');
+      expect(img.element.closest('.aspect-square')).not.toBeNull();
+    },
+  );
 });

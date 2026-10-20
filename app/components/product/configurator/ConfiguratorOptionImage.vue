@@ -31,6 +31,7 @@ const {
       :alt="alt"
       sizes="40px"
       :widths="THUMBNAIL_WIDTHS"
+      aspect-ratio="1"
       class="size-full"
     />
     <ImageOff

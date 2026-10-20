@@ -210,6 +210,7 @@ async function addToCart() {
             :loading="imageLoading"
             :priority="index === 0"
             :sizes="GRID_IMAGE_SIZES"
+            aspect-ratio="1"
             class="size-full object-contain transition-transform group-hover:scale-105"
           />
           <div
@@ -230,6 +231,7 @@ async function addToCart() {
             :loading="imageLoading"
             :priority="index === 0"
             :sizes="GRID_IMAGE_SIZES"
+            aspect-ratio="1"
             class="size-full object-contain transition-transform group-hover:scale-105"
           />
           <div
@@ -440,6 +442,7 @@ async function addToCart() {
             loading="lazy"
             sizes="64px"
             :widths="THUMBNAIL_WIDTHS"
+            aspect-ratio="1"
             class="size-full object-contain"
           />
         </NuxtLink>
@@ -453,6 +456,7 @@ async function addToCart() {
             loading="lazy"
             sizes="64px"
             :widths="THUMBNAIL_WIDTHS"
+            aspect-ratio="1"
             class="size-full object-contain"
           />
         </div>

@@ -8,6 +8,7 @@ import type {
 } from '../../../shared/types/commerce';
 import PriceDisplay from '../../../app/components/shared/PriceDisplay.vue';
 import { mockShowIncVat } from '../../setup-components';
+import { requestedShapes } from '../../utils/image';
 
 // The shared mock drops a parameter its key does not name; here the key is
 // followed by the values, so a test can read the article number it was given.
@@ -676,5 +677,26 @@ describe('CheckoutCartItems', () => {
       expect(unit).toContain('50,00 kr');
       expect(unit).not.toContain('62,50 kr');
     });
+  });
+});
+
+describe('CheckoutCartItems thumbnail box', () => {
+  it('shows a square centre crop, asked of the CDN in that shape', () => {
+    const item = createItem();
+    item.product!.productImages = [
+      {
+        fileName: 'widget.jpg',
+        url: 'https://cdn.example.test/acme/products/widget.jpg',
+      },
+    ];
+    const img = mountComponent(CheckoutCartItems, {
+      props: { items: [item] },
+      global: { stubs: { ...stubs, GeinsImage: false } },
+    }).find('[data-testid="checkout-cart-item"] img');
+
+    const shapes = requestedShapes(img.attributes('srcset'));
+    expect(shapes.length).toBeGreaterThan(0);
+    expect(shapes.every((s) => s.ratio === 1 && s.fit === 'crop')).toBe(true);
+    expect(img.element.parentElement!.style.aspectRatio).toBe('1 / 1');
   });
 });

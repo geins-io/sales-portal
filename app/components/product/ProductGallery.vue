@@ -82,6 +82,7 @@ const currentAlt = computed(() =>
           :alt="currentAlt"
           priority
           sizes="(min-width: 768px) 400px, calc(100vw - 66px)"
+          aspect-ratio="1"
           class="size-full object-contain"
         />
       </Button>

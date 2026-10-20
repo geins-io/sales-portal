@@ -746,6 +746,17 @@ describe('ConfiguratorOptionRow', () => {
     expect(wrapper.find(PLACEHOLDER).exists()).toBe(false);
   });
 
+  it('shapes the option image square, so the CDN is asked for that crop', () => {
+    const workbench = makeInitialConfiguration();
+    const option = withImage(findOption(workbench, 'top-wood'), 'beech.jpg');
+
+    const image = mountRow(option, { imageColumn: true }).findComponent({
+      name: 'GeinsImage',
+    });
+
+    expect(image.props('aspectRatio')).toBe('1');
+  });
+
   it('renders the image on a white box and the placeholder on a grey one, with no border', () => {
     const workbench = makeInitialConfiguration();
     const option = withImage(findOption(workbench, 'top-wood'), 'beech.jpg');

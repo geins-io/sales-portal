@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { ImageOff } from 'lucide-vue-next';
 import type { GeinsImageType } from '#shared/constants/image';
-import { buildImageSources } from '#shared/utils/image';
+import type { CoverSources } from '#shared/utils/image';
+import {
+  buildCoverSources,
+  buildImageSources,
+  parseAspectRatio,
+} from '#shared/utils/image';
 
 const props = withDefaults(
   defineProps<{
@@ -13,7 +18,16 @@ const props = withDefaults(
     path?: string | null;
     type: GeinsImageType;
     alt: string;
+    /**
+     * The box's ratio, e.g. `1` or `16/9`. Shapes the box, and a `cover`
+     * image is asked of the CDN in that shape, so the crop is never upscaled.
+     */
     aspectRatio?: string;
+    /**
+     * Height in css px of a `cover` box whose width follows the viewport;
+     * the image is asked for per viewport range to cover it.
+     */
+    coverHeight?: number;
     loading?: 'lazy' | 'eager';
     /**
      * The page's largest image: fetched eagerly at high priority, decoded at
@@ -40,6 +54,7 @@ const props = withDefaults(
     url: undefined,
     path: undefined,
     aspectRatio: undefined,
+    coverHeight: undefined,
     loading: 'lazy',
     priority: false,
     sizes: '100vw',
@@ -51,40 +66,69 @@ const props = withDefaults(
 
 const { imageBaseUrl, assetBaseUrl } = useTenant();
 
-const sources = computed(() =>
-  props.src
-    ? { src: props.src, srcset: null, origin: null }
-    : buildImageSources({
-        url: props.url,
-        path: props.path,
-        assetBaseUrl: assetBaseUrl.value,
-        fileName: props.fileName,
-        type: props.type,
-        imageBaseUrl: imageBaseUrl.value,
-        widths: props.widths,
-      }),
-);
+const ratio = computed(() => parseAspectRatio(props.aspectRatio));
+
+const sources = computed<CoverSources>(() => {
+  if (props.src)
+    return { src: props.src, srcset: null, origin: null, sources: [] };
+  const input = {
+    url: props.url,
+    path: props.path,
+    assetBaseUrl: assetBaseUrl.value,
+    fileName: props.fileName,
+    type: props.type,
+    imageBaseUrl: imageBaseUrl.value,
+  };
+  if (props.fit === 'cover' && props.coverHeight)
+    return buildCoverSources({ ...input, height: props.coverHeight });
+  return {
+    ...buildImageSources({
+      ...input,
+      widths: props.widths,
+      ratio: props.fit === 'cover' ? ratio.value : undefined,
+    }),
+    sources: [],
+  };
+});
 
 // The preload carries the img's own candidates and sizes, so both resolve to
-// one URL and the browser fetches it once.
+// one URL and the browser fetches it once. A <picture> gets one preload per
+// source, each limited to its source's viewport range.
 if (props.priority) {
+  const preload = (
+    key: string,
+    href: string,
+    candidates: { media?: string; imagesrcset?: string; imagesizes?: string },
+  ) =>
+    ({
+      key,
+      rel: 'preload',
+      as: 'image',
+      href,
+      ...candidates,
+      fetchpriority: 'high',
+    }) as const;
   useHead({
     link: computed(() => {
-      const { src, srcset, origin } = sources.value;
+      const { src, srcset, origin, sources: ranges } = sources.value;
       if (!src) return [];
       return [
         ...(origin
           ? [{ key: 'image-cdn-preconnect', rel: 'preconnect', href: origin }]
           : []),
-        {
-          key: `image-preload-${src}`,
-          rel: 'preload',
-          as: 'image',
-          href: src,
-          imagesrcset: srcset ?? undefined,
-          imagesizes: srcset ? props.sizes : undefined,
-          fetchpriority: 'high',
-        },
+        ...(ranges.length
+          ? ranges.map((range, i) =>
+              preload(`image-preload-${src}-${i}`, src, {
+                media: range.media,
+                imagesrcset: range.srcset,
+              }),
+            )
+          : [
+              preload(`image-preload-${src}`, src, {
+                imagesrcset: srcset ?? undefined,
+                imagesizes: srcset ? props.sizes : undefined,
+              }),
+            ]),
       ];
     }),
   });
@@ -121,7 +165,7 @@ watch(
 <template>
   <div
     class="relative overflow-hidden"
-    :class="aspectRatio ? `aspect-[${aspectRatio}]` : ''"
+    v-bind="ratio ? { style: { aspectRatio: ratio } } : {}"
   >
     <!-- Skeleton placeholder, painted under the image -->
     <div
@@ -138,8 +182,28 @@ watch(
       <ImageOff class="size-8" />
     </div>
 
+    <picture v-if="sources.src && !errored && sources.sources.length">
+      <source
+        v-for="range in sources.sources"
+        :key="range.media"
+        :media="range.media"
+        :srcset="range.srcset"
+      />
+      <img
+        ref="img"
+        :src="sources.src"
+        :srcset="sources.srcset ?? undefined"
+        :alt="alt"
+        :loading="priority ? 'eager' : loading"
+        :fetchpriority="priority ? 'high' : undefined"
+        :decoding="priority ? undefined : 'async'"
+        class="relative size-full object-cover"
+        @load="onLoad"
+        @error="onError"
+      />
+    </picture>
     <img
-      v-if="sources.src && !errored"
+      v-else-if="sources.src && !errored"
       ref="img"
       :src="sources.src"
       :srcset="sources.srcset ?? undefined"

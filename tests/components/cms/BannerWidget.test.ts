@@ -4,7 +4,7 @@ import BannerWidget from '../../../app/components/cms/widgets/BannerWidget.vue';
 
 const geinsImageStub = {
   template:
-    '<div class="geins-image" :data-path="path" :data-url="url" :data-sizes="sizes" :data-loading="loading" :data-priority="String(priority)" />',
+    '<div class="geins-image" :data-path="path" :data-url="url" :data-sizes="sizes" :data-loading="loading" :data-priority="String(priority)" :data-cover-height="coverHeight" />',
   props: {
     fileName: String,
     url: String,
@@ -14,6 +14,7 @@ const geinsImageStub = {
     loading: String,
     sizes: String,
     priority: Boolean,
+    coverHeight: Number,
   },
 };
 
@@ -196,6 +197,30 @@ describe('BannerWidget', () => {
    * Full-width: always overlay. textAndButtonPlacementFullWidth: 0=left, 1=middle, 2=right
    * Not full-width: textAndButtonPlacement: 0=below-image, 1=on-image
    */
+  it('asks for a full-width image to cover the box it sets, at one height', () => {
+    const wrapper = mountComponent(BannerWidget, {
+      props: makeProps({ size: 'full' }),
+      global: { stubs },
+    });
+
+    expect(wrapper.attributes('style')).toContain('height: 400px');
+    expect(wrapper.find('.geins-image').attributes('data-cover-height')).toBe(
+      '400',
+    );
+  });
+
+  it('lets a banner that is not full width keep its image’s shape', () => {
+    const wrapper = mountComponent(BannerWidget, {
+      props: makeProps({ size: 'half', layout: 'half' }),
+      global: { stubs },
+    });
+
+    expect(wrapper.attributes('style')).toBeUndefined();
+    expect(
+      wrapper.find('.geins-image').attributes('data-cover-height'),
+    ).toBeUndefined();
+  });
+
   describe('text placement (banner widget)', () => {
     it('full-width: always renders as overlay', () => {
       const wrapper = mountComponent(BannerWidget, {

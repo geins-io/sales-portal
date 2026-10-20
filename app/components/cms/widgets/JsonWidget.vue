@@ -316,6 +316,7 @@ function bannerPlacementClasses(placement?: string): string {
                 type="pagewidget"
                 :alt="item.alt ?? ''"
                 sizes="80vw"
+                aspect-ratio="1"
                 class="size-full object-cover transition-transform group-hover:scale-105"
               />
             </div>
@@ -349,6 +350,7 @@ function bannerPlacementClasses(placement?: string): string {
             :alt="item.alt ?? ''"
             :priority="priority && !collapse && i === 0"
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+            aspect-ratio="1"
             class="size-full object-cover transition-transform group-hover:scale-105"
           />
         </div>
@@ -404,7 +406,7 @@ function bannerPlacementClasses(placement?: string): string {
         :alt="banner.image?.alt ?? ''"
         :priority="priority && i === 0"
         sizes="(min-width: 768px) 50vw, 100vw"
-        class="aspect-[16/9] w-full object-cover"
+        aspect-ratio="16/9"
       />
       <div
         class="absolute inset-0 flex flex-col bg-gradient-to-t from-black/60 to-transparent p-6"

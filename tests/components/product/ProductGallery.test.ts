@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ref } from 'vue';
 import { mountComponent } from '../../utils/component';
+import { requestedShapes } from '../../utils/image';
 import ProductGallery from '../../../app/components/product/ProductGallery.vue';
 import { Dialog, DialogContent } from '../../../app/components/ui/dialog';
 
@@ -275,5 +276,39 @@ describe('ProductGallery', () => {
       expect(en.product.image_alt_counter).toContain(' of ');
       expect(sv.product.image_alt_counter).toContain(' av ');
     });
+  });
+});
+
+describe('ProductGallery image boxes', () => {
+  const images = [
+    {
+      fileName: 'widget.jpg',
+      url: 'https://cdn.example.test/acme/products/widget.jpg',
+      isPrimary: true,
+    },
+  ];
+  const mountReal = () =>
+    mountComponent(ProductGallery, {
+      props: { images, productName: 'Widget' },
+      global: {
+        stubs: { ...stubs, GeinsImage: false, SharedGeinsImage: false },
+      },
+    });
+
+  it('asks the CDN for the square the main box shows', () => {
+    const img = mountReal().findAll('img')[0]!;
+
+    const shapes = requestedShapes(img.attributes('srcset'));
+    expect(shapes.length).toBeGreaterThan(0);
+    expect(shapes.every((s) => s.ratio === 1 && s.fit === 'crop')).toBe(true);
+    expect(img.element.closest('.aspect-square')).not.toBeNull();
+  });
+
+  it('asks for width only in the lightbox, whose box follows the image', () => {
+    const lightbox = mountReal().findAll('.dialog-content img')[0]!;
+
+    expect(
+      requestedShapes(lightbox.attributes('srcset')).every((s) => !s.fit),
+    ).toBe(true);
   });
 });

@@ -79,8 +79,8 @@ function mountJson(
         'i18n-t': i18nTStub,
         GeinsImage: {
           template:
-            '<img data-testid="geins-image" :data-priority="String(priority)" />',
-          props: { priority: Boolean },
+            '<img data-testid="geins-image" :data-priority="String(priority)" :data-aspect-ratio="aspectRatio" />',
+          props: { priority: Boolean, aspectRatio: String },
         },
       },
     },
@@ -371,5 +371,69 @@ describe('JsonWidget links with an unsafe scheme', () => {
     });
     expect(wrapper.find('a').exists()).toBe(false);
     expect(wrapper.text()).toContain('Heading');
+  });
+});
+
+describe('JsonWidget cropping boxes', () => {
+  const ratios = (wrapper: ReturnType<typeof mountJson>) =>
+    wrapper
+      .findAll('[data-testid="geins-image"]')
+      .map((img) => img.attributes('data-aspect-ratio'));
+
+  it.each([false, true])(
+    'shapes each simple card square from the image (collapse: %s)',
+    (collapse) => {
+      const wrapper = mountJson(
+        {
+          templateId: 'cards-simple',
+          items: [
+            { title: 'A', url: '/a', src: 'a.jpg' },
+            { title: 'B', url: '/b', src: 'b.jpg' },
+          ],
+        },
+        collapse,
+      );
+
+      expect(ratios(wrapper).length).toBeGreaterThan(0);
+      expect(ratios(wrapper).every((r) => r === '1')).toBe(true);
+    },
+  );
+
+  it.each([false, true])(
+    'keeps a square box for a simple card without an image (collapse: %s)',
+    (collapse) => {
+      const wrapper = mountJson(
+        {
+          templateId: 'cards-simple',
+          items: [{ title: 'A', url: '/a' }],
+        },
+        collapse,
+      );
+
+      expect(wrapper.find('[data-testid="geins-image"]').exists()).toBe(false);
+      const boxes = wrapper.findAll('.bg-muted');
+      expect(boxes.length).toBeGreaterThan(0);
+      expect(
+        boxes.every((box) => box.classes().includes('aspect-square')),
+      ).toBe(true);
+    },
+  );
+
+  it('shapes each banner card 16:9 from the image', () => {
+    const wrapper = mountJson({
+      templateId: 'banner-cards',
+      bannerImages: [{ image: { src: 'a.jpg' } }, { image: { src: 'b.jpg' } }],
+    });
+
+    expect(ratios(wrapper)).toEqual(['16/9', '16/9']);
+  });
+
+  it('leaves natural images unshaped', () => {
+    const wrapper = mountJson({
+      templateId: 'cards-rich',
+      items: [{ image: { src: 'a.jpg' } }],
+    });
+
+    expect(ratios(wrapper)).toEqual([undefined]);
   });
 });

@@ -16,6 +16,9 @@ const props = defineProps<{
   images?: ContentImageType[];
 }>();
 
+/** Height in css px of a full-width banner; its image is asked for to cover it. */
+const FULL_WIDTH_HEIGHT = 400;
+
 const imageFileName = computed(() => resolveImageFileName(props.data.image));
 const imageUrl = computed(() =>
   widgetImageUrl(props.images, imageFileName.value),
@@ -97,7 +100,7 @@ const textColorClass = computed(() => {
     :is="hasLink ? NuxtLink : 'div'"
     :to="hasLink ? localePath(bannerHref) : undefined"
     class="relative block overflow-hidden"
-    :class="fullWidth ? 'h-[400px]' : ''"
+    :style="fullWidth ? { height: `${FULL_WIDTH_HEIGHT}px` } : undefined"
     data-testid="cms-widget"
   >
     <GeinsImage
@@ -110,6 +113,7 @@ const textColorClass = computed(() => {
       loading="eager"
       :priority="priority"
       :sizes="fullWidth ? '100vw' : '(min-width: 1440px) 1280px, 100vw'"
+      :cover-height="fullWidth ? FULL_WIDTH_HEIGHT : undefined"
       :class="fullWidth ? 'size-full' : ''"
     />
 

@@ -189,10 +189,141 @@ describe('GeinsImage Component', () => {
     expect(img.attributes('srcset')).toBeUndefined();
   });
 
-  it('applies aspect-ratio class when prop is set', () => {
-    const wrapper = mountImage({ fileName: 'img.jpg', aspectRatio: '1/1' });
+  describe('a box of fixed ratio (aspectRatio)', () => {
+    it('shapes the box and the CDN request from the same value', () => {
+      const wrapper = mountImage({
+        url: LIBRARY,
+        aspectRatio: '16/9',
+        widths: [160, 1200],
+      });
 
-    expect(wrapper.find('div').classes()).toContain('aspect-[1/1]');
+      expect(wrapper.find('div').element.style.aspectRatio).toBe(
+        `${16 / 9} / 1`,
+      );
+      expect(wrapper.find('img').attributes('srcset')).toBe(
+        `${LIBRARY}?width=160&height=90&fit=crop&format=auto 160w, ${LIBRARY}?width=1200&height=675&fit=crop&format=auto 1200w`,
+      );
+      expect(wrapper.find('img').attributes('src')).toBe(
+        `${LIBRARY}?width=1200&height=675&fit=crop&format=auto`,
+      );
+    });
+
+    it.each(['contain', 'natural'])(
+      'asks for width only when the image does not crop (fit=%s)',
+      (fit) => {
+        const img = mountImage({
+          url: LIBRARY,
+          aspectRatio: '1',
+          fit,
+          widths: [160],
+        }).find('img');
+
+        expect(img.attributes('srcset')).toBe(
+          `${LIBRARY}?width=160&format=auto 160w`,
+        );
+      },
+    );
+
+    it('leaves the box unstyled and asks for width only without a ratio', () => {
+      const wrapper = mountImage({ url: LIBRARY, widths: [160] });
+
+      expect(wrapper.find('div').attributes('style')).toBeUndefined();
+      expect(wrapper.find('img').attributes('srcset')).toBe(
+        `${LIBRARY}?width=160&format=auto 160w`,
+      );
+    });
+
+    it('serves a legacy image raw, in the shaped box', () => {
+      const wrapper = mountImage({ fileName: 'shoe.jpg', aspectRatio: '1' });
+
+      expect(wrapper.find('div').element.style.aspectRatio).toBe('1 / 1');
+      expect(wrapper.find('img').attributes('src')).toBe(
+        `${BASE}/product/raw/shoe.jpg`,
+      );
+      expect(wrapper.find('img').attributes('srcset')).toBeUndefined();
+    });
+
+    it('preloads the cropped candidates the img carries', () => {
+      const img = mountImage({
+        url: LIBRARY,
+        aspectRatio: '1',
+        priority: true,
+      }).find('img');
+
+      expect(headLinks()[1]).toMatchObject({
+        href: img.attributes('src'),
+        imagesrcset: img.attributes('srcset'),
+      });
+      expect(img.attributes('srcset')).toContain('fit=crop');
+    });
+  });
+
+  describe('a box of fixed height (coverHeight)', () => {
+    it('picks a source per viewport range, each covering the box', () => {
+      const wrapper = mountImage({ url: LIBRARY, coverHeight: 400 });
+      const sources = wrapper.findAll('picture > source');
+      const img = wrapper.find('picture > img');
+
+      expect(sources.map((s) => s.attributes('media'))).toEqual([
+        '(max-width: 767px)',
+        '(min-width: 768px) and (max-width: 1023px)',
+        '(min-width: 1024px) and (max-width: 1279px)',
+        '(min-width: 1280px)',
+      ]);
+      expect(sources[0]!.attributes('srcset')).toContain(
+        `${LIBRARY}?width=2304&height=1200&fit=cover&format=auto 3x`,
+      );
+      expect(img.attributes('src')).toBe(
+        `${LIBRARY}?width=1920&height=400&fit=cover&format=auto`,
+      );
+      expect(img.attributes('srcset')).toBe(sources[3]!.attributes('srcset'));
+      expect(img.attributes('sizes')).toBeUndefined();
+      expect(img.classes()).toEqual(
+        expect.arrayContaining(['size-full', 'object-cover']),
+      );
+    });
+
+    it('preloads each source for its own range, so only one is fetched', () => {
+      const wrapper = mountImage({
+        url: LIBRARY,
+        coverHeight: 400,
+        priority: true,
+      });
+      const sources = wrapper.findAll('picture > source');
+      const preloads = headLinks().filter((l) => l.rel === 'preload');
+
+      expect(preloads).toEqual(
+        sources.map((source, i) => ({
+          key: `image-preload-${wrapper.find('img').attributes('src')}-${i}`,
+          rel: 'preload',
+          as: 'image',
+          href: wrapper.find('img').attributes('src'),
+          media: source.attributes('media'),
+          imagesrcset: source.attributes('srcset'),
+          fetchpriority: 'high',
+        })),
+      );
+      expect(headLinks()[0]).toMatchObject({ rel: 'preconnect' });
+    });
+
+    it('renders a legacy image as a plain img', () => {
+      const wrapper = mountImage({ fileName: 'hero.png', coverHeight: 400 });
+
+      expect(wrapper.find('picture').exists()).toBe(false);
+      expect(wrapper.find('img').attributes('src')).toBe(
+        `${BASE}/product/raw/hero.png`,
+      );
+    });
+
+    it.each(['contain', 'natural'])(
+      'ignores the height when the image does not crop (fit=%s)',
+      (fit) => {
+        const wrapper = mountImage({ url: LIBRARY, coverHeight: 400, fit });
+
+        expect(wrapper.find('picture').exists()).toBe(false);
+        expect(wrapper.find('img').attributes('srcset')).toContain('160w');
+      },
+    );
   });
 
   it.each([

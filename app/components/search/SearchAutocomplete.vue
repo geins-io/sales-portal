@@ -72,6 +72,7 @@ onUnmounted(() => {
             :alt="product.name"
             sizes="40px"
             :widths="THUMBNAIL_WIDTHS"
+            aspect-ratio="1"
             class="size-10 shrink-0 rounded"
           />
           <div class="min-w-0 flex-1">

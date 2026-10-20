@@ -1,5 +1,6 @@
 import { describe, it, expect, assert } from 'vitest';
 import { mountComponent } from '../../utils/component';
+import { requestedShapes } from '../../utils/image';
 import SearchAutocomplete from '../../../app/components/search/SearchAutocomplete.vue';
 import { makeListProduct } from '../../fixtures/product';
 import type { ListProduct } from '#shared/types/commerce';
@@ -245,5 +246,32 @@ describe('SearchAutocomplete', () => {
     const [firstItem] = wrapper.findAll('[role="option"]');
     assert.isDefined(firstItem);
     expect(firstItem.attributes('aria-selected')).toBeUndefined();
+  });
+});
+
+describe('SearchAutocomplete thumbnail box', () => {
+  it('asks the CDN for the square the 40 px box shows', () => {
+    const results = {
+      products: [
+        makeProduct({
+          productImages: [
+            {
+              fileName: 'widget.jpg',
+              url: 'https://cdn.example.test/acme/products/widget.jpg',
+              isPrimary: true,
+            },
+          ],
+        }),
+      ],
+      count: 1,
+    };
+    const img = mountComponent(SearchAutocomplete, {
+      props: { results, loading: false, open: true },
+      global: { stubs: { ...stubs, GeinsImage: false } },
+    }).find('[role="option"] img');
+
+    const shapes = requestedShapes(img.attributes('srcset'));
+    expect(shapes.length).toBeGreaterThan(0);
+    expect(shapes.every((s) => s.ratio === 1 && s.fit === 'crop')).toBe(true);
   });
 });

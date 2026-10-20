@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils';
 import { describe, it, expect } from 'vitest';
 import { defineComponent, h, type VNode } from 'vue';
 import ProductThumbnail from '../../../app/components/shared/ProductThumbnail.vue';
+import { requestedShapes } from '../../utils/image';
 
 const stubs = {
   GeinsImage: {
@@ -139,5 +140,25 @@ describe('ProductThumbnail', () => {
     expect(w.find('[data-testid="geins-image"]').attributes('data-sizes')).toBe(
       '80px',
     );
+  });
+});
+
+describe('ProductThumbnail image box', () => {
+  it('shows a square centre crop, asked of the CDN in that shape', () => {
+    const w = mount(ProductThumbnail, {
+      props: {
+        fileName: 'widget.jpg',
+        url: 'https://cdn.example.test/acme/products/widget.jpg',
+        alt: 'Widget',
+      },
+      global: { stubs: { ...stubs, GeinsImage: false } },
+    });
+    const img = w.find('img');
+
+    const shapes = requestedShapes(img.attributes('srcset'));
+    expect(shapes.length).toBeGreaterThan(0);
+    expect(shapes.every((s) => s.ratio === 1 && s.fit === 'crop')).toBe(true);
+    expect(img.element.parentElement!.style.aspectRatio).toBe('1 / 1');
+    expect(img.classes()).toContain('object-cover');
   });
 });

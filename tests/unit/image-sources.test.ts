@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
+  buildCoverSources,
   buildImageSources,
   buildShareImageUrl,
+  COVER_RANGES,
   IMAGE_WIDTHS,
+  parseAspectRatio,
   PRINT_TILE_WIDTHS,
   THUMBNAIL_WIDTHS,
 } from '../../shared/utils/image';
@@ -242,6 +245,174 @@ describe('buildImageSources', () => {
       }),
     ).toEqual({ src: '', srcset: null, origin: null });
   });
+});
+
+describe('buildImageSources for a box of fixed ratio', () => {
+  it('asks the CDN for the box shape, centre-cropped, at every width', () => {
+    const sources = buildImageSources({
+      url: LIBRARY,
+      type: 'product',
+      imageBaseUrl: LEGACY,
+      widths: [160, 320],
+      ratio: 1,
+    });
+
+    expect(sources).toEqual({
+      src: `${LIBRARY}?width=320&height=320&fit=crop&format=auto`,
+      srcset: `${LIBRARY}?width=160&height=160&fit=crop&format=auto 160w, ${LIBRARY}?width=320&height=320&fit=crop&format=auto 320w`,
+      origin: 'https://cdn.example.test',
+    });
+  });
+
+  it('derives each height from the ratio, rounded to the nearest pixel', () => {
+    const at = (width: number, ratio: number) =>
+      new URL(
+        buildImageSources({
+          url: LIBRARY,
+          type: 'product',
+          imageBaseUrl: LEGACY,
+          widths: [width],
+          ratio,
+        }).src,
+      ).searchParams.get('height');
+
+    expect(at(1200, 16 / 9)).toBe('675');
+    expect(at(160, 1.5)).toBe('107');
+    expect(at(80, 0.75)).toBe('107');
+  });
+
+  it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY, undefined])(
+    'asks for width only when the ratio is %s',
+    (ratio) => {
+      expect(
+        buildImageSources({
+          url: LIBRARY,
+          type: 'product',
+          imageBaseUrl: LEGACY,
+          widths: [160],
+          ratio,
+        }).src,
+      ).toBe(`${LIBRARY}?width=160&format=auto`);
+    },
+  );
+
+  it('serves a legacy image exactly as before, whatever the ratio', () => {
+    expect(
+      buildImageSources({
+        url: null,
+        fileName: 'shoe.jpg',
+        type: 'product',
+        imageBaseUrl: LEGACY,
+        ratio: 1,
+      }),
+    ).toEqual({
+      src: `${LEGACY}/product/raw/shoe.jpg`,
+      srcset: null,
+      origin: null,
+    });
+  });
+});
+
+describe('buildCoverSources', () => {
+  const cover = (height = 400) =>
+    buildCoverSources({
+      url: LIBRARY,
+      type: 'pagewidget',
+      imageBaseUrl: LEGACY,
+      height,
+    });
+
+  it('gives one source per viewport range, each covering the box at 1x to 3x', () => {
+    const { sources } = cover();
+
+    expect(sources.map((s) => s.media)).toEqual([
+      '(max-width: 767px)',
+      '(min-width: 768px) and (max-width: 1023px)',
+      '(min-width: 1024px) and (max-width: 1279px)',
+      '(min-width: 1280px)',
+    ]);
+    expect(sources[0]!.srcset).toBe(
+      [
+        `${LIBRARY}?width=768&height=400&fit=cover&format=auto 1x`,
+        `${LIBRARY}?width=1536&height=800&fit=cover&format=auto 2x`,
+        `${LIBRARY}?width=2304&height=1200&fit=cover&format=auto 3x`,
+      ].join(', '),
+    );
+  });
+
+  it('caps the width at the widest request, keeping the height per density', () => {
+    const last = cover().sources.at(-1)!;
+
+    expect(last.srcset).toBe(
+      [
+        `${LIBRARY}?width=1920&height=400&fit=cover&format=auto 1x`,
+        `${LIBRARY}?width=3840&height=800&fit=cover&format=auto 2x`,
+        `${LIBRARY}?width=3840&height=1200&fit=cover&format=auto 3x`,
+      ].join(', '),
+    );
+  });
+
+  it('gives the img the widest range, so it matches the last source', () => {
+    const { src, srcset, origin, sources } = cover(300);
+
+    expect(src).toBe(`${LIBRARY}?width=1920&height=300&fit=cover&format=auto`);
+    expect(srcset).toBe(sources.at(-1)!.srcset);
+    expect(origin).toBe('https://cdn.example.test');
+  });
+
+  it('has ranges that never overlap, so a preload and the picture agree', () => {
+    expect(COVER_RANGES.map((r) => r.width)).toEqual([768, 1024, 1280, 1920]);
+  });
+
+  it('builds from an account host and path like any library image', () => {
+    const { src } = buildCoverSources({
+      path: 'content/hero.png',
+      assetBaseUrl: 'https://cdn.example.test/acme',
+      type: 'pagewidget',
+      imageBaseUrl: LEGACY,
+      height: 400,
+    });
+
+    expect(src).toBe(
+      'https://cdn.example.test/acme/content/hero.png?width=1920&height=400&fit=cover&format=auto',
+    );
+  });
+
+  it('serves a legacy image exactly as before, with no sources', () => {
+    expect(
+      buildCoverSources({
+        fileName: 'hero.png',
+        type: 'pagewidget',
+        imageBaseUrl: LEGACY,
+        height: 400,
+      }),
+    ).toEqual({
+      src: `${LEGACY}/pagewidget/raw/hero.png`,
+      srcset: null,
+      origin: null,
+      sources: [],
+    });
+  });
+});
+
+describe('parseAspectRatio', () => {
+  it.each([
+    ['1', 1],
+    ['16/9', 16 / 9],
+    ['16 / 9', 16 / 9],
+    ['1/1', 1],
+    ['1.5', 1.5],
+    ['21/10', 2.1],
+  ])('reads %s as %d', (value, ratio) => {
+    expect(parseAspectRatio(value)).toBe(ratio);
+  });
+
+  it.each([undefined, '', 'abc', '0', '16/0', '-1', '1/2/3', 'auto'])(
+    'has no ratio for %s',
+    (value) => {
+      expect(parseAspectRatio(value)).toBeUndefined();
+    },
+  );
 });
 
 describe('buildShareImageUrl', () => {

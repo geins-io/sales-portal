@@ -42,6 +42,7 @@ defineProps<{
         :alt="imageAlt"
         sizes="48px"
         :widths="THUMBNAIL_WIDTHS"
+        aspect-ratio="1"
         class="size-full object-contain"
       />
     </div>
