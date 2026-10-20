@@ -27,20 +27,28 @@ fixed `baseURL` and maps `fit` to values the CDN does not mean.
 
 ## Decision
 
-The portal builds image URLs itself, in one function
-(`buildImageSources` in `shared/utils/image.ts`), and `GeinsImage` renders a
-plain `<img>`:
+The portal builds image URLs itself, in `shared/utils/image.ts`
+(`buildImageSources`, and `buildCoverSources` for a box of fixed height), and
+`GeinsImage` renders a plain `<img>`, or a `<picture>` for such a box:
 
 - An image with a library `url` gets a width ladder
   (`?width=<n>&format=auto` for each step) as `srcset`, and each call site
   states its rendered width as `sizes`, so the browser picks the file.
 - An image without one is served exactly as before: the legacy raw file, one
   URL, no `srcset`. The choice is per image, so a mixed catalogue works.
-- The request parameters are kept to `width` and `format`. Crawlers get the
-  library image at `width=1200` in its original format.
+- The request parameters are kept to `width`, `height`, `fit` and `format`.
+  `height` and `fit` are sent only for an image its box crops: `fit=crop`
+  with the height of a box of fixed ratio, `fit=cover` per viewport range for
+  a box of fixed height. Without `fit` the CDN stretches the image to both
+  sizes. Crawlers get the library image at `width=1200` in its original
+  format.
 - The page's largest image is marked by the caller (`priority`) and gets
   `fetchpriority="high"` without `decoding="async"`, a head preload built from
   the same candidates, and a preconnect to the library origin.
+
+_Amended 2026-10-20: `height` and `fit` were added, and `buildCoverSources`
+next to `buildImageSources`. Width alone left a crop short of its box whenever
+the source was wider than the box._
 
 `@nuxt/image` is removed, with its config and the server plugin that stripped
 its inline `onerror` attribute.

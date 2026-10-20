@@ -104,6 +104,64 @@ async function cartLines(page: Page): Promise<{ id: string }[]> {
   return ((await cart.json()) as { items?: { id: string }[] }).items ?? [];
 }
 
+interface ShownImage {
+  currentSrc: string;
+  fit: string;
+  box: { width: number; height: number };
+  natural: { width: number; height: number };
+  dpr: number;
+  /** Whether a box within three levels up has a ratio set by the layout. */
+  fixedRatio: boolean;
+}
+
+/** Every visible library image on the page, with its box and what it shows. */
+async function shownLibraryImages(page: Page): Promise<ShownImage[]> {
+  const images = await page.locator('img').evaluateAll((els) =>
+    (els as HTMLImageElement[])
+      .filter((img) => img.getBoundingClientRect().width > 0)
+      .map((img) => {
+        let fixedRatio = false;
+        let el: HTMLElement | null = img.parentElement;
+        for (let i = 0; el && i < 3; i++, el = el.parentElement)
+          if (getComputedStyle(el).aspectRatio !== 'auto') fixedRatio = true;
+        const rect = img.getBoundingClientRect();
+        return {
+          currentSrc: img.currentSrc,
+          fit: getComputedStyle(img).objectFit,
+          box: { width: rect.width, height: rect.height },
+          natural: { width: img.naturalWidth, height: img.naturalHeight },
+          dpr: window.devicePixelRatio,
+          fixedRatio,
+        };
+      }),
+  );
+  return images.filter((img) =>
+    new URL(img.currentSrc || 'about:blank').searchParams.has('width'),
+  );
+}
+
+/** Scrolls the page through once, so lazy images load, and waits for them. */
+async function loadEveryImage(page: Page) {
+  await page.evaluate(async () => {
+    for (let y = 0; y < document.body.scrollHeight; y += 500) {
+      window.scrollTo(0, y);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    window.scrollTo(0, 0);
+  });
+  await expect
+    .poll(() =>
+      page
+        .locator('img[srcset]')
+        .evaluateAll((els) =>
+          (els as HTMLImageElement[]).every(
+            (img) => img.getBoundingClientRect().width === 0 || img.complete,
+          ),
+        ),
+    )
+    .toBe(true);
+}
+
 const decode = (value: string | undefined) =>
   (value ?? '').replaceAll('&amp;', '&');
 
@@ -313,13 +371,129 @@ test.describe('Images from the asset library', () => {
     await page.goto('/');
     await waitForHydration(page);
 
-    const images = page.locator('[data-testid="cms-widget"] img[srcset]');
+    // A full-width banner's <picture> has its own test below.
+    const images = page.locator(
+      '[data-testid="cms-widget"] img[srcset]:not(picture > img)',
+    );
     outOfScope(
       (await images.count()) === 0,
       'tenant-config',
       'no start-page widget image is in the asset library',
     );
+    // Without the banner the first may sit below the fold, loading lazily.
+    await images.first().scrollIntoViewIfNeeded();
     await expectLibraryImage(images.first(), LADDER);
+  });
+
+  test('an image cropped into a box of fixed ratio is asked of the CDN in that shape', async ({
+    page,
+  }) => {
+    const category = await discoverCategory(page);
+    const cropped: ShownImage[] = [];
+    for (const path of ['/', `/${category.alias}`]) {
+      await page.goto(path);
+      await waitForHydration(page);
+      await loadEveryImage(page);
+      cropped.push(
+        ...(await shownLibraryImages(page)).filter(
+          (img) => img.fit === 'cover' && img.fixedRatio,
+        ),
+      );
+    }
+    outOfScope(
+      cropped.length === 0,
+      'tenant-config',
+      'no library image in a box of fixed ratio on the start page or the first category',
+    );
+
+    for (const img of cropped) {
+      const url = new URL(img.currentSrc);
+      const width = Number(url.searchParams.get('width'));
+      const height = Number(url.searchParams.get('height'));
+      const boxRatio = img.box.width / img.box.height;
+      // Without fit=crop the CDN stretches the image to both sizes.
+      expect(url.searchParams.get('fit'), img.currentSrc).toBe('crop');
+      expect(width / height, img.currentSrc).toBeCloseTo(boxRatio, 1);
+      // The width is the covering step or the one below it, and the height
+      // follows from the box, so the crop is never short of the box.
+      const step = coveringStep(Math.ceil(img.box.width * img.dpr));
+      expect(width).toBeLessThanOrEqual(step);
+      expect(width).toBeGreaterThanOrEqual(
+        LADDER[Math.max(0, LADDER.indexOf(step) - 1)]!,
+      );
+      expect(height).toBeCloseTo(width / boxRatio, -1);
+      // What arrived has the box's shape: the CDN cropped, it did not letterbox.
+      expect(
+        img.natural.width / img.natural.height,
+        img.currentSrc,
+      ).toBeCloseTo(boxRatio, 1);
+    }
+  });
+
+  test('a full-width banner is asked to cover its box, and fetched once', async ({
+    page,
+  }) => {
+    const requests = recordLibraryRequests(page);
+    await page.goto('/');
+    await waitForHydration(page);
+    await page.waitForLoadState('load');
+
+    // Full width, and cropped: an image whose box follows its own shape, such
+    // as an image widget, is not a banner of fixed height.
+    const viewport = page.viewportSize()!;
+    const banner = (await shownLibraryImages(page)).find(
+      (img) =>
+        img.fit === 'cover' &&
+        img.box.width >= viewport.width * 0.95 &&
+        img.natural.height > 0 &&
+        Math.abs(
+          img.box.width /
+            img.box.height /
+            (img.natural.width / img.natural.height) -
+            1,
+        ) > 0.03,
+    );
+    outOfScope(
+      !banner,
+      'tenant-config',
+      'no full-width library banner on the start page',
+    );
+
+    const url = new URL(banner!.currentSrc);
+    // fit=cover returns the whole image, scaled to cover both sizes; the
+    // img's object-cover then crops it as before.
+    expect(url.searchParams.get('fit')).toBe('cover');
+    expect(Number(url.searchParams.get('width'))).toBeGreaterThanOrEqual(
+      banner!.box.width * banner!.dpr,
+    );
+    expect(Number(url.searchParams.get('height'))).toBeGreaterThanOrEqual(
+      banner!.box.height * banner!.dpr,
+    );
+    expect(requests.filter((r) => r.url() === banner!.currentSrc)).toHaveLength(
+      1,
+    );
+  });
+
+  test('an image that keeps its own shape is asked for by width only', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await waitForHydration(page);
+    await loadEveryImage(page);
+
+    const ownShape = (await shownLibraryImages(page)).filter(
+      (img) => img.fit === 'fill' || img.fit === 'contain',
+    );
+    outOfScope(
+      ownShape.length === 0,
+      'tenant-config',
+      'no start-page library image that keeps its own shape',
+    );
+    for (const img of ownShape) {
+      const url = new URL(img.currentSrc);
+      expect(url.searchParams.has('height'), img.currentSrc).toBe(false);
+      expect(url.searchParams.has('fit'), img.currentSrc).toBe(false);
+    }
   });
 
   test.describe('signed in', () => {
@@ -331,12 +505,15 @@ test.describe('Images from the asset library', () => {
       await page.goto('/');
       await waitForHydration(page);
 
-      const images = page.locator('[data-testid="cms-widget"] img[srcset]');
+      const images = page.locator(
+        '[data-testid="cms-widget"] img[srcset]:not(picture > img)',
+      );
       outOfScope(
         (await images.count()) === 0,
         'tenant-config',
         'no signed-in start-page widget image is in the asset library',
       );
+      await images.first().scrollIntoViewIfNeeded();
       await expectLibraryImage(images.first(), LADDER);
     });
 
