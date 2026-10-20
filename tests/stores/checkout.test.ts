@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
+import { CheckoutStatus } from '@geins/types';
 import type {
   CheckoutType,
   AddressInputType,
@@ -128,13 +129,6 @@ const mockConsents: ConsentType[] = [
   },
 ];
 
-// `checkoutStatus` is typed with an enum that @geins/types declares but does
-// not export, so no consumer can write the value literally. The widening lives
-// here instead of at each fixture; the store compares against the same strings.
-type CheckoutStatusValue = 'OK' | 'CUSTOMER_BLACKLISTED';
-const checkoutStatus = (status: CheckoutStatusValue) =>
-  status as CheckoutType['checkoutStatus'];
-
 const mockCheckout: CheckoutType = {
   email: 'checkout@example.com',
   billingAddress: {
@@ -156,7 +150,7 @@ const mockCheckout: CheckoutType = {
   paymentOptions: mockPaymentOptions,
   shippingOptions: mockShippingOptions,
   consents: mockConsents,
-  checkoutStatus: checkoutStatus('OK'),
+  checkoutStatus: CheckoutStatus.OK,
 };
 
 const mockOrderResponse: CreateOrderResponseType = {
@@ -330,7 +324,7 @@ describe('useCheckoutStore', () => {
         paymentOptions: mockPaymentOptions,
         shippingOptions: mockShippingOptions,
         consents: [],
-        checkoutStatus: checkoutStatus('OK'),
+        checkoutStatus: CheckoutStatus.OK,
       };
       mockFetchImpl.mockResolvedValueOnce(freshCheckout);
 
@@ -361,7 +355,7 @@ describe('useCheckoutStore', () => {
     it('detects CUSTOMER_BLACKLISTED status', async () => {
       const checkout: CheckoutType = {
         ...mockCheckout,
-        checkoutStatus: checkoutStatus('CUSTOMER_BLACKLISTED'),
+        checkoutStatus: CheckoutStatus.CUSTOMER_BLACKLISTED,
       };
       mockFetchImpl.mockResolvedValueOnce(checkout);
 
