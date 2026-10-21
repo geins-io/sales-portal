@@ -54,4 +54,27 @@ test.describe('Unregistered hostname', () => {
     expect(body.message).toContain('This site is not available');
     expect(body.tenantId).toBeUndefined();
   });
+
+  // The client reads /api/config on every page, so it must answer the same
+  // as the page: an empty 204 cannot be told apart from a tenant with no
+  // config, and its s-maxage let a shared cache keep it for an hour.
+  test('answers /api/config with the same 404 as a page, uncached', async ({
+    request,
+  }) => {
+    const headers = { host: UNREGISTERED_HOST, accept: 'application/json' };
+    const page = await request.get('/se/sv/', { headers, maxRedirects: 0 });
+    const config = await request.get('/api/config', { headers });
+
+    expect(config.status()).toBe(page.status());
+    expect(config.status()).toBe(404);
+    expect(config.headers()['cache-control'] ?? '').not.toContain('s-maxage');
+
+    const body = await config.json();
+    expect(body).toMatchObject({
+      error: true,
+      statusCode: 404,
+      hostname: UNREGISTERED_HOST,
+    });
+    expect(body.message).toContain('This site is not available');
+  });
 });
