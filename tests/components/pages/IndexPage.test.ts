@@ -1,4 +1,12 @@
-import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeAll,
+  beforeEach,
+  assert,
+} from 'vitest';
 import { ref } from 'vue';
 import { mountComponent } from '../../utils/component';
 import IndexPage from '../../../app/pages/index.vue';
@@ -21,6 +29,7 @@ import { useTenant } from '../../../app/composables/useTenant';
  * nobody and vitest exits with "No test files found".
  */
 const mockCmsAreas = new Map<string, { containers: unknown[] }>();
+let mockFetchStatus = 'success';
 
 type AreaQuery = { areaName?: string };
 
@@ -36,7 +45,7 @@ const mockUseFetch = vi.fn((_url: unknown, options?: { query?: unknown }) => {
     data: ref(
       areaName !== undefined ? (mockCmsAreas.get(areaName) ?? null) : null,
     ),
-    status: ref('success'),
+    status: ref(mockFetchStatus),
     error: ref(null),
     pending: ref(false),
     refresh: vi.fn(),
@@ -56,7 +65,8 @@ const stubs = {
     props: ['containers'],
   },
   FrontpageFallback: {
-    template: '<div data-testid="frontpage-fallback" />',
+    template:
+      '<section data-testid="frontpage-fallback"><h1>Welcome</h1></section>',
   },
 };
 
@@ -119,5 +129,116 @@ describe('index page CMS area', () => {
     expect(wrapper.find('[data-testid="frontpage-fallback"]').exists()).toBe(
       true,
     );
+  });
+});
+
+/**
+ * The start page owns one visually hidden h1 whenever neither the fallback
+ * nor a CMS widget renders one, so every branch ends up with exactly one.
+ */
+describe('index page h1', () => {
+  type Tenant = NonNullable<ReturnType<typeof useTenant>['tenant']['value']>;
+  let original: Tenant;
+
+  const textWidget = (titleRenderMode: number) => ({
+    config: { active: true, type: 'TextPageWidget' },
+    data: { titleRenderMode, title: 'Widget title' },
+  });
+
+  // The first block leaves the slot in whatever state its last test set.
+  function configureTenant(changes: Partial<Tenant>) {
+    const { tenant } = useTenant();
+    tenant.value = {
+      ...original,
+      cms: {
+        slots: {
+          frontpage_content: { family: 'Frontpage', areaName: CONFIGURED_AREA },
+        },
+      },
+      ...changes,
+    };
+  }
+
+  function mountWithArea(containers: unknown[] | null) {
+    if (containers) mockCmsAreas.set(CONFIGURED_AREA, { containers });
+    return mountComponent(IndexPage, { global: { stubs } });
+  }
+
+  beforeAll(() => {
+    const { tenant } = useTenant();
+    assert.isDefined(tenant.value);
+    original = tenant.value;
+  });
+
+  beforeEach(() => {
+    mockCmsAreas.clear();
+    mockFetchStatus = 'success';
+    configureTenant({});
+  });
+
+  it('renders one hidden h1 with the configured default title', () => {
+    configureTenant({ seo: { defaultTitle: 'Sentinel Default Title' } });
+
+    const headings = mountWithArea([
+      { id: 'c1', content: [textWidget(1)] },
+    ]).findAll('h1');
+
+    expect(headings).toHaveLength(1);
+    expect(headings[0]!.text()).toBe('Sentinel Default Title');
+    expect(headings[0]!.classes()).toContain('sr-only');
+  });
+
+  it('treats an empty default title as absent and uses the brand name', () => {
+    configureTenant({ seo: { defaultTitle: '' } });
+
+    const headings = mountWithArea([{ id: 'c1' }]).findAll('h1');
+
+    expect(headings).toHaveLength(1);
+    expect(headings[0]!.text()).toBe('Test Store');
+  });
+
+  it('uses the brand name when the tenant sets no default title', () => {
+    configureTenant({ seo: {} });
+
+    const headings = mountWithArea([{ id: 'c1' }]).findAll('h1');
+
+    expect(headings).toHaveLength(1);
+    expect(headings[0]!.text()).toBe('Test Store');
+  });
+
+  it('never renders an empty h1 when the brand name is empty too', () => {
+    configureTenant({
+      seo: null,
+      branding: { ...original.branding, name: '' },
+    });
+
+    const headings = mountWithArea([{ id: 'c1' }]).findAll('h1');
+
+    expect(headings).toHaveLength(1);
+    expect(headings[0]!.text()).toBe('frontpage.fallback.welcome');
+  });
+
+  it('leaves the h1 to a CMS widget that renders one', () => {
+    const wrapper = mountWithArea([{ id: 'c1', content: [textWidget(0)] }]);
+
+    expect(wrapper.find('[data-testid="frontpage-area"]').exists()).toBe(true);
+    expect(wrapper.findAll('h1')).toHaveLength(0);
+  });
+
+  it('renders its h1 while the area is still loading', () => {
+    mockFetchStatus = 'pending';
+
+    expect(mountWithArea(null).findAll('h1')).toHaveLength(1);
+  });
+
+  it('leaves the h1 to the fallback', () => {
+    const wrapper = mountWithArea(null);
+
+    expect(wrapper.find('[data-testid="frontpage-fallback"]').exists()).toBe(
+      true,
+    );
+    const headings = wrapper.findAll('h1');
+    expect(headings).toHaveLength(1);
+    expect(headings[0]!.text()).toBe('Welcome');
   });
 });

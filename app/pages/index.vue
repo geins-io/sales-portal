@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import type { ContentAreaType } from '#shared/types/cms';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
+import { cmsAreaRendersH1 } from '#shared/utils/cms-heading';
+import { resolveDefaultTitle } from '#shared/utils/seo-title';
 
+const { t } = useI18n();
+const { tenant, brandName } = useTenant();
 const { currentLocale, currentMarket } = useLocaleMarket();
 
 // Resolve the frontpage CMS slot from tenant config. The slot is null
@@ -28,6 +32,19 @@ const { data: area, status } = useFetch<ContentAreaType>('/api/cms/area', {
   dedupe: 'defer',
 });
 
+// The fallback brings its own h1, and so can a CMS text or HTML widget; the
+// page adds one only when neither does, so it never adds a second.
+const showPageHeading = computed(() =>
+  area.value?.containers?.length
+    ? !cmsAreaRendersH1(area.value.containers)
+    : status.value === 'pending',
+);
+const pageHeading = computed(
+  () =>
+    resolveDefaultTitle(tenant.value?.seo, brandName.value) ||
+    t('frontpage.fallback.welcome'),
+);
+
 // SEO: canonical + hreflang tags. The locale root needs no per-locale slug
 // overrides — /{market}/{locale}/ is the real path in every locale.
 useSeoLinks('/');
@@ -35,6 +52,7 @@ useSeoLinks('/');
 
 <template>
   <div>
+    <h1 v-if="showPageHeading" class="sr-only">{{ pageHeading }}</h1>
     <CmsWidgetArea
       v-if="area?.containers?.length"
       :containers="area.containers"

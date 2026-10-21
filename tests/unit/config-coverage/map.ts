@@ -2602,33 +2602,59 @@ export const CONFIG_COVERAGE_MAP = {
       states: {
         absent: {
           status: 'has-test',
-          test: {
-            spec: TENANT_SEO,
-            title:
-              'falls back to the brand name as the title when defaultTitle is absent',
-            kind: 'consumer',
-            drives: 'field',
-          },
+          test: [
+            {
+              spec: TENANT_SEO,
+              title:
+                'falls back to the brand name as the title when defaultTitle is absent',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: INDEX_PAGE,
+              title:
+                'uses the brand name when the tenant sets no default title',
+              kind: 'consumer',
+              drives: 'field',
+            },
+          ],
         },
         empty: {
           status: 'has-test',
-          test: {
-            spec: TENANT_SEO,
-            title:
-              'treats an empty defaultTitle as absent and titles the page with the brand name',
-            kind: 'consumer',
-            drives: 'field',
-          },
+          test: [
+            {
+              spec: TENANT_SEO,
+              title:
+                'treats an empty defaultTitle as absent and titles the page with the brand name',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: INDEX_PAGE,
+              title:
+                'treats an empty default title as absent and uses the brand name',
+              kind: 'consumer',
+              drives: 'field',
+            },
+          ],
           note: '`||` makes empty behave as absent, and that is now the assertion.',
         },
         set: {
           status: 'has-test',
-          test: {
-            spec: TENANT_SEO,
-            title: 'titles the page with the configured defaultTitle',
-            kind: 'consumer',
-            drives: 'field',
-          },
+          test: [
+            {
+              spec: TENANT_SEO,
+              title: 'titles the page with the configured defaultTitle',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: INDEX_PAGE,
+              title: 'renders one hidden h1 with the configured default title',
+              kind: 'consumer',
+              drives: 'field',
+            },
+          ],
         },
       },
     },

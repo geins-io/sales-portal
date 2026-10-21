@@ -9,6 +9,7 @@
 import { computed } from 'vue';
 import type { Composer } from 'vue-i18n';
 import { findTenantBcp47 } from '~/utils/locale-bcp47';
+import { resolveDefaultTitle } from '#shared/utils/seo-title';
 
 export default defineNuxtPlugin({
   name: 'tenant-seo',
@@ -112,7 +113,7 @@ export default defineNuxtPlugin({
     //     "Brand | Brand". An empty Studio template falls back to the brand
     //     pattern so a wrapped title never renders bare.
     const titleTemplate = seo?.titleTemplate || `%s - ${brandName.value}`;
-    const defaultTitle = seo?.defaultTitle || brandName.value;
+    const defaultTitle = resolveDefaultTitle(seo, brandName.value);
 
     useHead({
       title: defaultTitle,

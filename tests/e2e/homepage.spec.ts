@@ -39,6 +39,13 @@ test.describe('Homepage', () => {
     expect(count).toBeGreaterThan(0);
   });
 
+  // The fallback, a CMS widget or the page itself supplies it; never none, never two.
+  test('should have exactly one h1', async ({ page }) => {
+    await page.goto('/');
+
+    await expect(page.locator('h1')).toHaveCount(1);
+  });
+
   // A frame holds the page's `load` event until its document arrives, and
   // `goto` waits for `load`: a slow or failing player stalls the test.
   test('should abort the video player instead of waiting for it', async ({
