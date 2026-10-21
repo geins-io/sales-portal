@@ -225,9 +225,12 @@ export default defineConfig({
     // rejected by WebKit, so they are invisible to the Chromium projects.
     // Theme-color regressions must be caught here, against a production build
     // where the CSP is active (CI runs `pnpm preview`; locally use E2E_PROD=1).
+    // Desktop Safari is DPR 2, which makes every srcset image and frame four
+    // times the pixels and WebKit's suite about 1.3× slower; high-density
+    // srcset stays covered by Mobile Chrome (2.75).
     {
       name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
+      use: { ...devices['Desktop Safari'], deviceScaleFactor: 1 },
       testIgnore: [PREFLIGHT_FILES, ORDERS_FILES],
       dependencies: PREFLIGHT_PROJECT_NAMES,
     },
