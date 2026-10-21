@@ -33,13 +33,24 @@ function quoteTotal(quote: QuoteListItem): string {
 // ---------------------------------------------------------------------------
 // Orders data
 // ---------------------------------------------------------------------------
-const { data: ordersData, pending: ordersPending } = useFetch<{
+const {
+  data: ordersData,
+  pending: ordersPending,
+  error: ordersError,
+  refresh: refreshOrders,
+} = useFetch<{
   orders: OrderListItem[];
   total: number;
 }>('/api/orders', { dedupe: 'defer' });
 
-const orders = computed(() => ordersData.value?.orders ?? []);
-const orderCount = computed(() => orders.value.length);
+// A failed read is not an empty one: no rows and no count, so the section
+// shows the error and the stat card a dash instead of a false 0.
+const orders = computed(() =>
+  ordersError.value ? [] : (ordersData.value?.orders ?? []),
+);
+const orderCount = computed(() =>
+  ordersError.value ? undefined : orders.value.length,
+);
 
 // ---------------------------------------------------------------------------
 // Quotes data
@@ -56,15 +67,23 @@ callOnce('portal-quotes', () => quotesStore.fetchQuotes());
 // ---------------------------------------------------------------------------
 // Purchased products data
 // ---------------------------------------------------------------------------
-const { data: productsData, pending: productsPending } = useFetch<{
+const {
+  data: productsData,
+  pending: productsPending,
+  error: productsError,
+  refresh: refreshProducts,
+} = useFetch<{
   products: PurchasedProduct[];
   total: number;
 }>('/api/orders/products', { dedupe: 'defer' });
 
-const recentProducts = computed(() =>
-  (productsData.value?.products ?? []).slice(0, 4),
+const purchasedProducts = computed(() =>
+  productsError.value ? [] : (productsData.value?.products ?? []),
 );
-const purchasedProductCount = computed(() => productsData.value?.total ?? 0);
+const recentProducts = computed(() => purchasedProducts.value.slice(0, 4));
+const purchasedProductCount = computed(() =>
+  productsError.value ? undefined : (productsData.value?.total ?? 0),
+);
 
 // ---------------------------------------------------------------------------
 // Saved lists data — client-side via SDK ListsSession (no server API).
@@ -97,7 +116,7 @@ const latestOrderSubtitle = computed(() => {
 });
 
 const mostPurchasedSubtitle = computed(() => {
-  const products = productsData.value?.products ?? [];
+  const products = purchasedProducts.value;
   if (!products.length) return undefined;
   const top = products.reduce((a, b) =>
     (a.totalQuantity ?? 0) >= (b.totalQuantity ?? 0) ? a : b,
@@ -199,6 +218,23 @@ function handleProductAddToCart(
         class="text-muted-foreground py-8 text-center text-sm"
       >
         {{ t('common.loading') }}
+      </div>
+      <div
+        v-else-if="ordersError"
+        data-testid="latest-orders-error"
+        class="py-8 text-center"
+      >
+        <p class="text-muted-foreground mb-4 text-sm">
+          {{ t('portal.orders.error_loading') }}
+        </p>
+        <Button
+          data-testid="latest-orders-retry"
+          variant="link"
+          size="sm"
+          @click="refreshOrders()"
+        >
+          {{ t('portal.orders.retry') }}
+        </Button>
       </div>
       <PortalOrdersTable v-else :orders="orders" :limit="5" />
     </div>
@@ -431,6 +467,23 @@ function handleProductAddToCart(
         class="text-muted-foreground py-8 text-center text-sm"
       >
         {{ t('common.loading') }}
+      </div>
+      <div
+        v-else-if="productsError"
+        data-testid="purchased-products-error"
+        class="py-8 text-center"
+      >
+        <p class="text-muted-foreground mb-4 text-sm">
+          {{ t('portal.purchased_products.error_loading') }}
+        </p>
+        <Button
+          data-testid="purchased-products-retry"
+          variant="link"
+          size="sm"
+          @click="refreshProducts()"
+        >
+          {{ t('portal.purchased_products.retry') }}
+        </Button>
       </div>
       <p
         v-else-if="recentProducts.length === 0"

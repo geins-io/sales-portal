@@ -97,21 +97,35 @@ vi.mock('#app/composables/once', () => ({
 // ---------------------------------------------------------------------------
 let mockOrdersData: { orders: unknown[] } | null = { orders: [] };
 let mockOrdersPending = false;
+let mockOrdersError: Error | null = null;
+const mockOrdersRefresh = vi.fn();
 let mockProductsData: { products: unknown[]; total?: number } | null = {
   products: [],
 };
 let mockProductsPending = false;
+let mockProductsError: Error | null = null;
+const mockProductsRefresh = vi.fn();
 let mockListsData: { lists: unknown[]; total?: number } | null = { lists: [] };
 let mockListsPending = false;
 
 function routedUseFetch(url: string) {
   if (url.includes('/orders/products')) {
-    return { data: ref(mockProductsData), pending: ref(mockProductsPending) };
+    return {
+      data: ref(mockProductsData),
+      pending: ref(mockProductsPending),
+      error: ref(mockProductsError),
+      refresh: mockProductsRefresh,
+    };
   }
   if (url.includes('/api/lists')) {
     return { data: ref(mockListsData), pending: ref(mockListsPending) };
   }
-  return { data: ref(mockOrdersData), pending: ref(mockOrdersPending) };
+  return {
+    data: ref(mockOrdersData),
+    pending: ref(mockOrdersPending),
+    error: ref(mockOrdersError),
+    refresh: mockOrdersRefresh,
+  };
 }
 
 vi.mock('#app/composables/fetch', () => ({
@@ -210,8 +224,12 @@ describe('Portal Overview page', () => {
     mockFetchQuotes = vi.fn().mockResolvedValue(undefined);
     mockOrdersData = { orders: [] };
     mockOrdersPending = false;
+    mockOrdersError = null;
+    mockOrdersRefresh.mockReset();
     mockProductsData = { products: [] };
     mockProductsPending = false;
+    mockProductsError = null;
+    mockProductsRefresh.mockReset();
     mockListsData = { lists: [] };
     mockListsPending = false;
     mockShowIncVat.value = true;
@@ -530,6 +548,178 @@ describe('Portal Overview page', () => {
     });
     const empty = wrapper.find('[data-testid="purchased-products-empty"]');
     expect(empty.exists()).toBe(true);
+  });
+
+  describe('purchased products read', () => {
+    function productsStatCount(wrapper: ReturnType<typeof mount>) {
+      return wrapper
+        .findAll('[data-testid="portal-stat-card"]')[2]
+        ?.attributes('data-count');
+    }
+
+    it('shows the error and retry, not the empty state, when the read fails', () => {
+      mockProductsData = null;
+      mockProductsError = new Error('502');
+      const wrapper = mount(PortalOverviewPage.default, {
+        global: { stubs },
+      });
+      expect(
+        wrapper.find('[data-testid="purchased-products-error"]').text(),
+      ).toContain('portal.purchased_products.error_loading');
+      expect(
+        wrapper.find('[data-testid="purchased-products-retry"]').exists(),
+      ).toBe(true);
+      expect(
+        wrapper.find('[data-testid="purchased-products-empty"]').exists(),
+      ).toBe(false);
+      expect(
+        wrapper.find('[data-testid="purchased-products-grid"]').exists(),
+      ).toBe(false);
+    });
+
+    it('leaves the stat card without a number when the read fails', () => {
+      mockProductsData = null;
+      mockProductsError = new Error('502');
+      const wrapper = mount(PortalOverviewPage.default, {
+        global: { stubs },
+      });
+      expect(productsStatCount(wrapper)).toBeUndefined();
+    });
+
+    it('shows the error over products kept from an earlier read', () => {
+      mockProductsData = {
+        products: [{ name: 'Widget', articleNumber: 'W-1' }],
+        total: 1,
+      };
+      mockProductsError = new Error('502');
+      const wrapper = mount(PortalOverviewPage.default, {
+        global: { stubs },
+      });
+      expect(
+        wrapper.find('[data-testid="purchased-products-error"]').exists(),
+      ).toBe(true);
+      expect(
+        wrapper.find('[data-testid="purchased-products-grid"]').exists(),
+      ).toBe(false);
+      expect(productsStatCount(wrapper)).toBeUndefined();
+    });
+
+    it('refetches the purchased products on retry', async () => {
+      mockProductsData = null;
+      mockProductsError = new Error('502');
+      const wrapper = mount(PortalOverviewPage.default, {
+        global: { stubs },
+      });
+      await wrapper
+        .find('[data-testid="purchased-products-retry"]')
+        .trigger('click');
+      expect(mockProductsRefresh).toHaveBeenCalledTimes(1);
+      expect(mockOrdersRefresh).not.toHaveBeenCalled();
+    });
+
+    it('shows the empty state and a 0 for an empty answer', () => {
+      mockProductsData = { products: [], total: 0 };
+      const wrapper = mount(PortalOverviewPage.default, {
+        global: { stubs },
+      });
+      expect(
+        wrapper.find('[data-testid="purchased-products-empty"]').exists(),
+      ).toBe(true);
+      expect(
+        wrapper.find('[data-testid="purchased-products-error"]').exists(),
+      ).toBe(false);
+      expect(productsStatCount(wrapper)).toBe('0');
+    });
+
+    it('shows the grid and the total for a filled answer', () => {
+      mockProductsData = {
+        products: [{ name: 'Widget', articleNumber: 'W-1' }],
+        total: 47,
+      };
+      const wrapper = mount(PortalOverviewPage.default, {
+        global: { stubs },
+      });
+      expect(
+        wrapper.find('[data-testid="purchased-products-grid"]').exists(),
+      ).toBe(true);
+      expect(
+        wrapper.find('[data-testid="purchased-products-error"]').exists(),
+      ).toBe(false);
+      expect(productsStatCount(wrapper)).toBe('47');
+    });
+  });
+
+  describe('orders read', () => {
+    function ordersStatCount(wrapper: ReturnType<typeof mount>) {
+      return wrapper
+        .findAll('[data-testid="portal-stat-card"]')[1]
+        ?.attributes('data-count');
+    }
+
+    it('shows the error and retry, not the orders table, when the read fails', () => {
+      mockOrdersData = null;
+      mockOrdersError = new Error('502');
+      const wrapper = mount(PortalOverviewPage.default, {
+        global: { stubs },
+      });
+      expect(
+        wrapper.find('[data-testid="latest-orders-error"]').text(),
+      ).toContain('portal.orders.error_loading');
+      expect(wrapper.find('[data-testid="latest-orders-retry"]').exists()).toBe(
+        true,
+      );
+      expect(wrapper.find('[data-testid="portal-orders-table"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('leaves the stat card without a number when the read fails', () => {
+      mockOrdersData = null;
+      mockOrdersError = new Error('502');
+      const wrapper = mount(PortalOverviewPage.default, {
+        global: { stubs },
+      });
+      expect(ordersStatCount(wrapper)).toBeUndefined();
+    });
+
+    it('refetches the orders on retry', async () => {
+      mockOrdersData = null;
+      mockOrdersError = new Error('502');
+      const wrapper = mount(PortalOverviewPage.default, {
+        global: { stubs },
+      });
+      await wrapper
+        .find('[data-testid="latest-orders-retry"]')
+        .trigger('click');
+      expect(mockOrdersRefresh).toHaveBeenCalledTimes(1);
+      expect(mockProductsRefresh).not.toHaveBeenCalled();
+    });
+
+    it('shows the orders table and a 0 for an empty answer', () => {
+      const wrapper = mount(PortalOverviewPage.default, {
+        global: { stubs },
+      });
+      expect(wrapper.find('[data-testid="portal-orders-table"]').exists()).toBe(
+        true,
+      );
+      expect(wrapper.find('[data-testid="latest-orders-error"]').exists()).toBe(
+        false,
+      );
+      expect(ordersStatCount(wrapper)).toBe('0');
+    });
+
+    it('counts the orders of a filled answer', () => {
+      mockOrdersData = {
+        orders: [
+          { id: 1, createdAt: '2026-01-01' },
+          { id: 2, createdAt: '2026-01-02' },
+        ],
+      };
+      const wrapper = mount(PortalOverviewPage.default, {
+        global: { stubs },
+      });
+      expect(ordersStatCount(wrapper)).toBe('2');
+    });
   });
 
   it('wires ProductCard add-to-cart to the page handler', async () => {

@@ -3,7 +3,8 @@ import type { FunctionalComponent } from 'vue';
 
 defineProps<{
   icon: FunctionalComponent;
-  count: number;
+  /** Omitted when the read behind it failed: a dash, never a false 0. */
+  count?: number;
   label: string;
   subtitle?: string;
   showDot?: boolean;
@@ -47,14 +48,14 @@ defineProps<{
       data-testid="stat-card-count"
       class="mt-6 inline-block text-3xl leading-none font-bold hover:underline"
     >
-      {{ count }}
+      {{ count ?? '—' }}
     </NuxtLink>
     <p
       v-else
       data-testid="stat-card-count"
       class="mt-6 text-3xl leading-none font-bold"
     >
-      {{ count }}
+      {{ count ?? '—' }}
     </p>
   </div>
 </template>

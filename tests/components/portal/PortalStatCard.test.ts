@@ -67,4 +67,25 @@ describe('PortalStatCard', () => {
       true,
     );
   });
+
+  it('renders a dash instead of a number when the count is unknown', () => {
+    const wrapper = mountComponent(PortalStatCard, {
+      props: { ...defaultProps, count: undefined },
+    });
+    expect(wrapper.find('[data-testid="stat-card-count"]').text()).toBe('—');
+  });
+
+  it('renders a dash in the link when the count is unknown and `to` is set', () => {
+    const wrapper = mountComponent(PortalStatCard, {
+      props: { ...defaultProps, count: undefined, to: '/se/sv/portal/orders' },
+    });
+    expect(wrapper.find('a[data-testid="stat-card-count"]').text()).toBe('—');
+  });
+
+  it('renders a zero count as 0', () => {
+    const wrapper = mountComponent(PortalStatCard, {
+      props: { ...defaultProps, count: 0 },
+    });
+    expect(wrapper.find('[data-testid="stat-card-count"]').text()).toBe('0');
+  });
 });
