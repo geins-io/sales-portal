@@ -130,10 +130,19 @@ test.describe('Accessibility', () => {
   test('should have proper heading structure', async ({ page }) => {
     await page.goto('/');
 
-    // Page should have at least one heading element
-    const headings = page.locator('h1, h2, h3, h4, h5, h6');
-    const count = await headings.count();
-    expect(count).toBeGreaterThan(0);
+    await expect(page.locator('h1')).toHaveCount(1);
+    const levels = await page
+      .locator('h1, h2, h3, h4, h5, h6')
+      .evaluateAll((headings) =>
+        headings.map((heading) => Number(heading.tagName.slice(1))),
+      );
+    // Each heading may go at most one level deeper than the one before it,
+    // starting from an h1.
+    const skips = levels.flatMap((level, index) => {
+      const previous = index === 0 ? 0 : levels[index - 1]!;
+      return level > previous + 1 ? [`h${previous} -> h${level}`] : [];
+    });
+    expect(skips, 'heading levels skipped on the way down').toEqual([]);
   });
 
   test('should have lang attribute on html element', async ({ page }) => {
