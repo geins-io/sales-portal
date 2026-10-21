@@ -8,6 +8,7 @@ import {
 import { lookupHostname } from '../utils/lookup-hostname';
 import { isLoopbackHost } from '../utils/loopback-host';
 import { isDevMode } from '../utils/dev-mode';
+import { tenantRefusal } from '../utils/tenant-refusal';
 import {
   buildErrorResponse,
   type ErrorResponse,
@@ -123,21 +124,7 @@ export default defineNitroPlugin((nitroApp) => {
       );
       if (!tenant) {
         event.context.tenant.resolution = outcome;
-        event.context.tenantRefusal =
-          outcome === 'transport-failure'
-            ? {
-                statusCode: 503,
-                statusMessage: 'Service Unavailable',
-                message:
-                  'This site is temporarily unavailable. Please try again in a moment.',
-              }
-            : {
-                statusCode: 404,
-                statusMessage: 'Not Found',
-                message:
-                  'This site is not available. If you believe this is an error, please contact support.',
-                isTenantNotProvisioned: true,
-              };
+        event.context.tenantRefusal = tenantRefusal(outcome);
         return;
       }
 

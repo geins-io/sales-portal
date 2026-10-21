@@ -2,6 +2,7 @@ import type { H3Event } from 'h3';
 import { configResponseCacheKey, storefrontCacheKey } from '../utils/tenant';
 import { getPublicConfig } from '../services/tenant-config';
 import { createTenantLogger } from '../utils/logger';
+import { tenantRefusal } from '../utils/tenant-refusal';
 
 /**
  * Computes the Nitro response-cache key for /api/config. The base key is the
@@ -28,16 +29,15 @@ export default defineCachedEventHandler(
       async () => {
         log.debug('Fetching tenant configuration');
         const publicConfig = await getPublicConfig(event);
-        if (
-          !publicConfig &&
-          event.context.tenant.resolution === 'transport-failure'
-        ) {
-          // Thrown, so nothing is cached and the next request asks again.
-          throw createError({
-            statusCode: 503,
-            statusMessage: 'Service Unavailable',
-            message: 'Tenant configuration is temporarily unavailable',
-          });
+        if (!publicConfig) {
+          // The status a page gets for this host: the plugin's own refusal
+          // when it made one (no host, loopback), else the lookup outcome's.
+          // Thrown, not returned: a null return is an empty 204 carrying
+          // this handler's s-maxage, and a thrown error is never cached.
+          const { statusCode, statusMessage, message } =
+            event.context.tenantRefusal ??
+            tenantRefusal(event.context.tenant.resolution);
+          throw createError({ statusCode, statusMessage, message });
         }
         log.debug('Tenant configuration loaded successfully');
 
