@@ -91,6 +91,7 @@ describe('GET /api/orders/[id]', () => {
     const result = await handler(mockEvent);
 
     expect(mockRequireAuth).toHaveBeenCalledWith(mockEvent);
+    expect(mockedGetRouterParam).toHaveBeenCalledWith(mockEvent, 'id');
     expect(mockGetOrder).toHaveBeenCalledWith(
       { publicOrderId: 'abc-123' },
       mockEvent,
@@ -117,5 +118,51 @@ describe('GET /api/orders/[id]', () => {
     mockedGetRouterParam.mockReturnValueOnce(undefined);
 
     await expect(handler(mockEvent)).rejects.toThrow();
+    expect(setResponseHeader).not.toHaveBeenCalled();
+  });
+
+  it('marks a successful answer cacheable for thirty seconds', async () => {
+    mockRequireAuth.mockResolvedValueOnce({ authToken: 'test-token' });
+    mockedGetRouterParam.mockReturnValueOnce('abc-123');
+    mockGetOrder.mockResolvedValueOnce({ id: 1, publicId: 'abc-123' });
+
+    await handler(mockEvent);
+
+    expect(setResponseHeader).toHaveBeenCalledWith(
+      mockEvent,
+      'Cache-Control',
+      'private, max-age=30, must-revalidate',
+    );
+  });
+
+  it('names the operation for the error log', async () => {
+    mockRequireAuth.mockResolvedValueOnce({ authToken: 'test-token' });
+    mockedGetRouterParam.mockReturnValueOnce('abc-123');
+    mockGetOrder.mockResolvedValueOnce({ id: 1, publicId: 'abc-123' });
+
+    await handler(mockEvent);
+
+    expect(withErrorHandling).toHaveBeenCalledWith(expect.any(Function), {
+      operation: 'orders.get',
+    });
+  });
+
+  // A cacheable error would be served again to the page's retry.
+  it('leaves a failed answer without a cache header', async () => {
+    mockRequireAuth.mockResolvedValueOnce({ authToken: 'test-token' });
+    mockedGetRouterParam.mockReturnValueOnce('abc-123');
+    mockGetOrder.mockRejectedValueOnce(new Error('SDK failure'));
+
+    await expect(handler(mockEvent)).rejects.toThrow('SDK failure');
+    expect(setResponseHeader).not.toHaveBeenCalled();
+  });
+
+  it('leaves a not-found answer without a cache header', async () => {
+    mockRequireAuth.mockResolvedValueOnce({ authToken: 'test-token' });
+    mockedGetRouterParam.mockReturnValueOnce('nonexistent');
+    mockGetOrder.mockResolvedValueOnce(undefined);
+
+    await expect(handler(mockEvent)).rejects.toThrow('Order not found');
+    expect(setResponseHeader).not.toHaveBeenCalled();
   });
 });

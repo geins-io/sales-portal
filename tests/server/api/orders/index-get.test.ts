@@ -105,4 +105,37 @@ describe('GET /api/orders', () => {
 
     await expect(handler(mockEvent)).rejects.toThrow('SDK failure');
   });
+
+  it('marks a successful answer cacheable for thirty seconds', async () => {
+    mockRequireAuth.mockResolvedValueOnce({ authToken: 'test-token' });
+    mockListOrders.mockResolvedValueOnce({ orders: [], total: 0 });
+
+    await handler(mockEvent);
+
+    expect(setResponseHeader).toHaveBeenCalledWith(
+      mockEvent,
+      'Cache-Control',
+      'private, max-age=30, must-revalidate',
+    );
+  });
+
+  it('names the operation for the error log', async () => {
+    mockRequireAuth.mockResolvedValueOnce({ authToken: 'test-token' });
+    mockListOrders.mockResolvedValueOnce({ orders: [], total: 0 });
+
+    await handler(mockEvent);
+
+    expect(withErrorHandling).toHaveBeenCalledWith(expect.any(Function), {
+      operation: 'orders.list',
+    });
+  });
+
+  // A cacheable error would be served again to the page's retry.
+  it('leaves a failed answer without a cache header', async () => {
+    mockRequireAuth.mockResolvedValueOnce({ authToken: 'test-token' });
+    mockListOrders.mockRejectedValueOnce(new Error('SDK failure'));
+
+    await expect(handler(mockEvent)).rejects.toThrow('SDK failure');
+    expect(setResponseHeader).not.toHaveBeenCalled();
+  });
 });

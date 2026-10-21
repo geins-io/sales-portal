@@ -23,17 +23,17 @@ export default defineEventHandler(async (event) => {
   const aliasParam = getRouterParam(event, 'alias');
   const { alias } = ProductAliasSchema.parse({ alias: aliasParam });
 
-  setResponseHeader(
-    event,
-    'Cache-Control',
-    'private, max-age=300, must-revalidate',
-  );
-
   return withErrorHandling(
     async () => {
       const { products } =
         await purchasedProductsService.getPurchasedProducts(event);
       const product = products.find((p) => p.alias === alias) ?? null;
+      // Only on success: a cached error would come back on the next visit.
+      setResponseHeader(
+        event,
+        'Cache-Control',
+        'private, max-age=300, must-revalidate',
+      );
       return { product };
     },
     { operation: 'orders.products.byAlias' },

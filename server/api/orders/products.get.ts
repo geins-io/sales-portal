@@ -3,14 +3,16 @@ import { requireAuth } from '../../utils/auth';
 
 export default defineEventHandler(async (event) => {
   await requireAuth(event);
-  setResponseHeader(
-    event,
-    'Cache-Control',
-    'private, max-age=300, must-revalidate',
-  );
   return withErrorHandling(
     async () => {
-      return await purchasedProductsService.getPurchasedProducts(event);
+      const result = await purchasedProductsService.getPurchasedProducts(event);
+      // Only on success: a cached error would come back to the page's retry.
+      setResponseHeader(
+        event,
+        'Cache-Control',
+        'private, max-age=300, must-revalidate',
+      );
+      return result;
     },
     { operation: 'orders.products' },
   );
