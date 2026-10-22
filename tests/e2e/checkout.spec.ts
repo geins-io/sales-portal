@@ -353,3 +353,50 @@ test.describe('Checkout summary', () => {
     ).toBeCloseTo(cart.discountExVat, 2);
   });
 });
+
+test.describe('Checkout refusal', () => {
+  /** What create-order answers for each refusal, and the reason the banner shows. */
+  const REFUSALS = [
+    { code: 'ORDER_FAILED', status: 400, key: 'checkout.error.order_failed' },
+    {
+      code: 'ORDER_INVALID_IDENTITY_NUMBER',
+      status: 400,
+      key: 'checkout.error.invalid_identity_number',
+    },
+  ];
+
+  for (const { code, status, key } of REFUSALS) {
+    test(`a refusal answered ${code} shows its translated reason`, async ({
+      page,
+    }) => {
+      const product = await discoverPurchasableProduct(page);
+      await addToCart(page, product.alias);
+
+      // Answered here, so the request never reaches the server and no order
+      // can be placed; the body is the shape createAppError gives a refusal.
+      await page.route('**/api/checkout/create-order', (route) =>
+        route.fulfill({
+          status,
+          contentType: 'application/json',
+          body: JSON.stringify({ statusCode: status, data: { code } }),
+        }),
+      );
+
+      await page.goto('/checkout');
+      await page.waitForLoadState('load');
+      await waitForHydration(page);
+
+      await expect(
+        page.locator('[data-testid="checkout-order-summary"]'),
+      ).toBeVisible({ timeout: 20000 });
+      await page.locator('#checkout-terms-checkbox').click();
+      const placeOrder = page.locator('[data-testid="place-order-button"]');
+      await expect(placeOrder).toBeEnabled({ timeout: 20000 });
+      await placeOrder.click();
+
+      await expect(page.locator('[data-testid="checkout-error"]')).toHaveText(
+        await localeText(page, key),
+      );
+    });
+  }
+});
