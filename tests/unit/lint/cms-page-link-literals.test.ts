@@ -168,8 +168,7 @@ const STATIC_TO_ATTR_PATTERN = /\bto="(\/[^"]+)"/g;
  * trivially catchable by a line-level regex (backtick nesting ambiguity);
  * those are caught by the Layer A vue/no-restricted-syntax rule instead.
  */
-const BOUND_ATTR_PATTERN =
-  /:(?:to|href)=["']\s*(['"])(\/[^'"`\s]*)/g;
+const BOUND_ATTR_PATTERN = /:(?:to|href)=["']\s*(['"])(\/[^'"`\s]*)/g;
 
 /**
  * Matches the path or to property value inside a navigateTo({ ... }) object
@@ -405,7 +404,7 @@ describe('cms-page-link literals deny-by-default guard', () => {
 
   it('B2: flags :to="\'about\'" bound attribute literal - not an app route', () => {
     const allowlist = new Set(['cart', 'portal', 'login', 'index']);
-    const line = "<NuxtLink :to=\"'/about'\">About</NuxtLink>";
+    const line = '<NuxtLink :to="\'/about\'">About</NuxtLink>';
     const literals = extractLineLiterals(line);
     const flagged = literals.filter((v) => {
       if (isExemptLiteral(v)) return false;
@@ -418,7 +417,7 @@ describe('cms-page-link literals deny-by-default guard', () => {
 
   it('B2: flags :href="\'about\'" bound attribute literal - not an app route', () => {
     const allowlist = new Set(['cart', 'portal', 'login', 'index']);
-    const line = "<a :href=\"'/about'\">About</a>";
+    const line = '<a :href="\'/about\'">About</a>';
     const literals = extractLineLiterals(line);
     const flagged = literals.filter((v) => {
       if (isExemptLiteral(v)) return false;
@@ -431,7 +430,7 @@ describe('cms-page-link literals deny-by-default guard', () => {
 
   it('B2: does NOT flag :to="\'cart\'" - real app route', () => {
     const allowlist = new Set(['cart', 'portal', 'login', 'index']);
-    const line = "<NuxtLink :to=\"'/cart'\">Cart</NuxtLink>";
+    const line = '<NuxtLink :to="\'/cart\'">Cart</NuxtLink>';
     const literals = extractLineLiterals(line);
     const flagged = literals.filter((v) => {
       if (isExemptLiteral(v)) return false;
@@ -591,9 +590,7 @@ describe('cms-page-link literals deny-by-default guard', () => {
     const eslintConfig = readFileSync(ESLINT_CONFIG, 'utf-8');
     // Extract the slug alternation from the regex patterns in the config.
     // The alternation uses the form: (?:contact-form|contact|apply-for-account|apply|terms)
-    const altMatch = eslintConfig.match(
-      /\(\?:([^)]+)\)(?:\(\[\/\?#\]\|\$\))/,
-    );
+    const altMatch = eslintConfig.match(/\(\?:([^)]+)\)(?:\(\[\/\?#\]\|\$\))/);
     if (!altMatch) {
       // If the alternation pattern can't be found, skip the reverse check
       // (the forward check above is authoritative; this is defense-in-depth).

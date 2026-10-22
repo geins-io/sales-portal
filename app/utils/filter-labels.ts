@@ -44,9 +44,7 @@ const GROUP_KEY_MAP: Record<string, string> = {
  * Normalises a raw identity string and returns the matching
  * `product.filter_groups.*` key, or `undefined` when it is empty or unknown.
  */
-function resolveGroupKey(
-  value: string | null | undefined,
-): string | undefined {
+function resolveGroupKey(value: string | null | undefined): string | undefined {
   if (!value) return undefined;
   const normalized = value.trim().toLowerCase().replace(/\s+/g, '_');
   return GROUP_KEY_MAP[normalized];

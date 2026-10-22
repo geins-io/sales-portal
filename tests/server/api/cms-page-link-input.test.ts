@@ -28,9 +28,7 @@ describe('CmsPageLinkSchema', () => {
   });
 
   it('rejects a tag longer than 50 characters', () => {
-    expect(() =>
-      CmsPageLinkSchema.parse({ tag: 'a'.repeat(51) }),
-    ).toThrow();
+    expect(() => CmsPageLinkSchema.parse({ tag: 'a'.repeat(51) })).toThrow();
   });
 
   it('rejects a tag with a space', () => {

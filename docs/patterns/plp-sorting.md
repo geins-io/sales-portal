@@ -7,13 +7,13 @@ Geins `SortType` GraphQL enum value through `SORT_MAP` in
 
 ## What each option sorts on
 
-| UI value     | i18n label key            | `SortType` enum | Sorts on                            |
-| ------------ | ------------------------- | --------------- | ----------------------------------- |
-| `relevance`  | `product.sort_relevance`  | `RELEVANCE`     | Geins relevance ranking.            |
-| `price-asc`  | `product.sort_price_asc`  | `PRICE`         | Unit price, lowest first.           |
-| `price-desc` | `product.sort_price_desc` | `PRICE_DESC`    | Unit price, highest first.          |
-| `newest`     | `product.sort_newest`     | `LATEST`        | Product date, newest first.         |
-| `name-asc`   | `product.sort_name_asc`   | `ALPHABETICAL`  | Product name, A to Ö.               |
+| UI value     | i18n label key            | `SortType` enum | Sorts on                    |
+| ------------ | ------------------------- | --------------- | --------------------------- |
+| `relevance`  | `product.sort_relevance`  | `RELEVANCE`     | Geins relevance ranking.    |
+| `price-asc`  | `product.sort_price_asc`  | `PRICE`         | Unit price, lowest first.   |
+| `price-desc` | `product.sort_price_desc` | `PRICE_DESC`    | Unit price, highest first.  |
+| `newest`     | `product.sort_newest`     | `LATEST`        | Product date, newest first. |
+| `name-asc`   | `product.sort_name_asc`   | `ALPHABETICAL`  | Product name, A to Ö.       |
 
 `relevance` is special at the API layer: `buildFilterInput` omits the `sort`
 field entirely for it, so the Geins API applies its own ranking. Every other
@@ -25,10 +25,10 @@ value (including `newest`) sends its enum; an unknown key falls back to
 The default depends on the page, and the two defaults are intentionally
 different:
 
-| Page                                                     | Default sort | Why                                                                                       |
-| -------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------- |
+| Page                                                      | Default sort | Why                                                                                                                                                        |
+| --------------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Product lists: category (`/c`), brand (`/b`), `/products` | `newest`     | `relevance` with no sort param yields a non-deterministic API order that reshuffles on each reload. `newest` (`LATEST`) gives a stable, predictable order. |
-| Search results (`/s/{query}`)                             | `relevance`  | The API ranks search results by match quality, which is the meaningful order for a query. |
+| Search results (`/s/{query}`)                             | `relevance`  | The API ranks search results by match quality, which is the meaningful order for a query.                                                                  |
 
 Each page declares its default as a local `DEFAULT_SORT` constant:
 `'newest'` in `ProductList.vue` (category and brand) and

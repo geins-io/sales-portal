@@ -2539,7 +2539,9 @@ describe('useConfiguratorSession', () => {
       it('cancels after a swap onto a gone line by starting afresh, without a reopen or the not-reopened text', async () => {
         const session = await editing();
         answering({ commit: () => committedFrom(reopened()) });
-        replaceLine.mockRejectedValue(fetchError(404, 'gone', 'CART_LINE_GONE'));
+        replaceLine.mockRejectedValue(
+          fetchError(404, 'gone', 'CART_LINE_GONE'),
+        );
         await session.commit();
         expect(session.error.value).toMatchObject({ code: 'CART_LINE_GONE' });
         const fresh = makeInitialConfiguration();

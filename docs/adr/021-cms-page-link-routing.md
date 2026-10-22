@@ -183,7 +183,6 @@ concept, without producing a redirect loop. This is acceptable: the semantic slu
 are a small, stable set representing universal storefront concepts, and tenant editors
 who need a non-default alias simply choose a different string.
 
-
 ## Known limitations of the static guard
 
 The static guard (Layer A ESLint + Layer B scan) can reliably catch hardcoded

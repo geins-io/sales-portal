@@ -37,7 +37,11 @@ const { error, clearError } = useErrorBoundary({
       <p class="text-muted-foreground text-sm">
         {{ $t('errors.section_failed') }}
       </p>
-      <Button variant="link" class="mt-2 h-auto p-0 text-xs" @click="clearError">
+      <Button
+        variant="link"
+        class="mt-2 h-auto p-0 text-xs"
+        @click="clearError"
+      >
         {{ $t('errors.retry') }}
       </Button>
     </div>
