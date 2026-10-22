@@ -315,7 +315,7 @@ describe('useCheckoutStore', () => {
       const store = useCheckoutStore();
       await store.fetchCheckout('cart-abc');
 
-      expect(store.error).toBe('Failed to load checkout');
+      expect(store.error).toBe('checkout.error.load_failed');
       expect(store.isLoading).toBe(false);
     });
 
@@ -542,7 +542,7 @@ describe('useCheckoutStore', () => {
 
       await store.placeOrder('cart-abc');
 
-      expect(store.error).toBe('Failed to place order');
+      expect(store.error).toBe('checkout.error.order_failed');
       expect(store.errorCode).toBeNull();
       expect(store.isPlacingOrder).toBe(false);
       expect(store.orderResult).toBeNull();
@@ -565,6 +565,80 @@ describe('useCheckoutStore', () => {
       await store.placeOrder('cart-abc');
 
       expect(store.errorCode).toBe('EMPTY_CART');
+    });
+
+    it('holds the generic reason as a key for a refused order', async () => {
+      mockFetchImpl.mockRejectedValueOnce(
+        Object.assign(new Error('Bad Request'), {
+          data: { statusCode: 400, data: { code: 'ORDER_FAILED' } },
+        }),
+      );
+
+      const store = useCheckoutStore();
+      store.email = 'order@example.com';
+      store.billingAddress = { ...mockAddress };
+      store.selectedPaymentId = 2;
+
+      await store.placeOrder('cart-abc');
+
+      expect(store.error).toBe('checkout.error.order_failed');
+      expect(store.errorCode).toBe('ORDER_FAILED');
+    });
+
+    it('holds the generic reason for a code it does not know', async () => {
+      mockFetchImpl.mockRejectedValueOnce(
+        Object.assign(new Error('Teapot'), {
+          data: { statusCode: 418, data: { code: 'SOMETHING_NEW' } },
+        }),
+      );
+
+      const store = useCheckoutStore();
+      store.email = 'order@example.com';
+      store.billingAddress = { ...mockAddress };
+      store.selectedPaymentId = 2;
+
+      await store.placeOrder('cart-abc');
+
+      expect(store.error).toBe('checkout.error.order_failed');
+      expect(store.errorCode).toBe('SOMETHING_NEW');
+    });
+
+    it('holds the identity number reason for ORDER_INVALID_IDENTITY_NUMBER', async () => {
+      mockFetchImpl.mockRejectedValueOnce(
+        Object.assign(new Error('Refused'), {
+          data: {
+            statusCode: 400,
+            data: { code: 'ORDER_INVALID_IDENTITY_NUMBER' },
+          },
+        }),
+      );
+
+      const store = useCheckoutStore();
+      store.email = 'order@example.com';
+      store.billingAddress = { ...mockAddress };
+      store.selectedPaymentId = 2;
+
+      await store.placeOrder('cart-abc');
+
+      expect(store.error).toBe('checkout.error.invalid_identity_number');
+      expect(store.errorCode).toBe('ORDER_INVALID_IDENTITY_NUMBER');
+    });
+
+    it('does not take a key of every object for a code', async () => {
+      mockFetchImpl.mockRejectedValueOnce(
+        Object.assign(new Error('Refused'), {
+          data: { statusCode: 400, data: { code: 'toString' } },
+        }),
+      );
+
+      const store = useCheckoutStore();
+      store.email = 'order@example.com';
+      store.billingAddress = { ...mockAddress };
+      store.selectedPaymentId = 2;
+
+      await store.placeOrder('cart-abc');
+
+      expect(store.error).toBe('checkout.error.order_failed');
     });
 
     it('sends customerOrderNumber, goodsLabel, and desiredDeliveryDate when set', async () => {

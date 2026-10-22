@@ -105,7 +105,7 @@ if (!cartIdCookie.value) {
 // Client: refetch only if SSR didn't populate the store (e.g. SSR threw an
 // auth race / transient API hiccup). The previous `callOnce` approach
 // blocked the client retry entirely, so any SSR failure stuck the page on
-// "Failed to load checkout" until full nav. Re-running fetchCheckout on
+// the load-failed banner until full nav. Re-running fetchCheckout on
 // client when the store is empty self-heals that path.
 if (cartIdCookie.value) {
   if (import.meta.server) {
@@ -290,7 +290,7 @@ async function handlePlaceOrder() {
           class="bg-destructive/10 text-destructive mb-6 rounded-md p-4 text-sm"
           data-testid="checkout-error"
         >
-          {{ checkoutStore.error }}
+          {{ t(checkoutStore.error) }}
         </div>
 
         <CartEmptyState v-if="showEmptyCart" data-testid="checkout-empty" />

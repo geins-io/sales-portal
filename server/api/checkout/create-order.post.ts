@@ -7,6 +7,7 @@ import { createOrder } from '../../services/checkout';
 import { requireAuth } from '../../utils/auth';
 import { createOrderRateLimiter, getClientIp } from '../../utils/rate-limiter';
 import { assertCommerceMode } from '../../utils/catalog-mode';
+import { orderRefusalCode } from '../../utils/order-refusal';
 
 /**
  * Reject an order for a cart the platform reports as having no lines.
@@ -94,10 +95,13 @@ export default defineEventHandler(async (event) => {
       const result = await createOrder(options, event);
 
       if (!result?.created) {
-        if (result?.message) {
-          console.error('Order creation SDK error:', result.message);
-        }
-        throw createAppError(ErrorCode.BAD_REQUEST, 'Order creation failed');
+        // Geins' refusal text is untranslated English, so it is logged, never sent.
+        logger.warn('Order refused by Geins', {
+          cartId: body.cartId,
+          code: result?.code,
+          message: result?.message,
+        });
+        throw createAppError(orderRefusalCode(result?.code));
       }
 
       return { orderId: result.orderId, publicId: result.publicId };

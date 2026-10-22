@@ -153,6 +153,26 @@ describe('Error utilities', () => {
         expect(errorData(error).details).toBeUndefined();
       });
 
+      it('refuses an order with 400 and ORDER_FAILED, never the refusal text', () => {
+        const error = createAppError(
+          ErrorCode.ORDER_FAILED,
+          'First name is required',
+        );
+        expect(error.statusCode).toBe(400);
+        expect(errorData(error).code).toBe('ORDER_FAILED');
+        expect(error.message).toBe('Order could not be placed');
+      });
+
+      it('refuses an identity number with 400 and its own code', () => {
+        const error = createAppError(
+          ErrorCode.ORDER_INVALID_IDENTITY_NUMBER,
+          'Invalid identity number',
+        );
+        expect(error.statusCode).toBe(400);
+        expect(errorData(error).code).toBe('ORDER_INVALID_IDENTITY_NUMBER');
+        expect(error.message).toBe('Identity number not accepted');
+      });
+
       it('should always include error code in response', () => {
         const error = createAppError(
           ErrorCode.INTERNAL_ERROR,

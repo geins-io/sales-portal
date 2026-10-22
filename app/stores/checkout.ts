@@ -19,6 +19,11 @@ function serverErrorCode(err: unknown): string | null {
   return typeof code === 'string' ? code : null;
 }
 
+/** The reason the banner shows for a refused order, by the server's code. */
+const ORDER_REFUSAL_KEYS = new Map<string, string>([
+  ['ORDER_INVALID_IDENTITY_NUMBER', 'checkout.error.invalid_identity_number'],
+]);
+
 function emptyAddress(): AddressInputType {
   return {
     firstName: '',
@@ -60,6 +65,7 @@ export const useCheckoutStore = defineStore('checkout', () => {
   const acceptedConsents = ref<string[]>([]);
   const isLoading = ref(false);
   const isPlacingOrder = ref(false);
+  // An i18n key, never text: the page renders it through t().
   const error = ref<string | null>(null);
   // The server's ErrorCode for the last failure, kept alongside the message so
   // a caller can tell EMPTY_CART from any other rejection.
@@ -188,7 +194,7 @@ export const useCheckoutStore = defineStore('checkout', () => {
         acceptedConsents.value = [...autoAccepted];
       }
     } catch {
-      error.value = 'Failed to load checkout';
+      error.value = 'checkout.error.load_failed';
     } finally {
       isLoading.value = false;
     }
@@ -253,7 +259,9 @@ export const useCheckoutStore = defineStore('checkout', () => {
       cartStore.cartId = null;
     } catch (err) {
       errorCode.value = serverErrorCode(err);
-      error.value = 'Failed to place order';
+      error.value =
+        (errorCode.value && ORDER_REFUSAL_KEYS.get(errorCode.value)) ||
+        'checkout.error.order_failed';
     } finally {
       isPlacingOrder.value = false;
     }
@@ -278,7 +286,7 @@ export const useCheckoutStore = defineStore('checkout', () => {
         quoteNumber: response.quoteNumber,
       };
     } catch {
-      error.value = 'Failed to request quote';
+      error.value = 'checkout.error.quote_failed';
     } finally {
       isRequestingQuote.value = false;
     }

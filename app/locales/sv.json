@@ -214,7 +214,13 @@
     "goods_label": "Godsmärke",
     "goods_label_placeholder": "t.ex. Butik 12 / Lastbrygga B / Projekt Atlas",
     "desired_delivery_date": "Önskat leveransdatum",
-    "desired_delivery_date_helper": "Önskemål, inte garanterat"
+    "desired_delivery_date_helper": "Önskemål, inte garanterat",
+    "error": {
+      "order_failed": "Ordern kunde inte läggas. Försök igen eller kontakta oss.",
+      "load_failed": "Kassan kunde inte laddas. Försök igen.",
+      "quote_failed": "Offertförfrågan kunde inte skickas. Försök igen.",
+      "invalid_identity_number": "Person- eller organisationsnumret godkändes inte. Kontrollera det och försök igen."
+    }
   },
   "order_confirmation": {
     "title": "Orderbekräftelse",

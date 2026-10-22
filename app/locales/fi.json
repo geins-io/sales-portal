@@ -214,7 +214,13 @@
     "goods_label": "Rahtimerkintä",
     "goods_label_placeholder": "esim. Myymälä 12 / Lastauslaituri B / Projekti Atlas",
     "desired_delivery_date": "Toivottu toimituspäivä",
-    "desired_delivery_date_helper": "Toive, ei takuuta"
+    "desired_delivery_date_helper": "Toive, ei takuuta",
+    "error": {
+      "order_failed": "Tilausta ei voitu tehdä. Yritä uudelleen tai ota meihin yhteyttä.",
+      "load_failed": "Kassaa ei voitu ladata. Yritä uudelleen.",
+      "quote_failed": "Tarjouspyyntöä ei voitu lähettää. Yritä uudelleen.",
+      "invalid_identity_number": "Henkilötunnusta tai Y-tunnusta ei hyväksytty. Tarkista se ja yritä uudelleen."
+    }
   },
   "order_confirmation": {
     "title": "Tilausvahvistus",

@@ -62,6 +62,17 @@ vi.stubGlobal(
     return err;
   },
 );
+const { mockLoggerWarn } = vi.hoisted(() => ({ mockLoggerWarn: vi.fn() }));
+// Under vitest the route's `logger` is Nuxt's app auto-import, not the global
+// or the server one that Nitro resolves at runtime.
+vi.mock('../../../app/utils/logger', () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: mockLoggerWarn,
+    error: vi.fn(),
+  },
+}));
 vi.stubGlobal('logger', {
   debug: vi.fn(),
   info: vi.fn(),
@@ -75,6 +86,8 @@ vi.stubGlobal('createAppError', (code: string, message?: string) => {
     RATE_LIMITED: 429,
     UNAUTHORIZED: 401,
     EMPTY_CART: 409,
+    ORDER_FAILED: 400,
+    ORDER_INVALID_IDENTITY_NUMBER: 400,
   };
   const error = new Error(message || code) as Error & {
     statusCode: number;
@@ -90,6 +103,7 @@ vi.stubGlobal('ErrorCode', {
   RATE_LIMITED: 'RATE_LIMITED',
   UNAUTHORIZED: 'UNAUTHORIZED',
   EMPTY_CART: 'EMPTY_CART',
+  ORDER_FAILED: 'ORDER_FAILED',
 });
 vi.stubGlobal(
   'getValidatedQuery',
@@ -300,16 +314,67 @@ describe('Checkout API routes', () => {
       expect(result).toEqual({ orderId: '125', publicId: 'pub-125' });
     });
 
-    it('throws on failed creation', async () => {
+    it('refuses with ORDER_FAILED when Geins refuses the order', async () => {
       mockCreateOrder.mockResolvedValue({
         created: false,
         message: 'Stock unavailable',
       });
 
       const event = mockEvent({ body: validBody });
-      await expect(handler(event)).rejects.toMatchObject({
-        statusCode: 400,
+      const error = await handler(event).catch((e: unknown) => e);
+
+      expect(error).toMatchObject({ statusCode: 400, code: 'ORDER_FAILED' });
+      expect((error as Error).message).not.toContain('Stock unavailable');
+    });
+
+    it('logs the refusal text Geins sent', async () => {
+      mockCreateOrder.mockResolvedValue({
+        created: false,
+        message: 'Stock unavailable',
       });
+
+      await handler(mockEvent({ body: validBody })).catch(() => undefined);
+
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        'Order refused by Geins',
+        expect.objectContaining({
+          cartId: 'cart-1',
+          message: 'Stock unavailable',
+        }),
+      );
+    });
+
+    it.each([
+      ['INVALID_IDENTITY_NUMBER', 400, 'ORDER_INVALID_IDENTITY_NUMBER'],
+      ['CartBelongsToAnotherCompany', 400, 'ORDER_FAILED'],
+    ])(
+      'answers a refusal with code %s as %i %s',
+      async (code, statusCode, expected) => {
+        mockCreateOrder.mockResolvedValue({
+          created: false,
+          message: 'Refused by Geins',
+          code,
+        });
+
+        const error = await handler(mockEvent({ body: validBody })).catch(
+          (e: unknown) => e,
+        );
+
+        expect(error).toMatchObject({ statusCode, code: expected });
+        expect((error as Error).message).not.toContain('Refused by Geins');
+        expect(mockLoggerWarn).toHaveBeenCalledWith(
+          'Order refused by Geins',
+          expect.objectContaining({ code }),
+        );
+      },
+    );
+
+    it('refuses with ORDER_FAILED when the SDK answers nothing', async () => {
+      mockCreateOrder.mockResolvedValue(undefined);
+
+      await expect(
+        handler(mockEvent({ body: validBody })),
+      ).rejects.toMatchObject({ statusCode: 400, code: 'ORDER_FAILED' });
     });
 
     it('respects rate limit', async () => {

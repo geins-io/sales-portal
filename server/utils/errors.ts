@@ -15,6 +15,10 @@ export enum ErrorCode {
   RATE_LIMITED = 'RATE_LIMITED',
   CONFLICT = 'CONFLICT',
   EMPTY_CART = 'EMPTY_CART',
+  /** Geins refused the order; the client shows a generic translated reason. */
+  ORDER_FAILED = 'ORDER_FAILED',
+  /** Geins refused the buyer's personal or organisation number. */
+  ORDER_INVALID_IDENTITY_NUMBER = 'ORDER_INVALID_IDENTITY_NUMBER',
   PAYLOAD_TOO_LARGE = 'PAYLOAD_TOO_LARGE',
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   GONE = 'GONE',
@@ -53,6 +57,8 @@ const ERROR_STATUS_CODES: Record<ErrorCode, number> = {
   // 409 rather than 400: the same endpoint answers 400 when order creation
   // itself fails, so the status alone tells the two apart.
   [ErrorCode.EMPTY_CART]: 409,
+  [ErrorCode.ORDER_FAILED]: 400,
+  [ErrorCode.ORDER_INVALID_IDENTITY_NUMBER]: 400,
   [ErrorCode.PAYLOAD_TOO_LARGE]: 413,
   [ErrorCode.VALIDATION_ERROR]: 422,
   [ErrorCode.GONE]: 410,
@@ -87,6 +93,8 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.RATE_LIMITED]: 'Too many requests',
   [ErrorCode.CONFLICT]: 'Already processed',
   [ErrorCode.EMPTY_CART]: 'Cart has no items',
+  [ErrorCode.ORDER_FAILED]: 'Order could not be placed',
+  [ErrorCode.ORDER_INVALID_IDENTITY_NUMBER]: 'Identity number not accepted',
   [ErrorCode.PAYLOAD_TOO_LARGE]: 'Payload too large',
   [ErrorCode.VALIDATION_ERROR]: 'Validation failed',
   [ErrorCode.GONE]: 'Resource is no longer available',

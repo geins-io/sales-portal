@@ -214,7 +214,13 @@
     "goods_label": "Versandkennzeichen",
     "goods_label_placeholder": "z. B. Filiale 12 / Rampe B / Projekt Atlas",
     "desired_delivery_date": "Wunschlieferdatum",
-    "desired_delivery_date_helper": "Wunsch, nicht garantiert"
+    "desired_delivery_date_helper": "Wunsch, nicht garantiert",
+    "error": {
+      "order_failed": "Die Bestellung konnte nicht aufgegeben werden. Bitte versuchen Sie es erneut oder kontaktieren Sie uns.",
+      "load_failed": "Die Kasse konnte nicht geladen werden. Bitte versuchen Sie es erneut.",
+      "quote_failed": "Die Angebotsanfrage konnte nicht gesendet werden. Bitte versuchen Sie es erneut.",
+      "invalid_identity_number": "Die Personen- oder Organisationsnummer wurde nicht akzeptiert. Bitte prüfen Sie sie und versuchen Sie es erneut."
+    }
   },
   "order_confirmation": {
     "title": "Bestellbestätigung",

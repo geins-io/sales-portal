@@ -214,7 +214,13 @@
     "goods_label": "Godsmærke",
     "goods_label_placeholder": "f.eks. Butik 12 / Læsserampe B / Projekt Atlas",
     "desired_delivery_date": "Ønsket leveringsdato",
-    "desired_delivery_date_helper": "Ønske, ikke garanteret"
+    "desired_delivery_date_helper": "Ønske, ikke garanteret",
+    "error": {
+      "order_failed": "Ordren kunne ikke afgives. Prøv igen, eller kontakt os.",
+      "load_failed": "Kassen kunne ikke indlæses. Prøv igen.",
+      "quote_failed": "Tilbudsforespørgslen kunne ikke sendes. Prøv igen.",
+      "invalid_identity_number": "CPR- eller CVR-nummeret blev ikke godkendt. Kontrollér det, og prøv igen."
+    }
   },
   "order_confirmation": {
     "title": "Ordrebekræftelse",

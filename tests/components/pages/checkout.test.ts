@@ -18,6 +18,24 @@ const { mockNavigateTo, mockSafeLocationRedirect, mockFetch } = vi.hoisted(
   }),
 );
 
+// The shared passthrough `t` renders a raw key exactly like a translated one;
+// marking the error keys tells a banner that went through `t()` from one that did not.
+vi.mock('vue-i18n', async () => {
+  const { ref: vueRef } = await import('vue');
+  return {
+    useI18n: () => ({
+      t: (key: string, params?: Record<string, unknown>) => {
+        let result = key.startsWith('checkout.error.') ? `t:${key}` : key;
+        for (const [k, v] of Object.entries(params ?? {})) {
+          result = result.replace(`{${k}}`, String(v));
+        }
+        return result;
+      },
+      locale: vueRef('en'),
+    }),
+  };
+});
+
 vi.stubGlobal('definePageMeta', vi.fn());
 vi.stubGlobal('navigateTo', mockNavigateTo);
 vi.stubGlobal('safeLocationRedirect', mockSafeLocationRedirect);
@@ -450,7 +468,7 @@ describe('checkout page', () => {
       const { useCheckoutStore } = await import('../../../app/stores/checkout');
       vi.mocked(useCheckoutStore).mockReturnValueOnce(
         checkoutStoreStub({
-          error: 'Failed to place order',
+          error: 'checkout.error.order_failed',
           errorCode: 'EMPTY_CART',
           fetchCheckout: mockFetchCheckout,
           placeOrder: mockPlaceOrder,
@@ -464,6 +482,30 @@ describe('checkout page', () => {
       );
       expect(wrapper.find('[data-testid="checkout-error"]').exists()).toBe(
         false,
+      );
+    });
+  });
+
+  describe('error banner', () => {
+    it.each([
+      'checkout.error.order_failed',
+      'checkout.error.load_failed',
+      'checkout.error.invalid_identity_number',
+    ])('renders %s translated', async (key) => {
+      const { useCheckoutStore } = await import('../../../app/stores/checkout');
+      vi.mocked(useCheckoutStore).mockReturnValueOnce(
+        checkoutStoreStub({
+          error: key,
+          errorCode: null,
+          fetchCheckout: mockFetchCheckout,
+          placeOrder: mockPlaceOrder,
+        } as Partial<CheckoutStore>),
+      );
+
+      const wrapper = await mountCheckoutPage();
+
+      expect(wrapper.find('[data-testid="checkout-error"]').text()).toBe(
+        `t:${key}`,
       );
     });
   });

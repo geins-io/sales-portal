@@ -214,7 +214,13 @@
     "goods_label": "Godsmerke",
     "goods_label_placeholder": "f.eks. Butikk 12 / Lasterampe B / Prosjekt Atlas",
     "desired_delivery_date": "Ønsket leveringsdato",
-    "desired_delivery_date_helper": "Ønske, ikke garantert"
+    "desired_delivery_date_helper": "Ønske, ikke garantert",
+    "error": {
+      "order_failed": "Bestillingen kunne ikke legges inn. Prøv igjen eller kontakt oss.",
+      "load_failed": "Kassen kunne ikke lastes inn. Prøv igjen.",
+      "quote_failed": "Tilbudsforespørselen kunne ikke sendes. Prøv igjen.",
+      "invalid_identity_number": "Fødselsnummeret eller organisasjonsnummeret ble ikke godkjent. Kontroller det og prøv igjen."
+    }
   },
   "order_confirmation": {
     "title": "Ordrebekreftelse",

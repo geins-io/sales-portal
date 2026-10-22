@@ -226,7 +226,7 @@ describe('useCheckoutStore — quote extensions', () => {
       const store = useCheckoutStore();
       await store.requestQuote('cart-abc');
 
-      expect(store.error).toBe('Failed to request quote');
+      expect(store.error).toBe('checkout.error.quote_failed');
       expect(store.isRequestingQuote).toBe(false);
       expect(store.quoteResult).toBeNull();
     });

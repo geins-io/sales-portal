@@ -214,7 +214,13 @@
     "goods_label": "Goods label",
     "goods_label_placeholder": "e.g. Store 12 / Dock B / Project Atlas",
     "desired_delivery_date": "Desired delivery date",
-    "desired_delivery_date_helper": "Requested, not guaranteed"
+    "desired_delivery_date_helper": "Requested, not guaranteed",
+    "error": {
+      "order_failed": "The order could not be placed. Try again or contact us.",
+      "load_failed": "The checkout could not be loaded. Try again.",
+      "quote_failed": "The quote request could not be sent. Try again.",
+      "invalid_identity_number": "The personal or organisation number was not accepted. Check it and try again."
+    }
   },
   "order_confirmation": {
     "title": "Order Confirmation",
