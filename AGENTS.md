@@ -167,7 +167,8 @@ Full guide in [CONTRIBUTING.md](CONTRIBUTING.md); rationale in [ADR-022](docs/ad
 1. `pnpm typecheck` — must pass
 2. `pnpm test` — all tests must pass
 3. `pnpm lint:fix` — no lint errors
-4. `docker build .` — must build successfully if the build configuration changed:
+4. `pnpm format:check` — no formatting drift
+5. `docker build .` — must build successfully if the build configuration changed:
    `Dockerfile`, `.dockerignore`, `tsconfig.json`, `nuxt.config.ts`, or a build script in
    `package.json`
 

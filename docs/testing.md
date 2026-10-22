@@ -719,14 +719,14 @@ Three workflows run tests; none runs on a schedule, and only the third writes so
 nothing deletes — every run leaves carts behind, see
 [What a run leaves behind](#what-a-run-leaves-behind).
 
-| Workflow · Job                                             | Trigger                                       | What                                                             |
-| ---------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------- |
-| `ci.yml` · Lint & Type Check                               | PRs into `main`/`production`, pushes to `dev` | `pnpm lint`, `pnpm typecheck` (app, `tests/`, `tests/e2e/`)      |
-| `ci.yml` · Unit & Component                                | same                                          | `pnpm test:coverage` (full vitest suite)                         |
-| `ci.yml` · E2E · build                                     | PRs only                                      | `pnpm build`, handed to the three jobs below                     |
-| `ci.yml` · E2E · chromium / Mobile Chrome / webkit         | PRs only, in parallel after the build         | **Preflight, then every spec on that one project**               |
-| `e2e-full.yml` · E2E Suite (manual)                        | `workflow_dispatch`, any branch               | **Preflight, then every spec on all three projects**             |
-| `e2e-order-placement.yml` · E2E Order Placement (mutating) | `workflow_dispatch` only, with a tenant name  | **Preflight, then the `orders` project — places one real order** |
+| Workflow · Job                                             | Trigger                                       | What                                                                             |
+| ---------------------------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------- |
+| `ci.yml` · Lint & Type Check                               | PRs into `main`/`production`, pushes to `dev` | `pnpm lint`, `pnpm format:check`, `pnpm typecheck` (app, `tests/`, `tests/e2e/`) |
+| `ci.yml` · Unit & Component                                | same                                          | `pnpm test:coverage` (full vitest suite)                                         |
+| `ci.yml` · E2E · build                                     | PRs only                                      | `pnpm build`, handed to the three jobs below                                     |
+| `ci.yml` · E2E · chromium / Mobile Chrome / webkit         | PRs only, in parallel after the build         | **Preflight, then every spec on that one project**                               |
+| `e2e-full.yml` · E2E Suite (manual)                        | `workflow_dispatch`, any branch               | **Preflight, then every spec on all three projects**                             |
+| `e2e-order-placement.yml` · E2E Order Placement (mutating) | `workflow_dispatch` only, with a tenant name  | **Preflight, then the `orders` project — places one real order**                 |
 
 `retries` is zero everywhere (`playwright.config.ts`), so a red run in either workflow is a real
 failure rather than one that survived three attempts. Both run the production build, so before a

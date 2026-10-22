@@ -1,9 +1,9 @@
 # =============================================================================
 # SALES PORTAL - CI Checks
 # =============================================================================
-# Runs lint, type check, unit tests, and E2E tests.
-#   - PR into main or production: full gate (lint + types + unit + e2e).
-#   - Push to dev:                light gate (lint + types + unit). e2e is PR-only.
+# Runs lint, format check, type check, unit tests, and E2E tests.
+#   - PR into main or production: full gate (lint + format + types + unit + e2e).
+#   - Push to dev:                light gate (lint + format + types + unit). e2e is PR-only.
 # =============================================================================
 
 name: CI
@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Lint and Type Check
+  # Lint, Format and Type Check
   # ---------------------------------------------------------------------------
   lint:
     name: Lint & Type Check
@@ -46,6 +46,9 @@ jobs:
 
       - name: Run linter
         run: pnpm lint
+
+      - name: Check formatting
+        run: pnpm format:check
 
       - name: Run type check
         run: pnpm typecheck

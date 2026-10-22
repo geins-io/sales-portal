@@ -168,7 +168,7 @@ without dragging the unreleased `main` batch.
    ```bash
    git checkout -b hotfix-<desc> production
    # ...fix...
-   pnpm typecheck && pnpm test && pnpm lint
+   pnpm typecheck && pnpm test && pnpm lint && pnpm format:check
    ```
 2. Open a PR into **`production`** (CI gates it), merge.
 3. Build and deploy the fix:
@@ -214,5 +214,5 @@ types: `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `perf`, `build`,
 ## Before you push
 
 ```bash
-pnpm typecheck && pnpm test && pnpm lint:fix
+pnpm typecheck && pnpm test && pnpm lint:fix && pnpm format:check
 ```

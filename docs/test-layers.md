@@ -20,7 +20,8 @@ flowchart LR
     subgraph LINT["Job: Lint &amp; Type Check"]
         direction TB
         L1["pnpm lint"]
-        L2["pnpm typecheck"]
+        L2["pnpm format:check"]
+        L3["pnpm typecheck"]
     end
 
     subgraph UNIT["Job: Unit &amp; Component Tests"]

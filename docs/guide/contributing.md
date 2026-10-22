@@ -163,10 +163,10 @@ Full rule, including what must never appear in a message, is in
 Before you push:
 
 ```bash
-pnpm typecheck && pnpm test && pnpm lint:fix
+pnpm typecheck && pnpm test && pnpm lint:fix && pnpm format:check
 ```
 
-CI then runs lint, type check, unit tests with coverage, and the E2E smoke specs against a
+CI then runs lint, format check, type check, unit tests with coverage, and the E2E smoke specs against a
 production build. PR titles follow the commit format; the body carries the rationale, the test
 plan and any follow-ups.
 
