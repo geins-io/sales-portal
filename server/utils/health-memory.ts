@@ -1,12 +1,12 @@
 /**
  * The RSS thresholds `/api/health` grades the process against.
  *
- * They model one thing: a container approaching its limit. Azure's Health
- * Check points at `/api/health` (`infra/modules/webApp.bicep`) and takes an
- * instance out of rotation and restarts it on a 5xx, so the `unhealthy` verdict
- * is production's recovery from a leaking container rather than a report. That
- * is why nothing here can switch grading off — only the sizes are configurable,
- * for a container of a different size.
+ * Both are alarms, not recovery. Production runs a single instance, so
+ * Azure's Health Check (`infra/modules/webApp.bicep`) never takes it out of
+ * rotation on a 503. Recovery from a heap leak is the runtime's
+ * `--max-old-space-size` cap: V8 runs out of heap and the container restarts.
+ * Nothing here can switch grading off, so the alarm cannot be silenced — only
+ * the sizes are configurable.
  *
  * A Nuxt dev server has no such limit: it holds Vite, HMR and source maps in
  * the same process, and measured on one machine it sits at 651 MB settled,
@@ -19,11 +19,18 @@
  * sees as a dead process.
  */
 
-/** RSS above this is `degraded`. The production container's warning level. */
-export const DEFAULT_RSS_DEGRADED_MB = 400;
+/**
+ * RSS above this is `degraded`. Node 24 under the heap cap settles near 320 MB
+ * and stays near 400 after a burst; this keeps a margin over that.
+ */
+export const DEFAULT_RSS_DEGRADED_MB = 500;
 
-/** RSS above this is `unhealthy`, approaching a typical 1 GB container limit. */
-export const DEFAULT_RSS_UNHEALTHY_MB = 900;
+/**
+ * RSS above this is `unhealthy`. A healthy process with its heap at the cap
+ * sits near 850 MB, so only growth the cap cannot catch (buffers, native
+ * memory) gets here.
+ */
+export const DEFAULT_RSS_UNHEALTHY_MB = 1200;
 
 /** `runtimeConfig.health`, as it arrives — env overrides may be strings. */
 export interface HealthMemoryConfig {

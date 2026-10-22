@@ -149,8 +149,8 @@ async function checkStorage(event: H3Event): Promise<ComponentHealth> {
  * Node.js heap starts small (~30MB) and grows dynamically toward its limit, so
  * heapUsedPercent is misleading for fresh processes.
  *
- * Thresholds come from `runtimeConfig.health` and default to the production
- * container's sizing. The dev server has no container limit to approach, so
+ * Thresholds come from `runtimeConfig.health` and default to production's
+ * alarm levels. The dev server's memory follows the work Vite has done, so
  * it reports the numbers ungraded (`../utils/health-memory`).
  */
 function checkMemory(event: H3Event): ComponentHealth {
@@ -166,7 +166,8 @@ function checkMemory(event: H3Event): ComponentHealth {
     const heapUsedPercent = Math.round(
       (memUsage.heapUsed / memUsage.heapTotal) * 100,
     );
-    // ≈ 540 under the deployed --max-old-space-size=512, ≈ 2 000 without it.
+    // ≈ 700 on Node 24 under the deployed --max-old-space-size=512, which caps
+    // old space only; ≈ 2 200 without it.
     const heapLimitMB = Math.round(
       v8.getHeapStatistics().heap_size_limit / 1024 / 1024,
     );

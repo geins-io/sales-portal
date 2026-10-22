@@ -22,14 +22,14 @@ import {
 describe('resolveRssThresholds', () => {
   it('returns the production thresholds when nothing is configured', () => {
     expect(resolveRssThresholds()).toEqual({
-      degradedMb: 400,
-      unhealthyMb: 900,
+      degradedMb: DEFAULT_RSS_DEGRADED_MB,
+      unhealthyMb: DEFAULT_RSS_UNHEALTHY_MB,
     });
   });
 
   it('exports the production thresholds as its defaults', () => {
-    expect(DEFAULT_RSS_DEGRADED_MB).toBe(400);
-    expect(DEFAULT_RSS_UNHEALTHY_MB).toBe(900);
+    expect(DEFAULT_RSS_DEGRADED_MB).toBe(500);
+    expect(DEFAULT_RSS_UNHEALTHY_MB).toBe(1200);
   });
 
   it('uses configured numbers', () => {
@@ -54,12 +54,14 @@ describe('resolveRssThresholds', () => {
     ['undefined', undefined],
     ['a boolean', true],
   ])('falls back to the production threshold for %s', (_case, value) => {
-    // Nothing may disable the check: Azure's Health Check restarts an
-    // instance that answers 5xx, so `unhealthy` is how production recovers
-    // from a leaking container.
+    // Nothing may disable the check: `unhealthy` is the alarm for memory
+    // the heap cap cannot catch.
     expect(
       resolveRssThresholds({ rssDegradedMb: value, rssUnhealthyMb: value }),
-    ).toEqual({ degradedMb: 400, unhealthyMb: 900 });
+    ).toEqual({
+      degradedMb: DEFAULT_RSS_DEGRADED_MB,
+      unhealthyMb: DEFAULT_RSS_UNHEALTHY_MB,
+    });
   });
 });
 
@@ -172,7 +174,7 @@ describe('GET /api/health memory grading', () => {
     vi.unstubAllGlobals();
   });
 
-  describe('with the production configuration', () => {
+  describe('with configured thresholds', () => {
     beforeEach(() => {
       setHealth({ rssDegradedMb: 400, rssUnhealthyMb: 900 });
     });
@@ -184,14 +186,14 @@ describe('GET /api/health memory grading', () => {
       expect(setResponseStatusMock).not.toHaveBeenCalled();
     });
 
-    it('reports degraded above 400 MB, still answering 200', async () => {
+    it('reports degraded above the degraded threshold, still answering 200', async () => {
       const response = await healthFor(500);
 
       expect(response.checks.memory.status).toBe('degraded');
       expect(setResponseStatusMock).toHaveBeenCalledWith(event, 200);
     });
 
-    it('reports unhealthy above 900 MB and answers 503', async () => {
+    it('reports unhealthy above the unhealthy threshold and answers 503', async () => {
       const response = await healthFor(1000);
 
       expect(response.checks.memory.status).toBe('unhealthy');
@@ -200,9 +202,8 @@ describe('GET /api/health memory grading', () => {
 
     it('ignores a gradeRss key in the configuration', async () => {
       // The invariant behind `const gradeRss = !isDevMode()`: no config key
-      // switches grading off in a built server. Azure's Health Check restarts
-      // an instance that answers 5xx, so a kill switch here would turn
-      // production's recovery from a leaking container into silence.
+      // switches grading off in a built server, so a kill switch could not
+      // silence the alarm for memory the heap cap cannot catch.
       setHealth({ gradeRss: false, rssDegradedMb: 400, rssUnhealthyMb: 900 });
 
       const response = await healthFor(1000);
@@ -217,9 +218,13 @@ describe('GET /api/health memory grading', () => {
     // run: an absent `health` key must grade exactly as production does.
     setHealth(undefined);
 
-    expect((await healthFor(1000)).checks.memory.status).toBe('unhealthy');
-    expect((await healthFor(500)).checks.memory.status).toBe('degraded');
-    expect((await healthFor(300)).checks.memory.status).toBe('healthy');
+    const statusAt = async (rssMB: number) =>
+      (await healthFor(rssMB)).checks.memory.status;
+
+    expect(await statusAt(DEFAULT_RSS_UNHEALTHY_MB + 1)).toBe('unhealthy');
+    expect(await statusAt(DEFAULT_RSS_UNHEALTHY_MB)).toBe('degraded');
+    expect(await statusAt(DEFAULT_RSS_DEGRADED_MB + 1)).toBe('degraded');
+    expect(await statusAt(DEFAULT_RSS_DEGRADED_MB)).toBe('healthy');
   });
 
   it('moves its verdict when the configured thresholds move', async () => {

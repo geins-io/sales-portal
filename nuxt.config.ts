@@ -283,12 +283,12 @@ export default defineNuxtConfig({
     // Azure: NUXT_HEALTH_CHECK_SECRET=your-secret-here
     healthCheckSecret: '',
 
-    // RSS thresholds for /api/health, in MB. Sized for the production
-    // container; a different container size is the reason to change them.
+    // RSS thresholds for /api/health, in MB: alarms sized for Node 24 under
+    // the production heap cap (server/utils/health-memory.ts).
     // Azure: NUXT_HEALTH_RSS_DEGRADED_MB, NUXT_HEALTH_RSS_UNHEALTHY_MB
     health: {
-      rssDegradedMb: 400,
-      rssUnhealthyMb: 900,
+      rssDegradedMb: 500,
+      rssUnhealthyMb: 1200,
     },
 
     // External API base URL for the proxy
