@@ -639,25 +639,47 @@ test.describe('Images from the asset library', () => {
         decodeURIComponent(new URL(url, 'http://x').pathname).endsWith(
           `/${fileName}`,
         );
-      // Only the widgets asserted on are waited for, each scrolled into view:
-      // WebKit leaves a lazy image it has scrolled past unloaded, so waiting
-      // for every image on a phone-sized page never ends.
-      const files = pairs.flatMap((pair) => [pair.desktop, pair.mobile]);
-      const shownFiles: string[] = [];
-      for (const widget of await page
-        .locator('[data-testid="cms-widget"]')
-        .all()) {
-        const urls = await widget.evaluate((el) =>
-          [...el.querySelectorAll('img, source')].flatMap((node) => [
+      // Every img and source on the page with the widget it sits in (-1 when
+      // outside one), so a file can be checked for use beyond its own widget.
+      const sources = await page.evaluate(() => {
+        const widgets = [
+          ...document.querySelectorAll('[data-testid="cms-widget"]'),
+        ];
+        return [...document.querySelectorAll('img, source')].map((node) => ({
+          widget: widgets.findIndex((widget) => widget.contains(node)),
+          urls: [
             node.getAttribute('src') ?? '',
             ...(node.getAttribute('srcset') ?? '')
               .split(',')
               .map((candidate) => candidate.trim().split(/\s+/)[0] ?? ''),
-          ]),
+          ].filter(Boolean),
+        }));
+      });
+      const widgetsUsing = (file: string) =>
+        new Set(
+          sources
+            .filter((s) => s.widget >= 0 && s.urls.some((u) => isFile(u, file)))
+            .map((s) => s.widget),
         );
-        if (!urls.some((url) => url && files.some((f) => isFile(url, f))))
-          continue;
-        const img = widget.locator('img').first();
+
+      for (const pair of pairs) {
+        const [shown, skipped] = mobile
+          ? [pair.mobile, pair.desktop]
+          : [pair.desktop, pair.mobile];
+        const mobileWidgets = widgetsUsing(pair.mobile);
+        const own = [...widgetsUsing(pair.desktop)].filter((w) =>
+          mobileWidgets.has(w),
+        );
+        expect(own, `${pair.desktop} / ${pair.mobile}`).toHaveLength(1);
+
+        // Only the widget asserted on is waited for, scrolled into view:
+        // WebKit leaves a lazy image it has scrolled past unloaded, so waiting
+        // for every image on a phone-sized page never ends.
+        const img = page
+          .locator('[data-testid="cms-widget"]')
+          .nth(own[0]!)
+          .locator('img')
+          .first();
         await img.scrollIntoViewIfNeeded();
         await expect
           .poll(() =>
@@ -666,26 +688,29 @@ test.describe('Images from the asset library', () => {
             ),
           )
           .toBe(true);
-        shownFiles.push(
-          await img.evaluate((el: HTMLImageElement) => el.currentSrc),
+        const currentSrc = await img.evaluate(
+          (el: HTMLImageElement) => el.currentSrc,
         );
-      }
-      for (const pair of pairs) {
-        const [shown, skipped] = mobile
-          ? [pair.mobile, pair.desktop]
-          : [pair.desktop, pair.mobile];
-        expect(
-          shownFiles.filter((src) => isFile(src, shown)),
-          shown,
-        ).toHaveLength(1);
-        expect(
-          requested.filter((url) => isFile(url, shown)),
-          shown,
-        ).toHaveLength(1);
-        expect(
-          requested.filter((url) => isFile(url, skipped)),
-          skipped,
-        ).toEqual([]);
+        expect(isFile(currentSrc, shown), currentSrc).toBe(true);
+
+        // A file another image on the page also uses is fetched for that image
+        // too, so the requests for it say nothing about this widget.
+        const usedElsewhere = (file: string) =>
+          sources.some(
+            (s) => s.widget !== own[0] && s.urls.some((u) => isFile(u, file)),
+          );
+        if (!usedElsewhere(shown)) {
+          expect(
+            requested.filter((url) => isFile(url, shown)),
+            shown,
+          ).toHaveLength(1);
+        }
+        if (!usedElsewhere(skipped)) {
+          expect(
+            requested.filter((url) => isFile(url, skipped)),
+            skipped,
+          ).toEqual([]);
+        }
       }
     });
   }
