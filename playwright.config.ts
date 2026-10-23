@@ -151,8 +151,10 @@ export default defineConfig({
   // retrying a rate-limited sign-in makes the rate limit worse.
   retries: 0,
 
-  // Run tests in parallel — CI runners have 2 vCPUs
-  workers: process.env.CI ? 2 : undefined,
+  // CI runners have 4 vCPUs. Measured on CI, two runs each, 4 workers against
+  // 2: chromium −24 %, Mobile Chrome −14 %, webkit +3 % (webkit is capped
+  // below). Locally, Playwright's default.
+  workers: process.env.CI ? '100%' : undefined,
 
   // Reporter configuration
   // The scope reporter separates out-of-scope / blocked / unknown skips and
@@ -233,6 +235,9 @@ export default defineConfig({
       use: { ...devices['Desktop Safari'], deviceScaleFactor: 1 },
       testIgnore: [PREFLIGHT_FILES, ORDERS_FILES],
       dependencies: PREFLIGHT_PROJECT_NAMES,
+      // On a 4-vCPU runner 4 webkit workers were no faster than 2: WebKit and
+      // the preview server compete for the same cores. ci.yml shards webkit.
+      ...(process.env.CI ? { workers: 2 } : {}),
     },
     // Places a real order on the tenant under test. Never run by ci.yml or
     // e2e-full.yml — only by e2e-order-placement.yml, by hand, and only when

@@ -151,12 +151,13 @@ jobs:
           retention-days: 1
 
   test-e2e:
-    name: E2E · ${{ matrix.project }} · ${{ matrix.variant.name }}
+    name: E2E · ${{ matrix.label }}
     needs: e2e-build
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # Provisional until measured: container start, ~1.3 min of fixed steps and
-    # the slowest suite at ~9.6 min.
+    # Measured in the container: ~1.5 min of fixed steps before the project
+    # step. The longest job was 11 min (webkit unsharded at 2 workers, with the
+    # merchant API slow); every leg is shorter now, and 18 keeps the headroom.
     timeout-minutes: 18
     # Playwright's image carries the browsers and their system libraries, so
     # no leg runs apt or downloads a browser. The tag must equal the locked
@@ -171,20 +172,24 @@ jobs:
       # Mobile Chrome running to the end.
       fail-fast: false
       matrix:
-        project: [chromium, Mobile Chrome, webkit]
-        # Temporary: every worker setting on every project in one run, so the
-        # step times compare under the same load on the merchant API.
-        variant:
-          - { name: w2, args: '--workers=2' }
-          - { name: w100, args: '--workers=100%' }
         # `slug` names the artifacts, which should not carry a space.
+        # Webkit is the slowest project and gains nothing from more workers
+        # (playwright.config.ts), so it runs as two shards, each its own leg.
         include:
           - project: chromium
+            label: chromium
             slug: chromium
           - project: Mobile Chrome
+            label: Mobile Chrome
             slug: mobile-chrome
           - project: webkit
-            slug: webkit
+            label: webkit 1/2
+            slug: webkit-1
+            shard: 1/2
+          - project: webkit
+            label: webkit 2/2
+            slug: webkit-2
+            shard: 2/2
     env:
       # Empty repository variables fall through to the committed defaults in
       # tests/e2e/target-defaults.mjs, the one place the target is spelled out.
@@ -208,13 +213,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      # Temporary: what `--workers=100%` resolves against (Playwright reads
-      # os.cpus()), next to what the container reports.
-      - name: Print the core count
-        run: |
-          echo "nproc: $(nproc)"
-          node -p '"os.cpus: " + require("os").cpus().length'
 
       # The target: an origin, the tenant it must resolve to, and a test
       # account. Repository variables/secrets override the committed defaults.
@@ -271,16 +269,18 @@ jobs:
       - name: Preflight L4 · session
         run: pnpm test:e2e --no-deps --project "L4 session"
 
-      # This leg's one browser project, every spec. `--no-deps` because the
-      # preflight layers above already ran.
-      - name: Project · ${{ matrix.project }}
-        run: pnpm test:e2e --no-deps --project="${{ matrix.project }}" ${{ matrix.variant.args }}
+      # This leg's one browser project, every spec, or its shard of them.
+      # `--no-deps` because the preflight layers above already ran.
+      - name: Project · ${{ matrix.label }}
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: pnpm test:e2e --no-deps --project="${{ matrix.project }}" ${SHARD:+--shard=$SHARD}
 
       - name: Upload preview server log
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: preview-log-${{ matrix.slug }}-${{ matrix.variant.name }}
+          name: preview-log-${{ matrix.slug }}
           path: preview.log
           retention-days: 7
 
@@ -288,7 +288,7 @@ jobs:
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: playwright-report-${{ matrix.slug }}-${{ matrix.variant.name }}
+          name: playwright-report-${{ matrix.slug }}
           path: playwright-report/
           retention-days: 7
 
@@ -296,6 +296,6 @@ jobs:
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: test-results-${{ matrix.slug }}-${{ matrix.variant.name }}
+          name: test-results-${{ matrix.slug }}
           path: test-results/
           retention-days: 7

@@ -4,8 +4,9 @@
 # Every spec in tests/e2e across chromium, Mobile Chrome and webkit, after the
 # five preflight layers. Triggered by hand, on any branch.
 #
-# The PR jobs in ci.yml run the same specs on the same three projects, one job
-# per project in parallel after a shared build. This one differs in what it is
+# The PR jobs in ci.yml run the same specs on the same three projects in
+# parallel after a shared build, one job per project and webkit in two shards.
+# This one differs in what it is
 # for: it can be dispatched on any branch without a PR, and it runs the three
 # projects one after another in a single job, continuing past a failing one,
 # because three wall-clock numbers from one runner are its deliverable.
@@ -34,8 +35,8 @@ jobs:
   e2e-full:
     name: E2E Suite
     runs-on: ubuntu-latest
-    # Provisional until measured: the three suites alone take 20.4–23.4 min in
-    # sequence, plus the build, setup, the image pull and a cold pnpm store.
+    # Measured in the container: 24.6 min for the whole job at 2 workers, the
+    # build and the three suites in sequence included. 35 keeps the headroom.
     timeout-minutes: 35
     # Playwright's image carries the browsers and their system libraries; see
     # the test-e2e job in ci.yml for the tag check and --ipc=host.
