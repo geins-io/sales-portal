@@ -35,18 +35,19 @@ flowchart LR
         direction TB
         BUILD["Job: E2E · build · one production build"]
 
-        subgraph LEGS["Three jobs in parallel · same specs, one browser project each"]
+        subgraph LEGS["Four jobs in parallel · same specs, one browser project each, webkit in two shards"]
             direction LR
             B1["Job: E2E · chromium"]
             B2["Job: E2E · Mobile Chrome"]
-            B3["Job: E2E · webkit"]
+            B3["Job: E2E · webkit 1/2"]
+            B4["Job: E2E · webkit 2/2"]
         end
 
         BUILD --> LEGS
     end
 ```
 
-Each of the three browser jobs runs the same chain against its own server before its one project:
+Each of the four browser jobs runs the same chain against its own server before its one project:
 
 ```mermaid
 flowchart LR
@@ -60,7 +61,7 @@ flowchart LR
 **The five checks before the browsers.** L0 to L4 are _preflight_: cheap checks that run before
 any spec, each depending on the one below it. In CI each is a step of its own in every browser
 job, invoked with `--no-deps`, so a red layer fails that job and the steps after it never start.
-The step view names the check that broke instead of showing a wall of red specs. The three jobs
+The step view names the check that broke instead of showing a wall of red specs. The four jobs
 do not stop one another: a red webkit leaves chromium and Mobile Chrome running to the end.
 
 **"Blocked" belongs to a different kind of run.** Where the dependencies are resolved inside one
