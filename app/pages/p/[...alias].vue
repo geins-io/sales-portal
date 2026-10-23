@@ -19,7 +19,7 @@
 import type { DetailProduct } from '#shared/types/commerce';
 import { AlertTriangle as AlertTriangleIcon } from 'lucide-vue-next';
 import { productPath as buildProductPath } from '#shared/utils/route-helpers';
-import { recoverEntityUrl } from '~/composables/useEntityUrlRecovery';
+import { useEntityUrlRecovery } from '~/composables/useEntityUrlRecovery';
 import { resolveProductRouteType } from '~/utils/product-page-type';
 
 const route = useRoute();
@@ -31,6 +31,7 @@ const productAlias = computed(() => {
 });
 
 const { localeQuery, localePath } = useLocaleMarket();
+const { settle } = useEntityUrlRecovery();
 
 const {
   data: product,
@@ -41,26 +42,9 @@ const {
   dedupe: 'defer',
 });
 
-// Only a product the read says it does not have is a miss: a failed read (a
-// timeout answers 502) would otherwise end in a 404 for a product that exists.
-const failed = error.value;
-if (failed && failed.statusCode !== 404) {
-  throw createError({
-    statusCode: failed.statusCode ?? 500,
-    statusMessage: failed.statusMessage,
-    fatal: true,
-  });
-}
-
-// On a content miss the old slug may be a renamed/old product that should 301
-// to its canonical instead of 404ing (Problem B). recoverEntityUrl consults the
-// resolver, 301s to the canonical (or a urlHistory redirect), and throws a
-// fatal 404 only on a terminal miss. Kept in the setup await position so the
-// redirect/404 carries a real SSR status before render. Without this, crawlers
-// would index phantom URLs.
-if (error.value || !product.value?.productId) {
-  await recoverEntityUrl(route.path);
-}
+// A failed read shows the error page; a missing product may be a renamed slug
+// that 301s to its canonical, else a real 404 (see useEntityUrlRecovery).
+await settle({ error, status }, () => !product.value?.productId, route.path);
 
 const isLoading = computed(() => status.value === 'pending');
 

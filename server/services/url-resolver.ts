@@ -106,8 +106,8 @@ export async function resolveEntityUrl(
   // (e.g. a tenant whose terms page alias is literally "terms"). Strip the
   // locale/market prefix from both paths and compare the clean forms. Equal
   // clean paths mean we would redirect the browser to itself, so treat that as
-  // a fall-through (no redirect). recoverEntityUrl enforces the same guard on
-  // the composable side, but catching it here keeps the service self-contained.
+  // a fall-through (no redirect). useEntityUrlRecovery enforces the same guard
+  // on the composable side, but catching it here keeps the service self-contained.
   //
   // Open-redirect guard: getPageLinkByTag already validates the link via
   // isSafeInternalPath internally, but we re-check here as a defence-in-depth

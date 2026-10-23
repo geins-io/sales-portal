@@ -1,85 +1,125 @@
+import type { Ref } from 'vue';
 import type { ResolvedEntityUrl } from '~~/server/services/url-resolver';
 import { stripLocaleMarketPrefix } from '#shared/utils/locale-market';
 import { isSafeInternalPath } from '#shared/utils/redirect';
+import { internalFetch } from '~/utils/internal-fetch';
+
+/** What `settle` reads from a page's primary `useFetch`. */
+export interface PrimaryRead {
+  error: Readonly<
+    Ref<{ statusCode?: number; statusMessage?: string } | null | undefined>
+  >;
+  status: Readonly<Ref<string>>;
+}
 
 /**
- * Content-miss recovery: the reusable extraction of the catch-all's inline
- * resolver hop (app/pages/[...slug].vue). A page calls this when its primary
- * content load misses (CMS page / product / category not found) to give the
- * cached resolver a chance to 301 the URL to its canonical form instead of
- * throwing 404 outright.
+ * Content-miss recovery for the pages that load one entity (product, category,
+ * brand, CMS page). Call it in setup; `settle` then decides what the primary
+ * read means for the page:
  *
- * Behaviour:
- *  - `{ type, canonicalAppPath }`: 301-redirect to `canonicalAppPath` unless it
- *    equals the incoming path (loop guard), in which case 404.
- *  - `{ redirect }`: re-apply the current locale prefix (a renamed slug is a
- *    bare path) and 301-redirect, unless it equals the incoming path -> 404.
- *  - `null` / fetch error: throw a fatal 404.
+ *  - content: nothing, the page renders.
+ *  - a failed read (anything but a 404): a fatal error with the read's status.
+ *    A timed-out read answers 502, and recovering it would 404 a page that
+ *    exists.
+ *  - a 404 or missing data: the cached resolver gets a chance to 301 the URL to
+ *    its canonical (`canonicalAppPath`) or a renamed slug (`redirect`, the
+ *    current locale prefix re-applied). The loop guard and an unsafe target
+ *    end in a fatal 404, as does a resolver that finds nothing or fails.
  *
- * SSR-safe: `useFetch` auto-forwards cookie + host on page-level loads, and
- * no `window` / `history` usage.
+ * A read that has answered (always on SSR, and after `await useFetch` on a
+ * client navigation) is decided in setup, so a redirect or 404 carries a real
+ * SSR status. A read Nuxt deferred while hydrating (its key was not in the
+ * payload: `await useFetch` returns with status 'idle' and no request sent) is
+ * decided when it answers. Its errors reject the watch callback, which Vue
+ * hands to NuxtRoot's error capture: the error page, `vue:error`, and no error
+ * page for bots.
  *
- * Nuxt-context note: unlike a page `setup`, an `await` inside a composable does
- * NOT auto-preserve the Nuxt instance, so calling `navigateTo` (which reaches
- * `useRouter` -> `useNuxtApp`) after the `useFetch` await throws "A composable
- * that requires access to the Nuxt instance was called outside of...". We
- * therefore capture the Nuxt app BEFORE the await and restore the context for
- * each post-await `navigateTo` via `nuxtApp.runWithContext(...)`. `createError`
- * is a plain h3 util and needs no Nuxt instance, so it stays unwrapped.
- *
- * @param path - The incoming path to recover (use the route's path; do NOT
- *   re-derive locale beyond the prefix re-apply for the rename case).
+ * Nuxt context: `useLocaleMarket` needs the component instance and
+ * `internalFetch` needs the Nuxt app on SSR, and neither survives an await
+ * inside a composable. Everything is taken here, in setup; the resolver fetch
+ * and every `navigateTo` run through `nuxtApp.runWithContext`.
  */
-export async function recoverEntityUrl(path: string): Promise<void> {
+export function useEntityUrlRecovery() {
   const { localePath } = useLocaleMarket();
-  // Capture the Nuxt app before the await: the async boundary below drops the
-  // Nuxt instance, so the post-await navigateTo must run via runWithContext.
   const nuxtApp = useNuxtApp();
+  const router = useRouter();
+
+  // Suspense keeps a page mounted until the next one resolves, so a decision
+  // can still be under way after the visitor has left it.
+  let disposed = false;
+  onScopeDispose(() => {
+    disposed = true;
+  });
 
   function throwNotFound(): never {
     throw createError({ statusCode: 404, fatal: true });
   }
 
-  const { data, error } = await useFetch<ResolvedEntityUrl>(
-    '/api/resolve-url',
-    {
-      query: { path },
-      dedupe: 'defer',
-    },
-  );
+  async function recover(path: string): Promise<void> {
+    const left = () => disposed || router.currentRoute.value.path !== path;
 
-  const res = error.value ? null : data.value;
+    const res = await nuxtApp
+      .runWithContext(() =>
+        internalFetch<ResolvedEntityUrl>('/api/resolve-url', {
+          query: { path },
+        }),
+      )
+      .catch(() => null);
+    if (left()) return;
 
-  if (res && 'canonicalAppPath' in res && res.canonicalAppPath) {
-    const target = res.canonicalAppPath;
-    // Defense in depth: never hand navigateTo an off-origin or
-    // protocol-relative path. An unsafe target is a terminal miss.
-    if (!isSafeInternalPath(target)) throwNotFound();
-    if (target !== path) {
-      await nuxtApp.runWithContext(() =>
-        navigateTo(target, { redirectCode: 301, replace: true }),
-      );
-      return;
+    let target: string | undefined;
+    if (res && 'canonicalAppPath' in res && res.canonicalAppPath) {
+      target = res.canonicalAppPath;
+    } else if (res && 'redirect' in res && res.redirect) {
+      // A renamed slug is a bare url with no entity type; re-apply the current
+      // locale prefix only.
+      target = localePath(stripLocaleMarketPrefix(res.redirect));
     }
-    throwNotFound();
+    // Never hand navigateTo an off-origin or protocol-relative path, and never
+    // redirect a path to itself.
+    if (!target || !isSafeInternalPath(target) || target === path) {
+      throwNotFound();
+    }
+    await nuxtApp.runWithContext(() =>
+      navigateTo(target, { redirectCode: 301, replace: true }),
+    );
   }
 
-  if (res && 'redirect' in res && res.redirect) {
-    // A renamed slug is a bare url with no entity type; re-apply the current
-    // locale prefix only. A rename is a different path, so this cannot loop;
-    // the equality guard is defensive against a self-referential record.
-    const target = localePath(stripLocaleMarketPrefix(res.redirect));
-    // Defense in depth: never hand navigateTo an off-origin or
-    // protocol-relative path. An unsafe target is a terminal miss.
-    if (!isSafeInternalPath(target)) throwNotFound();
-    if (target !== path) {
-      await nuxtApp.runWithContext(() =>
-        navigateTo(target, { redirectCode: 301, replace: true }),
-      );
-      return;
+  async function decide(
+    read: PrimaryRead,
+    isMissing: () => boolean,
+    path: string,
+  ): Promise<void> {
+    const failed = read.error.value;
+    if (failed && failed.statusCode !== 404) {
+      throw createError({
+        statusCode: failed.statusCode ?? 500,
+        statusMessage: failed.statusMessage,
+        fatal: true,
+      });
     }
-    throwNotFound();
+    if (failed || isMissing()) await recover(path);
   }
 
-  throwNotFound();
+  function settle(
+    read: PrimaryRead,
+    isMissing: () => boolean,
+    path: string,
+  ): Promise<void> {
+    const answered = (status: string) =>
+      status === 'success' || status === 'error';
+    if (answered(read.status.value)) return decide(read, isMissing, path);
+
+    // Created synchronously, while the component instance is current, so a
+    // rejected callback reaches the component's error capture.
+    const stop = watch(read.status, (status) => {
+      if (!answered(status)) return;
+      stop();
+      if (disposed || router.currentRoute.value.path !== path) return;
+      return decide(read, isMissing, path);
+    });
+    return Promise.resolve();
+  }
+
+  return { settle };
 }

@@ -21,7 +21,7 @@ import {
   productPath,
 } from '#shared/utils/route-helpers';
 import { ancestorCrumbs } from '#shared/utils/breadcrumb-trail';
-import { recoverEntityUrl } from '~/composables/useEntityUrlRecovery';
+import { useEntityUrlRecovery } from '~/composables/useEntityUrlRecovery';
 
 const props = defineProps<{
   type: 'category' | 'brand';
@@ -87,6 +87,7 @@ const skip = computed(() => (currentPage.value - 1) * take);
 const { t } = useI18n();
 const { localePath, currentLocale, currentMarket, localeQuery } =
   useLocaleMarket();
+const { settle } = useEntityUrlRecovery();
 // Price sorts are meaningless when the tenant hides prices, so gate them on
 // the same store-settings visibility flag the price facet and VAT selector
 // already use (usePriceVisibility -> showPrice).
@@ -150,33 +151,22 @@ const pageInfoUrl = computed(() =>
     : `/api/product-lists/category/${listSlug.value}`,
 );
 
-const { data: pageInfo, error: pageInfoError } = await useFetch<ListPageInfo>(
-  pageInfoUrl,
-  {
-    query: localeQuery,
-    dedupe: 'defer',
-  },
+const {
+  data: pageInfo,
+  error: pageInfoError,
+  status: pageInfoStatus,
+} = await useFetch<ListPageInfo>(pageInfoUrl, {
+  query: localeQuery,
+  dedupe: 'defer',
+});
+
+// A failed read shows the error page; a missing listing may be a renamed slug
+// that 301s to its canonical, else a real 404 (see useEntityUrlRecovery).
+await settle(
+  { error: pageInfoError, status: pageInfoStatus },
+  () => !pageInfo.value?.id,
+  useRoute().path,
 );
-
-// Only a listing the read says it does not have is a miss: a failed read (a
-// timeout answers 502) would otherwise end in a 404 for a page that exists.
-const failed = pageInfoError.value;
-if (failed && failed.statusCode !== 404) {
-  throw createError({
-    statusCode: failed.statusCode ?? 500,
-    statusMessage: failed.statusMessage,
-    fatal: true,
-  });
-}
-
-// On a content miss the old slug may be a renamed/old listing that should 301
-// to its canonical instead of 404ing (Problem B). recoverEntityUrl consults the
-// resolver, 301s to the canonical (or a urlHistory redirect), and throws a
-// fatal 404 only on a terminal miss. Without this, crawlers would index phantom
-// URLs.
-if (pageInfoError.value || !pageInfo.value?.id) {
-  await recoverEntityUrl(useRoute().path);
-}
 
 // Publish this list's per-locale alternate URLs so the language switcher can
 // land on the target-language slug. props.type ('category' | 'brand') selects
@@ -201,7 +191,7 @@ watch(
 // errored response blanked the grid until a manual reload. Leaving the address
 // bar on the valid clicked URL is harmless: rel=canonical still
 // points crawlers at the canonical, and a hard load of that URL still 301s.
-// Content-miss recovery (recoverEntityUrl, above) deliberately stays
+// Content-miss recovery (settle, above) deliberately stays
 // client-side because a renamed slug must still recover on in-app navigation.
 if (import.meta.server) {
   const target = canonicalListRedirectTarget(

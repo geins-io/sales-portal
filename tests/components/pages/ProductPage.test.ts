@@ -5,13 +5,13 @@ import {
   defineComponent,
   h,
   Suspense,
-  onErrorCaptured,
   type Component,
 } from 'vue';
 import { flushPromises } from '@vue/test-utils';
 import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductPage from '../../../app/pages/p/[...alias].vue';
 import type { DetailProduct } from '../../../shared/types/commerce';
+import type { PrimaryRead } from '../../../app/composables/useEntityUrlRecovery';
 import { mockIsCatalogMode } from '../../setup-components';
 
 // ---------------------------------------------------------------------------
@@ -28,9 +28,7 @@ import { mockIsCatalogMode } from '../../setup-components';
 
 const mockProduct = ref<DetailProduct | null>(null);
 const mockStatus = ref('success');
-const mockError = ref<
-  (Error & { statusCode?: number; statusMessage?: string }) | null
->(null);
+const mockError = ref<Error | null>(null);
 
 const mockUseFetch = vi.fn((urlOrFn?: unknown) => {
   const url = typeof urlOrFn === 'function' ? urlOrFn() : urlOrFn;
@@ -59,21 +57,22 @@ vi.mock('#app/composables/fetch', () => ({
 }));
 vi.stubGlobal('useFetch', mockUseFetch);
 
-// navigateTo and recoverEntityUrl are the redirect and recovery boundaries.
-// Both are spies: the assertions watch the spy, never real navigation.
-const { navigateToMock, recoverEntityUrlMock } = vi.hoisted(() => ({
+// navigateTo and settle are the redirect and recovery boundaries. Both are
+// spies: the assertions watch the spy, never real navigation. What settle
+// decides is covered in tests/composables/useEntityUrlRecovery.test.ts.
+const { navigateToMock, settleMock } = vi.hoisted(() => ({
   navigateToMock: vi.fn<typeof navigateTo>(() => Promise.resolve()),
-  recoverEntityUrlMock: vi.fn<(path: string) => Promise<void>>(() =>
-    Promise.resolve(),
-  ),
+  settleMock: vi.fn<
+    (read: PrimaryRead, isMissing: () => boolean, path: string) => Promise<void>
+  >(() => Promise.resolve()),
 }));
 
 vi.stubGlobal('navigateTo', navigateToMock);
 vi.mock('../../../app/composables/useEntityUrlRecovery', () => ({
-  recoverEntityUrl: (...args: Parameters<typeof recoverEntityUrlMock>) =>
-    recoverEntityUrlMock(...args),
+  useEntityUrlRecovery: () => ({
+    settle: (...args: Parameters<typeof settleMock>) => settleMock(...args),
+  }),
 }));
-vi.stubGlobal('recoverEntityUrl', recoverEntityUrlMock);
 
 // The route the page reads its alias and its current path from.
 const { pdpRoute } = vi.hoisted(() => ({
@@ -162,23 +161,11 @@ function makeProduct(overrides: Record<string, unknown> = {}): DetailProduct {
   } as unknown as DetailProduct;
 }
 
-type ThrownError = Error & { statusCode?: number; fatal?: boolean };
-
 // The page awaits its fetch, so the setup is async: mount inside a Suspense
-// boundary and flush before asserting. Pass `thrown` to collect what the setup
-// throws instead of letting it surface as an unhandled error.
-async function mountPage(
-  mountOptions: MountOptionsFor<Component> = {},
-  thrown?: ThrownError[],
-) {
+// boundary and flush before asserting.
+async function mountPage(mountOptions: MountOptionsFor<Component> = {}) {
   const Wrapper = defineComponent({
     setup() {
-      if (thrown) {
-        onErrorCaptured((err) => {
-          thrown.push(err as ThrownError);
-          return false;
-        });
-      }
       return () => h(Suspense, null, { default: () => h(ProductPage) });
     },
   });
@@ -214,7 +201,7 @@ beforeEach(() => {
   mockSignedIn.value = false;
   mockIsCatalogMode.value = false;
   navigateToMock.mockClear();
-  recoverEntityUrlMock.mockClear();
+  settleMock.mockClear();
   mockUseFetch.mockClear();
 });
 
@@ -378,75 +365,33 @@ describe('product page: the component a product type gets', () => {
 // ---------------------------------------------------------------------------
 
 describe('content-miss recovery (Problem B)', () => {
-  it('calls recoverEntityUrl with the route path when the product is missing', async () => {
-    // A renamed/old product slug must 301 to canonical via recoverEntityUrl
-    // instead of throwing a bare 404. recoverEntityUrl is mocked to resolve,
-    // so the setup continues; we only assert it was consulted with the path.
+  it('hands settle its product read and the route path', async () => {
     const { restore } = await setRoutePath('/se/sv/p/old-slug');
-    mockProduct.value = null;
 
     try {
       await mountPage();
-      expect(recoverEntityUrlMock).toHaveBeenCalledTimes(1);
-      expect(recoverEntityUrlMock).toHaveBeenCalledWith('/se/sv/p/old-slug');
+      expect(settleMock).toHaveBeenCalledTimes(1);
+      const [read, , path] = settleMock.mock.calls[0]!;
+      expect(read.error).toBe(mockError);
+      expect(read.status).toBe(mockStatus);
+      expect(path).toBe('/se/sv/p/old-slug');
     } finally {
       restore();
     }
   });
 
-  it('calls recoverEntityUrl when the read answers 404', async () => {
-    const { restore } = await setRoutePath('/se/sv/p/old-slug');
+  it('counts a read without a product id as missing', async () => {
+    await mountPage();
+    const isMissing = settleMock.mock.calls[0]![1];
+
+    expect(isMissing()).toBe(false);
+    mockProduct.value = makeProduct({ productId: undefined });
+    expect(isMissing()).toBe(true);
     mockProduct.value = null;
-    mockError.value = Object.assign(new Error('Product not found'), {
-      statusCode: 404,
-    });
-
-    try {
-      await mountPage();
-      expect(recoverEntityUrlMock).toHaveBeenCalledWith('/se/sv/p/old-slug');
-    } finally {
-      restore();
-    }
+    expect(isMissing()).toBe(true);
   });
 
-  it('shows the error page, not a redirect, when the read failed', async () => {
-    // A timed-out Geins read answers 502; the resolver would still find the
-    // product, and its loop guard would answer 404 for a product that exists.
-    const { restore } = await setRoutePath('/se/sv/p/test-product');
-    mockProduct.value = null;
-    mockError.value = Object.assign(new Error('Bad Gateway'), {
-      statusCode: 502,
-      statusMessage: 'Bad Gateway',
-    });
-    const thrown: ThrownError[] = [];
-
-    try {
-      await mountPage({}, thrown);
-      expect(recoverEntityUrlMock).not.toHaveBeenCalled();
-      expect(navigateToMock).not.toHaveBeenCalled();
-      expect(thrown).toHaveLength(1);
-      expect(thrown[0]).toMatchObject({ statusCode: 502, fatal: true });
-    } finally {
-      restore();
-    }
-  });
-
-  it('shows the error page for a failed read that carries no status', async () => {
-    const { restore } = await setRoutePath('/se/sv/p/test-product');
-    mockProduct.value = null;
-    mockError.value = new Error('fetch failed');
-    const thrown: ThrownError[] = [];
-
-    try {
-      await mountPage({}, thrown);
-      expect(recoverEntityUrlMock).not.toHaveBeenCalled();
-      expect(thrown[0]).toMatchObject({ statusCode: 500, fatal: true });
-    } finally {
-      restore();
-    }
-  });
-
-  it('does not call recoverEntityUrl when the product loads', async () => {
+  it('does not navigate when the product loads on its canonical', async () => {
     // Route path must equal the normalized canonical so the canonical-correction
     // block is a genuine no-op (routable === path). Without this, samePrefix
     // returns true and the correction fires navigateTo as a side effect, meaning
@@ -457,7 +402,6 @@ describe('content-miss recovery (Problem B)', () => {
     try {
       await mountPage();
 
-      expect(recoverEntityUrlMock).not.toHaveBeenCalled();
       expect(navigateToMock).not.toHaveBeenCalled();
     } finally {
       restore();
@@ -561,8 +505,8 @@ describe('product page: loading and error', () => {
   });
 
   it('renders the error state when a later load failed', async () => {
-    // A failed first load throws the error page from setup; this state is
-    // for a refetch that fails after the page is up.
+    // A failed first load is settle's to turn into the error page; this state
+    // is for a refetch that fails after the page is up.
     const wrapper = await mountPage();
     mockProduct.value = null;
     mockError.value = new Error('fetch failed');

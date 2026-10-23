@@ -16,6 +16,7 @@ const nuxtTestFiles = [
   'tests/server/health-memory.test.ts',
   'tests/server/external-api.test.ts',
   'tests/middleware/locale-market-global.test.ts',
+  'tests/pages/hydration-miss.test.ts',
 ];
 
 // Vite plugin that provides Nuxt environment options to @nuxt/test-utils at runtime.

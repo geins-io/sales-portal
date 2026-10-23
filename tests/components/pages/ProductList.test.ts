@@ -12,7 +12,6 @@ import {
   defineComponent,
   h,
   Suspense,
-  onErrorCaptured,
   type PropType,
   type Component,
 } from 'vue';
@@ -20,29 +19,19 @@ import { flushPromises } from '@vue/test-utils';
 import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductList from '../../../app/components/pages/ProductList.vue';
 import { useTenant } from '../../../app/composables/useTenant';
-
-type ThrownError = Error & { statusCode?: number; fatal?: boolean };
+import type { PrimaryRead } from '../../../app/composables/useEntityUrlRecovery';
 
 // ProductList uses `await useFetch(...)` so its setup is async. The top-level
 // await makes the component require a Suspense parent to render. Wrap it
-// here and flush promises so tests can observe the resolved state. Pass
-// `thrown` to collect what the setup throws instead of letting it surface as an
-// unhandled error.
+// here and flush promises so tests can observe the resolved state.
 async function mountProductList(
   props: { type: 'category' | 'brand'; alias: string },
   mountOptions: MountOptionsFor<Component> = {},
-  thrown?: ThrownError[],
 ) {
   // The wrapper closes over `props` instead of redeclaring them through
   // `Object.keys`, so they are checked against ProductList's own props.
   const Wrapper = defineComponent({
     setup() {
-      if (thrown) {
-        onErrorCaptured((err) => {
-          thrown.push(err as ThrownError);
-          return false;
-        });
-      }
       return () =>
         h(Suspense, null, {
           default: () => h(ProductList, props),
@@ -70,36 +59,36 @@ const mountedWrappers: Array<{ unmount: () => void }> = [];
 
 // --- Mocks ---
 
-// navigateTo + recoverEntityUrl are the redirect/recovery boundaries. The PLP
-// issues a real 301 (navigateTo) for a same-prefix differing canonical SERVER
-// SIDE ONLY, and delegates content misses to recoverEntityUrl on both server
-// and client. Both are mocked as spies and asserted against; assertions watch
-// the spies, never real navigation.
-const { navigateToMock, recoverEntityUrlMock, replaceMock } = vi.hoisted(
-  () => ({
-    navigateToMock: vi.fn(() => Promise.resolve()),
-    recoverEntityUrlMock: vi.fn(() => Promise.resolve()),
-    // Shared router.replace spy so URL-sync assertions can read the query the
-    // PLP writes. The component auto-imports useRouter from
-    // #app/composables/router; both that module mock and the global stub below
-    // hand back this same spy so the assertion sees the real call.
-    replaceMock: vi.fn(),
-  }),
-);
+// navigateTo + settle are the redirect/recovery boundaries. The PLP issues a
+// real 301 (navigateTo) for a same-prefix differing canonical SERVER SIDE ONLY,
+// and hands its primary read to settle on both server and client. Both are
+// mocked as spies and asserted against; assertions watch the spies, never real
+// navigation. What settle decides is covered in
+// tests/composables/useEntityUrlRecovery.test.ts.
+const { navigateToMock, settleMock, replaceMock } = vi.hoisted(() => ({
+  navigateToMock: vi.fn(() => Promise.resolve()),
+  settleMock: vi.fn<
+    (read: PrimaryRead, isMissing: () => boolean, path: string) => Promise<void>
+  >(() => Promise.resolve()),
+  // Shared router.replace spy so URL-sync assertions can read the query the
+  // PLP writes. The component auto-imports useRouter from
+  // #app/composables/router; both that module mock and the global stub below
+  // hand back this same spy so the assertion sees the real call.
+  replaceMock: vi.fn(),
+}));
 
 vi.stubGlobal('navigateTo', navigateToMock);
 vi.mock('../../../app/composables/useEntityUrlRecovery', () => ({
-  recoverEntityUrl: (...args: Parameters<typeof recoverEntityUrlMock>) =>
-    recoverEntityUrlMock(...args),
+  useEntityUrlRecovery: () => ({
+    settle: (...args: Parameters<typeof settleMock>) => settleMock(...args),
+  }),
 }));
-vi.stubGlobal('recoverEntityUrl', recoverEntityUrlMock);
 
 const mockProductsData = ref<Record<string, unknown> | null>(null);
 const mockFiltersData = ref<Record<string, unknown> | null>(null);
 const mockPageInfo = ref<Record<string, unknown> | null>(null);
-const mockPageInfoError = ref<
-  (Error & { statusCode?: number; statusMessage?: string }) | null
->(null);
+const mockPageInfoError = ref(null);
+const mockPageInfoStatus = ref('idle');
 const mockProductsStatus = ref('idle');
 
 // CMS areas keyed by the areaName the tenant config names for the slot. The
@@ -162,7 +151,7 @@ const mockUseFetch = vi.fn(
     // pageInfo fetch
     return {
       data: mockPageInfo,
-      status: ref('idle'),
+      status: mockPageInfoStatus,
       error: mockPageInfoError,
       pending: ref(false),
       refresh: vi.fn(),
@@ -409,11 +398,10 @@ describe('ProductList.vue', () => {
     mockProductsData.value = null;
     mockFiltersData.value = null;
     mockPageInfo.value = { ...VALID_PAGE_INFO };
-    mockPageInfoError.value = null;
     mockProductsStatus.value = 'idle';
     mockUseFetch.mockClear();
     navigateToMock.mockClear();
-    recoverEntityUrlMock.mockClear();
+    settleMock.mockClear();
     replaceMock.mockClear();
     mockCmsAreas.clear();
   });
@@ -579,88 +567,33 @@ describe('ProductList.vue', () => {
       return { restore: () => (router.path = originalPath) };
     }
 
-    it('calls recoverEntityUrl with the route path when the listing is missing', async () => {
-      // A renamed/old category/brand slug must 301 to canonical via
-      // recoverEntityUrl instead of throwing a bare 404. recoverEntityUrl is
-      // mocked to resolve, so the setup continues; we only assert it was
-      // consulted with the path.
+    it('hands settle its listing read and the route path', async () => {
       const { restore } = await setRoutePath('/se/sv/c/old-category');
-      mockPageInfo.value = null;
 
       try {
         await mountProductList(categoryProps, { global: { stubs } });
-        expect(recoverEntityUrlMock).toHaveBeenCalledTimes(1);
-        expect(recoverEntityUrlMock).toHaveBeenCalledWith(
-          '/se/sv/c/old-category',
-        );
+        expect(settleMock).toHaveBeenCalledTimes(1);
+        const [read, , path] = settleMock.mock.calls[0]!;
+        expect(read.error).toBe(mockPageInfoError);
+        expect(read.status).toBe(mockPageInfoStatus);
+        expect(path).toBe('/se/sv/c/old-category');
       } finally {
         restore();
       }
     });
 
-    it('calls recoverEntityUrl when the read answers 404', async () => {
-      const { restore } = await setRoutePath('/se/sv/c/old-category');
+    it('counts a read without a listing id as missing', async () => {
+      await mountProductList(categoryProps, { global: { stubs } });
+      const isMissing = settleMock.mock.calls[0]![1];
+
+      expect(isMissing()).toBe(false);
+      mockPageInfo.value = { ...VALID_PAGE_INFO, id: undefined };
+      expect(isMissing()).toBe(true);
       mockPageInfo.value = null;
-      mockPageInfoError.value = Object.assign(
-        new Error('Category page not found'),
-        { statusCode: 404 },
-      );
-
-      try {
-        await mountProductList(categoryProps, { global: { stubs } });
-        expect(recoverEntityUrlMock).toHaveBeenCalledWith(
-          '/se/sv/c/old-category',
-        );
-      } finally {
-        restore();
-      }
+      expect(isMissing()).toBe(true);
     });
 
-    it.each([
-      ['category', categoryProps, '/se/sv/c/foder'],
-      ['brand', { type: 'brand' as const, alias: 'acme' }, '/se/sv/b/acme'],
-    ])(
-      'shows the error page, not a redirect, when the %s read failed',
-      async (_type, props, path) => {
-        // A timed-out Geins read answers 502; the resolver would still find the
-        // listing, and its loop guard would answer 404 for a page that exists.
-        const { restore } = await setRoutePath(path);
-        mockPageInfo.value = null;
-        mockPageInfoError.value = Object.assign(new Error('Bad Gateway'), {
-          statusCode: 502,
-          statusMessage: 'Bad Gateway',
-        });
-        const thrown: ThrownError[] = [];
-
-        try {
-          await mountProductList(props, { global: { stubs } }, thrown);
-          expect(recoverEntityUrlMock).not.toHaveBeenCalled();
-          expect(navigateToMock).not.toHaveBeenCalled();
-          // Only the first error is the page's: the half-set-up component
-          // still renders under the test's Suspense and throws after it.
-          expect(thrown[0]).toMatchObject({ statusCode: 502, fatal: true });
-        } finally {
-          restore();
-        }
-      },
-    );
-
-    it('shows the error page for a failed read that carries no status', async () => {
-      const { restore } = await setRoutePath('/se/sv/c/foder');
-      mockPageInfo.value = null;
-      mockPageInfoError.value = new Error('fetch failed');
-      const thrown: ThrownError[] = [];
-
-      try {
-        await mountProductList(categoryProps, { global: { stubs } }, thrown);
-        expect(recoverEntityUrlMock).not.toHaveBeenCalled();
-        expect(thrown[0]).toMatchObject({ statusCode: 500, fatal: true });
-      } finally {
-        restore();
-      }
-    });
-
-    it('does not call recoverEntityUrl when the listing loads', async () => {
+    it('does not navigate when the listing loads on its canonical', async () => {
       // Route path must equal the normalized canonical so the canonical-correction
       // block is a genuine no-op (routable === path). Without this, samePrefix
       // returns true (bSeg.length < 2 for '/foder') and the correction fires
@@ -682,7 +615,6 @@ describe('ProductList.vue', () => {
       try {
         await mountProductList(categoryProps, { global: { stubs } });
 
-        expect(recoverEntityUrlMock).not.toHaveBeenCalled();
         expect(navigateToMock).not.toHaveBeenCalled();
       } finally {
         router.path = originalPath;

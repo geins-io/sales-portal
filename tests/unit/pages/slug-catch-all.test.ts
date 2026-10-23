@@ -1,6 +1,13 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ref, defineComponent, h, Suspense, onErrorCaptured } from 'vue';
+import {
+  computed,
+  ref,
+  defineComponent,
+  h,
+  Suspense,
+  onErrorCaptured,
+} from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
 import { defaultMountOptions } from '../../utils/component';
 import {
@@ -65,20 +72,18 @@ describe('[...slug] page: component key uniqueness', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Entity-URL fallback: CMS miss -> recoverEntityUrl (spec 003) -> 301 / 404.
+// Entity-URL fallback: CMS miss -> recovery (useEntityUrlRecovery) -> 301 / 404.
 // ---------------------------------------------------------------------------
 //
 // The catch-all is a page with a top-level `await useFetch`, so its setup is
-// async and needs a Suspense parent to render. Since spec 004 routes the
-// CMS-miss recovery through `recoverEntityUrl`, the catch-all no longer reads
-// the resolver shape inline; instead we mock the recovery composable and assert
-// it is (or is not) called with the route path, plus that recovery drives the
-// real navigateTo / createError doubles when it runs against the spec-002 shape.
+// async and needs a Suspense parent to render. The catch-all hands its CMS read
+// to the recovery composable, which runs for real against the resolver double
+// below and drives the navigateTo / createError doubles.
 
 // CMS page fetch result, overridden per test to simulate hit/miss.
 const mockCmsData = ref<Record<string, unknown> | null>(null);
 const mockCmsError = ref<unknown>(null);
-// Resolver fetch result (consumed by the mocked recoverEntityUrl below).
+// Resolver fetch result (answered through the internalFetch double below).
 const mockResolveData = ref<Record<string, unknown> | null>(null);
 const mockResolveError = ref<unknown>(null);
 
@@ -95,11 +100,12 @@ const mockUseFetch = vi.fn((...args: unknown[]) => {
       execute: vi.fn(),
     };
   }
-  // CMS page fetch (default).
+  // CMS page fetch (default). It has answered, as on SSR and after a client
+  // navigation; the deferred read is covered in the composable's own tests.
   return {
     data: mockCmsData,
     error: mockCmsError,
-    status: ref('idle'),
+    status: computed(() => (mockCmsError.value ? 'error' : 'success')),
     pending: ref(false),
     refresh: vi.fn(),
     execute: vi.fn(),
@@ -118,39 +124,20 @@ const createErrorMock = vi.fn((opts: unknown) => {
   return err;
 });
 
-// recoverEntityUrl (spec 003) is the single recovery hop the catch-all now
-// delegates to on a CMS miss. Mock it as a spy that mirrors the composable's
-// observable contract against the spec-002 resolver shape: a `canonicalAppPath`
-// or locale-prefixed `redirect` 301s via navigateTo, a `null`/error result (or
-// a target equal to the current path) throws a fatal 404. Assertions watch this
-// spy plus navigateTo / createError, so the catch-all is verified through the
-// same boundaries as the real composable.
-const recoverEntityUrlMock = vi.fn(async (path: string) => {
-  const res = mockResolveError.value ? null : mockResolveData.value;
-  if (res && 'canonicalAppPath' in res && res.canonicalAppPath) {
-    const target = res.canonicalAppPath as string;
-    if (target !== path) {
-      await navigateToMock(target, { redirectCode: 301, replace: true });
-      return;
-    }
-    throw createErrorMock({ statusCode: 404, fatal: true });
-  }
-  if (res && 'redirect' in res && res.redirect) {
-    const bare = (res.redirect as string).replace(/^\/[a-z]{2}\/[a-z]{2}/, '');
-    const target = `/se/sv${bare.startsWith('/') ? bare : '/' + bare}`;
-    if (target !== path) {
-      await navigateToMock(target, { redirectCode: 301, replace: true });
-      return;
-    }
-    throw createErrorMock({ statusCode: 404, fatal: true });
-  }
-  throw createErrorMock({ statusCode: 404, fatal: true });
-});
-vi.stubGlobal('recoverEntityUrl', (...args: [string]) =>
-  recoverEntityUrlMock(...args),
+// The real recovery composable runs; only its boundaries are doubles. The
+// resolver answers through `internalFetch`, a set error rejecting as a failed
+// fetch does, and navigateTo / createError are the spies the tests watch.
+const internalFetchMock = vi.fn((_url: string, _opts?: unknown) =>
+  mockResolveError.value
+    ? Promise.reject(mockResolveError.value)
+    : Promise.resolve(mockResolveData.value),
 );
-vi.mock('../../../app/composables/useEntityUrlRecovery', () => ({
-  recoverEntityUrl: (...args: [string]) => recoverEntityUrlMock(...args),
+vi.mock('../../../app/utils/internal-fetch', () => ({
+  internalFetch: (url: string, opts?: unknown) => internalFetchMock(url, opts),
+}));
+vi.mock('#app/nuxt', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('#app/nuxt')>()),
+  useNuxtApp: () => ({ runWithContext: <T>(fn: () => T): T => fn() }),
 }));
 
 // localePath re-adds the /{market}/{locale}/ prefix to a locale-free path,
@@ -174,6 +161,7 @@ vi.mock('#app/composables/router', () => ({
     push: vi.fn(),
     replace: vi.fn(),
     afterEach: vi.fn(),
+    currentRoute: { value: mockRoute },
   }),
   navigateTo: (...args: Parameters<typeof navigateToMock>) =>
     navigateToMock(...args),
@@ -308,12 +296,12 @@ describe('[...slug] page: entity-url fallback', () => {
     mockRoute.params = { slug: ['se', 'sv', 'material', 'grenror'] };
     navigateToMock.mockClear();
     createErrorMock.mockClear();
-    recoverEntityUrlMock.mockClear();
+    internalFetchMock.mockClear();
     mockUseFetch.mockClear();
   });
 
   it(
-    'recovers a CMS miss via recoverEntityUrl with the route path',
+    'recovers a CMS miss by asking the resolver for the route path',
     async () => {
       mockCmsData.value = null;
       mockResolveData.value = {
@@ -323,10 +311,10 @@ describe('[...slug] page: entity-url fallback', () => {
 
       await mountCatchAll();
 
-      expect(recoverEntityUrlMock).toHaveBeenCalledTimes(1);
-      expect(recoverEntityUrlMock).toHaveBeenCalledWith(
-        '/se/sv/material/grenror',
-      );
+      expect(internalFetchMock).toHaveBeenCalledTimes(1);
+      expect(internalFetchMock).toHaveBeenCalledWith('/api/resolve-url', {
+        query: { path: '/se/sv/material/grenror' },
+      });
     },
     MOUNT_TIMEOUT,
   );
@@ -374,7 +362,7 @@ describe('[...slug] page: entity-url fallback', () => {
 
       await mountCatchAll();
 
-      expect(recoverEntityUrlMock).toHaveBeenCalledTimes(1);
+      expect(internalFetchMock).toHaveBeenCalledTimes(1);
       expect(navigateToMock).not.toHaveBeenCalled();
       expect(createErrorMock).toHaveBeenCalledTimes(1);
       expect(createErrorMock.mock.calls[0]?.[0]).toMatchObject({
@@ -396,7 +384,7 @@ describe('[...slug] page: entity-url fallback', () => {
 
       await mountCatchAll();
 
-      expect(recoverEntityUrlMock).toHaveBeenCalledTimes(1);
+      expect(internalFetchMock).toHaveBeenCalledTimes(1);
     },
     MOUNT_TIMEOUT,
   );
@@ -414,7 +402,7 @@ describe('[...slug] page: entity-url fallback', () => {
 
       await mountCatchAll();
 
-      expect(recoverEntityUrlMock).not.toHaveBeenCalled();
+      expect(internalFetchMock).not.toHaveBeenCalled();
       expect(navigateToMock).not.toHaveBeenCalled();
       expect(createErrorMock).toHaveBeenCalledTimes(1);
       expect(createErrorMock.mock.calls[0]?.[0]).toMatchObject({
@@ -432,7 +420,7 @@ describe('[...slug] page: entity-url fallback', () => {
 
       await mountCatchAll();
 
-      expect(recoverEntityUrlMock).not.toHaveBeenCalled();
+      expect(internalFetchMock).not.toHaveBeenCalled();
       expect(createErrorMock.mock.calls[0]?.[0]).toMatchObject({
         statusCode: 500,
         fatal: true,
@@ -451,7 +439,7 @@ describe('[...slug] page: entity-url fallback', () => {
 
       const wrapper = await mountCatchAll();
 
-      expect(recoverEntityUrlMock).not.toHaveBeenCalled();
+      expect(internalFetchMock).not.toHaveBeenCalled();
       expect(navigateToMock).not.toHaveBeenCalled();
       expect(createErrorMock).not.toHaveBeenCalled();
       expect(wrapper.find('[data-testid="cms-widget-area"]').exists()).toBe(
@@ -498,7 +486,7 @@ describe('[...slug] page: content frame', () => {
     mockRoute.params = { slug: ['se', 'sv', 'info'] };
     navigateToMock.mockClear();
     createErrorMock.mockClear();
-    recoverEntityUrlMock.mockClear();
+    internalFetchMock.mockClear();
     mockUseFetch.mockClear();
     configureSidebarMenu(SIDEBAR_MENU_LOCATION);
   });

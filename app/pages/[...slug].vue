@@ -14,7 +14,7 @@ import {
   stripLocaleMarketPrefix,
 } from '#shared/utils/locale-market';
 import { hasPageTag } from '#shared/utils/cms-tags';
-import { recoverEntityUrl } from '~/composables/useEntityUrlRecovery';
+import { useEntityUrlRecovery } from '~/composables/useEntityUrlRecovery';
 import type { ContentPageType } from '#shared/types/cms';
 import { CMS_MENUS, CMS_TAGS } from '#shared/constants/cms';
 
@@ -35,6 +35,7 @@ const pageSlug = computed(() => {
 });
 
 const { localePath, localeQuery } = useLocaleMarket();
+const { settle } = useEntityUrlRecovery();
 
 const {
   data: page,
@@ -46,34 +47,15 @@ const {
   dedupe: 'defer',
 });
 
-// Propagate HTTP 404 when the CMS page doesn't exist, but first run the inbound
-// recovery hop: a prefix-less entity canonical (pasted Geins url, stale
-// bookmark) or a renamed slug should 301-redirect to its typed route instead of
-// 404ing. recoverEntityUrl owns the resolver fetch, the spec-002 normalized
-// shape (canonicalAppPath / redirect), the loop guard, the open-redirect guard
-// and the terminal fatal 404, so it either redirects or throws on every path.
-// Gated behind the CMS miss so CMS hits never trigger it.
-// Only a page the CMS says it does not have is a miss: a failed read (a
-// timeout answers 502) would otherwise 301 the buyer to a same-named entity.
-const cmsError = error.value;
-if (cmsError && cmsError.statusCode !== 404) {
-  throw createError({
-    statusCode: cmsError.statusCode ?? 500,
-    statusMessage: cmsError.statusMessage,
-    fatal: true,
-  });
-}
-const cmsMissed =
-  Boolean(cmsError) || (!page.value?.id && !page.value?.containers?.length);
-
-if (cmsMissed) {
-  // useFetch (inside recoverEntityUrl) auto-forwards cookie + host for
-  // page-level loads, so the resolver sees the same tenant/auth context during
-  // SSR (see app/utils/internal-fetch.ts). navigateTo with redirectCode works
-  // in setup during SSR; recoverEntityUrl never returns without redirecting or
-  // throwing, so this is the guaranteed terminal 404.
-  await recoverEntityUrl(route.path);
-}
+// A failed read shows the error page. A page the CMS does not have runs the
+// inbound recovery hop first: a prefix-less entity canonical (pasted Geins url,
+// stale bookmark) or a renamed slug 301s to its typed route, else a real 404
+// (see useEntityUrlRecovery). CMS hits never reach the resolver.
+await settle(
+  { error, status },
+  () => !page.value?.id && !page.value?.containers?.length,
+  route.path,
+);
 
 // SEO: canonical + hreflang tags
 const { seoLinks } = useSeoLinks(normalizedPath);
