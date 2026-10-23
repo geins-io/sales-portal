@@ -80,9 +80,10 @@ Three guardrails prevent raw entity-URL literals from bypassing the builders:
 ### Pillar 2: one cached resolver, two tiers
 
 `server/api/resolve-url.get.ts` is a `defineCachedEventHandler` (SWR,
-`maxAge: 60`, `staleMaxAge: 300`). Its cache key is `{host}::{normalizedPath}`
-(lower-cased, trailing-slash stripped) so two tenants sharing an alias never
-collide. It returns a normalized shape:
+`maxAge: 60`, `staleMaxAge: 300`). Its cache key is a sha256 of
+`{host}::{normalizedPath}` (lower-cased, trailing-slash stripped) so two
+tenants sharing an alias never collide; hashed because Nitro strips every
+non-word character from a custom key. It returns a normalized shape:
 `{ type, canonicalAppPath }` (typed hit), `{ redirect }` (renamed slug via
 `urlHistory`), or a `{ notFound: true }` marker. The notFound marker is
 returned rather than thrown so Nitro caches the miss for the SWR TTL (a thrown
