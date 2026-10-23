@@ -227,33 +227,53 @@ jobs:
 
       - name: Deploy Bicep infrastructure
         id: deploy
-        uses: azure/arm-deploy@v2
-        with:
-          resourceGroupName: ${{ needs.prepare.outputs.resource_group }}
-          template: ./infra/main.bicep
-          # ─────────────────────────────────────────────────────────────────────
-          # BICEP PARAMETERS
-          # These values become Azure App Settings via the webApp.bicep module.
-          #
-          # GitHub Variables (vars.*) = non-sensitive, visible in repo settings
-          # GitHub Secrets (secrets.*) = sensitive, encrypted
-          # ─────────────────────────────────────────────────────────────────────
-          parameters: >-
-            environment="${{ needs.prepare.outputs.environment }}"
-            ghcrUsername="${{ github.actor }}"
-            ghcrToken="${{ secrets.GHCR_PAT }}"
-            geinsApiEndpoint="${{ vars.GEINS_API_ENDPOINT }}"
-            geinsTenantApiUrl="${{ vars.GEINS_TENANT_API_URL }}"
-            healthCheckSecret="${{ secrets.HEALTH_CHECK_SECRET }}"
-            storageDriver="${{ vars.STORAGE_DRIVER }}"
-            redisUrl="${{ secrets.REDIS_URL }}"
-            enableAnalytics="${{ vars.ENABLE_ANALYTICS }}"
-            configuratorBackend="${{ vars.CONFIGURATOR_BACKEND }}"
-            configuratorMerchantApiUrl="${{ vars.CONFIGURATOR_MERCHANT_API_URL }}"
-            logLevel="${{ vars.LOG_LEVEL }}"
-            sentryDsn="${{ secrets.SENTRY_DSN }}"
-            versionX="${{ secrets.VERSION_X }}"
-          failOnStdErr: false
+        # ─────────────────────────────────────────────────────────────────────
+        # BICEP PARAMETERS
+        # These values become Azure App Settings via the webApp.bicep module.
+        #
+        # GitHub Variables (vars.*) = non-sensitive, visible in repo settings
+        # GitHub Secrets (secrets.*) = sensitive, encrypted
+        # ─────────────────────────────────────────────────────────────────────
+        env:
+          RESOURCE_GROUP: ${{ needs.prepare.outputs.resource_group }}
+          ENVIRONMENT: ${{ needs.prepare.outputs.environment }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GHCR_PAT }}
+          GEINS_API_ENDPOINT: ${{ vars.GEINS_API_ENDPOINT }}
+          GEINS_TENANT_API_URL: ${{ vars.GEINS_TENANT_API_URL }}
+          HEALTH_CHECK_SECRET: ${{ secrets.HEALTH_CHECK_SECRET }}
+          STORAGE_DRIVER: ${{ vars.STORAGE_DRIVER }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          ENABLE_ANALYTICS: ${{ vars.ENABLE_ANALYTICS }}
+          CONFIGURATOR_BACKEND: ${{ vars.CONFIGURATOR_BACKEND }}
+          CONFIGURATOR_MERCHANT_API_URL: ${{ vars.CONFIGURATOR_MERCHANT_API_URL }}
+          LOG_LEVEL: ${{ vars.LOG_LEVEL }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          VERSION_X: ${{ secrets.VERSION_X }}
+        run: |
+          # Every later read of the outputs asks for the deployment named `main`.
+          # --output none: the outputs include the App Insights connection string.
+          az deployment group create \
+            --resource-group "$RESOURCE_GROUP" \
+            --name main \
+            --template-file ./infra/main.bicep \
+            --mode Incremental \
+            --parameters \
+              environment="$ENVIRONMENT" \
+              ghcrUsername="$GHCR_USERNAME" \
+              ghcrToken="$GHCR_TOKEN" \
+              geinsApiEndpoint="$GEINS_API_ENDPOINT" \
+              geinsTenantApiUrl="$GEINS_TENANT_API_URL" \
+              healthCheckSecret="$HEALTH_CHECK_SECRET" \
+              storageDriver="$STORAGE_DRIVER" \
+              redisUrl="$REDIS_URL" \
+              enableAnalytics="$ENABLE_ANALYTICS" \
+              configuratorBackend="$CONFIGURATOR_BACKEND" \
+              configuratorMerchantApiUrl="$CONFIGURATOR_MERCHANT_API_URL" \
+              logLevel="$LOG_LEVEL" \
+              sentryDsn="$SENTRY_DSN" \
+              versionX="$VERSION_X" \
+            --output none
 
       - name: Get deployment outputs
         id: outputs
