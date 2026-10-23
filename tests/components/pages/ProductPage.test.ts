@@ -5,6 +5,7 @@ import {
   defineComponent,
   h,
   Suspense,
+  onErrorCaptured,
   type Component,
 } from 'vue';
 import { flushPromises } from '@vue/test-utils';
@@ -27,7 +28,9 @@ import { mockIsCatalogMode } from '../../setup-components';
 
 const mockProduct = ref<DetailProduct | null>(null);
 const mockStatus = ref('success');
-const mockError = ref<Error | null>(null);
+const mockError = ref<
+  (Error & { statusCode?: number; statusMessage?: string }) | null
+>(null);
 
 const mockUseFetch = vi.fn((urlOrFn?: unknown) => {
   const url = typeof urlOrFn === 'function' ? urlOrFn() : urlOrFn;
@@ -159,11 +162,23 @@ function makeProduct(overrides: Record<string, unknown> = {}): DetailProduct {
   } as unknown as DetailProduct;
 }
 
+type ThrownError = Error & { statusCode?: number; fatal?: boolean };
+
 // The page awaits its fetch, so the setup is async: mount inside a Suspense
-// boundary and flush before asserting.
-async function mountPage(mountOptions: MountOptionsFor<Component> = {}) {
+// boundary and flush before asserting. Pass `thrown` to collect what the setup
+// throws instead of letting it surface as an unhandled error.
+async function mountPage(
+  mountOptions: MountOptionsFor<Component> = {},
+  thrown?: ThrownError[],
+) {
   const Wrapper = defineComponent({
     setup() {
+      if (thrown) {
+        onErrorCaptured((err) => {
+          thrown.push(err as ThrownError);
+          return false;
+        });
+      }
       return () => h(Suspense, null, { default: () => h(ProductPage) });
     },
   });
@@ -379,14 +394,53 @@ describe('content-miss recovery (Problem B)', () => {
     }
   });
 
-  it('calls recoverEntityUrl when the fetch errors', async () => {
-    const { restore } = await setRoutePath('/se/sv/p/boom');
+  it('calls recoverEntityUrl when the read answers 404', async () => {
+    const { restore } = await setRoutePath('/se/sv/p/old-slug');
     mockProduct.value = null;
-    mockError.value = new Error('fetch failed');
+    mockError.value = Object.assign(new Error('Product not found'), {
+      statusCode: 404,
+    });
 
     try {
       await mountPage();
-      expect(recoverEntityUrlMock).toHaveBeenCalledWith('/se/sv/p/boom');
+      expect(recoverEntityUrlMock).toHaveBeenCalledWith('/se/sv/p/old-slug');
+    } finally {
+      restore();
+    }
+  });
+
+  it('shows the error page, not a redirect, when the read failed', async () => {
+    // A timed-out Geins read answers 502; the resolver would still find the
+    // product, and its loop guard would answer 404 for a product that exists.
+    const { restore } = await setRoutePath('/se/sv/p/test-product');
+    mockProduct.value = null;
+    mockError.value = Object.assign(new Error('Bad Gateway'), {
+      statusCode: 502,
+      statusMessage: 'Bad Gateway',
+    });
+    const thrown: ThrownError[] = [];
+
+    try {
+      await mountPage({}, thrown);
+      expect(recoverEntityUrlMock).not.toHaveBeenCalled();
+      expect(navigateToMock).not.toHaveBeenCalled();
+      expect(thrown).toHaveLength(1);
+      expect(thrown[0]).toMatchObject({ statusCode: 502, fatal: true });
+    } finally {
+      restore();
+    }
+  });
+
+  it('shows the error page for a failed read that carries no status', async () => {
+    const { restore } = await setRoutePath('/se/sv/p/test-product');
+    mockProduct.value = null;
+    mockError.value = new Error('fetch failed');
+    const thrown: ThrownError[] = [];
+
+    try {
+      await mountPage({}, thrown);
+      expect(recoverEntityUrlMock).not.toHaveBeenCalled();
+      expect(thrown[0]).toMatchObject({ statusCode: 500, fatal: true });
     } finally {
       restore();
     }
@@ -506,11 +560,13 @@ describe('product page: loading and error', () => {
     expect(wrapper.find('[data-testid="page-ordinary"]').exists()).toBe(false);
   });
 
-  it('renders the error state when the load failed', async () => {
+  it('renders the error state when a later load failed', async () => {
+    // A failed first load throws the error page from setup; this state is
+    // for a refetch that fails after the page is up.
+    const wrapper = await mountPage();
     mockProduct.value = null;
     mockError.value = new Error('fetch failed');
-
-    const wrapper = await mountPage();
+    await nextTick();
 
     expect(wrapper.find('[data-testid="pdp-error"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="page-ordinary"]').exists()).toBe(false);

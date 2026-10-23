@@ -20,7 +20,9 @@ vi.mock('../../../../server/services/cms', () => ({
 }));
 
 vi.mock('../../../../server/schemas/api-input', () => ({
-  CmsPageSchema: { parse: (v: unknown) => v },
+  CmsPageSchema: {
+    safeParse: (v: unknown) => ({ success: true, data: v }),
+  },
   CmsAreaSchema: { parse: (v: unknown) => v },
   CmsMenuSchema: { parse: (v: unknown) => v },
   CmsPageLinkSchema: { parse: (v: unknown) => v },

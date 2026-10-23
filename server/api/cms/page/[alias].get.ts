@@ -4,8 +4,14 @@ import { sanitizeCmsPage } from '../../../utils/cms-sanitize';
 import { hasUserToken } from '../../../utils/request-identity';
 
 export default defineEventHandler(async (event) => {
-  const alias = getRouterParam(event, 'alias');
-  const { alias: validatedAlias } = CmsPageSchema.parse({ alias });
+  const parsed = CmsPageSchema.safeParse({
+    alias: getRouterParam(event, 'alias'),
+  });
+  // A miss, not a 500: the page shows its error page for anything but a 404.
+  if (!parsed.success) {
+    throw createAppError(ErrorCode.NOT_FOUND, 'Page not found');
+  }
+  const validatedAlias = parsed.data.alias;
   const customerType = await getCustomerType(event);
 
   setHeader(

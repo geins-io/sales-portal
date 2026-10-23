@@ -2,8 +2,14 @@ import { ListPageSchema } from '../../../schemas/api-input';
 import { getBrandPage } from '../../../services/product-lists';
 
 export default defineEventHandler(async (event) => {
-  const alias = getRouterParam(event, 'alias');
-  const { alias: validatedAlias } = ListPageSchema.parse({ alias });
+  const parsed = ListPageSchema.safeParse({
+    alias: getRouterParam(event, 'alias'),
+  });
+  // A miss, not a 500: the page shows its error page for anything but a 404.
+  if (!parsed.success) {
+    throw createAppError(ErrorCode.NOT_FOUND, 'Brand page not found');
+  }
+  const validatedAlias = parsed.data.alias;
   const auth = await optionalAuth(event);
 
   return withErrorHandling(

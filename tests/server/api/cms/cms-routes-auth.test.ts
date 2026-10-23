@@ -16,8 +16,13 @@ vi.mock('../../../../server/services/cms', () => ({
   getContentArea: (...args: unknown[]) => mockGetContentArea(...args),
 }));
 
-vi.mock('../../../../server/schemas/api-input', () => ({
-  CmsPageSchema: { parse: (v: unknown) => v },
+// The page schema runs for real: its alias limit decides the 404 case below.
+vi.mock('../../../../server/schemas/api-input', async (importOriginal) => ({
+  CmsPageSchema: (
+    await importOriginal<
+      typeof import('../../../../server/schemas/api-input')
+    >()
+  ).CmsPageSchema,
   CmsAreaSchema: { parse: (v: unknown) => v },
 }));
 
@@ -35,9 +40,11 @@ vi.stubGlobal('setHeader', vi.fn());
 vi.stubGlobal('getCookie', () => undefined);
 
 vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) => fn());
-vi.stubGlobal('createAppError', (code: string, msg: string) => {
-  return Object.assign(new Error(msg), { statusCode: code });
-});
+// The status the real createAppError gives each code, so a test can assert it.
+const STATUS_OF: Record<string, number> = { NOT_FOUND: 404 };
+const createAppErrorStub = (code: string, msg: string) =>
+  Object.assign(new Error(msg), { statusCode: STATUS_OF[code] });
+vi.stubGlobal('createAppError', createAppErrorStub);
 vi.stubGlobal('ErrorCode', { NOT_FOUND: 'NOT_FOUND' });
 vi.stubGlobal(
   'getRouterParam',
@@ -76,9 +83,7 @@ describe('CMS page route — customerType threading', () => {
     vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) =>
       fn(),
     );
-    vi.stubGlobal('createAppError', (code: string, msg: string) => {
-      return Object.assign(new Error(msg), { statusCode: code });
-    });
+    vi.stubGlobal('createAppError', createAppErrorStub);
     vi.stubGlobal('ErrorCode', { NOT_FOUND: 'NOT_FOUND' });
     vi.stubGlobal(
       'getRouterParam',
@@ -95,6 +100,31 @@ describe('CMS page route — customerType threading', () => {
     pageHandler = mod.default as (
       event: import('h3').H3Event,
     ) => Promise<unknown>;
+  });
+
+  // An alias no page can have is a miss, never a 500: the catch-all reads
+  // anything but a 404 as a failed read and shows the error page.
+  it('answers 404 for an over-long alias without asking Geins', async () => {
+    const getAlias = vi.fn(() => 'a'.repeat(201));
+    vi.stubGlobal('getRouterParam', getAlias);
+    const event = mockEvent();
+
+    await expect(pageHandler(event)).rejects.toMatchObject({
+      message: 'Page not found',
+      statusCode: 404,
+    });
+    expect(getAlias).toHaveBeenCalledWith(event, 'alias');
+    expect(mockGetPage).not.toHaveBeenCalled();
+  });
+
+  // The catch-all recovers on a 404 alone, so the status is the contract.
+  it('answers 404 when the CMS has no such page', async () => {
+    mockGetPage.mockResolvedValue({ containers: [] });
+
+    await expect(pageHandler(mockEvent())).rejects.toMatchObject({
+      message: 'Page not found',
+      statusCode: 404,
+    });
   });
 
   it('passes ORGANIZATION customerType from getCustomerType to getPage', async () => {

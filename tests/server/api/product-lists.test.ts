@@ -72,11 +72,13 @@ vi.mock('../../../server/utils/logger', () => ({
 
 // Stub Nitro auto-imports
 vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) => fn());
+// The status the real createAppError gives each code, so a test can assert it.
+const STATUS_OF: Record<string, number> = { NOT_FOUND: 404 };
 vi.stubGlobal(
   'createAppError',
-  vi.fn((_code: string, msg: string) => {
-    return Object.assign(new Error(msg), { statusCode: 404 });
-  }),
+  vi.fn((code: string, msg: string) =>
+    Object.assign(new Error(msg), { statusCode: STATUS_OF[code] }),
+  ),
 );
 vi.stubGlobal('ErrorCode', { NOT_FOUND: 'NOT_FOUND' });
 vi.stubGlobal('getRouterParam', vi.fn());
@@ -301,7 +303,11 @@ describe('Product List API Routes', () => {
       mockGraphqlQuery.mockResolvedValue({ categoryPage: null });
 
       const event = createMockEvent();
-      await expect(handler(event)).rejects.toThrow('Category page not found');
+      // The page recovers on a 404 alone, so the status is the contract.
+      await expect(handler(event)).rejects.toMatchObject({
+        message: 'Category page not found',
+        statusCode: 404,
+      });
     });
 
     it('sets no-store on a real 404 so the CDN does not pin it', async () => {
@@ -353,18 +359,26 @@ describe('Product List API Routes', () => {
       }
     });
 
-    it('should throw ZodError for empty alias', async () => {
-      (getRouterParam as ReturnType<typeof vi.fn>).mockReturnValue('');
+    // An alias no category can have is a miss, never a 500: the page
+    // reads anything but a 404 as a failed read and shows the error page.
+    it.each([
+      ['an empty', ''],
+      ['a missing', undefined],
+      ['an over-long', 'a'.repeat(201)],
+    ])('answers 404 for %s alias without asking Geins', async (_, alias) => {
+      (getRouterParam as ReturnType<typeof vi.fn>).mockReturnValue(alias);
 
       const event = createMockEvent();
-      await expect(handler(event)).rejects.toThrow(ZodError);
-    });
-
-    it('should throw ZodError for undefined alias', async () => {
-      (getRouterParam as ReturnType<typeof vi.fn>).mockReturnValue(undefined);
-
-      const event = createMockEvent();
-      await expect(handler(event)).rejects.toThrow(ZodError);
+      await expect(handler(event)).rejects.toMatchObject({
+        message: 'Category page not found',
+        statusCode: 404,
+      });
+      expect(getRouterParam).toHaveBeenCalledWith(event, 'alias');
+      expect(createAppError).toHaveBeenCalledWith(
+        'NOT_FOUND',
+        'Category page not found',
+      );
+      expect(mockGraphqlQuery).not.toHaveBeenCalled();
     });
   });
 
@@ -400,7 +414,11 @@ describe('Product List API Routes', () => {
       mockGraphqlQuery.mockResolvedValue({ brandPage: null });
 
       const event = createMockEvent();
-      await expect(handler(event)).rejects.toThrow('Brand page not found');
+      // The page recovers on a 404 alone, so the status is the contract.
+      await expect(handler(event)).rejects.toMatchObject({
+        message: 'Brand page not found',
+        statusCode: 404,
+      });
     });
 
     it('sets no-store on a real 404 so the CDN does not pin it', async () => {
@@ -448,18 +466,26 @@ describe('Product List API Routes', () => {
       }
     });
 
-    it('should throw ZodError for empty alias', async () => {
-      (getRouterParam as ReturnType<typeof vi.fn>).mockReturnValue('');
+    // An alias no brand can have is a miss, never a 500: the page
+    // reads anything but a 404 as a failed read and shows the error page.
+    it.each([
+      ['an empty', ''],
+      ['a missing', undefined],
+      ['an over-long', 'a'.repeat(201)],
+    ])('answers 404 for %s alias without asking Geins', async (_, alias) => {
+      (getRouterParam as ReturnType<typeof vi.fn>).mockReturnValue(alias);
 
       const event = createMockEvent();
-      await expect(handler(event)).rejects.toThrow(ZodError);
-    });
-
-    it('should throw ZodError for undefined alias', async () => {
-      (getRouterParam as ReturnType<typeof vi.fn>).mockReturnValue(undefined);
-
-      const event = createMockEvent();
-      await expect(handler(event)).rejects.toThrow(ZodError);
+      await expect(handler(event)).rejects.toMatchObject({
+        message: 'Brand page not found',
+        statusCode: 404,
+      });
+      expect(getRouterParam).toHaveBeenCalledWith(event, 'alias');
+      expect(createAppError).toHaveBeenCalledWith(
+        'NOT_FOUND',
+        'Brand page not found',
+      );
+      expect(mockGraphqlQuery).not.toHaveBeenCalled();
     });
   });
 });

@@ -158,11 +158,22 @@ const { data: pageInfo, error: pageInfoError } = await useFetch<ListPageInfo>(
   },
 );
 
-// On a content miss (missing brand/category or fetch error) the old slug may
-// be a renamed/old listing that should 301 to its canonical instead of 404ing
-// (Problem B). recoverEntityUrl consults the resolver, 301s to the canonical
-// (or a urlHistory redirect), and throws a fatal 404 only on a terminal miss.
-// Without this, crawlers would index phantom URLs.
+// Only a listing the read says it does not have is a miss: a failed read (a
+// timeout answers 502) would otherwise end in a 404 for a page that exists.
+const failed = pageInfoError.value;
+if (failed && failed.statusCode !== 404) {
+  throw createError({
+    statusCode: failed.statusCode ?? 500,
+    statusMessage: failed.statusMessage,
+    fatal: true,
+  });
+}
+
+// On a content miss the old slug may be a renamed/old listing that should 301
+// to its canonical instead of 404ing (Problem B). recoverEntityUrl consults the
+// resolver, 301s to the canonical (or a urlHistory redirect), and throws a
+// fatal 404 only on a terminal miss. Without this, crawlers would index phantom
+// URLs.
 if (pageInfoError.value || !pageInfo.value?.id) {
   await recoverEntityUrl(useRoute().path);
 }

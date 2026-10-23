@@ -41,12 +41,23 @@ const {
   dedupe: 'defer',
 });
 
-// On a content miss (missing product or fetch error) the old slug may be a
-// renamed/old product that should 301 to its canonical instead of 404ing
-// (Problem B). recoverEntityUrl consults the resolver, 301s to the canonical
-// (or a urlHistory redirect), and throws a fatal 404 only on a terminal miss.
-// Kept in the setup await position so the redirect/404 carries a real SSR
-// status before render. Without this, crawlers would index phantom URLs.
+// Only a product the read says it does not have is a miss: a failed read (a
+// timeout answers 502) would otherwise end in a 404 for a product that exists.
+const failed = error.value;
+if (failed && failed.statusCode !== 404) {
+  throw createError({
+    statusCode: failed.statusCode ?? 500,
+    statusMessage: failed.statusMessage,
+    fatal: true,
+  });
+}
+
+// On a content miss the old slug may be a renamed/old product that should 301
+// to its canonical instead of 404ing (Problem B). recoverEntityUrl consults the
+// resolver, 301s to the canonical (or a urlHistory redirect), and throws a
+// fatal 404 only on a terminal miss. Kept in the setup await position so the
+// redirect/404 carries a real SSR status before render. Without this, crawlers
+// would index phantom URLs.
 if (error.value || !product.value?.productId) {
   await recoverEntityUrl(route.path);
 }

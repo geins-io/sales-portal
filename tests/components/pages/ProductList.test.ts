@@ -12,6 +12,7 @@ import {
   defineComponent,
   h,
   Suspense,
+  onErrorCaptured,
   type PropType,
   type Component,
 } from 'vue';
@@ -20,17 +21,28 @@ import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductList from '../../../app/components/pages/ProductList.vue';
 import { useTenant } from '../../../app/composables/useTenant';
 
+type ThrownError = Error & { statusCode?: number; fatal?: boolean };
+
 // ProductList uses `await useFetch(...)` so its setup is async. The top-level
 // await makes the component require a Suspense parent to render. Wrap it
-// here and flush promises so tests can observe the resolved state.
+// here and flush promises so tests can observe the resolved state. Pass
+// `thrown` to collect what the setup throws instead of letting it surface as an
+// unhandled error.
 async function mountProductList(
   props: { type: 'category' | 'brand'; alias: string },
   mountOptions: MountOptionsFor<Component> = {},
+  thrown?: ThrownError[],
 ) {
   // The wrapper closes over `props` instead of redeclaring them through
   // `Object.keys`, so they are checked against ProductList's own props.
   const Wrapper = defineComponent({
     setup() {
+      if (thrown) {
+        onErrorCaptured((err) => {
+          thrown.push(err as ThrownError);
+          return false;
+        });
+      }
       return () =>
         h(Suspense, null, {
           default: () => h(ProductList, props),
@@ -85,6 +97,9 @@ vi.stubGlobal('recoverEntityUrl', recoverEntityUrlMock);
 const mockProductsData = ref<Record<string, unknown> | null>(null);
 const mockFiltersData = ref<Record<string, unknown> | null>(null);
 const mockPageInfo = ref<Record<string, unknown> | null>(null);
+const mockPageInfoError = ref<
+  (Error & { statusCode?: number; statusMessage?: string }) | null
+>(null);
 const mockProductsStatus = ref('idle');
 
 // CMS areas keyed by the areaName the tenant config names for the slot. The
@@ -148,7 +163,7 @@ const mockUseFetch = vi.fn(
     return {
       data: mockPageInfo,
       status: ref('idle'),
-      error: ref(null),
+      error: mockPageInfoError,
       pending: ref(false),
       refresh: vi.fn(),
       execute: vi.fn(),
@@ -394,6 +409,7 @@ describe('ProductList.vue', () => {
     mockProductsData.value = null;
     mockFiltersData.value = null;
     mockPageInfo.value = { ...VALID_PAGE_INFO };
+    mockPageInfoError.value = null;
     mockProductsStatus.value = 'idle';
     mockUseFetch.mockClear();
     navigateToMock.mockClear();
@@ -577,6 +593,68 @@ describe('ProductList.vue', () => {
         expect(recoverEntityUrlMock).toHaveBeenCalledWith(
           '/se/sv/c/old-category',
         );
+      } finally {
+        restore();
+      }
+    });
+
+    it('calls recoverEntityUrl when the read answers 404', async () => {
+      const { restore } = await setRoutePath('/se/sv/c/old-category');
+      mockPageInfo.value = null;
+      mockPageInfoError.value = Object.assign(
+        new Error('Category page not found'),
+        { statusCode: 404 },
+      );
+
+      try {
+        await mountProductList(categoryProps, { global: { stubs } });
+        expect(recoverEntityUrlMock).toHaveBeenCalledWith(
+          '/se/sv/c/old-category',
+        );
+      } finally {
+        restore();
+      }
+    });
+
+    it.each([
+      ['category', categoryProps, '/se/sv/c/foder'],
+      ['brand', { type: 'brand' as const, alias: 'acme' }, '/se/sv/b/acme'],
+    ])(
+      'shows the error page, not a redirect, when the %s read failed',
+      async (_type, props, path) => {
+        // A timed-out Geins read answers 502; the resolver would still find the
+        // listing, and its loop guard would answer 404 for a page that exists.
+        const { restore } = await setRoutePath(path);
+        mockPageInfo.value = null;
+        mockPageInfoError.value = Object.assign(new Error('Bad Gateway'), {
+          statusCode: 502,
+          statusMessage: 'Bad Gateway',
+        });
+        const thrown: ThrownError[] = [];
+
+        try {
+          await mountProductList(props, { global: { stubs } }, thrown);
+          expect(recoverEntityUrlMock).not.toHaveBeenCalled();
+          expect(navigateToMock).not.toHaveBeenCalled();
+          // Only the first error is the page's: the half-set-up component
+          // still renders under the test's Suspense and throws after it.
+          expect(thrown[0]).toMatchObject({ statusCode: 502, fatal: true });
+        } finally {
+          restore();
+        }
+      },
+    );
+
+    it('shows the error page for a failed read that carries no status', async () => {
+      const { restore } = await setRoutePath('/se/sv/c/foder');
+      mockPageInfo.value = null;
+      mockPageInfoError.value = new Error('fetch failed');
+      const thrown: ThrownError[] = [];
+
+      try {
+        await mountProductList(categoryProps, { global: { stubs } }, thrown);
+        expect(recoverEntityUrlMock).not.toHaveBeenCalled();
+        expect(thrown[0]).toMatchObject({ statusCode: 500, fatal: true });
       } finally {
         restore();
       }

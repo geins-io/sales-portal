@@ -95,13 +95,13 @@ vi.stubGlobal(
   'withErrorHandling',
   vi.fn(async (fn: () => Promise<unknown>) => fn()),
 );
+// The status the real createAppError gives each code, so a test can assert it.
+const STATUS_OF: Record<string, number> = { NOT_FOUND: 404, RATE_LIMITED: 429 };
 vi.stubGlobal(
   'createAppError',
-  vi.fn((_code: string, msg: string) => {
-    const err = new Error(msg);
-    (err as Error & { statusCode: number }).statusCode = 404;
-    return err;
-  }),
+  vi.fn((code: string, msg: string) =>
+    Object.assign(new Error(msg), { statusCode: STATUS_OF[code] }),
+  ),
 );
 vi.stubGlobal('ErrorCode', {
   NOT_FOUND: 'NOT_FOUND',
@@ -210,7 +210,11 @@ describe('Product API Routes', () => {
       vi.mocked(getRouterParam).mockReturnValue('missing');
       mockGraphqlQuery.mockResolvedValue({ product: null });
 
-      await expect(handler(fakeEvent)).rejects.toThrow('Product not found');
+      // The page recovers on a 404 alone, so the status is the contract.
+      await expect(handler(fakeEvent)).rejects.toMatchObject({
+        message: 'Product not found',
+        statusCode: 404,
+      });
     });
 
     it('sets no-store cache header on 404 so CDN does not cache the miss', async () => {
@@ -360,16 +364,25 @@ describe('Product API Routes', () => {
       });
     });
 
-    it('throws ZodError for empty alias', async () => {
-      vi.mocked(getRouterParam).mockReturnValue('');
+    // An alias no product can have is a miss, never a 500: the page reads
+    // anything but a 404 as a failed read and shows the error page.
+    it.each([
+      ['an empty', ''],
+      ['a missing', undefined],
+      ['an over-long', 'a'.repeat(201)],
+    ])('answers 404 for %s alias without asking Geins', async (_, alias) => {
+      vi.mocked(getRouterParam).mockReturnValue(alias);
 
-      await expect(handler(fakeEvent)).rejects.toThrow();
-    });
-
-    it('throws ZodError for missing alias', async () => {
-      vi.mocked(getRouterParam).mockReturnValue(undefined);
-
-      await expect(handler(fakeEvent)).rejects.toThrow();
+      await expect(handler(fakeEvent)).rejects.toMatchObject({
+        message: 'Product not found',
+        statusCode: 404,
+      });
+      expect(getRouterParam).toHaveBeenCalledWith(fakeEvent, 'alias');
+      expect(createAppError).toHaveBeenCalledWith(
+        'NOT_FOUND',
+        'Product not found',
+      );
+      expect(mockGraphqlQuery).not.toHaveBeenCalled();
     });
   });
 
