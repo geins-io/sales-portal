@@ -83,6 +83,9 @@ export default defineNuxtConfig({
     // nonces that the browser rejects. Enable nonce + SRI only in prod.
     nonce: process.env.NODE_ENV === 'production',
     sri: process.env.NODE_ENV === 'production',
+    // Its removal writes `vite.esbuild.drop`, which Vite 8 ignores; the
+    // production minifier drops console and debugger instead (`$production`).
+    removeLoggers: false,
     headers: {
       // Strict CSP for production only. In dev, nuxt-security still sets
       // other security headers (X-Content-Type-Options, etc.) but CSP is
@@ -474,6 +477,18 @@ export default defineNuxtConfig({
   vite: {
     server: {
       allowedHosts: ['.litium.test'],
+    },
+  },
+
+  $production: {
+    vite: {
+      build: {
+        rolldownOptions: {
+          output: {
+            minify: { compress: { dropConsole: true, dropDebugger: true } },
+          },
+        },
+      },
     },
   },
 });

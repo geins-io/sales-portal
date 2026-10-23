@@ -38,7 +38,10 @@ export function useSeoLinks(
 
     const fullLocales = tenant.value?.availableLocales;
 
-    const links: Array<{ rel: string; href: string; hreflang?: string }> = [];
+    const links: Array<
+      | { rel: 'canonical'; href: string; hreflang?: undefined }
+      | { rel: 'alternate'; href: string; hreflang: string }
+    > = [];
 
     // Canonical: always uses the current locale with the naive path (no override).
     const canonicalHref =

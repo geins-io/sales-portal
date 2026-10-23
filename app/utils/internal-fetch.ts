@@ -1,9 +1,22 @@
-import type { NitroFetchOptions, NitroFetchRequest } from 'nitropack';
+import type {
+  AnyServerRouteMethod,
+  TypedFetchOptions,
+  TypedServerResponse,
+} from '#app';
+
+type InternalFetchOptions = TypedFetchOptions<string, AnyServerRouteMethod>;
+
+// Nuxt's typed `$fetch` resolves this to `T` once a caller names `T`.
+type InternalFetchResponse<T> = TypedServerResponse<
+  string,
+  T,
+  AnyServerRouteMethod
+>;
 
 type InternalFetcher = <T>(
   url: string,
-  options?: NitroFetchOptions<NitroFetchRequest>,
-) => Promise<T>;
+  options?: InternalFetchOptions,
+) => Promise<InternalFetchResponse<T>>;
 
 /**
  * Exported for tests: the fetcher for the environment. On the server it is the
@@ -16,10 +29,10 @@ type InternalFetcher = <T>(
 export function internalFetcher(server: boolean): InternalFetcher {
   if (server) {
     const requestFetch = useRequestFetch();
-    return <T>(url: string, options?: NitroFetchOptions<NitroFetchRequest>) =>
-      requestFetch<T>(url, options);
+    return <T>(url: string, options?: InternalFetchOptions) =>
+      requestFetch<T, string, AnyServerRouteMethod>(url, options);
   }
-  return <T>(url: string, options?: NitroFetchOptions<NitroFetchRequest>) =>
+  return <T>(url: string, options?: InternalFetchOptions) =>
     $fetch<T>(url, options);
 }
 
@@ -45,7 +58,7 @@ export function internalFetcher(server: boolean): InternalFetcher {
  */
 export function internalFetch<T>(
   url: string,
-  options: NitroFetchOptions<NitroFetchRequest> = {},
-): Promise<T> {
+  options: InternalFetchOptions = {},
+): Promise<InternalFetchResponse<T>> {
   return internalFetcher(import.meta.server)<T>(url, options);
 }
