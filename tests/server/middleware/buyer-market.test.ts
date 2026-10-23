@@ -217,6 +217,22 @@ describe('server/middleware/01.buyer-market', () => {
     );
   });
 
+  it('percent-encodes the decoded path in the redirect target', async () => {
+    loadUserMock.mockResolvedValue(makeUser(['fi', 'se']));
+    const handler = await importHandler();
+    const event = makeEvent({
+      authCookie: 'tok',
+      path: '/no/sv/p/stol-åäö',
+      localeMarket: { market: 'no', locale: 'sv' },
+    });
+    await handler(event);
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      event,
+      '/fi/sv/p/stol-%C3%A5%C3%A4%C3%B6',
+      302,
+    );
+  });
+
   it('h) fail-open: lookup error means no redirect', async () => {
     loadUserMock.mockRejectedValue(new Error('boom'));
     const handler = await importHandler();

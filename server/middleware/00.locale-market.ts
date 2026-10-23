@@ -2,6 +2,7 @@ import type { TenantConfig } from '#shared/types/tenant-config';
 import { COOKIE_NAMES } from '#shared/constants/storage';
 import { ROUTE_PATHS } from '#shared/constants/route-paths';
 import { isPagePath } from '../utils/is-page-path';
+import { encodeRedirectPath } from '../utils/redirect-path';
 import {
   interpretLocaleMarketPrefix,
   resolvableLocaleCodes,
@@ -46,7 +47,7 @@ export default defineEventHandler((event) => {
     const segmentCount = trimmed.split('/').filter(Boolean).length;
     // `/{market}/{locale}/` keeps its slash; it is the locale root, not a page.
     if (segmentCount !== 2) {
-      return sendRedirect(event, trimmed + query, 301);
+      return sendRedirect(event, encodeRedirectPath(trimmed + query), 301);
     }
   }
 
@@ -118,7 +119,11 @@ export default defineEventHandler((event) => {
 
   // No cookies on a corrective hop; the canonical destination writes them.
   const suffix = content.length > 0 ? '' : '/';
-  return sendRedirect(event, `${targetPath}${suffix}${query}`, 302);
+  return sendRedirect(
+    event,
+    encodeRedirectPath(`${targetPath}${suffix}${query}`),
+    302,
+  );
 });
 
 /** Pre-canonicalisation behaviour, for tenants whose config carries no lists. */
@@ -137,7 +142,11 @@ function passThroughWithoutTenantLists(
 
   if (path === '/') {
     const { market, locale } = resolveDefaultMarketLocale(event);
-    return sendRedirect(event, `/${market}/${locale}/${query}`, 302);
+    return sendRedirect(
+      event,
+      encodeRedirectPath(`/${market}/${locale}/${query}`),
+      302,
+    );
   }
 
   if (segments[0] && TYPE_PREFIX_SEGMENTS.has(segments[0])) {
@@ -159,7 +168,7 @@ function redirectTypePrefixedPath(
   const { market, locale, fromCookie } = resolveDefaultMarketLocale(event);
   return sendRedirect(
     event,
-    `/${market}/${locale}${path}${query}`,
+    encodeRedirectPath(`/${market}/${locale}${path}${query}`),
     fromCookie ? 302 : 301,
   );
 }
