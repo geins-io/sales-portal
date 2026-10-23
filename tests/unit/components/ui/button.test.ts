@@ -6,7 +6,8 @@ describe('buttonVariants surface tokens', () => {
     const classes = buttonVariants({ variant: 'default' });
     expect(classes).toContain('bg-button-background');
     expect(classes).toContain('hover:bg-button-background/90');
-    expect(classes).toContain('text-primary-foreground');
+    expect(classes).toContain('text-button-text');
+    expect(classes).not.toContain('text-primary-foreground');
     expect(classes).not.toContain('bg-primary ');
   });
 
@@ -14,7 +15,8 @@ describe('buttonVariants surface tokens', () => {
     const classes = buttonVariants({ variant: 'purchase' });
     expect(classes).toContain('bg-button-purchase-background');
     expect(classes).toContain('hover:bg-button-purchase-background/90');
-    expect(classes).toContain('text-primary-foreground');
+    expect(classes).toContain('text-button-purchase-text');
+    expect(classes).not.toContain('text-primary-foreground');
   });
 
   it('keeps existing destructive / ghost / link variants untouched', () => {

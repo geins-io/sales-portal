@@ -86,6 +86,8 @@ const COLOR_CSS_MAP: Record<keyof FullThemeColors, string> = {
   buttonPurchaseBackground: '--button-purchase-background',
   topBarText: '--top-bar-text',
   footerText: '--footer-text',
+  buttonText: '--button-text',
+  buttonPurchaseText: '--button-purchase-text',
 };
 
 /**
@@ -94,6 +96,11 @@ const COLOR_CSS_MAP: Record<keyof FullThemeColors, string> = {
  * `var(...)` reference to another CSS variable) so the surface var is
  * always present in the emitted stylesheet. Components can therefore
  * reference bg-<surface> classes without layering bg-<fallback>.
+ *
+ * "Not set" here means null. An absent key, and `""` (stripped at the parse
+ * as an invalid colour), take the storefront default in
+ * storefront-settings-defaults.ts instead, so these fallbacks apply only
+ * to an explicit null.
  *
  * footerBackground is intentionally a hardcoded OKLCH (neutral-900
  * equivalent) rather than a var reference, matching the original PR
@@ -109,6 +116,8 @@ const SURFACE_FALLBACKS: Record<string, string> = {
   buttonPurchaseBackground: 'var(--button-background)',
   topBarText: 'var(--primary-foreground)',
   footerText: 'oklch(0.85 0 0)',
+  buttonText: 'var(--primary-foreground)',
+  buttonPurchaseText: 'var(--button-text)',
 };
 
 /**

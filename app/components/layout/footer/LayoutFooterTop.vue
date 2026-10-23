@@ -52,7 +52,7 @@ async function handleSubscribe() {
             size="lg"
             type="submit"
             :disabled="status === 'loading'"
-            class="bg-button-background text-primary-foreground hover:bg-button-background/90 border border-[#D1D1D1] shadow-none"
+            class="bg-button-background text-button-text hover:bg-button-background/90 border border-[#D1D1D1] shadow-none"
           >
             {{ $t('layout.subscribe') }}
           </Button>

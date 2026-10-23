@@ -224,7 +224,7 @@ function bannerPlacementClasses(placement?: string): string {
               <NuxtLink
                 v-if="item.cta && linkTo(item.cta.url)"
                 :to="linkTo(item.cta.url)"
-                class="bg-button-background text-primary-foreground inline-block rounded-md px-4 py-2 text-sm font-medium"
+                class="bg-button-background text-button-text inline-block rounded-md px-4 py-2 text-sm font-medium"
               >
                 {{ item.cta.text }}
               </NuxtLink>
@@ -269,7 +269,7 @@ function bannerPlacementClasses(placement?: string): string {
           <NuxtLink
             v-if="item.cta && linkTo(item.cta.url)"
             :to="linkTo(item.cta.url)"
-            class="bg-button-background text-primary-foreground inline-block rounded-md px-4 py-2 text-sm font-medium"
+            class="bg-button-background text-button-text inline-block rounded-md px-4 py-2 text-sm font-medium"
           >
             {{ item.cta.text }}
           </NuxtLink>
@@ -424,7 +424,7 @@ function bannerPlacementClasses(placement?: string): string {
         <NuxtLink
           v-if="banner.cta && linkTo(banner.cta.url)"
           :to="linkTo(banner.cta.url)"
-          class="bg-button-background text-primary-foreground mt-3 inline-block rounded-md px-4 py-2 text-sm font-medium"
+          class="bg-button-background text-button-text mt-3 inline-block rounded-md px-4 py-2 text-sm font-medium"
         >
           {{ banner.cta.text }}
         </NuxtLink>

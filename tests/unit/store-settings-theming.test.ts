@@ -35,6 +35,44 @@ describe('store-settings button color on standalone CTAs', () => {
 });
 
 /**
+ * Every element painted with the general button background also takes its
+ * text colour from the store's button text, so the two halves of the pair the
+ * merchant sets always render together.
+ */
+describe('store-settings button text colour on standalone CTAs', () => {
+  const files = [
+    'app/components/cart/CartEmptyState.vue',
+    'app/components/checkout/OrderConfirmation.vue',
+    'app/components/cms/widgets/BannerWidget.vue',
+    'app/components/cms/widgets/ButtonsWidget.vue',
+    'app/components/cms/widgets/JsonWidget.vue',
+    'app/components/layout/footer/LayoutFooterTop.vue',
+    'app/components/shared/EmptyState.vue',
+    'app/pages/quote-confirmation/[id].vue',
+  ];
+
+  for (const file of files) {
+    it(`${file} pairs the button background with the button text token`, () => {
+      const classLists = read(file).match(/class="[^"]*"/g) ?? [];
+      const painted = classLists.filter((c) =>
+        /(^|\s|")bg-button-background(\s|")/.test(c),
+      );
+      expect(painted.length).toBeGreaterThan(0);
+      for (const classList of painted) {
+        expect(classList).toContain('text-button-text');
+        expect(classList).not.toContain('text-primary-foreground');
+      }
+    });
+  }
+
+  it('the checked filter checkbox draws its check mark in the button text colour', () => {
+    const source = read('app/components/product/FilterGroup.vue');
+    expect(source).toContain('data-[state=checked]:bg-button-background');
+    expect(source).toContain('data-[state=checked]:text-button-text');
+  });
+});
+
+/**
  * Store-settings theme inheritance on the server error page.
  *
  * The Nitro `render:html` hook that injects the tenant theme does not run for
@@ -55,5 +93,6 @@ describe('server error handler (error.ts) inherits store-settings theme', () => 
 
   it('uses the store-settings button color token for the primary button', () => {
     expect(source).toContain('var(--button-background');
+    expect(source).toContain('var(--button-text');
   });
 });

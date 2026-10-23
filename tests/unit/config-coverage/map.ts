@@ -95,11 +95,6 @@
  *     `ThemeColorsSchema` for the colours, the seeded defaults object for the
  *     features — rather than from a list declared here, which would be a
  *     second copy free to drift.
- *   - the admin's schema carries two colour keys, `buttonText` and
- *     `buttonPurchaseText`, that `ThemeColorsSchema` does not name. `z.object()`
- *     strips unknown keys, so they never reach `tenant-css.ts` and they are
- *     correctly absent from the 40 below. The forty keys here are what the app
- *     can receive, not what a merchant can set.
  *   - retired access rules never reach the app:
  *     `server/utils/tenant.ts:normalizeFeatureAccess` rewrites a feature
  *     carrying `{group}`, `{role}`, `{permission}` or `{accountType}` to
@@ -590,7 +585,7 @@ const SIDEBAR_GROUP: TestRef = {
 };
 const SURFACE_TEXT_GROUP: TestRef = {
   spec: TENANT_CSS,
-  title: 'emits both surface text colours as their own converted variable',
+  title: 'emits each surface text colour as its own converted variable',
   kind: 'consumer',
   drives: 'field',
 };
@@ -598,6 +593,13 @@ const SURFACE_TEXT_GROUP: TestRef = {
 const FAMILY_GROUP: TestRef = {
   spec: TENANT_CSS,
   title: 'emits each of the three typography families as its own variable',
+  kind: 'consumer',
+  drives: 'field',
+};
+
+const BUTTON_TEXT_PARSE: TestRef = {
+  spec: SERVER_TENANT,
+  title: 'keeps both button text colours and carries them into config.css',
   kind: 'consumer',
   drives: 'field',
 };
@@ -891,7 +893,7 @@ const SURFACE_COLOR = {
     kind: 'consumer',
     drives: 'field',
   },
-  note: "The unset case is asserted by 'emits the documented fallback chain when no surface is set', which covers all eight surface fallbacks including the two text ones.",
+  note: "The unset case is asserted by 'emits the documented fallback chain when no surface is set', which covers all ten surface fallbacks including the four text ones.",
 } as const;
 
 export const CONFIG_COVERAGE_MAP = {
@@ -1348,7 +1350,7 @@ export const CONFIG_COVERAGE_MAP = {
       sidebarBorder: derivedColor(SIDEBAR_GROUP, BG_FAMILY),
       sidebarRing: derivedColor(SIDEBAR_GROUP, PRIMARY_FAMILY),
 
-      // The eight surfaces, six of which the emitter is asserted on.
+      // The ten surfaces.
       topBarBackground: SURFACE_COLOR,
       footerBackground: SURFACE_COLOR,
       navBarBackground: SURFACE_COLOR,
@@ -1373,6 +1375,16 @@ export const CONFIG_COVERAGE_MAP = {
         SURFACE_TEXT_GROUP,
         SURFACE_TEXT_FALLBACK,
         'The unset case falls back to a hardcoded oklch(0.85 0 0) that converts to #cecece, asserted in the fallback-chain test. That is why this key must never take sentinel L 0.85.',
+      ),
+      buttonText: derivedColor(
+        SURFACE_TEXT_GROUP,
+        [SURFACE_TEXT_FALLBACK, BUTTON_TEXT_PARSE],
+        'A null value falls back to var(--primary-foreground) in the fallback-chain test; an absent one takes the #ffffff storefront default, asserted with the hex the admin sends surviving the parse.',
+      ),
+      buttonPurchaseText: derivedColor(
+        SURFACE_TEXT_GROUP,
+        [SURFACE_TEXT_FALLBACK, BUTTON_TEXT_PARSE],
+        'A null value chains to var(--button-text), the same way the purchase background chains to the general one.',
       ),
     },
 

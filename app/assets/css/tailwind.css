@@ -60,6 +60,8 @@
   --color-button-purchase-background: var(--button-purchase-background);
   --color-top-bar-text: var(--top-bar-text);
   --color-footer-text: var(--footer-text);
+  --color-button-text: var(--button-text);
+  --color-button-purchase-text: var(--button-purchase-text);
 }
 
 /* Tailwind 4.1.18 emits nothing for this candidate — verified by compiling it.

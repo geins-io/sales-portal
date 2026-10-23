@@ -113,7 +113,7 @@ function isChecked(valueId: string) {
               :id="checkboxId(value._id)"
               :model-value="isChecked(value.facetId)"
               :disabled="value.count === 0"
-              class="data-[state=checked]:border-button-background data-[state=checked]:bg-button-background dark:data-[state=checked]:bg-button-background"
+              class="data-[state=checked]:border-button-background data-[state=checked]:bg-button-background data-[state=checked]:text-button-text dark:data-[state=checked]:bg-button-background"
               @update:model-value="toggleValue(value.facetId)"
             />
             <span class="flex-1 text-sm">

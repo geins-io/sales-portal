@@ -82,6 +82,8 @@ describe('generateTenantCss surface colors', () => {
     // reference, one to a hardcoded OKLCH that is converted like any other.
     expect(css).toContain('--top-bar-text: var(--primary-foreground);');
     expect(css).toContain('--footer-text: #cecece;');
+    expect(css).toContain('--button-text: var(--primary-foreground);');
+    expect(css).toContain('--button-purchase-text: var(--button-text);');
   });
 
   it('chains buttonPurchaseBackground through buttonBackground when only buttonBackground is set', () => {
@@ -100,6 +102,20 @@ describe('generateTenantCss surface colors', () => {
     const purchaseIdx = css.indexOf('--button-purchase-background:');
     expect(buttonIdx).toBeGreaterThan(0);
     expect(purchaseIdx).toBeGreaterThan(buttonIdx);
+  });
+
+  it('chains buttonPurchaseText through buttonText when only buttonText is set', () => {
+    const derived = deriveThemeColors({
+      ...coreColors,
+      buttonText: 'oklch(0.50 0 0)',
+    });
+    const css = generateTenantCss('test', derived);
+    expect(css).toContain('--button-text: #636363;');
+    expect(css).toContain('--button-purchase-text: var(--button-text);');
+    const textIdx = css.indexOf('--button-text:');
+    const purchaseIdx = css.indexOf('--button-purchase-text:');
+    expect(textIdx).toBeGreaterThan(0);
+    expect(purchaseIdx).toBeGreaterThan(textIdx);
   });
 
   it('emits no oklch() in the color block so older Safari can parse every var', () => {
@@ -346,11 +362,18 @@ describe('generateTenantCss configured colours reach their CSS variable', () => 
     expectEachCase(emitFor(cases), cases);
   });
 
-  it('emits both surface text colours as their own converted variable', () => {
+  it('emits each surface text colour as its own converted variable', () => {
     // L 0.85 is deliberately absent here: it is footerText's own fallback.
     const cases: ColorCase[] = [
       ['topBarText', '--top-bar-text', 'oklch(0.50 0 0)', '#636363'],
       ['footerText', '--footer-text', 'oklch(0.55 0 0)', '#717171'],
+      ['buttonText', '--button-text', 'oklch(0.60 0 0)', '#808080'],
+      [
+        'buttonPurchaseText',
+        '--button-purchase-text',
+        'oklch(0.65 0 0)',
+        '#8f8f8f',
+      ],
     ];
     expectEachCase(emitFor(cases), cases);
   });
@@ -407,7 +430,7 @@ describe('generateTenantCss configured colours reach their CSS variable', () => 
  *     hue rotation is invisible. The greyscale core is measurably useless for
  *     the charts, which is why the chromatic one exists.
  *
- * `topBarText` and `footerText` are the sixth family and need nothing new:
+ * The four surface text colours are the sixth family and need nothing new:
  * 'emits the documented fallback chain when no surface is set' above is their
  * reference.
  */

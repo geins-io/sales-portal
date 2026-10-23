@@ -436,7 +436,7 @@ ${DEV_SETUP_STEPS.map((step) => `      <li>${escapeHtml(step)}</li>`).join('\n')
     cursor: pointer;
     border: 1px solid transparent;
   }
-  .btn-primary { background: var(--button-background, var(--primary, #0d9488)); color: var(--primary-foreground, #ffffff); }
+  .btn-primary { background: var(--button-background, var(--primary, #0d9488)); color: var(--button-text, var(--primary-foreground, #ffffff)); }
   .btn-outline { background: transparent; border-color: var(--border, #d4d4d8); color: inherit; }
   .diag {
     margin-top: 2rem;

@@ -1173,6 +1173,33 @@ describe('Tenant utilities', () => {
       expect(out?.tenantId).toBe('alpha');
     });
 
+    // Hex, because that is what the admin sends for these two keys.
+    it('keeps both button text colours and carries them into config.css', () => {
+      const candidate = fullCandidate();
+      const theme = candidate.theme as { colors: Record<string, string> };
+      theme.colors.buttonText = '#636363';
+      theme.colors.buttonPurchaseText = '#717171';
+
+      const out = parseStoreSettingsResilient(candidate, 'h');
+      if (!out) throw new Error('candidate did not parse');
+      expect(out.theme.colors.buttonText).toMatch(/^oklch\(/);
+      expect(out.theme.colors.buttonPurchaseText).toMatch(/^oklch\(/);
+
+      const built = buildTenantConfig(out);
+      expect(built.css).toContain('--button-text: #636363;');
+      expect(built.css).toContain('--button-purchase-text: #717171;');
+    });
+
+    it('fills absent button text colours with the white storefront default', () => {
+      const out = parseStoreSettingsResilient(fullCandidate(), 'h');
+      if (!out) throw new Error('candidate did not parse');
+      expect(out.theme.colors.buttonText).toBeUndefined();
+
+      const built = buildTenantConfig(out);
+      expect(built.css).toContain('--button-text: #ffffff;');
+      expect(built.css).toContain('--button-purchase-text: #ffffff;');
+    });
+
     it('salvages a candidate with an unknown mode value by defaulting to commerce', () => {
       const candidate = fullCandidate();
       candidate.mode = 'museum';
@@ -1473,6 +1500,8 @@ describe('Tenant utilities', () => {
         'buttonPurchaseBackground',
         'topBarText',
         'footerText',
+        'buttonText',
+        'buttonPurchaseText',
       ];
       const colors: Record<string, string> = {};
       for (const key of declaredColorKeys) {

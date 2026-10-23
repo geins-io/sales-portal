@@ -27,7 +27,7 @@ defineProps<{
     <NuxtLink
       v-if="actionLabel && actionTo"
       :to="actionTo"
-      class="bg-button-background text-primary-foreground hover:bg-button-background/90 mt-6 inline-flex items-center rounded-md px-4 py-2 text-sm font-medium transition-colors"
+      class="bg-button-background text-button-text hover:bg-button-background/90 mt-6 inline-flex items-center rounded-md px-4 py-2 text-sm font-medium transition-colors"
     >
       {{ actionLabel }}
     </NuxtLink>

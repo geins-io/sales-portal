@@ -66,7 +66,7 @@ const viewOrderLink = computed(() => {
       <!-- Full-width CTA -->
       <NuxtLink
         :to="viewOrderLink"
-        class="bg-button-background text-primary-foreground hover:bg-button-background/90 mt-8 flex w-full items-center justify-center rounded-md px-6 py-3 text-sm font-semibold transition-colors"
+        class="bg-button-background text-button-text hover:bg-button-background/90 mt-8 flex w-full items-center justify-center rounded-md px-6 py-3 text-sm font-semibold transition-colors"
         data-testid="view-order-cta"
       >
         {{ t('order_confirmation.view_order_in_portal') }}

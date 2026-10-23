@@ -803,7 +803,7 @@ export function parseStoreSettingsResilient(
   ]);
 
   const MAX_SUBSTITUTIONS = 12;
-  // ThemeColorsSchema declares ~40 color keys (6 core + 26 optional + 8
+  // ThemeColorsSchema declares 42 color keys (6 core + 26 optional + 10
   // surface). 64 gives comfortable headroom for "every declared color value
   // is garbage" plus a few unknown keys, so the hard guarantee that no
   // combination of color inputs blanks a tenant holds at full strength.

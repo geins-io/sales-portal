@@ -162,6 +162,8 @@ describe.each([
   'siteBackground',
   'buttonBackground',
   'buttonPurchaseBackground',
+  'buttonText',
+  'buttonPurchaseText',
 ] as const)('ThemeColorsSchema %s surface field', (field) => {
   it('accepts a 6-digit lowercase hex value', () => {
     const result = ThemeColorsSchema.safeParse({

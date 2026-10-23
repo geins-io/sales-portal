@@ -21,7 +21,8 @@ describe('ButtonsWidget button classes', () => {
     expect(source).not.toContain('bg-primary');
   });
 
-  it('contains text-primary-foreground', () => {
-    expect(source).toContain('text-primary-foreground');
+  it('takes its text colour from the tenant button text', () => {
+    expect(source).toContain('text-button-text');
+    expect(source).not.toContain('text-primary-foreground');
   });
 });

@@ -40,7 +40,7 @@ describe('Button Component', () => {
 
       expect(classes).toContain('bg-button-background');
       expect(classes).toContain('hover:bg-button-background/90');
-      expect(classes).toContain('text-primary-foreground');
+      expect(classes).toContain('text-button-text');
     });
 
     it('should apply purchase variant classes', () => {
@@ -53,7 +53,7 @@ describe('Button Component', () => {
       const classes = wrapper.classes().join(' ');
       expect(classes).toContain('bg-button-purchase-background');
       expect(classes).toContain('hover:bg-button-purchase-background/90');
-      expect(classes).toContain('text-primary-foreground');
+      expect(classes).toContain('text-button-purchase-text');
     });
 
     it('should apply destructive variant classes', () => {

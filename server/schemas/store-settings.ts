@@ -70,6 +70,8 @@ export const ThemeColorsSchema = z.object({
   buttonPurchaseBackground: CoercedColorSchema.nullable().optional(),
   topBarText: CoercedColorSchema.nullable().optional(),
   footerText: CoercedColorSchema.nullable().optional(),
+  buttonText: CoercedColorSchema.nullable().optional(),
+  buttonPurchaseText: CoercedColorSchema.nullable().optional(),
 });
 
 export const ThemeTypographySchema = z.object({
