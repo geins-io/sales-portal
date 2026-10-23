@@ -58,6 +58,12 @@ vi.stubGlobal('useHead', vi.fn());
 vi.stubGlobal('useHeadSafe', vi.fn());
 vi.stubGlobal('useSeoMeta', vi.fn());
 
+// Site config holds the tenant site URL the SEO links are absolute on; it
+// needs a Nuxt instance too.
+vi.mock('#site-config/app', () => ({
+  useSiteConfig: () => ({ url: 'https://test.example' }),
+}));
+
 // Mock vue-i18n — useI18n requires app.use(createI18n()) which isn't available
 // in the component tier. Return a passthrough `t` function.
 vi.mock('vue-i18n', () => ({

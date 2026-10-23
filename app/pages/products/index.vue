@@ -15,6 +15,7 @@ import type {
   ProductFiltersResponse,
 } from '#shared/types/commerce';
 import { buildFilterInput, SORT_MAP } from '#shared/utils/filters';
+import { toAbsoluteUrl } from '~/utils/absolute-url';
 
 const route = useRoute();
 const router = useRouter();
@@ -48,6 +49,7 @@ const skip = computed(() => (currentPage.value - 1) * take);
 
 const { t } = useI18n();
 const { localeQuery, currentLocale, currentMarket } = useLocaleMarket();
+const siteConfig = useSiteConfig();
 
 const sortOptions = computed(() => [
   { label: t('product.sort_relevance'), value: 'relevance' },
@@ -146,7 +148,7 @@ const canonicalUrl = computed(
 useHead({ title: () => t('nav.products') });
 
 useSeoMeta({
-  ogUrl: () => canonicalUrl.value,
+  ogUrl: () => toAbsoluteUrl(canonicalUrl.value, siteConfig.url),
   ogTitle: () => t('nav.products'),
 });
 </script>
