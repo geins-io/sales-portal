@@ -28,13 +28,13 @@ We chose `@nuxtjs/seo` (v3.x) — a meta-module that bundles `nuxt-site-config`,
 - **Dynamic robots.txt** — generated from `nuxt-site-config` indexability, no static file needed
 - **Dynamic sitemap.xml** — with API source endpoints for future product/category URL expansion
 - **Schema.org** — `useSchemaOrg()` composable with `defineOrganization()`, `defineWebSite()`, and future `defineProduct()`
-- **Site config** — per-request override via Nitro `site-config:init` hook
+- **Site config** — per-request override from Nitro middleware via `updateSiteConfig(event)`
 
 The alternative (manual `<script type="application/ld+json">` injection, custom robots/sitemap routes) would duplicate what the module already handles and miss features like automatic JSON-LD deduplication and canonical URL resolution.
 
-### Multi-tenant site-config via Nitro hook
+### Multi-tenant site-config via Nitro middleware
 
-A Nitro plugin (`server/plugins/03.seo-config.ts`) hooks into `site-config:init` to override the static `nuxt.config.ts` site config with per-tenant values on every request. This sets `url`, `name`, `description`, `defaultLocale`, and `indexable` from the tenant's config.
+A Nitro middleware (`server/middleware/seo-config.ts`) calls `updateSiteConfig(event)` to override the static `nuxt.config.ts` site config with per-tenant values on every request. It was a `site-config:init` hook until nuxt-site-config v5 moved that hook into a request hook that runs before the tenant is resolved. This sets `url`, `name`, `description`, `defaultLocale`, and `indexable` from the tenant's config.
 
 ### Analytics separation via @nuxt/scripts
 

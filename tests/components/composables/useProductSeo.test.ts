@@ -1,13 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ref } from 'vue';
+import { ref, toValue, type MaybeRefOrGetter } from 'vue';
 import type { DetailProduct } from '../../../shared/types/commerce';
 
 // What the head ends up as is @unhead's business; what this composable decides
 // is which product facts go in — above all whether an offer is published at
 // all, which is the one thing that differs between the product pages.
 const { defineProductMock, defineBreadcrumbMock } = vi.hoisted(() => ({
-  defineProductMock: vi.fn((input: Record<string, unknown>) => input),
-  defineBreadcrumbMock: vi.fn((input: Record<string, unknown>) => input),
+  defineProductMock: vi.fn(
+    (input: MaybeRefOrGetter<Record<string, unknown>>) => input,
+  ),
+  defineBreadcrumbMock: vi.fn(
+    (
+      input: MaybeRefOrGetter<{
+        itemListElement: Array<{
+          position: number;
+          name: string;
+          item?: string;
+        }>;
+      }>,
+    ) => input,
+  ),
 }));
 
 vi.stubGlobal('defineProduct', defineProductMock);
@@ -65,15 +77,12 @@ function run(product: DetailProduct, withOffers: boolean, sku?: () => string) {
     sku,
     withOffers,
   });
+  // Each node is handed over as one reactive value; reading it resolves it.
+  const productNode = defineProductMock.mock.calls.at(-1)![0];
+  const breadcrumbNode = defineBreadcrumbMock.mock.calls.at(-1)![0];
   return {
-    product: defineProductMock.mock.calls.at(-1)![0] as Record<
-      string,
-      () => unknown
-    >,
-    breadcrumb: defineBreadcrumbMock.mock.calls.at(-1)![0] as Record<
-      string,
-      () => Array<{ position: number; name: string; item?: string }>
-    >,
+    product: () => toValue(productNode),
+    breadcrumb: () => toValue(breadcrumbNode),
   };
 }
 
@@ -86,7 +95,7 @@ describe('useProductSeo', () => {
   it('publishes an offer for a product that has one price', () => {
     const { product } = run(makeProduct(), true);
 
-    expect(product.offers!()).toEqual({
+    expect(product().offers).toEqual({
       '@type': 'Offer',
       price: 4100,
       priceCurrency: 'SEK',
@@ -98,13 +107,13 @@ describe('useProductSeo', () => {
   it('publishes no offer when the price depends on a configuration', () => {
     const { product } = run(makeProduct(), false);
 
-    expect(product.offers!()).toBeUndefined();
+    expect(product().offers).toBeUndefined();
   });
 
   it('says out of stock when nothing is in stock', () => {
     const { product } = run(makeProduct({ totalStock: { inStock: 0 } }), true);
 
-    expect((product.offers!() as { availability: string }).availability).toBe(
+    expect((product().offers as { availability: string }).availability).toBe(
       'https://schema.org/OutOfStock',
     );
   });
@@ -112,20 +121,20 @@ describe('useProductSeo', () => {
   it('publishes no offer for a product with no price at all', () => {
     const { product } = run(makeProduct({ unitPrice: null }), true);
 
-    expect(product.offers!()).toBeUndefined();
+    expect(product().offers).toBeUndefined();
   });
 
   it('describes the product in plain text, capped for a meta description', () => {
     const long = `<p>${'a'.repeat(300)}</p>`;
     const { product } = run(makeProduct({ texts: { text1: long } }), false);
 
-    expect(product.description!()).toBe('a'.repeat(160));
+    expect(product().description).toBe('a'.repeat(160));
   });
 
   it('publishes every product image, in the order they arrive', () => {
     const { product } = run(makeProduct(), false);
 
-    expect(product.image!()).toEqual([
+    expect(product().image).toEqual([
       'https://cdn.test/a.jpg?width=1200',
       'https://cdn.test/b.jpg?width=1200',
     ]);
@@ -137,7 +146,7 @@ describe('useProductSeo', () => {
       false,
     );
 
-    expect(product.image!()).toEqual([
+    expect(product().image).toEqual([
       'https://monitor.commerce.services/product/raw/old.jpg',
     ]);
   });
@@ -147,7 +156,7 @@ describe('useProductSeo', () => {
     (productImages) => {
       const { product } = run(makeProduct({ productImages }), false);
 
-      expect(product.image!()).toEqual([]);
+      expect(product().image).toEqual([]);
     },
   );
 
@@ -162,13 +171,13 @@ describe('useProductSeo', () => {
       false,
     );
 
-    expect(product.image!()).toEqual(['https://cdn.test/b.jpg?width=1200']);
+    expect(product().image).toEqual(['https://cdn.test/b.jpg?width=1200']);
   });
 
   it('numbers the breadcrumb trail from one and keeps the last one hrefless', () => {
     const { breadcrumb } = run(makeProduct(), false);
 
-    expect(breadcrumb.itemListElement!()).toEqual([
+    expect(breadcrumb().itemListElement).toEqual([
       { '@type': 'ListItem', position: 1, name: 'Hem', item: '/se/sv' },
       {
         '@type': 'ListItem',
@@ -180,15 +189,15 @@ describe('useProductSeo', () => {
   });
 
   it('publishes the sku the page resolved, and an empty one when it has none', () => {
-    expect(run(makeProduct(), true, () => '101').product.sku!()).toBe('101');
-    expect(run(makeProduct(), false).product.sku!()).toBe('');
+    expect(run(makeProduct(), true, () => '101').product().sku).toBe('101');
+    expect(run(makeProduct(), false).product().sku).toBe('');
   });
 
   it('publishes the brand only when the product has one', () => {
     expect(
-      run(makeProduct({ brand: { name: 'Geins' } }), false).product.brand!(),
+      run(makeProduct({ brand: { name: 'Geins' } }), false).product().brand,
     ).toEqual({ '@type': 'Brand', name: 'Geins' });
-    expect(run(makeProduct(), false).product.brand!()).toBeUndefined();
+    expect(run(makeProduct(), false).product().brand).toBeUndefined();
   });
 });
 

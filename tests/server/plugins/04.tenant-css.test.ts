@@ -8,7 +8,7 @@ import type { H3Event } from 'h3';
  * emits is a raw HTML string pushed onto the render context, so the assertions
  * are on those strings.
  *
- * Same harness shape as 03.seo-config.test.ts: `defineNitroPlugin` is stubbed
+ * `defineNitroPlugin` is stubbed
  * to capture the hook, which is then called with a synthetic html object.
  */
 let hooks: Record<
