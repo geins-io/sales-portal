@@ -90,7 +90,9 @@ test.describe('Second-market category page', () => {
     const canonical = await page
       .locator('link[rel="canonical"]')
       .getAttribute('href');
-    expect(canonical).toMatch(new RegExp(`^/${market}/`));
+    // The origin is the tenant's site URL, not the host under test.
+    expect(canonical).toMatch(/^https?:\/\//);
+    expect(new URL(canonical!).pathname).toMatch(new RegExp(`^/${market}/`));
   }
 
   test('lists products on a fresh visit', async ({ page }) => {
