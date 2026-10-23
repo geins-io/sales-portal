@@ -235,3 +235,19 @@ test.describe('Over-long alias', () => {
     });
   }
 });
+
+// The server answers a true miss itself, so the document carries a real 404
+// before any client-side recovery could run.
+test.describe('Missing entity', () => {
+  const missing = `e2e-missing-${Date.now()}`;
+
+  for (const [kind, path] of [
+    ['product', `/p/${missing}`],
+    ['category', `/c/${missing}`],
+  ]) {
+    test(`answers 404 on a ${kind} URL`, async ({ page }) => {
+      const response = await page.goto(path);
+      expect(response?.status()).toBe(404);
+    });
+  }
+});
