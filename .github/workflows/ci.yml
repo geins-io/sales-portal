@@ -53,6 +53,9 @@ jobs:
       - name: Run type check
         run: pnpm typecheck
 
+      - name: Check the Playwright image tag
+        run: pnpm check:playwright-image
+
   # ---------------------------------------------------------------------------
   # Unit and Component Tests
   # ---------------------------------------------------------------------------
@@ -152,9 +155,17 @@ jobs:
     needs: e2e-build
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # One leg at its worst: ~1.3 min of fixed steps, the system dependencies'
-    # three attempts at ~15.6 min, and the slowest suite at ~8.5 min: ~25.4.
-    timeout-minutes: 28
+    # Provisional until measured: container start, ~1.3 min of fixed steps and
+    # the slowest suite at ~9.6 min.
+    timeout-minutes: 18
+    # Playwright's image carries the browsers and their system libraries, so
+    # no leg runs apt or downloads a browser. The tag must equal the locked
+    # @playwright/test version; `pnpm check:playwright-image` in the lint job
+    # fails when it does not. --ipc=host: Chromium runs out of shared memory on
+    # Docker's default /dev/shm.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble
+      options: --ipc=host
     strategy:
       # Each project is its own answer: a red webkit leaves chromium and
       # Mobile Chrome running to the end.
@@ -192,28 +203,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # The browser set is in the key, and what that buys is in
-      # docs/testing.md under "The manual run". Every leg installs the same
-      # set: the legs share one cache entry, and whichever saves it first
-      # decides what it holds for all of them.
-      - name: Cache Playwright browsers
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-chromium-webkit-${{ hashFiles('pnpm-lock.yaml') }}
-
-      # The apt half of --with-deps, on its own: it is never cached, and on the
-      # runner's mirror it sometimes crawls or hangs, so the script makes up to
-      # three bounded attempts (3 × 5 min). The step timeout is a backstop
-      # above that.
-      - name: Install Playwright system dependencies
-        timeout-minutes: 17
-        run: ./infra/scripts/install-playwright-deps.sh chromium webkit
-
-      # Mobile Chrome is a device profile on chromium, so it needs no download.
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install chromium webkit
-
       # The target: an origin, the tenant it must resolve to, and a test
       # account. Repository variables/secrets override the committed defaults.
       # E2E_EXTERNAL_SERVER: the job starts the preview once (below) and runs
@@ -223,7 +212,7 @@ jobs:
       # variable unset, `new URL('')` throws inside a command substitution,
       # which leaves the step green and writes a hosts line with no hostname.
       - name: Point the target hostname at the runner
-        run: echo "127.0.0.1 $(node tests/e2e/target-defaults.mjs)" | sudo tee -a /etc/hosts
+        run: echo "127.0.0.1 $(node tests/e2e/target-defaults.mjs)" >> /etc/hosts
 
       # The production build sets `upgrade-insecure-requests` and Secure auth
       # cookies, so it only works over https. NITRO_SSL_CERT / NITRO_SSL_KEY

@@ -17,11 +17,11 @@
 # for layer-by-layer visibility, which a focused two-to-three-minute order run
 # does not need.
 #
-# What this file does duplicate, honestly: checkout, pnpm, Node, install, the
-# Playwright cache, the hostname line, the TLS cert, the build cache, the build
-# and the preview server are a third copy of the same setup as ci.yml and
-# e2e-full.yml. That duplication — not the preflight steps — is what would one
-# day justify a composite action.
+# What this file does duplicate, honestly: the container, checkout, pnpm, Node,
+# install, the hostname line, the TLS cert, the build cache, the build and the
+# preview server are a third copy of the same setup as ci.yml and e2e-full.yml.
+# That duplication — not the preflight steps — is what would one day justify a
+# composite action.
 # =============================================================================
 
 name: E2E Order Placement (mutating)
@@ -47,9 +47,14 @@ jobs:
   place-order:
     name: Place one real order
     runs-on: ubuntu-latest
-    # At its worst: ~2.8 min of other steps, the system dependencies' three
-    # attempts at ~15.6 min, and the order's full 120 s wait: ~20.4.
-    timeout-minutes: 25
+    # Provisional until measured: container start, ~2.8 min of other steps and
+    # the order's full 120 s wait.
+    timeout-minutes: 12
+    # Playwright's image carries the browsers and their system libraries; see
+    # the test-e2e job in ci.yml for the tag check and --ipc=host.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble
+      options: --ipc=host
     env:
       # Empty repository variables fall through to the committed defaults in
       # tests/e2e/target-defaults.mjs, which is the one place the target is
@@ -95,31 +100,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Chromium only: the `orders` project runs one desktop Chrome context, so
-      # webkit is never downloaded. Hence a cache key of its own — entries are
-      # immutable, and a key shared with the other workflows would restore a
-      # chromium-only entry to jobs that need webkit too.
-      - name: Cache Playwright browsers
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-chromium-${{ hashFiles('pnpm-lock.yaml') }}
-
-      # The apt half of --with-deps, on its own: it is never cached, and on the
-      # runner's mirror it sometimes crawls or hangs, so the script makes up to
-      # three bounded attempts (3 × 5 min). The step timeout is a backstop
-      # above that.
-      - name: Install Playwright system dependencies
-        timeout-minutes: 17
-        run: ./infra/scripts/install-playwright-deps.sh chromium
-
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install chromium
-
       # The hostname comes from the suite's own resolver rather than a literal,
       # so the workflow cannot drift from tests/e2e/target-defaults.mjs.
       - name: Point the target hostname at the runner
-        run: echo "127.0.0.1 $(node tests/e2e/target-defaults.mjs)" | sudo tee -a /etc/hosts
+        run: echo "127.0.0.1 $(node tests/e2e/target-defaults.mjs)" >> /etc/hosts
 
       # The production build sets `upgrade-insecure-requests` and Secure auth
       # cookies, so it only works over https. NITRO_SSL_CERT / NITRO_SSL_KEY

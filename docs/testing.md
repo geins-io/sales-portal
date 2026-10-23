@@ -847,17 +847,18 @@ and records the measured wait; that budget rests on five samples measured 2026-0
 46.7 s, the widest being this spec's own first real run), and exceeding it fails the test with the
 number rather than widening the wait.
 
-Every workflow names its browser set in its Playwright cache key, because cache entries are
-immutable: a key that cannot express which browsers an entry holds would restore a chromium-only
-cache forever and pay the webkit download on every run. That is also why the order workflow, which
-needs chromium alone, carries a key of its own rather than sharing the other two's, and why all
-three PR jobs install chromium and webkit although only one of them drives webkit: they share one
-entry, and the first green job to finish is the one that saves it. Two things that cache does not buy —
-the system dependencies (the apt half of `--with-deps`, a step of their own) run `apt-get` every time
-and that is never cached, and an entry only saves from a green job, so the first runs after a key
-changes look slower than the steady state. On a slow or stalled mirror that apt step is what eats a
-job, so `infra/scripts/install-playwright-deps.sh` bounds each attempt at 5 minutes and makes up to
-three attempts.
+### The Playwright image
+
+Every e2e job runs in Playwright's own image (`mcr.microsoft.com/playwright:v<version>-noble`),
+which carries the browsers and their system libraries, so no job runs `apt-get` or downloads a
+browser. Installing them on the runner fetched ~120 MB from Ubuntu's mirror on every job, and on a
+slow mirror that alone took 5–10 minutes or failed the job. The app still runs on the Node from
+`.nvmrc`, which setup-node puts ahead of the image's own.
+
+The image's browsers only fit the `@playwright/test` of the same version, so the tag is spelled out
+in each of the three workflows and `pnpm check:playwright-image` (in the lint job) fails when any of
+them differs from the installed version. Bumping Playwright means changing the three tags in the
+same commit.
 
 ## Gotchas
 

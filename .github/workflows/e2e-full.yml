@@ -34,11 +34,14 @@ jobs:
   e2e-full:
     name: E2E Suite
     runs-on: ubuntu-latest
-    # Generous on purpose. Phase one exists to learn the real number; the PR
-    # gate sets a tight timeout from what this measures. At its worst: a
-    # measured ~14.5 min without the system dependencies, plus their three
-    # attempts at ~15.6 min: ~30.1.
+    # Provisional until measured: the three suites alone take 20.4–23.4 min in
+    # sequence, plus the build, setup, the image pull and a cold pnpm store.
     timeout-minutes: 35
+    # Playwright's image carries the browsers and their system libraries; see
+    # the test-e2e job in ci.yml for the tag check and --ipc=host.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble
+      options: --ipc=host
     env:
       # Empty repository variables fall through to the committed defaults in
       # tests/e2e/target-defaults.mjs, which is the one place the target is
@@ -64,30 +67,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Same key as ci.yml, browser set included; see docs/testing.md.
-      - name: Cache Playwright browsers
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-chromium-webkit-${{ hashFiles('pnpm-lock.yaml') }}
-
-      # The apt half of --with-deps, on its own: it is never cached, and on the
-      # runner's mirror it sometimes crawls or hangs, so the script makes up to
-      # three bounded attempts (3 × 5 min). The step timeout is a backstop
-      # above that.
-      - name: Install Playwright system dependencies
-        timeout-minutes: 17
-        run: ./infra/scripts/install-playwright-deps.sh chromium webkit
-
-      # Mobile Chrome is a device profile on chromium, so it needs no download
-      # of its own.
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install chromium webkit
-
       # The hostname comes from the suite's own resolver rather than a literal,
       # so the workflow cannot drift from tests/e2e/target-defaults.mjs.
       - name: Point the target hostname at the runner
-        run: echo "127.0.0.1 $(node tests/e2e/target-defaults.mjs)" | sudo tee -a /etc/hosts
+        run: echo "127.0.0.1 $(node tests/e2e/target-defaults.mjs)" >> /etc/hosts
 
       # The production build sets `upgrade-insecure-requests` and Secure auth
       # cookies, so it only works over https. NITRO_SSL_CERT / NITRO_SSL_KEY

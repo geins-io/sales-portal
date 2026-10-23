@@ -14,6 +14,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier \"**/*.{js,ts,vue,json,md,css,scss}\" --config ./.prettierrc --write",
     "format:check": "prettier \"**/*.{js,ts,vue,json,md,css,scss}\" --config ./.prettierrc --check",
+    "check:playwright-image": "node infra/scripts/check-playwright-image.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
