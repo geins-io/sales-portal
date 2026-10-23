@@ -5,6 +5,7 @@ import {
   resolveLocaleMarket,
 } from '#shared/utils/locale-market';
 import type { TenantConfig } from '#shared/types/tenant-config';
+import { RESOLVE_URL_CACHE_BASE } from '../utils/resolve-url-cache';
 
 /**
  * Inbound URL resolver endpoint: the 404-miss safety net.
@@ -19,6 +20,8 @@ import type { TenantConfig } from '#shared/types/tenant-config';
  *    callers, the key needs an identity segment first.
  *  - Trailing-slash policy: the path is lower-cased and trailing slashes are
  *    stripped so `/Se/Sv/Grenror/` and `/se/sv/grenror` share one cache entry.
+ *  - Entries live on their own LRU mount (server/utils/resolve-url-cache.ts),
+ *    not on Nitro's default `cache` mount, which never evicts.
  *
  * Negative caching:
  *  - When the resolver returns null (no entity found), the handler RETURNS a
@@ -113,9 +116,10 @@ const cachedResolver = defineCachedEventHandler(
     // absorbs crawler bursts while ensuring a newly published entity resolves
     // within a minute.
     maxAge: 60,
-    // staleMaxAge bounds the in-memory negative-cache entry lifetime so a path
-    // scanner cannot grow the heap unbounded with entries that never revalidate.
+    // With swr, staleMaxAge only sets stale-while-revalidate in Cache-Control;
+    // it does not expire the stored entry. The mount's LRU cap bounds memory.
     staleMaxAge: 300,
+    base: RESOLVE_URL_CACHE_BASE,
     getKey: (event) => {
       // Parse path from the query so normalization matches what the handler sees.
       const query = getQuery(event);

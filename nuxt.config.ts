@@ -1,6 +1,10 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import type { Environment } from './shared/types/common';
 import type { NuxtPage } from 'nuxt/schema';
+import {
+  RESOLVE_URL_CACHE_BASE,
+  resolveUrlCacheMount,
+} from './server/utils/resolve-url-cache';
 
 /**
  * Recursively create /:market/:locale-prefixed copies of page routes.
@@ -375,6 +379,7 @@ export default defineNuxtConfig({
       kv: {
         driver: 'memory',
       },
+      [RESOLVE_URL_CACHE_BASE]: resolveUrlCacheMount,
     },
     // Enable compression
     compressPublicAssets: true,

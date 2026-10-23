@@ -5,6 +5,7 @@ import { Socket } from 'node:net';
 import { ZodError } from 'zod';
 import { createEvent, handleCacheHeaders } from 'h3';
 import type { H3Event } from 'h3';
+import { RESOLVE_URL_CACHE_BASE } from '../../../server/utils/resolve-url-cache';
 
 // ---------------------------------------------------------------------------
 // Mock the resolver service (the boundary the endpoint calls). Real zod runs.
@@ -20,6 +21,7 @@ vi.mock('../../../server/services/url-resolver', () => ({
 // and immediately returns the inner fn so the endpoint behaves normally.
 let capturedInnerHandler: ((event: H3Event) => Promise<unknown>) | null = null;
 let capturedGetKey: ((event: H3Event) => string) | null = null;
+let capturedBase: string | undefined;
 type CachedCall = (
   fn: (event: H3Event) => Promise<unknown>,
   event: H3Event,
@@ -43,10 +45,11 @@ vi.stubGlobal(
   'defineCachedEventHandler',
   (
     fn: (event: H3Event) => Promise<unknown>,
-    opts: { getKey?: (event: H3Event) => string },
+    opts: { getKey?: (event: H3Event) => string; base?: string },
   ) => {
     capturedInnerHandler = fn;
     capturedGetKey = opts.getKey ?? null;
+    capturedBase = opts.base;
     // Return a thin wrapper that runs the inner fn directly (no real caching in tests).
     return (event: H3Event) => cachedCall(fn, event);
   },
@@ -123,6 +126,7 @@ describe('GET /api/resolve-url', () => {
     vi.clearAllMocks();
     capturedInnerHandler = null;
     capturedGetKey = null;
+    capturedBase = undefined;
     (optionalAuth as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     vi.resetModules();
     const mod = await import('../../../server/api/resolve-url.get');
@@ -208,6 +212,10 @@ describe('GET /api/resolve-url', () => {
     await expect(handler(createMockEvent())).rejects.toThrow(
       'No entity for URL',
     );
+  });
+
+  it('caches on the resolver mount, not on the unbounded default cache mount', () => {
+    expect(capturedBase).toBe(RESOLVE_URL_CACHE_BASE);
   });
 
   it('getKey varies by host: same path under two tenants produces distinct cache keys including the path', async () => {

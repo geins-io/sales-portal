@@ -88,6 +88,9 @@ collide. It returns a normalized shape:
 returned rather than thrown so Nitro caches the miss for the SWR TTL (a thrown
 error is not cached and re-hammers Geins on every scan request). The thin outer
 `defineEventHandler` wrapper converts the marker to a real 404 for callers.
+The entries live on their own LRU storage mount capped at 1000
+(`server/utils/resolve-url-cache.ts`), not on Nitro's default `cache` mount,
+which never evicts.
 This closes the negative-cache follow-up that ADR-017 deferred.
 
 The resolver resolves in the URL's OWN market/locale, not the request default.
@@ -229,7 +232,8 @@ does not affect the weight of those tags.
 - **Faster.** The path-shape guard in the global middleware makes the common
   case (already-correct typed path) zero-cost. The SWR cache absorbs crawler
   bursts and repeated navigations; the negative-cache marker means a bad URL
-  runs at most one Geins round-trip per `staleMaxAge` window.
+  runs at most one Geins round-trip per `maxAge` window (60 s, revalidated in
+  the background), plus one after its entry is evicted.
 - **Crawler-correct.** A real 301 or 404 is issued on document load. The
   correct `rel=canonical` and per-locale hreflang are emitted from the real
   localized slugs. `<html lang>`, `og:locale`, and schema.org `inLanguage` are
