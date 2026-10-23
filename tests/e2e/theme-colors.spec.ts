@@ -1,5 +1,9 @@
 import { test, expect, type Page } from './fixtures';
-import { noteOutOfScope } from './helpers';
+import {
+  discoverPurchasableProduct,
+  noteOutOfScope,
+  signedInState,
+} from './helpers';
 
 /**
  * Tenant theme color application — Safari/WebKit regression guard.
@@ -137,5 +141,114 @@ test.describe('Tenant theme colors apply in WebKit', () => {
       TRANSPARENT.has(state.topBarBg ?? ''),
       `topbar must paint a real background, got "${state.topBarBg}"`,
     ).toBe(false);
+  });
+});
+
+/** Distinct from each other and from any tenant's primary foreground. */
+const SIMULATED = {
+  '--button-text': 'rgb(1 2 3)',
+  '--button-purchase-text': 'rgb(4 5 6)',
+} as const;
+
+/**
+ * Sets both button text variables on <html>, which outranks the tenant block,
+ * then reads the first visible match's text colour, the colour it should have
+ * and the primary foreground it used to have. All three come back as painted
+ * RGBA bytes, because a computed colour and a custom property value can be
+ * written in different notations for the same colour.
+ */
+async function paintedText(
+  page: Page,
+  selector: string,
+  variable: keyof typeof SIMULATED,
+) {
+  await expect(page.locator(`${selector}:visible`).first()).toBeVisible();
+  return page.evaluate(
+    ({ selector, variable, simulated }) => {
+      const el = Array.from(
+        document.querySelectorAll<HTMLElement>(selector),
+      ).find((e) => e.offsetParent !== null);
+      // Buttons transition their colours; mid-transition the computed colour
+      // is still the old one.
+      if (el) el.style.transition = 'none';
+      const root = document.documentElement;
+      for (const [name, value] of Object.entries(simulated)) {
+        root.style.setProperty(name, value);
+      }
+      const ctx = document
+        .createElement('canvas')
+        .getContext('2d', { willReadFrequently: true });
+      if (!ctx) throw new Error('no 2d canvas');
+      const toRgba = (css: string) => {
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.fillStyle = css;
+        ctx.fillRect(0, 0, 1, 1);
+        return Array.from(ctx.getImageData(0, 0, 1, 1).data).join(',');
+      };
+      return {
+        painted: el ? toRgba(getComputedStyle(el).color) : 'none',
+        expected: toRgba(simulated[variable]),
+        primaryForeground: toRgba(
+          getComputedStyle(root).getPropertyValue('--primary-foreground'),
+        ),
+      };
+    },
+    { selector, variable, simulated: SIMULATED },
+  );
+}
+
+/**
+ * Each button variant paints its text from its own variable. The values are
+ * simulated in the page, so the assertion cannot pass on a tenant whose button
+ * text happens to equal its primary foreground; that the admin value reaches
+ * the variable is the unit tests' job.
+ */
+test.describe('Tenant button text colours', () => {
+  // The purchase button renders only for a session with order access.
+  test.use({ storageState: signedInState });
+
+  test('both button variants paint their text from their own variable (simulated values)', async ({
+    page,
+  }) => {
+    const config = (await (await page.request.get('/api/config')).json()) as {
+      theme: { colors: Record<string, string | null | undefined> };
+    };
+    expect(
+      config.theme.colors.buttonText,
+      '/api/config buttonText',
+    ).toBeTruthy();
+    expect(
+      config.theme.colors.buttonPurchaseText,
+      '/api/config buttonPurchaseText',
+    ).toBeTruthy();
+
+    // The empty cart's call to action wears the general button colours; a
+    // fresh context from the stored login carries no cart.
+    await page.goto('/cart');
+    const general = await paintedText(
+      page,
+      '.bg-button-background',
+      '--button-text',
+    );
+
+    // ProductCard's default-variant button shares the test id.
+    const product = await discoverPurchasableProduct(page);
+    await page.goto(`/p/${product.alias}`);
+    const purchase = await paintedText(
+      page,
+      '.bg-button-purchase-background[data-testid="add-to-cart-button"]',
+      '--button-purchase-text',
+    );
+
+    for (const [name, result] of [
+      ['general', general],
+      ['purchase', purchase],
+    ] as const) {
+      expect(
+        result.primaryForeground,
+        `${name}: the simulated value must differ from the primary foreground`,
+      ).not.toBe(result.expected);
+      expect(result.painted, `${name} button text`).toBe(result.expected);
+    }
   });
 });
