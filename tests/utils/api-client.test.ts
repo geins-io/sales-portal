@@ -18,11 +18,16 @@ import {
   type ApiClientConfig,
 } from '../../app/utils/api-client';
 
-// Mock $fetch.create
-const mockFetchCreate = vi.fn<(options: FetchOptions) => unknown>();
-const mockFetch = vi.fn();
+// Mock $fetch.create. `$fetch` is auto-imported from `#build/fetch`, which reads
+// the global once when it loads, before any top-level stub here would run.
+const { mockFetchCreate, mockFetch } = vi.hoisted(() => ({
+  mockFetchCreate: vi.fn<(options: FetchOptions) => unknown>(),
+  mockFetch: vi.fn(),
+}));
 
-vi.stubGlobal('$fetch', Object.assign(mockFetch, { create: mockFetchCreate }));
+vi.mock('#build/fetch', () => ({
+  $fetch: Object.assign(mockFetch, { create: mockFetchCreate }),
+}));
 
 /** The options `createApiClient` handed to `$fetch.create`. */
 function createdOptions(): FetchOptions {

@@ -224,7 +224,7 @@ function debugLinesFor(hostname: string): string[] {
 
 // Sequential: the tests swap the global fetch and flip the dev-mode mock,
 // which the file-level concurrency of the node tier would otherwise race.
-describe.sequential('resolveTenant resolution log', () => {
+describe('resolveTenant resolution log', () => {
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
@@ -453,7 +453,7 @@ describe.sequential('resolveTenant resolution log', () => {
 });
 
 // Sequential for the same reason as above; these swap the KV stub as well.
-describe.sequential('resolveTenantOutcome KV paths', () => {
+describe('resolveTenantOutcome KV paths', () => {
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
@@ -659,7 +659,7 @@ describe.sequential('resolveTenantOutcome KV paths', () => {
   });
 });
 
-describe.sequential('getTenantById', () => {
+describe('getTenantById', () => {
   afterEach(() => {
     resetStorage();
   });
@@ -711,7 +711,7 @@ describe.sequential('getTenantById', () => {
   });
 });
 
-describe.sequential('fetchTenantConfig', () => {
+describe('fetchTenantConfig', () => {
   const originalFetch = globalThis.fetch;
 
   afterEach(() => {

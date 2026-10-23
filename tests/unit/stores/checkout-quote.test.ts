@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 
 // Mock $fetch at module level
-let mockFetchImpl: ReturnType<typeof vi.fn> = vi.fn();
+let mockFetchImpl = vi.fn();
 
 vi.mock('#app/composables/fetch', () => ({
   $fetch: (...args: unknown[]) => mockFetchImpl(...args),

@@ -71,6 +71,9 @@ vi.mock('#app/composables/head', () => ({
 }));
 vi.stubGlobal('useHead', vi.fn());
 vi.stubGlobal('useSeoMeta', vi.fn());
+vi.mock('#site-config/app', () => ({
+  useSiteConfig: () => ({ url: 'https://shop.example' }),
+}));
 vi.stubGlobal('definePageMeta', vi.fn());
 vi.stubGlobal(
   'useCookie',
@@ -140,5 +143,26 @@ describe('Search results page (/s/[query]) sort', () => {
     await flushPromises();
 
     expect(lastReplacedQuery()?.sort).toBe('newest');
+  });
+});
+
+describe('Search results page (/s/[query]) og:url', () => {
+  it('is absolute on the tenant site URL', async () => {
+    // useSeoMeta is compiled into useHead({ meta }) (seo-utils tree-shaking),
+    // so the og:url tag is read from the mocked useHead the page calls.
+    const { useHead } = await import('#app/composables/head');
+    vi.mocked(useHead).mockClear();
+    mountPage();
+    await flushPromises();
+    const ogUrl = vi
+      .mocked(useHead)
+      .mock.calls.flatMap(
+        ([input]) => (input as { meta?: unknown[] }).meta ?? [],
+      )
+      .map((tag) => tag as { property?: string; content?: unknown })
+      .find((tag) => tag.property === 'og:url')?.content;
+    expect(typeof ogUrl === 'function' ? ogUrl() : ogUrl).toBe(
+      'https://shop.example/se/sv/s/com',
+    );
   });
 });

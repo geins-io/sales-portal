@@ -51,7 +51,10 @@ export default defineNuxtPlugin({
     });
 
     const reactiveMeta = computed(() => {
-      const meta: Array<Record<string, string>> = [];
+      const meta: Array<
+        | { name: string; content: string }
+        | { property: string; content: string }
+      > = [];
 
       if (seo?.defaultDescription) {
         meta.push({ name: 'description', content: seo.defaultDescription });

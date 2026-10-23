@@ -175,7 +175,9 @@ describe.each(pages)('$name hydrating without its payload entry', (page) => {
     hits.resolve.mockClear();
   });
   afterEach(() => {
-    clearNuxtData();
+    // Every registered read, not only the keys in `payload.data`: a read that
+    // only failed has none, and its error would carry into the next test.
+    clearNuxtData(Object.keys(useNuxtApp()._asyncData));
     clearError();
   });
 

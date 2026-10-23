@@ -7,7 +7,14 @@ import {
   afterEach,
   assert,
 } from 'vitest';
-import { ref, defineComponent, h, Suspense } from 'vue';
+import {
+  ref,
+  defineComponent,
+  h,
+  Suspense,
+  toValue,
+  type MaybeRefOrGetter,
+} from 'vue';
 import { flushPromises } from '@vue/test-utils';
 import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductDetails from '../../../app/components/pages/ProductDetails.vue';
@@ -247,16 +254,20 @@ vi.stubGlobal('useSchemaOrg', vi.fn());
 // One shared spy, as for breadcrumbs below, so the offers a page publishes can
 // be read whichever resolution path the auto-import takes.
 const { defineProductMock } = vi.hoisted(() => ({
-  defineProductMock: vi.fn((_input: { offers: () => unknown }) => ({})),
+  defineProductMock: vi.fn(
+    (_input: MaybeRefOrGetter<{ offers?: unknown }>) => ({}),
+  ),
 }));
 vi.stubGlobal('defineProduct', defineProductMock);
 // One shared spy so a breadcrumb assertion reads the same call whichever
 // resolution path the component takes for this auto-import.
 const { defineBreadcrumbMock } = vi.hoisted(() => ({
   defineBreadcrumbMock: vi.fn(
-    (_input: {
-      itemListElement: () => Array<{ name: string; item?: string }>;
-    }) => ({}),
+    (
+      _input: MaybeRefOrGetter<{
+        itemListElement: Array<{ name: string; item?: string }>;
+      }>,
+    ) => ({}),
   ),
 }));
 vi.stubGlobal('defineBreadcrumb', defineBreadcrumbMock);
@@ -603,7 +614,7 @@ describe('ProductDetails', () => {
 
       const lastCall = defineBreadcrumbMock.mock.calls.at(-1);
       assert(lastCall, 'defineBreadcrumb was never called');
-      const breadcrumbArg = lastCall[0].itemListElement();
+      const breadcrumbArg = toValue(lastCall[0]).itemListElement;
 
       expect(breadcrumbArg.map((e) => e.name)).toEqual([
         'common.home',
@@ -1572,7 +1583,7 @@ describe('ProductDetails', () => {
     function publishedOffers(): unknown {
       const input = defineProductMock.mock.lastCall?.[0];
       assert.isDefined(input);
-      return input.offers();
+      return toValue(input).offers;
     }
 
     afterEach(() => {
@@ -1733,7 +1744,7 @@ describe('ProductDetails', () => {
     function publishedOffers(): unknown {
       const input = defineProductMock.mock.lastCall?.[0];
       assert.isDefined(input);
-      return input.offers();
+      return toValue(input).offers;
     }
 
     it('shows no price, stock, campaigns, negotiated banner or variant selector', async () => {

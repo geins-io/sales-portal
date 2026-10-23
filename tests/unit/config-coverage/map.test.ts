@@ -126,8 +126,7 @@ interface Declaration {
 
 /**
  * Modifiers that change only how a test is scheduled, not whether it runs or
- * what a pass means. `describe.sequential` is used four times in
- * `tests/server/tenant-resolution-log.test.ts`, which the map references.
+ * what a pass means.
  *
  * Everything else is refused, unknown modifiers included: `.skip`, `.only` and
  * `.todo` are not coverage, `.fails` inverts what a pass means, and a modifier

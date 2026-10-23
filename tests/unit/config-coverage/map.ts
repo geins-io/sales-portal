@@ -126,7 +126,7 @@ const FEATURE_ACCESS_CLIENT = 'tests/composables/useFeatureAccess.test.ts';
 const FEATURE_ACCESS_SERVER = 'tests/server/feature-access.test.ts';
 const TENANT_SEO = 'tests/plugins/tenant-seo.test.ts';
 const SERVER_TENANT_RESOLUTION = 'tests/server/tenant-resolution-log.test.ts';
-const SEO_CONFIG_PLUGIN = 'tests/server/plugins/03.seo-config.test.ts';
+const SEO_CONFIG_PLUGIN = 'tests/server/middleware/seo-config.test.ts';
 const TENANT_CSS_PLUGIN = 'tests/server/plugins/04.tenant-css.test.ts';
 const TENANT_ANALYTICS = 'tests/plugins/tenant-analytics.test.ts';
 const LOCALE_MARKET = 'tests/server/middleware/locale-market.test.ts';
@@ -939,7 +939,7 @@ export const CONFIG_COVERAGE_MAP = {
       },
     ],
     note:
-      'The canonical site URL (server/plugins/03.seo-config.ts:36) and the ' +
+      'The canonical site URL (server/middleware/seo-config.ts:28) and the ' +
       'hostname → storefront mapping are asserted. Still unasserted: the error ' +
       'page header in server/error.ts:110 and the request log.',
   },

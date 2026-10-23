@@ -83,6 +83,9 @@ export default defineNuxtConfig({
     // nonces that the browser rejects. Enable nonce + SRI only in prod.
     nonce: process.env.NODE_ENV === 'production',
     sri: process.env.NODE_ENV === 'production',
+    // Its removal writes `vite.esbuild.drop`, which Vite 8 ignores; the
+    // production minifier drops console and debugger instead (`$production`).
+    removeLoggers: false,
     headers: {
       // Strict CSP for production only. In dev, nuxt-security still sets
       // other security headers (X-Content-Type-Options, etc.) but CSP is
@@ -180,9 +183,9 @@ export default defineNuxtConfig({
   },
 
   // @nuxtjs/seo configuration — per-tenant values set at request time
-  // by server/plugins/03.seo-config.ts via the site-config:init hook
+  // by server/middleware/seo-config.ts
   site: {
-    // Placeholder — overridden per-request by server/plugins/03.seo-config.ts
+    // Placeholder — overridden per-request by server/middleware/seo-config.ts
     url: 'https://portal.litium.com',
     name: 'Sales Portal',
   },
@@ -192,8 +195,14 @@ export default defineNuxtConfig({
     sources: ['/api/__sitemap__/urls'],
   },
   schemaOrg: { enabled: true },
+  // A page without its own title would otherwise be named after its last
+  // route segment ("Sv" on /se/sv/), which schema.org's WebPage now picks up.
+  seo: { fallbackTitle: false },
   ogImage: { enabled: false },
   linkChecker: { enabled: false },
+  // Bundled and on by default since @nuxtjs/seo 6; neither is adopted here.
+  aiReady: false,
+  skewProtection: false,
 
   // Sentry build-time configuration for source maps (optional)
   // If SENTRY_AUTH_TOKEN is not set, source maps won't be uploaded
@@ -474,6 +483,18 @@ export default defineNuxtConfig({
   vite: {
     server: {
       allowedHosts: ['.litium.test'],
+    },
+  },
+
+  $production: {
+    vite: {
+      build: {
+        rolldownOptions: {
+          output: {
+            minify: { compress: { dropConsole: true, dropDebugger: true } },
+          },
+        },
+      },
     },
   },
 });

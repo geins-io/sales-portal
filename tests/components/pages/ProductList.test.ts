@@ -12,8 +12,10 @@ import {
   defineComponent,
   h,
   Suspense,
+  toValue,
   type PropType,
   type Component,
+  type MaybeRefOrGetter,
 } from 'vue';
 import { flushPromises } from '@vue/test-utils';
 import { mountComponent, type MountOptionsFor } from '../../utils/component';
@@ -213,9 +215,11 @@ vi.stubGlobal('useSchemaOrg', vi.fn());
 // spy instance).
 const { defineItemListMock } = vi.hoisted(() => ({
   defineItemListMock: vi.fn(
-    (_input: {
-      itemListElement: () => Array<{ url?: string | undefined }>;
-    }) => ({}),
+    (
+      _input: MaybeRefOrGetter<{
+        itemListElement: Array<{ url?: string | undefined }>;
+      }>,
+    ) => ({}),
   ),
 }));
 vi.stubGlobal(
@@ -700,7 +704,7 @@ describe('ProductList.vue', () => {
 
       const arg = defineItemListMock.mock.calls[0]?.[0];
       assert.isDefined(arg);
-      const elements = arg.itemListElement();
+      const elements = toValue(arg).itemListElement;
       // productPath('/product-1') -> '/p/product-1', localePath -> '/se/sv/p/product-1'
       expect(elements[0]?.url).toBe('/se/sv/p/product-1');
     });

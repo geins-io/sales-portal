@@ -36,9 +36,8 @@ vi.stubGlobal(
 );
 vi.stubGlobal('createError', createError);
 
-// Imported once: the node project runs with `isolate: false`, so a
-// resetModules per test re-evaluates the tenant utils graph in a worker shared
-// with other files, which pushed their tests past the 5 s timeout.
+// Imported once: a resetModules per test re-evaluates the tenant utils graph,
+// which pushed tests past the 5 s timeout.
 const { default: configHandler, resolveConfigCacheKey } =
   await import('../../../server/api/config.get');
 const handler = configHandler as unknown as (

@@ -2,7 +2,7 @@
  * Nuxt-specific Test Setup
  *
  * Extends base setup with mock endpoint registration.
- * Only loaded by the nuxt project in vitest.workspace.ts.
+ * Only loaded by the nuxt project in vitest.config.ts.
  */
 
 import './setup';
@@ -63,3 +63,7 @@ const mockTenantConfig: PublicTenantConfig = {
 };
 
 registerEndpoint('/api/config', () => mockTenantConfig);
+
+// The auth-init plugin fetches the session without awaiting it. Unanswered,
+// that fetch fails later and its warning lands in whichever test is running.
+registerEndpoint('/api/auth/me', () => ({ user: null }));

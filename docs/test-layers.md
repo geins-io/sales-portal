@@ -7,7 +7,7 @@ document states — what each one cannot see.
 It carries no spec counts and no test counts. Those rot, and this repository has several
 documented instances of exactly that. Where a number matters, the page points at the file that
 fails when it drifts: `playwright.config.ts` for the browser projects,
-`.github/workflows/ci.yml` for what gates, `vitest.workspace.ts` for the unit tiers.
+`.github/workflows/ci.yml` for what gates, `vitest.config.ts` for the unit tiers.
 
 ## What runs, and when
 

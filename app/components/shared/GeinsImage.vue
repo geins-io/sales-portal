@@ -132,7 +132,13 @@ if (props.priority) {
       if (!src) return [];
       return [
         ...(origin
-          ? [{ key: 'image-cdn-preconnect', rel: 'preconnect', href: origin }]
+          ? [
+              {
+                key: 'image-cdn-preconnect',
+                rel: 'preconnect',
+                href: origin,
+              } as const,
+            ]
           : []),
         ...(ranges.length
           ? ranges.map((range, i) =>

@@ -72,9 +72,8 @@ vi.mock('../../../../../server/services/configurator', () => ({
 // ---------------------------------------------------------------------------
 // Nitro auto-imports
 //
-// The same shapes the route harness stubs, on purpose: the node project runs
-// `isolate: false`, so these live on a `globalThis` shared with every other
-// spec in the worker and two spellings of the same global would be a trap.
+// The same shapes the route harness stubs, on purpose: two spellings of the
+// same `globalThis` stub would be a trap.
 // `createAppError` and `withErrorHandling` are the real ones, so the errors
 // here are the same `H3Error` class the routes re-throw unchanged.
 // ---------------------------------------------------------------------------
@@ -245,13 +244,11 @@ function findSection(config: Configuration, id: string): ConfigurationSection {
 // ---------------------------------------------------------------------------
 // The walk
 //
-// `describe.sequential` because the steps share one session and each reads the
-// document the one before it produced. The node project sets
-// `sequence.concurrent`, and an ordering this suite depends on should be stated
-// rather than inherited.
+// The steps run in file order: they share one session and each reads the
+// document the one before it produced.
 // ---------------------------------------------------------------------------
 
-describe.sequential('the CPQ verification walk against the fixture', () => {
+describe('the CPQ verification walk against the fixture', () => {
   /** The session steps 1 to 6 drive, and the last document each step returned. */
   let workbench = '';
   let latest: Configuration;

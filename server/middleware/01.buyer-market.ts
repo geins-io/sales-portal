@@ -1,6 +1,7 @@
 import { listBuyerMarkets } from '../utils/buyer-market';
 import { loadUserForToken } from '../utils/load-user';
 import { isPagePath } from '../utils/is-page-path';
+import { encodeRedirectPath } from '../utils/redirect-path';
 import { hashToken } from '../utils/request-identity';
 import { getSessionToken } from '../utils/session';
 
@@ -118,5 +119,5 @@ export default defineEventHandler(async (event) => {
   const segments = path.split('/').filter(Boolean);
   const rest = segments.slice(2).join('/');
   const target = `/${targetMarket}/${urlLocale}${rest ? '/' + rest : '/'}${query}`;
-  return sendRedirect(event, target, 302);
+  return sendRedirect(event, encodeRedirectPath(target), 302);
 });

@@ -87,7 +87,7 @@ onMounted(() => {
       ref="scroller"
       data-testid="breadcrumbs-scroller"
       dir="rtl"
-      class="scrollbar-none max-w-[32rem] overflow-x-auto py-1"
+      class="max-w-[32rem] scrollbar-none overflow-x-auto py-1"
     >
       <!-- `min-w-full`: in an `rtl` scroller a narrower list would sit right. -->
       <BreadcrumbList

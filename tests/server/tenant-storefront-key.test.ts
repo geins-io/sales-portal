@@ -199,7 +199,7 @@ async function resolved(hostname: string): Promise<TenantConfig> {
   return config;
 }
 
-describe.sequential('two channels on one account', () => {
+describe('two channels on one account', () => {
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {

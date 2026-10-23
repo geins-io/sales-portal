@@ -54,6 +54,13 @@ vi.mock('#app/composables/router', () => ({
   useRouter: vi.fn(),
 }));
 
+// The site URL site config holds per tenant; links are absolute on it.
+const SITE_URL = 'https://shop.example';
+const abs = (path: string) => `${SITE_URL}${path}`;
+vi.mock('#site-config/app', () => ({
+  useSiteConfig: () => ({ url: SITE_URL }),
+}));
+
 // Mock Nuxt cookie composable
 vi.mock('#app/composables/cookie', () => ({
   useCookie: () => mockMarketCookieValue,
@@ -109,7 +116,7 @@ describe('useSeoLinks', () => {
     const canonical = seoLinks.value.find((l) => l.rel === 'canonical');
     expect(canonical).toEqual({
       rel: 'canonical',
-      href: '/se/sv/p/my-product',
+      href: abs('/se/sv/p/my-product'),
     });
   });
 
@@ -119,8 +126,8 @@ describe('useSeoLinks', () => {
       (l) => l.rel === 'alternate' && l.hreflang !== 'x-default',
     );
     expect(alternates).toEqual([
-      { rel: 'alternate', href: '/se/sv/p/my-product', hreflang: 'sv-SE' },
-      { rel: 'alternate', href: '/se/en/p/my-product', hreflang: 'en-SE' },
+      { rel: 'alternate', href: abs('/se/sv/p/my-product'), hreflang: 'sv-SE' },
+      { rel: 'alternate', href: abs('/se/en/p/my-product'), hreflang: 'en-SE' },
     ]);
   });
 
@@ -132,9 +139,9 @@ describe('useSeoLinks', () => {
       (l) => l.rel === 'alternate' && l.hreflang !== 'x-default',
     );
     expect(alternates).toEqual([
-      { rel: 'alternate', href: '/se/sv/p/my-product', hreflang: 'sv-SE' },
-      { rel: 'alternate', href: '/se/en/p/my-product', hreflang: 'en-SE' },
-      { rel: 'alternate', href: '/se/nb/p/my-product', hreflang: 'nb-SE' },
+      { rel: 'alternate', href: abs('/se/sv/p/my-product'), hreflang: 'sv-SE' },
+      { rel: 'alternate', href: abs('/se/en/p/my-product'), hreflang: 'en-SE' },
+      { rel: 'alternate', href: abs('/se/nb/p/my-product'), hreflang: 'nb-SE' },
     ]);
   });
 
@@ -159,9 +166,9 @@ describe('useSeoLinks', () => {
       (l) => l.rel === 'alternate' && l.hreflang !== 'x-default',
     );
     expect(alternates).toEqual([
-      { rel: 'alternate', href: '/eu/sv/p/my-product', hreflang: 'sv-SE' },
-      { rel: 'alternate', href: '/eu/en/p/my-product', hreflang: 'en-US' },
-      { rel: 'alternate', href: '/eu/nb/p/my-product', hreflang: 'nb-NO' },
+      { rel: 'alternate', href: abs('/eu/sv/p/my-product'), hreflang: 'sv-SE' },
+      { rel: 'alternate', href: abs('/eu/en/p/my-product'), hreflang: 'en-US' },
+      { rel: 'alternate', href: abs('/eu/nb/p/my-product'), hreflang: 'nb-NO' },
     ]);
   });
 
@@ -176,7 +183,7 @@ describe('useSeoLinks', () => {
       (l) => l.rel === 'alternate' && l.hreflang !== 'x-default',
     );
     expect(alternates).toEqual([
-      { rel: 'alternate', href: '/eu/sv/p/my-product', hreflang: 'sv' },
+      { rel: 'alternate', href: abs('/eu/sv/p/my-product'), hreflang: 'sv' },
     ]);
   });
 
@@ -185,7 +192,7 @@ describe('useSeoLinks', () => {
     const xDefault = seoLinks.value.find((l) => l.hreflang === 'x-default');
     expect(xDefault).toEqual({
       rel: 'alternate',
-      href: '/se/en/p/my-product',
+      href: abs('/se/en/p/my-product'),
       hreflang: 'x-default',
     });
   });
@@ -194,27 +201,27 @@ describe('useSeoLinks', () => {
     mockTenantLocales.value = ['sv-SE', 'da-DK'];
     const { seoLinks } = useSeoLinks('/c/shoes');
     const xDefault = seoLinks.value.find((l) => l.hreflang === 'x-default');
-    expect(xDefault?.href).toBe('/se/sv/c/shoes');
+    expect(xDefault?.href).toBe(abs('/se/sv/c/shoes'));
   });
 
   it('handles root path with trailing slash', () => {
     const { seoLinks } = useSeoLinks('/');
     const canonical = seoLinks.value.find((l) => l.rel === 'canonical');
-    expect(canonical?.href).toBe('/se/sv/');
+    expect(canonical?.href).toBe(abs('/se/sv/'));
     const alternate = seoLinks.value.find((l) => l.hreflang === 'en-SE');
-    expect(alternate?.href).toBe('/se/en/');
+    expect(alternate?.href).toBe(abs('/se/en/'));
   });
 
   it('accepts a reactive ref as path', () => {
     const path = ref('/p/initial');
     const { seoLinks } = useSeoLinks(path);
     expect(seoLinks.value.find((l) => l.rel === 'canonical')?.href).toBe(
-      '/se/sv/p/initial',
+      abs('/se/sv/p/initial'),
     );
 
     path.value = '/p/updated';
     expect(seoLinks.value.find((l) => l.rel === 'canonical')?.href).toBe(
-      '/se/sv/p/updated',
+      abs('/se/sv/p/updated'),
     );
   });
 
@@ -223,12 +230,12 @@ describe('useSeoLinks', () => {
     const path = computed(() => `/c/${alias.value}`);
     const { seoLinks } = useSeoLinks(path);
     expect(seoLinks.value.find((l) => l.rel === 'canonical')?.href).toBe(
-      '/se/sv/c/shoes',
+      abs('/se/sv/c/shoes'),
     );
 
     alias.value = 'boots';
     expect(seoLinks.value.find((l) => l.rel === 'canonical')?.href).toBe(
-      '/se/sv/c/boots',
+      abs('/se/sv/c/boots'),
     );
   });
 
@@ -245,12 +252,12 @@ describe('useSeoLinks', () => {
     mockAvailableMarkets.value = ['se', 'no'];
     const { seoLinks } = useSeoLinks('/p/item');
     expect(seoLinks.value.find((l) => l.rel === 'canonical')?.href).toBe(
-      '/se/sv/p/item',
+      abs('/se/sv/p/item'),
     );
 
     mockRoutePath.value = '/no/sv/p/item';
     expect(seoLinks.value.find((l) => l.rel === 'canonical')?.href).toBe(
-      '/no/sv/p/item',
+      abs('/no/sv/p/item'),
     );
   });
 
@@ -262,10 +269,14 @@ describe('useSeoLinks', () => {
     mockMarketCookieValue.value = 'se';
     const { seoLinks } = useSeoLinks('/c/kategori');
     expect(seoLinks.value).toEqual([
-      { rel: 'canonical', href: '/de/sv/c/kategori' },
-      { rel: 'alternate', href: '/de/sv/c/kategori', hreflang: 'sv-DE' },
-      { rel: 'alternate', href: '/de/en/c/kategori', hreflang: 'en-DE' },
-      { rel: 'alternate', href: '/de/en/c/kategori', hreflang: 'x-default' },
+      { rel: 'canonical', href: abs('/de/sv/c/kategori') },
+      { rel: 'alternate', href: abs('/de/sv/c/kategori'), hreflang: 'sv-DE' },
+      { rel: 'alternate', href: abs('/de/en/c/kategori'), hreflang: 'en-DE' },
+      {
+        rel: 'alternate',
+        href: abs('/de/en/c/kategori'),
+        hreflang: 'x-default',
+      },
     ]);
   });
 
@@ -278,13 +289,13 @@ describe('useSeoLinks', () => {
     it('emits a canonical plus the full alternate set and x-default', () => {
       const { seoLinks } = useSeoLinks('/');
       expect(seoLinks.value).toEqual([
-        { rel: 'canonical', href: '/se/sv/' },
-        { rel: 'alternate', href: '/se/sv/', hreflang: 'sv-SE' },
-        { rel: 'alternate', href: '/se/en/', hreflang: 'en-SE' },
-        { rel: 'alternate', href: '/se/nb/', hreflang: 'nb-SE' },
-        { rel: 'alternate', href: '/se/fi/', hreflang: 'fi-SE' },
-        { rel: 'alternate', href: '/se/da/', hreflang: 'da-SE' },
-        { rel: 'alternate', href: '/se/en/', hreflang: 'x-default' },
+        { rel: 'canonical', href: abs('/se/sv/') },
+        { rel: 'alternate', href: abs('/se/sv/'), hreflang: 'sv-SE' },
+        { rel: 'alternate', href: abs('/se/en/'), hreflang: 'en-SE' },
+        { rel: 'alternate', href: abs('/se/nb/'), hreflang: 'nb-SE' },
+        { rel: 'alternate', href: abs('/se/fi/'), hreflang: 'fi-SE' },
+        { rel: 'alternate', href: abs('/se/da/'), hreflang: 'da-SE' },
+        { rel: 'alternate', href: abs('/se/en/'), hreflang: 'x-default' },
       ]);
     });
 
@@ -292,7 +303,7 @@ describe('useSeoLinks', () => {
       mockLocaleRef.value = 'fi';
       const { seoLinks } = useSeoLinks('/');
       expect(seoLinks.value.find((l) => l.rel === 'canonical')?.href).toBe(
-        '/se/fi/',
+        abs('/se/fi/'),
       );
       expect(
         seoLinks.value
@@ -315,7 +326,7 @@ describe('useSeoLinks', () => {
     it('every root href keeps the trailing slash, never a bare /se/sv', () => {
       const { seoLinks } = useSeoLinks('/');
       for (const link of seoLinks.value) {
-        expect(link.href).toMatch(/^\/se\/[a-z]{2}\/$/);
+        expect(link.href).toMatch(/^https:\/\/shop\.example\/se\/[a-z]{2}\/$/);
       }
     });
 
@@ -344,7 +355,7 @@ describe('useSeoLinks', () => {
       const svAlternate = seoLinks.value.find(
         (l) => l.rel === 'alternate' && l.hreflang === 'sv-SE',
       );
-      expect(svAlternate?.href).toBe('/se/sv/p/produkt-sv');
+      expect(svAlternate?.href).toBe(abs('/se/sv/p/produkt-sv'));
     });
 
     it('locales WITHOUT an override fall back to naive prefix-swap', () => {
@@ -355,7 +366,7 @@ describe('useSeoLinks', () => {
       const enAlternate = seoLinks.value.find(
         (l) => l.rel === 'alternate' && l.hreflang === 'en-SE',
       );
-      expect(enAlternate?.href).toBe('/se/en/p/product-en');
+      expect(enAlternate?.href).toBe(abs('/se/en/p/product-en'));
     });
 
     it('canonical is unaffected by overrides', () => {
@@ -367,7 +378,7 @@ describe('useSeoLinks', () => {
 
       const canonical = seoLinks.value.find((l) => l.rel === 'canonical');
       // canonical always uses current locale (sv) + naive path
-      expect(canonical?.href).toBe('/se/sv/p/product-en');
+      expect(canonical?.href).toBe(abs('/se/sv/p/product-en'));
     });
 
     it('x-default uses the override when the default locale (en) has one', () => {
@@ -375,7 +386,7 @@ describe('useSeoLinks', () => {
       const { seoLinks } = useSeoLinks('/p/product-sv', () => overrides);
 
       const xDefault = seoLinks.value.find((l) => l.hreflang === 'x-default');
-      expect(xDefault?.href).toBe('/se/en/p/product-real-en-slug');
+      expect(xDefault?.href).toBe(abs('/se/en/p/product-real-en-slug'));
     });
 
     it('x-default falls back to naive path when the default locale has no override', () => {
@@ -384,7 +395,7 @@ describe('useSeoLinks', () => {
 
       const xDefault = seoLinks.value.find((l) => l.hreflang === 'x-default');
       // en has no override, falls back to naive
-      expect(xDefault?.href).toBe('/se/en/p/product-en');
+      expect(xDefault?.href).toBe(abs('/se/en/p/product-en'));
     });
 
     it('missing override for a locale does not crash (no empty href)', () => {
@@ -406,14 +417,14 @@ describe('useSeoLinks', () => {
       const enAlternate = seoLinks.value.find(
         (l) => l.rel === 'alternate' && l.hreflang === 'en-SE',
       );
-      expect(enAlternate?.href).toBe('/se/en/p/real-en-slug');
+      expect(enAlternate?.href).toBe(abs('/se/en/p/real-en-slug'));
 
       // Update the ref - should reactively update
       overrides.value = { en: '/se/en/p/updated-en-slug' };
       const updatedEnAlternate = seoLinks.value.find(
         (l) => l.rel === 'alternate' && l.hreflang === 'en-SE',
       );
-      expect(updatedEnAlternate?.href).toBe('/se/en/p/updated-en-slug');
+      expect(updatedEnAlternate?.href).toBe(abs('/se/en/p/updated-en-slug'));
     });
   });
 });

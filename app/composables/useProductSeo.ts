@@ -68,47 +68,47 @@ export function useProductSeo(options: ProductSeoOptions): void {
   });
 
   useSchemaOrg([
-    defineProduct({
-      name: () => product().name ?? '',
-      description: () => plainDescription.value,
-      image: () =>
-        (product().productImages ?? [])
+    defineProduct(
+      computed(() => ({
+        name: product().name ?? '',
+        description: plainDescription.value,
+        image: (product().productImages ?? [])
           .map((image) => shareImageOf([image], imageBaseUrl.value))
           .filter(Boolean),
-      brand: () =>
-        product().brand?.name
-          ? { '@type': 'Brand', name: product().brand!.name }
+        brand: product().brand?.name
+          ? { '@type': 'Brand' as const, name: product().brand!.name }
           : undefined,
-      sku: () => sku?.() ?? '',
-      offers: () =>
-        withOffers && product().unitPrice
-          ? {
-              '@type': 'Offer' as const,
-              price: product().unitPrice!.sellingPriceIncVat ?? 0,
-              priceCurrency: product().unitPrice!.currency?.code ?? 'SEK',
-              availability: product().totalStock?.inStock
-                ? 'https://schema.org/InStock'
-                : 'https://schema.org/OutOfStock',
-              itemCondition: 'https://schema.org/NewCondition',
-            }
-          : undefined,
-      aggregateRating: () =>
-        product().rating?.reviewCount
+        sku: sku?.() ?? '',
+        offers:
+          withOffers && product().unitPrice
+            ? {
+                '@type': 'Offer' as const,
+                price: product().unitPrice!.sellingPriceIncVat ?? 0,
+                priceCurrency: product().unitPrice!.currency?.code ?? 'SEK',
+                availability: product().totalStock?.inStock
+                  ? 'https://schema.org/InStock'
+                  : 'https://schema.org/OutOfStock',
+                itemCondition: 'https://schema.org/NewCondition',
+              }
+            : undefined,
+        aggregateRating: product().rating?.reviewCount
           ? {
               '@type': 'AggregateRating' as const,
               ratingValue: product().rating?.averageRating ?? 0,
               reviewCount: product().rating!.reviewCount,
             }
           : undefined,
-    }),
-    defineBreadcrumb({
-      itemListElement: () =>
-        breadcrumbs().map((bc, i) => ({
+      })),
+    ),
+    defineBreadcrumb(
+      computed(() => ({
+        itemListElement: breadcrumbs().map((bc, i) => ({
           '@type': 'ListItem' as const,
           position: i + 1,
           name: bc.label,
           item: bc.href,
         })),
-    }),
+      })),
+    ),
   ]);
 }

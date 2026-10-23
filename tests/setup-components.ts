@@ -27,8 +27,8 @@ export const mockAssetBaseUrl = ref('');
 // Exported ref so component tests can drive the VAT-display preference.
 // PriceDisplay (and every component that renders it) calls useVatDisplay,
 // so it must be mocked at the setup tier. Defaults to incl-VAT.
-// Backed on globalThis: with `isolate: false` the setup file can be evaluated
-// as both a setupFile and an imported module (two instances). Anchoring the ref
+// Backed on globalThis: the setup file can be evaluated as both a setupFile
+// and an imported module (two instances). Anchoring the ref
 // on globalThis guarantees the vi.mock factory and the test import share ONE ref.
 const vatGlobal = globalThis as unknown as { __mockShowIncVat?: Ref<boolean> };
 export const mockShowIncVat: Ref<boolean> = (vatGlobal.__mockShowIncVat ??=
@@ -57,6 +57,12 @@ vi.mock('#app/composables/head', () => ({
 vi.stubGlobal('useHead', vi.fn());
 vi.stubGlobal('useHeadSafe', vi.fn());
 vi.stubGlobal('useSeoMeta', vi.fn());
+
+// Site config holds the tenant site URL the SEO links are absolute on; it
+// needs a Nuxt instance too.
+vi.mock('#site-config/app', () => ({
+  useSiteConfig: () => ({ url: 'https://test.example' }),
+}));
 
 // Mock vue-i18n — useI18n requires app.use(createI18n()) which isn't available
 // in the component tier. Return a passthrough `t` function.

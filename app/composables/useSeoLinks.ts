@@ -1,7 +1,9 @@
 import { hreflangFor } from '~/utils/locale-bcp47';
+import { toAbsoluteUrl } from '~/utils/absolute-url';
 
 /**
- * Composable for generating canonical + hreflang link tags.
+ * Composable for generating canonical + hreflang link tags, as absolute URLs
+ * on the tenant site URL (og:url follows the canonical).
  *
  * Produces a canonical link for the current locale/market and alternate
  * hreflang links for every valid locale, plus an x-default entry.
@@ -29,21 +31,26 @@ export function useSeoLinks(
 ) {
   const { currentMarket, currentLocale, validLocales } = useLocaleMarket();
   const { tenant } = useTenant();
+  const siteConfig = useSiteConfig();
 
   const seoLinks = computed(() => {
     const m = currentMarket.value;
     const l = currentLocale.value;
     const pagePath = toValue(path);
     const overrides = toValue(localeOverrides) ?? {};
+    const abs = (href: string) => toAbsoluteUrl(href, siteConfig.url);
 
     const fullLocales = tenant.value?.availableLocales;
 
-    const links: Array<{ rel: string; href: string; hreflang?: string }> = [];
+    const links: Array<
+      | { rel: 'canonical'; href: string; hreflang?: undefined }
+      | { rel: 'alternate'; href: string; hreflang: string }
+    > = [];
 
     // Canonical: always uses the current locale with the naive path (no override).
     const canonicalHref =
       pagePath === '/' ? `/${m}/${l}/` : `/${m}/${l}${pagePath}`;
-    links.push({ rel: 'canonical', href: canonicalHref });
+    links.push({ rel: 'canonical', href: abs(canonicalHref) });
 
     // Hreflang alternates for each valid locale.
     // When a per-locale override exists, use it (it already carries the full
@@ -59,7 +66,7 @@ export function useSeoLinks(
       const href =
         overrides[loc] ??
         (pagePath === '/' ? `/${m}/${loc}/` : `/${m}/${loc}${pagePath}`);
-      links.push({ rel: 'alternate', href, hreflang });
+      links.push({ rel: 'alternate', href: abs(href), hreflang });
     }
 
     // x-default: prefer 'en' if available, otherwise first locale.
@@ -72,7 +79,11 @@ export function useSeoLinks(
       (pagePath === '/'
         ? `/${m}/${defaultLocale}/`
         : `/${m}/${defaultLocale}${pagePath}`);
-    links.push({ rel: 'alternate', href: xDefaultHref, hreflang: 'x-default' });
+    links.push({
+      rel: 'alternate',
+      href: abs(xDefaultHref),
+      hreflang: 'x-default',
+    });
 
     return links;
   });

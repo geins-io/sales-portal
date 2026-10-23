@@ -172,7 +172,6 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   ├── plugins/
 │   │   ├── 02.tenant-context.ts # Request-level tenant context + tenantId resolution + config caching
 │   │   ├── 01.request-logging.ts # Correlation ID, request timing, tenant-scoped logging
-│   │   ├── 03.seo-config.ts    # Per-tenant site-config (URL, locale, indexability)
 │   │   └── 04.tenant-css.ts    # Tenant CSS + fonts + favicon injection into HTML
 │   ├── utils/
 │   │   ├── tenant.ts           # Tenant resolution, fetching, hostname mapping, negative cache
@@ -291,7 +290,8 @@ The system identifies tenants based on the request hostname. Each tenant is mapp
 │  01.buyer-market      block buyer on disallowed market    │
 │  cache-headers        Vary + Cache-Control for page routes│
 │  csrf-guard           reject non-JSON mutating /api/ calls│
-│  site-config:init  →  03.seo-config   (nuxt-site-config)  │
+│  seo-config           per-tenant site config: URL,        │
+│                       locale, indexability                │
 └───────────────────────────────────────────────────────────┘
                             ↓
               route match → handler → data fetch
@@ -306,8 +306,9 @@ The system identifies tenants based on the request hostname. Each tenant is mapp
 **Plugin numbers are registration order, not execution order.** Each file in `server/plugins/`
 registers a hook, and the hooks fire in different phases. Nitro calls `callHook('request')` from the
 h3 app's `onRequest`, before any `h3App.use()` handler — and middleware are `use()` handlers, so
-request hooks always run first. `03.seo-config.ts` is the trap: a plugin that runs in the middleware
-phase, because `site-config:init` is fired from nuxt-site-config's own middleware.
+request hooks always run first. nuxt-site-config starts its per-request stack in a request hook
+registered before ours, so the tenant values are pushed from middleware (`seo-config.ts`), once
+`02.tenant-context` and `00.locale-market` have run.
 
 `00.locale-market.ts` is middleware deliberately — `sendRedirect` there lets `nuxt-security` apply
 route-rule headers before the redirect flushes, instead of throwing `ERR_HTTP_HEADERS_SENT`.
@@ -873,7 +874,7 @@ pnpm preview
 
 The `@nuxtjs/seo` meta-module provides dynamic `robots.txt`, `sitemap.xml`, and `schema.org` structured data. All config is per-tenant:
 
-- **Server plugin** (`server/plugins/03.seo-config.ts`) — overrides `site-config` per-request with tenant URL, name, locale, and indexability
+- **Server middleware** (`server/middleware/seo-config.ts`) — overrides `site-config` per-request with tenant URL, name, locale, and indexability
 - **Client plugin** (`app/plugins/tenant-seo.ts`) — sets meta tags (`og:locale`, `og:image`, `twitter:card`, verification codes), `lang` attribute, `titleTemplate`, and Organization + WebSite JSON-LD
 - **Server utility** (`server/utils/seo.ts`) — `buildSiteUrl()` and `isIndexable()` helpers
 - **LLM route** (`server/routes/llms.txt.ts`) — per-tenant `/llms.txt` with 1-hour cache

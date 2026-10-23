@@ -82,11 +82,12 @@ vi.stubGlobal(
 );
 vi.stubGlobal('ErrorCode', { NOT_FOUND: 'NOT_FOUND' });
 vi.stubGlobal('getRouterParam', vi.fn());
-vi.stubGlobal('getQuery', vi.fn());
+const getQueryMock = vi.fn();
+vi.stubGlobal('getQuery', getQueryMock);
 vi.stubGlobal(
   'getValidatedQuery',
   vi.fn(async (_event: unknown, validator: (raw: unknown) => unknown) => {
-    const query = (getQuery as ReturnType<typeof vi.fn>)(_event);
+    const query = getQueryMock(_event);
     return validator(query);
   }),
 );

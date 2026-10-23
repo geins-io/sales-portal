@@ -174,6 +174,34 @@ describe('00.locale-market middleware', () => {
     );
   });
 
+  // h3 hands middleware the decoded path; a Location header must carry it encoded.
+  it('percent-encodes the decoded path in the redirect target', () => {
+    handler(makeEvent('/p/stol-åäö'));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/se/sv/p/stol-%C3%A5%C3%A4%C3%B6',
+      301,
+    );
+  });
+
+  it('percent-encodes the decoded path when trimming a trailing slash', () => {
+    handler(makeEvent('/se/sv/p/stol-åäö/', VALIDATING_TENANT));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/se/sv/p/stol-%C3%A5%C3%A4%C3%B6',
+      301,
+    );
+  });
+
+  it('percent-encodes the decoded path when correcting a botched prefix', () => {
+    handler(makeEvent('/xx/sv/p/stol-åäö', VALIDATING_TENANT));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/se/sv/p/stol-%C3%A5%C3%A4%C3%B6',
+      302,
+    );
+  });
+
   it('301-redirects a product URL with no /market/locale/ prefix to the tenant default locale URL', () => {
     handler(makeEvent('/p/kategori-1/skarkant', { locale: 'nb-NO' }));
     expect(sendRedirectMock).toHaveBeenCalledWith(

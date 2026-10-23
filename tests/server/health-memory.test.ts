@@ -99,7 +99,13 @@ const { runtimeConfigMock, setResponseStatusMock, isDevModeMock } = vi.hoisted(
   }),
 );
 
-mockNuxtImport('useRuntimeConfig', () => () => runtimeConfigMock.current);
+// The handler always passes its event; Nuxt's own boot, which needs the real
+// config, does not.
+mockNuxtImport(
+  'useRuntimeConfig',
+  (original) => (event?: unknown) =>
+    event === undefined ? original() : runtimeConfigMock.current,
+);
 mockNuxtImport('setResponseStatus', () => setResponseStatusMock);
 
 // `import.meta.dev` is a build-time constant, so the dev server's behaviour is

@@ -32,8 +32,8 @@ function findBanner() {
 describe('CookieBanner', () => {
   beforeEach(() => {
     setFeatures({});
-    // useAnalyticsConsent is backed by useStorage, and `isolate: false` lets
-    // localStorage outlive a single spec. A stored choice would make
+    // useAnalyticsConsent is backed by useStorage, and localStorage outlives a
+    // single test. A stored choice would make
     // hasInteracted true and hide the banner whatever the feature says.
     localStorage.clear();
   });

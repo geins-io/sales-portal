@@ -214,7 +214,7 @@ function isActiveTab(tab: PortalTab): boolean {
       <div class="relative mt-6">
         <nav
           data-testid="portal-tabs"
-          class="border-border scrollbar-none flex gap-1 overflow-x-auto border-b"
+          class="border-border flex scrollbar-none gap-1 overflow-x-auto border-b"
         >
           <NuxtLink
             v-for="tab in visibleTabs"

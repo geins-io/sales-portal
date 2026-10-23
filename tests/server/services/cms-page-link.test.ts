@@ -53,6 +53,21 @@ function mockEvent(hostname = 'test.com', authToken?: string) {
   } as unknown as import('h3').H3Event;
 }
 
+// Module mocks survive the vi.resetModules() in beforeEach.
+vi.mock('../../../server/services/_sdk', () => ({
+  getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
+  getRequestChannelVariables: vi.fn().mockReturnValue({
+    channelId: 'ch1',
+    languageId: 'sv-SE',
+    marketId: 'se',
+  }),
+  buildRequestContext: vi.fn().mockReturnValue(undefined),
+}));
+
+vi.mock('../../../server/services/graphql/loader', () => ({
+  loadQuery: vi.fn().mockReturnValue('query placeholder { cmsPages { id } }'),
+}));
+
 describe('getPageLinkByTag', () => {
   let getPageLinkByTag: typeof import('../../../server/services/cms').getPageLinkByTag;
   let getRequestChannelVariablesMock: ReturnType<typeof vi.fn>;
@@ -69,23 +84,6 @@ describe('getPageLinkByTag', () => {
     vi.stubGlobal('getRequestLocale', getRequestLocaleMock);
     vi.stubGlobal('getRequestMarket', getRequestMarketMock);
     vi.stubGlobal('getCookie', getCookieStub);
-
-    // Re-mock after resetModules
-    vi.mock('../../../server/services/_sdk', () => ({
-      getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
-      getRequestChannelVariables: vi.fn().mockReturnValue({
-        channelId: 'ch1',
-        languageId: 'sv-SE',
-        marketId: 'se',
-      }),
-      buildRequestContext: vi.fn().mockReturnValue(undefined),
-    }));
-
-    vi.mock('../../../server/services/graphql/loader', () => ({
-      loadQuery: vi
-        .fn()
-        .mockReturnValue('query placeholder { cmsPages { id } }'),
-    }));
 
     const mod = await import('../../../server/services/cms');
     getPageLinkByTag = mod.getPageLinkByTag;

@@ -278,24 +278,26 @@ useSeoMeta({
 
 // JSON-LD structured data (Schema.org BreadcrumbList + ItemList)
 useSchemaOrg([
-  defineBreadcrumb({
-    itemListElement: () =>
-      breadcrumbs.value.map((bc, i) => ({
+  defineBreadcrumb(
+    computed(() => ({
+      itemListElement: breadcrumbs.value.map((bc, i) => ({
         '@type': 'ListItem' as const,
         position: i + 1,
         name: bc.label,
         item: bc.href,
       })),
-  }),
-  defineItemList({
-    itemListElement: () =>
-      products.value.map((p, i) => ({
+    })),
+  ),
+  defineItemList(
+    computed(() => ({
+      itemListElement: products.value.map((p, i) => ({
         '@type': 'ListItem' as const,
         position: i + 1,
         name: p.name,
         url: p.alias ? localePath(productPath(`/${p.alias}`)) : undefined,
       })),
-  }),
+    })),
+  ),
 ]);
 
 // --- Filter change → reset pagination ---

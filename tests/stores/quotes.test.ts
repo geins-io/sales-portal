@@ -3,7 +3,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import { makeQuote, makeQuoteListItem } from '../fixtures/quote';
 
 // Mock $fetch at module level
-let mockFetchImpl: ReturnType<typeof vi.fn> = vi.fn();
+let mockFetchImpl = vi.fn();
 
 vi.mock('#app/composables/fetch', () => ({
   $fetch: (...args: unknown[]) => mockFetchImpl(...args),
