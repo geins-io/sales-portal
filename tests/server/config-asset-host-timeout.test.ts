@@ -30,8 +30,12 @@ vi.mock('../../server/services/_sdk', () => ({
 }));
 vi.stubGlobal('wrapServiceCall', wrapServiceCall);
 
-const { getPublicConfig, ASSET_HOST_TIMEOUT_MS } =
-  await import('../../server/services/tenant-config');
+const {
+  getPublicConfig,
+  assetHostRetryDue,
+  clearAssetHost,
+  ASSET_HOST_TIMEOUT_MS,
+} = await import('../../server/services/tenant-config');
 
 function coreAt(apiUrl: string) {
   return new GeinsCore({
@@ -69,6 +73,7 @@ describe("the config's asset host read", () => {
 
   beforeEach(() => {
     mockLoggerWarn.mockClear();
+    clearAssetHost('acme:1|se');
   });
 
   afterEach(async () => {
@@ -114,6 +119,7 @@ describe("the config's asset host read", () => {
     expect(pub?.tenantId).toBe('acme');
     expect(pub).not.toHaveProperty('assetBaseUrl');
     expect(mockLoggerWarn).toHaveBeenCalledOnce();
+    expect(assetHostRetryDue(eventFor())).toBe(false);
     await release;
   });
 
@@ -149,5 +155,6 @@ describe("the config's asset host read", () => {
     expect(pub?.assetBaseUrl).toBe('https://cdn.example.test/acme');
     expect(mockLoggerWarn).not.toHaveBeenCalled();
     expect(JSON.parse(body).variables).toEqual({ channelId: '1|se' });
+    expect(assetHostRetryDue(eventFor())).toBe(false);
   });
 });

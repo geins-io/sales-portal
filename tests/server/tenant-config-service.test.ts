@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { H3Event } from 'h3';
 import type { TenantConfig } from '#shared/types/tenant-config';
 
@@ -297,8 +297,175 @@ describe('Tenant Config Service', () => {
         expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
         expect(mockLoggerWarn).toHaveBeenCalledWith(
           expect.stringContaining('without the asset host'),
-          { hostname: 'test.example.com' },
+          { hostname: 'test.example.com', storefront: 'test-account:1|se' },
         );
+      });
+    });
+
+    describe('assetHostRetryDue', () => {
+      const failRead = () =>
+        mockGetChannel.mockRejectedValueOnce(new Error('timeout'));
+
+      beforeEach(() => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+      });
+
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it('is due before the first read', () => {
+        expect(service.assetHostRetryDue(createMockEvent())).toBe(true);
+      });
+
+      // The handler asks before it runs, also for a host with no tenant.
+      it('is never due for a host without a tenant config', () => {
+        const event = {
+          context: { tenant: { hostname: 'nope.example.com', config: null } },
+        } as unknown as H3Event;
+
+        expect(service.assetHostRetryDue(event)).toBe(false);
+      });
+
+      it('is never due without Geins settings', async () => {
+        const event = createMockEvent({
+          ...mockTenantConfig,
+          geinsSettings: undefined,
+        } as unknown as TenantConfig);
+
+        await service.getPublicConfig(event);
+
+        expect(service.assetHostRetryDue(event)).toBe(false);
+      });
+
+      it('is not due after a read that found a host', async () => {
+        mockGetChannel.mockResolvedValue({
+          assetHost: 'https://cdn.example.test/acme',
+        });
+        const event = createMockEvent();
+
+        await service.getPublicConfig(event);
+
+        expect(service.assetHostRetryDue(event)).toBe(false);
+      });
+
+      it('is not due after a read that found no host, so that config stays cached', async () => {
+        const event = createMockEvent();
+
+        await service.getPublicConfig(event);
+        vi.advanceTimersByTime(60 * 60 * 1000);
+
+        expect(service.assetHostRetryDue(event)).toBe(false);
+      });
+
+      it('is due 30 s after a failed read, not before', async () => {
+        failRead();
+        const event = createMockEvent();
+
+        await service.getPublicConfig(event);
+        vi.advanceTimersByTime(service.ASSET_HOST_RETRY_MS - 1);
+        expect(service.assetHostRetryDue(event)).toBe(false);
+
+        vi.advanceTimersByTime(1);
+        expect(service.ASSET_HOST_RETRY_MS).toBe(30_000);
+        expect(service.assetHostRetryDue(event)).toBe(true);
+        expect(mockLoggerWarn).toHaveBeenCalledWith(
+          expect.stringContaining('read again in 30 s'),
+          expect.anything(),
+        );
+      });
+
+      it('waits another 30 s after a retry that fails too', async () => {
+        failRead();
+        failRead();
+        const event = createMockEvent();
+        await service.getPublicConfig(event);
+        vi.advanceTimersByTime(service.ASSET_HOST_RETRY_MS);
+
+        await service.getPublicConfig(event);
+        vi.advanceTimersByTime(service.ASSET_HOST_RETRY_MS - 1);
+        expect(service.assetHostRetryDue(event)).toBe(false);
+
+        vi.advanceTimersByTime(1);
+        expect(service.assetHostRetryDue(event)).toBe(true);
+      });
+
+      it('stops retrying once a read answers', async () => {
+        failRead();
+        mockGetChannel.mockResolvedValue({
+          assetHost: 'https://cdn.example.test/acme',
+        });
+        const event = createMockEvent();
+        await service.getPublicConfig(event);
+        vi.advanceTimersByTime(service.ASSET_HOST_RETRY_MS);
+
+        const pub = await service.getPublicConfig(event);
+
+        expect(pub?.assetBaseUrl).toBe('https://cdn.example.test/acme');
+        expect(service.assetHostRetryDue(event)).toBe(false);
+      });
+
+      it('keeps the host it read when a later read fails', async () => {
+        mockGetChannel.mockResolvedValueOnce({
+          assetHost: 'https://cdn.example.test/acme',
+        });
+        failRead();
+        const event = createMockEvent();
+        await service.getPublicConfig(event);
+
+        const pub = await service.getPublicConfig(event);
+
+        expect(pub?.assetBaseUrl).toBe('https://cdn.example.test/acme');
+        expect(mockLoggerWarn).toHaveBeenCalledWith(
+          expect.stringContaining('the last read asset host'),
+          { hostname: 'test.example.com', storefront: 'test-account:1|se' },
+        );
+        vi.advanceTimersByTime(service.ASSET_HOST_RETRY_MS);
+        expect(service.assetHostRetryDue(event)).toBe(false);
+        failRead();
+        const again = await service.getPublicConfig(event);
+        expect(again?.assetBaseUrl).toBe('https://cdn.example.test/acme');
+      });
+
+      it('keeps a channel without a host as read when a later read fails', async () => {
+        failRead();
+        const event = createMockEvent();
+        await service.getPublicConfig(event);
+        vi.advanceTimersByTime(service.ASSET_HOST_RETRY_MS);
+        await service.getPublicConfig(event);
+        failRead();
+
+        const pub = await service.getPublicConfig(event);
+
+        expect(pub).not.toHaveProperty('assetBaseUrl');
+        vi.advanceTimersByTime(service.ASSET_HOST_RETRY_MS);
+        expect(service.assetHostRetryDue(event)).toBe(false);
+      });
+
+      it('keeps reads apart per storefront', async () => {
+        await service.getPublicConfig(createMockEvent());
+
+        const other = createMockEvent({
+          ...mockTenantConfig,
+          geinsSettings: { ...mockTenantConfig.geinsSettings!, channel: '2' },
+        });
+
+        expect(service.assetHostRetryDue(other)).toBe(true);
+      });
+
+      it('forgets a storefront read when cleared', async () => {
+        mockGetChannel.mockResolvedValueOnce({
+          assetHost: 'https://cdn.example.test/acme',
+        });
+        failRead();
+        const event = createMockEvent();
+        await service.getPublicConfig(event);
+
+        service.clearAssetHost('test-account:1|se');
+
+        expect(service.assetHostRetryDue(event)).toBe(true);
+        const pub = await service.getPublicConfig(event);
+        expect(pub).not.toHaveProperty('assetBaseUrl');
       });
     });
   });

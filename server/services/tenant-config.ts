@@ -1,9 +1,11 @@
 import type { H3Event } from 'h3';
+import { LRUCache } from 'lru-cache';
 import type {
   TenantConfig,
   PublicTenantConfig,
 } from '#shared/types/tenant-config';
 import { logger } from '../utils/logger';
+import { storefrontCacheKey } from '../utils/tenant';
 import { getChannel } from './channels';
 
 /**
@@ -122,26 +124,74 @@ export async function getPublicConfig(
 /** How long the config waits for the channel's asset host before going without it. */
 export const ASSET_HOST_TIMEOUT_MS = 3_000;
 
+/** How long after a failed read the config is refreshed to read the host again. */
+export const ASSET_HOST_RETRY_MS = 30_000;
+
 /** The subset of a `getChannel` response this module reads. */
 interface ChannelAssetSource {
   assetHost?: string | null;
 }
 
-/** The channel's asset library host, when it has one and it can be read. */
+/**
+ * The last asset-host read per storefront: what a read answered (a host, or
+ * null for a channel without one), or when a read failed with no answer to
+ * fall back on. Lives beside the `/api/config` response cache, which holds one
+ * `maxAge` for every entry and so cannot expire a failed read sooner.
+ */
+type AssetHostRead = { host: string | null } | { failedAt: number };
+
+const assetHostReads = new LRUCache<string, AssetHostRead>({ max: 1000 });
+
+/**
+ * Whether the cached `/api/config` for this storefront should be refreshed to
+ * read the asset host again: 30 s after a failed read, or when this process
+ * has no read at all while a cached config may exist (a dev restart keeps the
+ * filesystem cache). A read that answered, with or without a host, is never
+ * retried; the config's own hour applies.
+ */
+export function assetHostRetryDue(event: H3Event): boolean {
+  if (!resolveConfig(event)?.geinsSettings) return false;
+  const read = assetHostReads.get(storefrontCacheKey(event));
+  if (!read) return true;
+  return (
+    'failedAt' in read && Date.now() - read.failedAt >= ASSET_HOST_RETRY_MS
+  );
+}
+
+/** Forgets a storefront's asset-host read, as the config-refresh webhook does. */
+export function clearAssetHost(storefront: string): void {
+  assetHostReads.delete(storefront);
+}
+
+/**
+ * The channel's asset library host. A failed read keeps what an earlier read
+ * answered; with no earlier answer the config goes without the host until
+ * {@link assetHostRetryDue} refreshes it.
+ */
 async function readAssetHost(event: H3Event): Promise<string | undefined> {
+  const storefront = storefrontCacheKey(event);
   try {
     const channel = (await getChannel(event, {
       timeoutMs: ASSET_HOST_TIMEOUT_MS,
     })) as ChannelAssetSource | null;
     const host = channel?.assetHost;
-    return typeof host === 'string' && host ? host : undefined;
+    const read = typeof host === 'string' && host ? host : null;
+    assetHostReads.set(storefront, { host: read });
+    return read ?? undefined;
   } catch {
-    // Cached so for up to an hour: widgets fall back to `url`, JSON widgets to the legacy file.
+    const context = { hostname: event.context.tenant.hostname, storefront };
+    const known = assetHostReads.get(storefront);
+    if (known && 'host' in known) {
+      logger.warn(
+        '[config] channel read failed; config served with the last read asset host',
+        context,
+      );
+      return known.host ?? undefined;
+    }
+    assetHostReads.set(storefront, { failedAt: Date.now() });
     logger.warn(
-      '[config] channel read failed; config served without the asset host',
-      {
-        hostname: event.context.tenant.hostname,
-      },
+      `[config] channel read failed; config served without the asset host, read again in ${ASSET_HOST_RETRY_MS / 1000} s`,
+      context,
     );
     return undefined;
   }

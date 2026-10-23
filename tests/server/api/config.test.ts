@@ -3,9 +3,11 @@ import type { H3Event } from 'h3';
 import { createError, isError } from 'h3';
 
 const mockGetPublicConfig = vi.fn();
+const mockAssetHostRetryDue = vi.fn();
 
 vi.mock('../../../server/services/tenant-config', () => ({
   getPublicConfig: (...args: unknown[]) => mockGetPublicConfig(...args),
+  assetHostRetryDue: (...args: unknown[]) => mockAssetHostRetryDue(...args),
 }));
 
 vi.mock('../../../server/utils/logger', () => ({
@@ -16,6 +18,7 @@ type CacheOptions = {
   getKey?: (event: H3Event) => string;
   swr?: boolean;
   maxAge?: number;
+  shouldInvalidateCache?: (event: H3Event) => boolean;
 };
 let cacheOptions: CacheOptions = {};
 
@@ -72,6 +75,18 @@ describe('GET /api/config', () => {
   it('serves a resolved config stale-while-revalidate for an hour', () => {
     expect(cacheOptions).toMatchObject({ swr: true, maxAge: 3600 });
   });
+
+  // With an entry present, SWR still answers from it and refreshes behind.
+  it.each([true, false])(
+    'refreshes the cached config when an asset-host retry is due (%s)',
+    (due) => {
+      mockAssetHostRetryDue.mockReturnValue(due);
+      const event = createEvent('resolved');
+
+      expect(cacheOptions.shouldInvalidateCache?.(event)).toBe(due);
+      expect(mockAssetHostRetryDue).toHaveBeenCalledWith(event);
+    },
+  );
 
   it('returns the public config for a resolved tenant', async () => {
     const config = { tenantId: 'acme', hostname: 'acme.litium.store' };

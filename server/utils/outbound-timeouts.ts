@@ -20,8 +20,9 @@ import { logger } from './logger';
 //                                quote accept and reject (services/quotes)
 //     configurator calls         15 s, line reads 2 s, reopen 45 s
 //                                (services/configurator-merchant-api)
-//     the config's channel read  3 s, then the config goes without the
-//                                asset host (services/tenant-config)
+//     the config's channel read  3 s, then the config keeps the last read
+//                                asset host, or goes without it and reads
+//                                again 30 s later (services/tenant-config)
 //   Geins auth and REST (SDK)    10 s, set inside the SDK
 //   Store-settings lookups       TENANT_LOOKUP_TIMEOUT_MS, below (utils/tenant)
 //   /api/external proxy          30 s (api/external)

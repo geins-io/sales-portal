@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3';
 import { configResponseCacheKey, storefrontCacheKey } from '../utils/tenant';
-import { getPublicConfig } from '../services/tenant-config';
+import { assetHostRetryDue, getPublicConfig } from '../services/tenant-config';
 import { createTenantLogger } from '../utils/logger';
 import { tenantRefusal } from '../utils/tenant-refusal';
 
@@ -52,5 +52,8 @@ export default defineCachedEventHandler(
     swr: true,
     // Cache for 1 hour
     maxAge: 60 * 60,
+    // Sooner when the asset-host read failed. With an entry present, SWR still
+    // answers from it, so no request waits on the read.
+    shouldInvalidateCache: (event) => assetHostRetryDue(event),
   },
 );

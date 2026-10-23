@@ -14,6 +14,7 @@ import {
   clearNegativeCache,
 } from './tenant';
 import { clearSdkCache } from '../services/_sdk';
+import { clearAssetHost } from '../services/tenant-config';
 import type { TenantConfig } from '#shared/types/tenant-config';
 import { KV_STORAGE_KEYS } from '../../shared/constants/storage';
 import { logger } from './logger';
@@ -180,8 +181,10 @@ export async function processConfigRefresh(
   // Remove config under the storefront key
   await kvStorage.removeItem(configKey);
 
-  // 13. Invalidate in-memory caches (SDK instances + negative tenant cache)
+  // 13. Invalidate in-memory caches (SDK instances, asset-host read, negative
+  // tenant cache)
   clearSdkCache(tid);
+  clearAssetHost(tid);
   // Every hostname, not just the one the webhook named. resolveTenant
   // consults the negative cache before KV, so an alias probed while the
   // tenant was still unknown keeps answering 404 for the rest of its TTL

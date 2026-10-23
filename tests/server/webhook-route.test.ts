@@ -51,6 +51,13 @@ vi.mock('../../server/services/_sdk', () => ({
   clearSdkCache: vi.fn(),
 }));
 
+const { clearAssetHostSpy } = vi.hoisted(() => ({
+  clearAssetHostSpy: vi.fn(),
+}));
+vi.mock('../../server/services/tenant-config', () => ({
+  clearAssetHost: clearAssetHostSpy,
+}));
+
 const hex = (key: string) => Buffer.from(key).toString('hex');
 
 function signStripe(body: string, secret: string, timestamp?: number): string {
@@ -443,6 +450,28 @@ describe('processConfigRefresh', () => {
     expect(cacheRemoveItem).toHaveBeenCalledWith(
       'nitro/handlers:_:74656e616e743a636f6e6669673a62657461.json',
     );
+  });
+
+  it("forgets the storefront's asset-host read", async () => {
+    clearAssetHostSpy.mockClear();
+    const hostname = 'beta.sales-portal.geins.dev';
+    const body = JSON.stringify({ hostname });
+    const request = createRequest({
+      rawBody: body,
+      signatureHeader: signStripe(body, 'test-secret'),
+      contentLength: Buffer.byteLength(body, 'utf-8'),
+    });
+    const { storage: kv } = createMockKvStorage({
+      getItem: vi
+        .fn()
+        .mockImplementation(async (key: string) =>
+          key === `tenant:id:${hostname}` ? 'acme:1|se' : null,
+        ),
+    });
+
+    await processConfigRefresh(request, kv, createMockCacheStorage().storage);
+
+    expect(clearAssetHostSpy).toHaveBeenCalledExactlyOnceWith('acme:1|se');
   });
 
   it('should pass with key rotation: sign with key2, secrets=[key1,key2]', async () => {
