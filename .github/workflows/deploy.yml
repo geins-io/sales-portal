@@ -112,7 +112,7 @@ jobs:
       webapp_name: ${{ steps.outputs.outputs.webapp_name }}
     environment:
       name: ${{ needs.prepare.outputs.environment }}
-      url: ${{ steps.deploy.outputs.webapp_url }}
+      url: ${{ steps.outputs.outputs.webapp_url }}
     permissions:
       id-token: write
       contents: read
