@@ -81,13 +81,13 @@ jobs:
           fi
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
@@ -100,7 +100,7 @@ jobs:
       # immutable, and a key shared with the other workflows would restore a
       # chromium-only entry to jobs that need webkit too.
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-chromium-${{ hashFiles('pnpm-lock.yaml') }}
@@ -129,7 +129,7 @@ jobs:
 
       # Same key as ci.yml: restoring an entry it saved is a straight win.
       - name: Cache Nuxt build
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             .nuxt
@@ -156,7 +156,7 @@ jobs:
         run: pnpm test:e2e --project=orders
 
       - name: Upload preview server log
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: preview-log
@@ -164,7 +164,7 @@ jobs:
           retention-days: 7
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: playwright-report
@@ -176,7 +176,7 @@ jobs:
       # for free, because every rerun places another real order. Whatever the
       # one run recorded is all the evidence there will be.
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results
