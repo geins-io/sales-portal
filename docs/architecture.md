@@ -400,11 +400,11 @@ interface ThemeConfig {
 }
 ```
 
-The 6 required colors are: `primary`, `primaryForeground`, `secondary`, `secondaryForeground`, `background`, `foreground`. The remaining 34 optional colors are 26 derived palette colors (card, muted, accent, destructive, border, input, ring, chart1-5, sidebar\*, etc.), derived server-side from the 6 core colors when null/omitted, plus 8 surface keys (top bar, footer, nav bar, site, button backgrounds and top-bar/footer text).
+The 6 required colors are: `primary`, `primaryForeground`, `secondary`, `secondaryForeground`, `background`, `foreground`. The remaining 36 optional colors are 26 derived palette colors (card, muted, accent, destructive, border, input, ring, chart1-5, sidebar\*, etc.), derived server-side from the 6 core colors when null/omitted, plus 10 surface keys (top bar, footer, nav bar, site, button backgrounds, and top-bar/footer/button text).
 
 ### Color Derivation
 
-The `deriveThemeColors()` function in `server/utils/theme.ts` fills in all 26 derived palette colors from the 6 core colors using OKLCH color space manipulation. The 8 surface keys are resolved separately by the CSS emitter via `SURFACE_FALLBACKS`, so every surface variable is always defined. API-provided non-null values are preserved.
+The `deriveThemeColors()` function in `server/utils/theme.ts` fills in all 26 derived palette colors from the 6 core colors using OKLCH color space manipulation. The 10 surface keys are resolved separately by the CSS emitter via `SURFACE_FALLBACKS`, so every surface variable is always defined. A key the merchant API omits takes its storefront default (`server/utils/storefront-settings-defaults.ts`, e.g. `#ffffff` button text), and so does `""`, which is not a colour and is stripped at the parse; the fallback applies only to `null`. Button text falls back to `var(--primary-foreground)` and purchase button text to `var(--button-text)`, mirroring the background chain. API-provided non-null values are preserved.
 
 ### Dynamic CSS Generation
 
