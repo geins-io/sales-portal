@@ -71,7 +71,7 @@ Create [`Dockerfile`](Dockerfile) at the project root:
 - Multi-stage build for optimized image size
 - Stage 1: Install dependencies with pnpm
 - Stage 2: Build the Nuxt application
-- Stage 3: Production runtime with Node.js 20 Alpine
+- Stage 3: Production runtime with Node.js Alpine
 - Expose port 3000 (Nuxt default)
 
 ### 2. Docker Ignore

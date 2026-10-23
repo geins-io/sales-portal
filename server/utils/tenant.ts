@@ -813,7 +813,7 @@ export function parseStoreSettingsResilient(
   // and deletes object keys). `structuredClone` preserves Date, Map, Set,
   // typed arrays, etc., where a JSON round-trip would silently lose them,
   // and it's a touch faster than JSON.parse(JSON.stringify(...)) on the
-  // payloads we see in practice. Node 20+ provides it natively.
+  // payloads we see in practice.
   let work: Record<string, unknown> = structuredClone(candidate) as Record<
     string,
     unknown

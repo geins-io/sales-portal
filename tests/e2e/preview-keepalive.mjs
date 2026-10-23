@@ -1,6 +1,6 @@
 /**
  * Preloaded into the e2e preview with
- * `NODE_OPTIONS=--import=<absolute path to this file>` (Node >= 20.6).
+ * `NODE_OPTIONS=--import=<absolute path to this file>`.
  * Absolute because `nuxt preview` spawns the server with `.output` as cwd.
  *
  * Playwright's API client pools sockets with no idle limit and ignores the
