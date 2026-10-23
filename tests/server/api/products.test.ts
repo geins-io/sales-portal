@@ -109,19 +109,21 @@ vi.stubGlobal('ErrorCode', {
 });
 vi.stubGlobal('setResponseHeader', vi.fn());
 vi.stubGlobal('getRouterParam', vi.fn());
-vi.stubGlobal('getQuery', vi.fn());
+const getQueryMock = vi.fn();
+vi.stubGlobal('getQuery', getQueryMock);
 vi.stubGlobal(
   'getValidatedQuery',
   vi.fn(async (_event: unknown, validator: (raw: unknown) => unknown) => {
-    const query = (getQuery as ReturnType<typeof vi.fn>)(_event);
+    const query = getQueryMock(_event);
     return validator(query);
   }),
 );
-vi.stubGlobal('readBody', vi.fn());
+const readBodyMock = vi.fn();
+vi.stubGlobal('readBody', readBodyMock);
 vi.stubGlobal(
   'readValidatedBody',
   vi.fn(async (_event: unknown, validator: (raw: unknown) => unknown) => {
-    const body = await (readBody as ReturnType<typeof vi.fn>)(_event);
+    const body = await readBodyMock(_event);
     return validator(body);
   }),
 );

@@ -4,10 +4,15 @@ import { useAuthStore } from '../../app/stores/auth';
 import type { AuthUser } from '@geins/types';
 
 // Track the mock implementation for $fetch
-let mockFetchImpl: ReturnType<typeof vi.fn> = vi.fn();
+let mockFetchImpl = vi.fn();
 
 // Mock ofetch at the module level before imports
 vi.mock('#app/composables/fetch', () => ({
+  $fetch: (...args: unknown[]) => mockFetchImpl(...args),
+}));
+
+// `$fetch` is auto-imported from here, read once when the module loads.
+vi.mock('#build/fetch', () => ({
   $fetch: (...args: unknown[]) => mockFetchImpl(...args),
 }));
 

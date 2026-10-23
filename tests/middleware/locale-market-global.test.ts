@@ -2,7 +2,7 @@
  * `/:market/:locale` matches ANY two segments, so `/hejhej/sv/` must not reach
  * the market cookie. Covers the market guard and the shipped-locales gate.
  *
- * Nuxt tier (see vitest.workspace.ts): the middleware reaches its composables
+ * Nuxt tier (see vitest.config.ts): the middleware reaches its composables
  * through auto-imports, which only mockNuxtImport can intercept.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -28,13 +28,21 @@ mockNuxtImport('useCookie', () => () => marketCookie);
 mockNuxtImport('useTenant', () => () => ({
   availableMarkets: computed(() => availableMarkets.value),
 }));
-mockNuxtImport('useNuxtApp', () => () => ({
-  $i18n: {
-    locale: i18nLocale,
-    locales: computed(() => i18nLocales.value),
-    setLocale: setLocaleMock,
-  },
-}));
+// Nuxt's own boot reads the real app through this import too, so only
+// `$i18n` is swapped.
+const i18nMock = {
+  locale: i18nLocale,
+  locales: computed(() => i18nLocales.value),
+  setLocale: setLocaleMock,
+};
+mockNuxtImport(
+  'useNuxtApp',
+  (original) => () =>
+    new Proxy(original(), {
+      get: (app, key, receiver) =>
+        key === '$i18n' ? i18nMock : Reflect.get(app, key, receiver),
+    }),
+);
 
 function route(
   path: string,

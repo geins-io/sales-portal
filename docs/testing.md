@@ -20,18 +20,18 @@ Counts as of 2026-09-08; the order-placement project was added 2026-09-13 and is
 
 ## Test Stack
 
-- **Vitest** with workspace projects (`vitest.workspace.ts`)
+- **Vitest** with projects (`test.projects` in `vitest.config.ts`)
 - **@nuxt/test-utils** — Nuxt test environment + config extraction
 - **@vue/test-utils** — Vue component mounting
 - **happy-dom** — Fast DOM implementation for component tests
 - **Playwright** — E2E testing with Chromium
 
-## Workspace Architecture
+## Project Architecture
 
-The test suite uses a **3-tier Vitest workspace** to minimize environment overhead. The full Nuxt test environment takes ~8s to boot per file, so we only use it where strictly necessary.
+The test suite uses **3 Vitest projects** to minimize environment overhead. The full Nuxt test environment takes ~8s to boot per file, so we only use it where strictly necessary.
 
 ```
-vitest.workspace.ts
+vitest.config.ts (test.projects)
 ├── node (37 files)        — Server, stores, composables, utils, shared
 ├── components (10 files)  — Vue component rendering with mocked useTenant
 └── nuxt (7 files)         — Tests needing full Nuxt runtime
@@ -42,7 +42,6 @@ vitest.workspace.ts
 The fastest tier. Uses `getVitestConfigFromNuxt()` to get Nuxt's Vite config (aliases, auto-import plugins, package resolution) **without** booting the Nuxt runtime. This means `#shared/...` aliases, `computed`, `ref`, and other auto-imports all work.
 
 - **Setup:** `tests/setup.ts` — console suppression only
-- **Flags:** `isolate: false`, `sequence.concurrent: true`
 - **Files:** `tests/server/`, `tests/stores/`, `tests/middleware/`, `tests/composables/` (except those needing Nuxt), `tests/unit/`, `tests/utils/`
 
 ### Tier 2: Components (`environment: 'happy-dom'`)
@@ -50,7 +49,6 @@ The fastest tier. Uses `getVitestConfigFromNuxt()` to get Nuxt's Vite config (al
 Component tests that need a DOM but not the full Nuxt runtime. The `useTenant` composable (which calls `useFetch` + `useNuxtApp`) is mocked in the setup file so components render with test tenant data.
 
 - **Setup:** `tests/setup-components.ts` — console suppression + Pinia init + `useTenant` mock
-- **Flags:** `isolate: false`, `sequence.concurrent: true`
 - **Files:** Most `tests/components/` files
 
 ### Tier 3: Nuxt (`environment: 'nuxt'`)
@@ -58,7 +56,6 @@ Component tests that need a DOM but not the full Nuxt runtime. The `useTenant` c
 Tests that truly require the Nuxt runtime — those using `registerEndpoint`, `mockNuxtImport`, `useNuxtApp()`, `useRoute()`, or `useRouter()` from Nuxt internals.
 
 - **Setup:** `tests/setup-nuxt.ts` — console suppression + `registerEndpoint('/api/config', ...)`
-- **Flags:** `sequence.concurrent: true`
 - **Files:** `useCmsPreview`, `useTenant`, `useErrorTracking`, `LayoutHeaderMain`, `MobileNavPanel`, `api-contracts`, `external-api`
 
 ### Deciding which tier for a new test
@@ -69,14 +66,12 @@ Tests that truly require the Nuxt runtime — those using `registerEndpoint`, `m
 4. Does the test use `registerEndpoint` or `mockNuxtImport`? → `nuxt` tier
 5. Default → `node` tier
 
-After creating a test, add its path to the appropriate list in `vitest.workspace.ts`. Files not in `nuxtTestFiles` or `componentTestFiles` are automatically picked up by the node tier.
+After creating a test, add its path to the appropriate list in `vitest.config.ts`. Files not in `nuxtTestFiles` or `componentTestFiles` are automatically picked up by the node tier.
 
 ### Performance tuning
 
 | Setting                     | Where            | Why                                                           |
 | --------------------------- | ---------------- | ------------------------------------------------------------- |
-| `isolate: false`            | node, components | Reuses module cache across files — no per-file worker setup   |
-| `sequence.concurrent: true` | all tiers        | Runs tests within a file concurrently                         |
 | `getVitestConfigFromNuxt()` | node, components | Boots Nuxt once for its Vite config; no Nuxt runtime per tier |
 | `happy-dom` over `jsdom`    | components       | ~3s faster for 10 component files                             |
 
@@ -89,8 +84,6 @@ The full suite runs in ~70-80s:
 - Transform: ~55s, setup: ~90s, collect: ~240s, tests: ~120s
 - Environment overhead: ~115s (shared across tiers)
 - Nuxt boot: single instance shared via `getVitestConfigFromNuxt()`
-
-Keeping `isolate: false` is critical — enabling isolation adds ~15s from per-file worker spawning.
 
 ### Mock discipline
 
@@ -132,7 +125,7 @@ framework auto-imports. See [AGENTS.md](https://github.com/geins-io/sales-portal
 
 ### Test routing (glob-based)
 
-Tests are routed to tiers by file path globs in `vitest.workspace.ts`:
+Tests are routed to tiers by file path globs in `vitest.config.ts`:
 
 | Glob pattern                     | Tier       | Environment         |
 | -------------------------------- | ---------- | ------------------- |
@@ -143,7 +136,7 @@ Tests are routed to tiers by file path globs in `vitest.workspace.ts`:
 To add a new test:
 
 1. Create the file in the appropriate `tests/` subdirectory
-2. If it needs the Nuxt runtime (`useRoute`, `registerEndpoint`), add its path to `nuxtTestFiles` in `vitest.workspace.ts`
+2. If it needs the Nuxt runtime (`useRoute`, `registerEndpoint`), add its path to `nuxtTestFiles` in `vitest.config.ts`
 3. If it's a component test, it's automatically picked up by the components tier
 4. Otherwise, it falls through to the node tier
 

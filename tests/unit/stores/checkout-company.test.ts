@@ -3,7 +3,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import type { Company, CompanyAddress } from '../../../shared/types/company';
 
 // Mock $fetch at module level
-let mockFetchImpl: ReturnType<typeof vi.fn> = vi.fn();
+let mockFetchImpl = vi.fn();
 
 vi.mock('#app/composables/fetch', () => ({
   $fetch: (...args: unknown[]) => mockFetchImpl(...args),

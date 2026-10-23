@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, type Mock } from 'vitest';
 import { initCart } from '../../app/plugins/cart-init';
 
 type CartLike = { id: string; items: unknown[] } | null;
@@ -7,7 +7,7 @@ interface MockStore {
   cartId: string | null;
   cart: CartLike;
   needsSignIn: boolean;
-  fetchCart: ReturnType<typeof vi.fn>;
+  fetchCart: Mock<() => Promise<void>>;
 }
 
 function makeStore(overrides: Partial<MockStore> = {}): MockStore {

@@ -66,7 +66,7 @@ function post(
   return { req, settled };
 }
 
-describe.sequential('createIdleTimeoutHttpModule', () => {
+describe('createIdleTimeoutHttpModule', () => {
   afterEach(async () => {
     vi.restoreAllMocks();
     await Promise.all(

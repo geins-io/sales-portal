@@ -159,6 +159,10 @@ function testRoute() {
 
 vi.stubGlobal('useRoute', testRoute);
 vi.stubGlobal('$fetch', (...args: unknown[]) => mockPollFetch(...args));
+// The page's auto-imported `$fetch` comes from here, read once when it loads.
+vi.mock('#build/fetch', () => ({
+  $fetch: (...args: unknown[]) => mockPollFetch(...args),
+}));
 
 vi.mock('#app/composables/router', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;

@@ -3,10 +3,13 @@ import { mountComponent } from '../../utils/component';
 import ProfileForm from '../../../app/components/portal/ProfileForm.vue';
 import type { GeinsUserType } from '@geins/types';
 
-// Named so the tests can drive it without casting the `$fetch` global, whose
-// declared type is Nitro's `$Fetch` and not a mock.
-const fetchMock = vi.fn(() => Promise.resolve({ profile: {} }));
-vi.stubGlobal('$fetch', fetchMock);
+// Named so the tests can drive it without casting `$fetch`, whose declared
+// type is not a mock. The component's auto-imported `$fetch` comes from
+// `#build/fetch`, which reads the global once when it loads.
+const { fetchMock } = vi.hoisted(() => ({
+  fetchMock: vi.fn(() => Promise.resolve({ profile: {} })),
+}));
+vi.mock('#build/fetch', () => ({ $fetch: fetchMock }));
 
 const stubs = {
   Label: { template: '<label><slot /></label>', props: ['for'] },
@@ -153,7 +156,7 @@ describe('ProfileForm', () => {
     await (wrapper.vm as { submit: () => Promise<void> }).submit();
     await wrapper.vm.$nextTick();
 
-    expect(globalThis.$fetch).toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalled();
     expect(wrapper.emitted('saved')).toBeTruthy();
   });
 });

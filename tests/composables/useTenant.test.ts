@@ -44,8 +44,10 @@ vi.mock('#app/composables/fetch', () => ({
 const mockRoute = { query: {} as Record<string, string> };
 const mockRequestHeaders: Record<string, string> = {};
 
-vi.mock('#app', () => ({
-  useNuxtApp: () => ({ $api: mockApi }),
+// Partial, and without `useNuxtApp`: the Nuxt environment itself imports
+// `#app`, and the module runner hands it this mock too.
+vi.mock('#app', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   useFetch: (...args: Parameters<typeof mockUseFetch>) => mockUseFetch(...args),
   useRoute: () => mockRoute,
   useRequestHeaders: () => mockRequestHeaders,
@@ -55,7 +57,6 @@ vi.mock('#app', () => ({
 vi.stubGlobal('useFetch', (...args: Parameters<typeof mockUseFetch>) =>
   mockUseFetch(...args),
 );
-vi.stubGlobal('useNuxtApp', () => ({ $api: mockApi }));
 
 vi.stubGlobal('useRoute', () => mockRoute);
 vi.stubGlobal('useRequestHeaders', () => mockRequestHeaders);

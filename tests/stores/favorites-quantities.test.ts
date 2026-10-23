@@ -27,7 +27,9 @@ const mockSession = {
 };
 
 vi.mock('@geins/crm', () => ({
-  ListsSession: vi.fn().mockImplementation(() => mockSession),
+  ListsSession: vi.fn().mockImplementation(function () {
+    return mockSession;
+  }),
   FAVORITES_LIST_ID: '__favorites__',
 }));
 

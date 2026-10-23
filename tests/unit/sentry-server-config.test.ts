@@ -32,7 +32,7 @@ async function loadConfig(): Promise<InitOptions | undefined> {
   return init.mock.calls[0]?.[0] as InitOptions | undefined;
 }
 
-describe.sequential('sentry.server.config', () => {
+describe('sentry.server.config', () => {
   beforeEach(() => {
     init.mockClear();
     httpIntegration.mockClear();
