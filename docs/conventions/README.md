@@ -35,7 +35,7 @@ For language-switch alternates, use `alternateEntityPath(url, type)` from the sa
 Inbound URLs that do not match a typed app route are recovered by a single cached resolver (`/api/resolve-url`), reached by two tiers:
 
 1. **Wrong-shape global middleware** (`app/middleware/resolve-url.global.ts`): fires on both SSR and SPA navigation. Engages only on definitively-wrong path shapes that have no page route (`/l/`, `/dc/`). Issues a real 301 to the canonical app path; aborts with a 404 on a terminal miss. Never touches locale cookies or i18n state.
-2. **Content-miss recovery** (`app/composables/useEntityUrlRecovery.ts`): called by `ProductDetails.vue`, `ProductList.vue`, and `[...slug].vue` when their primary content fetch misses. Issues a real 301 to the canonical or a fatal 404.
+2. **Content-miss recovery** (`app/composables/useEntityUrlRecovery.ts`): the product route, `ProductList.vue` and `[...slug].vue` hand their primary read to `settle`. A failed read shows the error page with its status; a miss issues a real 301 to the canonical or a fatal 404. A read deferred during hydration is decided when it answers.
 
 Always use `navigateTo(..., { redirectCode: 301 })` for canonical corrections; never use `history.replaceState`. When the loaded entity's canonical differs from the current URL, check `samePrefix` first to avoid silently switching the user's locale. See [ADR-019](../adr/019-bulletproof-routing.md) for the full contract.
 

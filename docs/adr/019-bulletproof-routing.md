@@ -120,14 +120,22 @@ another miss. The middleware runs after `locale-market.global.ts` and never
 touches the locale cookie, `setLocale`, or any i18n side effects.
 
 **Tier 2 (content-miss recovery).** `app/composables/useEntityUrlRecovery.ts`
-exports `recoverEntityUrl(path)`. It is called by `ProductDetails.vue` and
-`ProductList.vue` on a content miss (Failure B), and by `[...slug].vue` on a
-CMS miss. It uses `useFetch` (which auto-forwards cookie and host on page-level
-loads). On a `canonicalAppPath` hit it 301-redirects unless the target equals
-the incoming path (loop guard), in which case it throws a 404. On a `redirect`
-hit (renamed slug: a bare Geins `urlHistory.newUrl`) it re-applies the current
-locale prefix via `localePath` before redirecting. On a fetch error or a 404
-response it throws a fatal 404.
+returns `settle(read, isMissing, path)`. The product route, `ProductList.vue`
+(categories and brands) and `[...slug].vue` (CMS pages) hand it their primary
+read. A failed read (anything but a 404) throws the error page with its status.
+A 404 or missing data (Failure B) asks the resolver through `internalFetch`,
+which forwards cookie and host during SSR. On a `canonicalAppPath` hit it
+301-redirects unless the target equals the incoming path (loop guard), in which
+case it throws a 404. On a `redirect` hit (renamed slug: a bare Geins
+`urlHistory.newUrl`) it re-applies the current locale prefix via `localePath`
+before redirecting. On a fetch error or no answer it throws a fatal 404.
+
+A read Nuxt deferred while hydrating (its key was not in the SSR payload, so
+`await useFetch` returns with status `idle` and no request sent) is not a miss.
+`settle` waits for that read to answer and decides then, so a client-side key
+mismatch ends in the content, a redirect or a real 404, never in a 404 with no
+request. A mismatch that persists (the client key really returns nothing) still
+ends in a 404, after one primary and one resolver request.
 
 **Invariant: recovery composables must restore Nuxt context after an await.**
 Unlike a page `setup` function, an `await` inside an extracted composable drops
@@ -137,10 +145,11 @@ that requires access to the Nuxt instance was called outside of a plugin, Nuxt
 hook, Nuxt middleware, or Vue setup function" and the page error boundary will
 swallow it, producing an empty 200 instead of the intended 301.
 
-`recoverEntityUrl` handles this by capturing `const nuxtApp = useNuxtApp()`
-before the `useFetch` await, then wrapping every post-await `navigateTo` in
-`nuxtApp.runWithContext(() => navigateTo(...))`. `createError` is a plain h3
-utility that carries no Nuxt instance requirement, so it is called unwrapped.
+`useEntityUrlRecovery` handles this by taking `useNuxtApp()`, `useRouter()`
+and `localePath` in setup, then running the resolver fetch and every
+post-await `navigateTo` in `nuxtApp.runWithContext(...)`. `createError` is a
+plain h3 utility that carries no Nuxt instance requirement, so it is called
+unwrapped.
 
 Route middleware does NOT need `runWithContext`; the middleware runner restores
 the Nuxt context automatically before invoking each middleware function. This
