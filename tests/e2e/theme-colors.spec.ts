@@ -3,6 +3,7 @@ import {
   discoverPurchasableProduct,
   noteOutOfScope,
   signedInState,
+  waitForHydration,
 } from './helpers';
 
 /**
@@ -225,6 +226,8 @@ test.describe('Tenant button text colours', () => {
     // The empty cart's call to action wears the general button colours; a
     // fresh context from the stored login carries no cart.
     await page.goto('/cart');
+    // Leaving a page mid-hydration makes Nuxt reload it over the next goto.
+    await waitForHydration(page);
     const general = await paintedText(
       page,
       '.bg-button-background',
