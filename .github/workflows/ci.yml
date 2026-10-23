@@ -177,8 +177,6 @@ jobs:
         variant:
           - { name: w2, args: '--workers=2' }
           - { name: w100, args: '--workers=100%' }
-          - { name: w150, args: '--workers=150%' }
-          - { name: w100-fp, args: '--workers=100% --fully-parallel' }
         # `slug` names the artifacts, which should not carry a space.
         include:
           - project: chromium
