@@ -15,6 +15,7 @@
     "format": "prettier \"**/*.{js,ts,vue,json,md,css,scss}\" --config ./.prettierrc --write",
     "format:check": "prettier \"**/*.{js,ts,vue,json,md,css,scss}\" --config ./.prettierrc --check",
     "check:playwright-image": "node infra/scripts/check-playwright-image.mjs",
+    "check:single-vue": "node infra/scripts/check-single-vue.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -75,7 +76,7 @@
     "sanitize-html": "^2.18.0",
     "shadcn-nuxt": "2.4.0",
     "tailwind-merge": "^3.4.0",
-    "vue": "3.5.44",
+    "vue": "^3.5.44",
     "vue-router": "^5.4.0",
     "zod": "^4.3.5"
   },
@@ -118,19 +119,6 @@
     "vitepress-plugin-mermaid": "^2.0.17",
     "vitest": "^3.2.4",
     "vue-tsc": "^3.3.10"
-  },
-  "pnpm": {
-    "overrides": {
-      "vue": "3.5.44",
-      "@vue/runtime-core": "3.5.44",
-      "@vue/runtime-dom": "3.5.44",
-      "@vue/server-renderer": "3.5.44",
-      "@vue/compiler-core": "3.5.44",
-      "@vue/compiler-dom": "3.5.44",
-      "@vue/compiler-sfc": "3.5.44",
-      "@vue/reactivity": "3.5.44",
-      "@vue/shared": "3.5.44"
-    }
   },
   "engines": {
     "node": "^24.15.0"

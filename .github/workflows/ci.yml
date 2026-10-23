@@ -47,6 +47,9 @@ jobs:
       - name: Run linter
         run: pnpm lint
 
+      - name: Check for a single Vue runtime
+        run: pnpm check:single-vue
+
       - name: Check formatting
         run: pnpm format:check
 
