@@ -151,7 +151,7 @@ jobs:
           retention-days: 1
 
   test-e2e:
-    name: E2E · ${{ matrix.project }}
+    name: E2E · ${{ matrix.project }} · ${{ matrix.variant.name }}
     needs: e2e-build
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -171,6 +171,14 @@ jobs:
       # Mobile Chrome running to the end.
       fail-fast: false
       matrix:
+        project: [chromium, Mobile Chrome, webkit]
+        # Temporary: every worker setting on every project in one run, so the
+        # step times compare under the same load on the merchant API.
+        variant:
+          - { name: w2, args: '--workers=2' }
+          - { name: w100, args: '--workers=100%' }
+          - { name: w150, args: '--workers=150%' }
+          - { name: w100-fp, args: '--workers=100% --fully-parallel' }
         # `slug` names the artifacts, which should not carry a space.
         include:
           - project: chromium
@@ -202,6 +210,13 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # Temporary: what `--workers=100%` resolves against (Playwright reads
+      # os.cpus()), next to what the container reports.
+      - name: Print the core count
+        run: |
+          echo "nproc: $(nproc)"
+          node -p '"os.cpus: " + require("os").cpus().length'
 
       # The target: an origin, the tenant it must resolve to, and a test
       # account. Repository variables/secrets override the committed defaults.
@@ -261,13 +276,13 @@ jobs:
       # This leg's one browser project, every spec. `--no-deps` because the
       # preflight layers above already ran.
       - name: Project · ${{ matrix.project }}
-        run: pnpm test:e2e --no-deps --project="${{ matrix.project }}"
+        run: pnpm test:e2e --no-deps --project="${{ matrix.project }}" ${{ matrix.variant.args }}
 
       - name: Upload preview server log
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: preview-log-${{ matrix.slug }}
+          name: preview-log-${{ matrix.slug }}-${{ matrix.variant.name }}
           path: preview.log
           retention-days: 7
 
@@ -275,7 +290,7 @@ jobs:
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: playwright-report-${{ matrix.slug }}
+          name: playwright-report-${{ matrix.slug }}-${{ matrix.variant.name }}
           path: playwright-report/
           retention-days: 7
 
@@ -283,6 +298,6 @@ jobs:
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: test-results-${{ matrix.slug }}
+          name: test-results-${{ matrix.slug }}-${{ matrix.variant.name }}
           path: test-results/
           retention-days: 7
