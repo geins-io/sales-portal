@@ -53,6 +53,7 @@ vi.stubGlobal(
     const err = new Error(msg);
     (err as unknown as Record<string, unknown>).statusCode =
       code === 'NOT_FOUND' ? 404 : 400;
+    (err as unknown as Record<string, unknown>).code = code;
     return err;
   }),
 );
@@ -60,6 +61,7 @@ vi.stubGlobal('ErrorCode', {
   BAD_REQUEST: 'BAD_REQUEST',
   UNAUTHORIZED: 'UNAUTHORIZED',
   NOT_FOUND: 'NOT_FOUND',
+  EXTERNAL_API_ERROR: 'EXTERNAL_API_ERROR',
 });
 
 let quotesService: typeof import('../../../server/services/quotes');
@@ -471,76 +473,85 @@ describe('quotes service', () => {
   });
 
   // -------------------------------------------------------------------------
-  // acceptQuote
+  // acceptQuote / rejectQuote
   // -------------------------------------------------------------------------
-  describe('acceptQuote', () => {
+  // Geins answers both mutations with a Boolean; the quotation is read again
+  // with getQuotationCart for the page.
+  describe.each([
+    {
+      action: 'acceptQuote' as const,
+      field: 'acceptQuotation',
+      file: 'quotes/accept-quotation.graphql',
+      rawStatus: 'ACCEPTED',
+      status: 'accepted',
+    },
+    {
+      action: 'rejectQuote' as const,
+      field: 'rejectQuotation',
+      file: 'quotes/reject-quotation.graphql',
+      rawStatus: 'REJECTED',
+      status: 'rejected',
+    },
+  ])('$action', ({ action, field, file, rawStatus, status }) => {
     it('asks for no timeout: a write may finish upstream after a cut', async () => {
-      mockGraphqlMutation.mockResolvedValueOnce({
-        acceptQuotation: makeRawQuotationCart(),
+      mockGraphqlMutation.mockResolvedValueOnce({ [field]: true });
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: makeRawQuotationCart({ status: rawStatus }),
       });
 
-      await quotesService.acceptQuote('cart-001', mockEvent);
+      await quotesService[action]('cart-001', mockEvent);
 
       expect(mockGraphqlMutation.mock.calls[0]![0]).toMatchObject({
         requestOptions: { context: { timeoutMs: 0 } },
       });
     });
 
-    it('calls graphql.mutation with acceptQuotation mutation', async () => {
-      const cart = makeRawQuotationCart({ status: 'ACCEPTED' });
-      mockGraphqlMutation.mockResolvedValueOnce({ acceptQuotation: cart });
+    it('on true, returns the quotation read again with its new status', async () => {
+      mockGraphqlMutation.mockResolvedValueOnce({ [field]: true });
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: makeRawQuotationCart({ status: rawStatus }),
+      });
 
-      const result = await quotesService.acceptQuote('cart-001', mockEvent);
+      const result = await quotesService[action]('cart-001', mockEvent);
 
       expect(mockGraphqlMutation).toHaveBeenCalledWith(
         expect.objectContaining({
-          queryAsString: 'query:quotes/accept-quotation.graphql',
+          queryAsString: `query:${file}`,
           userToken: 'test-user-token',
-          variables: {
-            quotationId: 'cart-001',
-            languageId: 'sv-SE',
-          },
+          variables: { quotationId: 'cart-001', languageId: 'sv-SE' },
         }),
       );
-
-      expect(result.status).toBe('accepted');
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // rejectQuote
-  // -------------------------------------------------------------------------
-  describe('rejectQuote', () => {
-    it('asks for no timeout: a write may finish upstream after a cut', async () => {
-      mockGraphqlMutation.mockResolvedValueOnce({
-        rejectQuotation: makeRawQuotationCart(),
-      });
-
-      await quotesService.rejectQuote('cart-001', mockEvent);
-
-      expect(mockGraphqlMutation.mock.calls[0]![0]).toMatchObject({
-        requestOptions: { context: { timeoutMs: 0 } },
-      });
-    });
-
-    it('calls graphql.mutation with rejectQuotation mutation', async () => {
-      const cart = makeRawQuotationCart({ status: 'REJECTED' });
-      mockGraphqlMutation.mockResolvedValueOnce({ rejectQuotation: cart });
-
-      const result = await quotesService.rejectQuote('cart-001', mockEvent);
-
-      expect(mockGraphqlMutation).toHaveBeenCalledWith(
+      expect(mockGraphqlQuery).toHaveBeenCalledWith(
         expect.objectContaining({
-          queryAsString: 'query:quotes/reject-quotation.graphql',
+          queryAsString: 'query:quotes/get-quotation.graphql',
           userToken: 'test-user-token',
-          variables: {
-            quotationId: 'cart-001',
-            languageId: 'sv-SE',
-          },
+          variables: { quotationId: 'cart-001', languageId: 'sv-SE' },
         }),
       );
+      expect(result.id).toBe('cart-001');
+      expect(result.status).toBe(status);
+    });
 
-      expect(result.status).toBe('rejected');
+    it.each([false, null])(
+      'on %s, fails as an external API error without reading again',
+      async (answer) => {
+        mockGraphqlMutation.mockResolvedValueOnce({ [field]: answer });
+
+        await expect(
+          quotesService[action]('cart-001', mockEvent),
+        ).rejects.toMatchObject({ code: 'EXTERNAL_API_ERROR' });
+        expect(mockGraphqlQuery).not.toHaveBeenCalled();
+      },
+    );
+
+    it('passes a Geins error on without reading again', async () => {
+      const geinsError = new Error('Geins refused');
+      mockGraphqlMutation.mockRejectedValueOnce(geinsError);
+
+      await expect(quotesService[action]('cart-001', mockEvent)).rejects.toBe(
+        geinsError,
+      );
+      expect(mockGraphqlQuery).not.toHaveBeenCalled();
     });
   });
 });

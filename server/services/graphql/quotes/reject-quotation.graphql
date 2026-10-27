@@ -1,14 +1,3 @@
 mutation rejectQuotation($quotationId: Guid!, $languageId: String) {
-  rejectQuotation(quotationId: $quotationId, languageId: $languageId) {
-    id
-    items {
-      ...QuotationCartItem
-    }
-    summary {
-      ...QuotationCartSummary
-    }
-    quotation {
-      ...QuotationCore
-    }
-  }
+  rejectQuotation(quotationId: $quotationId, languageId: $languageId)
 }

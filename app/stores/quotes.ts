@@ -47,7 +47,7 @@ export const useQuotesStore = defineStore('quotes', () => {
     }
   }
 
-  async function acceptQuote(id: string) {
+  async function acceptQuote(id: string): Promise<Quote | null> {
     isActionLoading.value = true;
     error.value = null;
     try {
@@ -62,14 +62,16 @@ export const useQuotesStore = defineStore('quotes', () => {
           status: data.quote.status,
         };
       }
+      return data.quote;
     } catch {
       error.value = 'portal.quotations.accept_failed';
+      return null;
     } finally {
       isActionLoading.value = false;
     }
   }
 
-  async function rejectQuote(id: string) {
+  async function rejectQuote(id: string): Promise<Quote | null> {
     isActionLoading.value = true;
     error.value = null;
     try {
@@ -84,8 +86,10 @@ export const useQuotesStore = defineStore('quotes', () => {
           status: data.quote.status,
         };
       }
+      return data.quote;
     } catch {
       error.value = 'portal.quotations.decline_failed';
+      return null;
     } finally {
       isActionLoading.value = false;
     }

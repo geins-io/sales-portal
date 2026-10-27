@@ -337,8 +337,12 @@ export async function getQuote(
   return mapQuotationCartToQuote(cart);
 }
 
-/** Accept a quotation via Geins GraphQL API */
-export async function acceptQuote(
+/**
+ * Answer a quotation. Geins answers the mutation with a Boolean, so the
+ * quotation is read again for its new status.
+ */
+async function respondToQuote(
+  queryFile: string,
   quoteId: string,
   event: H3Event,
 ): Promise<Quote> {
@@ -348,7 +352,7 @@ export async function acceptQuote(
   const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.mutation({
-        queryAsString: loadQuery('quotes/accept-quotation.graphql'),
+        queryAsString: loadQuery(queryFile),
         variables: {
           quotationId: quoteId,
           languageId,
@@ -359,38 +363,21 @@ export async function acceptQuote(
       }),
     'quotes',
   );
-  const cart = unwrapGraphQL(result) as RawQuotationCart | null;
-  if (!cart) {
-    throw createAppError(ErrorCode.NOT_FOUND, `Quote ${quoteId} not found`);
+  if (unwrapGraphQL(result) !== true) {
+    throw createAppError(
+      ErrorCode.EXTERNAL_API_ERROR,
+      `Geins answered false or nothing for quote ${quoteId}`,
+    );
   }
-  return mapQuotationCartToQuote(cart);
+  return getQuote(quoteId, event);
+}
+
+/** Accept a quotation via Geins GraphQL API */
+export function acceptQuote(quoteId: string, event: H3Event): Promise<Quote> {
+  return respondToQuote('quotes/accept-quotation.graphql', quoteId, event);
 }
 
 /** Reject a quotation via Geins GraphQL API */
-export async function rejectQuote(
-  quoteId: string,
-  event: H3Event,
-): Promise<Quote> {
-  const sdk = await getTenantSDK(event);
-  const requestContext = buildRequestContext(event);
-  const { languageId } = getRequestChannelVariables(sdk, event);
-  const result = await wrapServiceCall(
-    () =>
-      sdk.core.graphql.mutation({
-        queryAsString: loadQuery('quotes/reject-quotation.graphql'),
-        variables: {
-          quotationId: quoteId,
-          languageId,
-        },
-        userToken: requestContext?.userToken,
-        // No timeout: a quote Geins accepts after a cut would read as failed.
-        requestOptions: { context: { timeoutMs: 0 } },
-      }),
-    'quotes',
-  );
-  const cart = unwrapGraphQL(result) as RawQuotationCart | null;
-  if (!cart) {
-    throw createAppError(ErrorCode.NOT_FOUND, `Quote ${quoteId} not found`);
-  }
-  return mapQuotationCartToQuote(cart);
+export function rejectQuote(quoteId: string, event: H3Event): Promise<Quote> {
+  return respondToQuote('quotes/reject-quotation.graphql', quoteId, event);
 }

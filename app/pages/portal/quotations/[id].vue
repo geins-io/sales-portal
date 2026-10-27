@@ -52,15 +52,18 @@ useHead({
   ),
 });
 
+// The page renders from `data`, so an answered quotation is written back there.
 async function handleAccept() {
   if (!quote.value) return;
-  await store.acceptQuote(quote.value.id);
+  const answered = await store.acceptQuote(quote.value.id);
+  if (answered) data.value = { quote: answered };
 }
 
 async function handleDecline() {
   if (!quote.value) return;
   if (!safeConfirm(t('portal.quotations.decline_confirm'))) return;
-  await store.rejectQuote(quote.value.id);
+  const answered = await store.rejectQuote(quote.value.id);
+  if (answered) data.value = { quote: answered };
 }
 
 function statusLabel(status: string): string {

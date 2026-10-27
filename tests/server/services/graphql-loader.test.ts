@@ -104,5 +104,18 @@ describe('GraphQL loader', () => {
       expect(query).toMatch(/^\s*relationType$/m);
       expect(query).not.toMatch(/^\s*relation$/m);
     });
+
+    it.each([
+      ['quotes/accept-quotation.graphql', 'acceptQuotation'],
+      ['quotes/reject-quotation.graphql', 'rejectQuotation'],
+    ])('selects nothing on %s: Geins answers a Boolean', (file, field) => {
+      const query = loadQuery(file);
+
+      // The field takes `quotationId:`; the operation line takes `$quotationId:`.
+      expect(query).toMatch(new RegExp(`${field}\\(quotationId:`));
+      expect(query).not.toMatch(
+        new RegExp(`${field}\\(quotationId:[^)]*\\)\\s*\\{`),
+      );
+    });
   });
 });

@@ -76,13 +76,13 @@ const {
     mockUseFetch: vi.fn(),
     // Default implementations simulate the real store by clearing/setting
     // the shared error ref. Individual tests can override with mockImplementationOnce.
-    mockAcceptQuote: vi.fn(() => {
+    mockAcceptQuote: vi.fn((_id: string): Promise<Quote | null> => {
       storeErrorRef.value = null;
-      return Promise.resolve();
+      return Promise.resolve(null);
     }),
-    mockRejectQuote: vi.fn(() => {
+    mockRejectQuote: vi.fn((_id: string): Promise<Quote | null> => {
       storeErrorRef.value = null;
-      return Promise.resolve();
+      return Promise.resolve(null);
     }),
     mockIsActionLoading: ref(false),
     mockIsLoading: ref(false),
@@ -270,12 +270,12 @@ describe('PortalQuotationDetail', () => {
     mockAcceptQuote.mockClear();
     mockAcceptQuote.mockImplementation(() => {
       mockStoreError.value = null;
-      return Promise.resolve();
+      return Promise.resolve(null);
     });
     mockRejectQuote.mockClear();
     mockRejectQuote.mockImplementation(() => {
       mockStoreError.value = null;
-      return Promise.resolve();
+      return Promise.resolve(null);
     });
     mockSafeConfirm.mockClear();
     mockSafeConfirm.mockReturnValue(true);
@@ -1051,7 +1051,7 @@ describe('PortalQuotationDetail', () => {
       // app/stores/quotes.ts acceptQuote catch branch.
       mockAcceptQuote.mockImplementationOnce(() => {
         mockStoreError.value = 'portal.quotations.accept_failed';
-        return Promise.resolve();
+        return Promise.resolve(null);
       });
       mockData.value = { quote: makeQuote({ status: 'pending' }) };
       const { wrapper } = await mountDetailPage();
@@ -1068,7 +1068,7 @@ describe('PortalQuotationDetail', () => {
     it('renders the error banner with decline_failed text when rejectQuote sets store.error', async () => {
       mockRejectQuote.mockImplementationOnce(() => {
         mockStoreError.value = 'portal.quotations.decline_failed';
-        return Promise.resolve();
+        return Promise.resolve(null);
       });
       mockData.value = { quote: makeQuote({ status: 'pending' }) };
       const { wrapper } = await mountDetailPage();
@@ -1084,7 +1084,7 @@ describe('PortalQuotationDetail', () => {
     it('clears the error banner when the user clicks Accept again and it succeeds', async () => {
       mockAcceptQuote.mockImplementationOnce(() => {
         mockStoreError.value = 'portal.quotations.accept_failed';
-        return Promise.resolve();
+        return Promise.resolve(null);
       });
       mockData.value = { quote: makeQuote({ status: 'pending' }) };
       const { wrapper } = await mountDetailPage();
@@ -1105,7 +1105,7 @@ describe('PortalQuotationDetail', () => {
     it('clears the error banner when the user clicks Decline again and it succeeds', async () => {
       mockRejectQuote.mockImplementationOnce(() => {
         mockStoreError.value = 'portal.quotations.decline_failed';
-        return Promise.resolve();
+        return Promise.resolve(null);
       });
       mockData.value = { quote: makeQuote({ status: 'pending' }) };
       const { wrapper } = await mountDetailPage();
@@ -1139,6 +1139,65 @@ describe('PortalQuotationDetail', () => {
 
       expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(false);
     });
+  });
+
+  // The page renders from its useFetch data; an answer writes the quotation
+  // the server read again back into it.
+  describe('after an answer', () => {
+    it.each([
+      { button: 'accept-btn', status: 'accepted' as const },
+      { button: 'decline-btn', status: 'rejected' as const },
+    ])(
+      'shows $status and drops the buttons after $button succeeds',
+      async ({ button, status }) => {
+        const answered = makeQuote({ status });
+        const answer =
+          button === 'accept-btn' ? mockAcceptQuote : mockRejectQuote;
+        answer.mockResolvedValueOnce(answered);
+        mockData.value = { quote: makeQuote({ status: 'pending' }) };
+        const { wrapper } = await mountDetailPage();
+
+        await wrapper.find(`[data-testid="${button}"]`).trigger('click');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="status-badge"]').text()).toContain(
+          `portal.quotations.status_${status}`,
+        );
+        expect(wrapper.find('[data-testid="accept-btn"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="decline-btn"]').exists()).toBe(
+          false,
+        );
+      },
+    );
+
+    it.each([
+      { button: 'accept-btn', key: 'portal.quotations.accept_failed' },
+      { button: 'decline-btn', key: 'portal.quotations.decline_failed' },
+    ])(
+      'stays pending with the buttons and the banner after $button fails',
+      async ({ button, key }) => {
+        const answer =
+          button === 'accept-btn' ? mockAcceptQuote : mockRejectQuote;
+        answer.mockImplementationOnce(() => {
+          mockStoreError.value = key;
+          return Promise.resolve(null);
+        });
+        mockData.value = { quote: makeQuote({ status: 'pending' }) };
+        const { wrapper } = await mountDetailPage();
+
+        await wrapper.find(`[data-testid="${button}"]`).trigger('click');
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="status-badge"]').text()).toContain(
+          'portal.quotations.status_pending',
+        );
+        expect(wrapper.find('[data-testid="accept-btn"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="decline-btn"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="action-error"]').text()).toContain(
+          key,
+        );
+      },
+    );
   });
 
   describe('store seeding', () => {

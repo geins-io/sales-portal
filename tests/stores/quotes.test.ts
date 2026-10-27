@@ -244,6 +244,54 @@ describe('useQuotesStore', () => {
       expect(store.quotes[0]?.status).toBe('accepted');
     });
 
+    it('updates only the answered quote in a longer list', async () => {
+      const acceptedQuote = { ...mockQuote, status: 'accepted' as const };
+      mockFetchImpl.mockResolvedValueOnce({ quote: acceptedQuote });
+
+      const store = useQuotesStore();
+      store.quotes = [{ ...mockQuoteListItem3 }, { ...mockQuoteListItem }];
+      await store.acceptQuote('q-001');
+
+      expect(store.quotes.map((q) => q.status)).toEqual([
+        'pending',
+        'accepted',
+      ]);
+    });
+
+    it('is loading while the request runs', async () => {
+      let answer!: (value: { quote: typeof mockQuote }) => void;
+      mockFetchImpl.mockReturnValueOnce(
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+      );
+
+      const store = useQuotesStore();
+      const pending = store.acceptQuote('q-001');
+
+      expect(store.isActionLoading).toBe(true);
+      answer({ quote: { ...mockQuote, status: 'accepted' } });
+      await pending;
+      expect(store.isActionLoading).toBe(false);
+    });
+
+    it('returns the quote the server answered with', async () => {
+      const acceptedQuote = { ...mockQuote, status: 'accepted' as const };
+      mockFetchImpl.mockResolvedValueOnce({ quote: acceptedQuote });
+
+      const store = useQuotesStore();
+
+      expect(await store.acceptQuote('q-001')).toEqual(acceptedQuote);
+    });
+
+    it('returns null on failure', async () => {
+      mockFetchImpl.mockRejectedValueOnce(new Error('Server error'));
+
+      const store = useQuotesStore();
+
+      expect(await store.acceptQuote('q-001')).toBeNull();
+    });
+
     it('sets error to the accept_failed i18n key on failure', async () => {
       mockFetchImpl.mockRejectedValueOnce(new Error('Server error'));
 
@@ -299,6 +347,54 @@ describe('useQuotesStore', () => {
       await store.rejectQuote('q-001');
 
       expect(store.quotes[0]?.status).toBe('rejected');
+    });
+
+    it('updates only the answered quote in a longer list', async () => {
+      const rejectedQuote = { ...mockQuote, status: 'rejected' as const };
+      mockFetchImpl.mockResolvedValueOnce({ quote: rejectedQuote });
+
+      const store = useQuotesStore();
+      store.quotes = [{ ...mockQuoteListItem3 }, { ...mockQuoteListItem }];
+      await store.rejectQuote('q-001');
+
+      expect(store.quotes.map((q) => q.status)).toEqual([
+        'pending',
+        'rejected',
+      ]);
+    });
+
+    it('is loading while the request runs', async () => {
+      let answer!: (value: { quote: typeof mockQuote }) => void;
+      mockFetchImpl.mockReturnValueOnce(
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+      );
+
+      const store = useQuotesStore();
+      const pending = store.rejectQuote('q-001');
+
+      expect(store.isActionLoading).toBe(true);
+      answer({ quote: { ...mockQuote, status: 'rejected' } });
+      await pending;
+      expect(store.isActionLoading).toBe(false);
+    });
+
+    it('returns the quote the server answered with', async () => {
+      const rejectedQuote = { ...mockQuote, status: 'rejected' as const };
+      mockFetchImpl.mockResolvedValueOnce({ quote: rejectedQuote });
+
+      const store = useQuotesStore();
+
+      expect(await store.rejectQuote('q-001')).toEqual(rejectedQuote);
+    });
+
+    it('returns null on failure', async () => {
+      mockFetchImpl.mockRejectedValueOnce(new Error('Server error'));
+
+      const store = useQuotesStore();
+
+      expect(await store.rejectQuote('q-001')).toBeNull();
     });
 
     it('sets error to the decline_failed i18n key on failure', async () => {
