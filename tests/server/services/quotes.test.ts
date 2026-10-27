@@ -290,8 +290,8 @@ describe('quotes service', () => {
         totalFormatted: '10 039 SEK',
         subtotal: 9990,
         subtotalFormatted: '9 990 SEK',
-        tax: 1998,
-        taxFormatted: '1 998 SEK',
+        tax: 2007.8,
+        taxFormatted: '2 007,80 SEK',
         shipping: 49,
         shippingFormatted: '49 SEK',
         subtotalExVat: 7992,
@@ -450,6 +450,82 @@ describe('quotes service', () => {
         });
       },
     );
+
+    it('reads VAT from the total, which carries the shipping and the discount', async () => {
+      const cart = makeRawQuotationCart();
+      mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      // The subtotal's VAT (1 998) leaves out the shipping's.
+      expect(result.tax).toBe(2007.8);
+      expect(result.taxFormatted).toBe('2 007,80 SEK');
+    });
+
+    it('leaves the VAT empty when the total carries none', async () => {
+      const cart = makeRawQuotationCart();
+      const summary = cart.summary as { total: Record<string, unknown> };
+      delete summary.total.vat;
+      delete summary.total.vatFormatted;
+      mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(result.tax).toBe(0);
+      expect(result.taxFormatted).toBe('');
+    });
+
+    it.each([
+      [
+        'a percent discount, with its rate',
+        { type: 'Percent', value: 5 },
+        [204.3625, 163.49],
+        { discount: 204.3625, discountExVat: 163.49, discountPercent: 5 },
+      ],
+      [
+        'a fixed discount, without a rate',
+        { type: 'FixedAmount', value: 50 },
+        [62.5, 50],
+        { discount: 62.5, discountExVat: 50, discountPercent: undefined },
+      ],
+      [
+        'no discount',
+        { type: null, value: 0 },
+        [0, 0],
+        { discount: 0, discountExVat: 0, discountPercent: undefined },
+      ],
+    ])(
+      'maps %s as the API gives it',
+      async (_, discount, [incVat, exVat], expected) => {
+        const cart = makeRawQuotationCart({ discount });
+        Object.assign(cart.summary as Record<string, unknown>, {
+          fixedAmountDiscountIncVat: incVat,
+          fixedAmountDiscountExVat: exVat,
+        });
+        mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+
+        const result = await quotesService.getQuote('cart-001', mockEvent);
+
+        expect({
+          discount: result.discount,
+          discountExVat: result.discountExVat,
+          discountPercent: result.discountPercent,
+        }).toEqual(expected);
+      },
+    );
+
+    it('maps a quotation the API sends no discount for to none', async () => {
+      const cart = makeRawQuotationCart();
+      mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect({
+        discount: result.discount,
+        discountExVat: result.discountExVat,
+        discountPercent: result.discountPercent,
+      }).toEqual({ discount: 0, discountExVat: 0, discountPercent: undefined });
+    });
 
     it('maps quotation.name to Quote.name (proposal title)', async () => {
       const cart = makeRawQuotationCart({ name: 'Dec order proposal' });

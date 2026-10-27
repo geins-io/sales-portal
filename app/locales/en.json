@@ -878,6 +878,7 @@
       "subtotal": "Subtotal",
       "subtotal_with_count": "Subtotal ({count} items)",
       "shipping": "Shipping",
+      "discount_percent": "Discount {percent}",
       "grand_total": "Total",
       "accept": "Accept and place order",
       "decline": "Decline Quote",

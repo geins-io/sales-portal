@@ -159,6 +159,8 @@ export function makeRawQuotationCart(
         sellingPriceIncVatFormatted: '10 039 SEK',
         sellingPriceExVat: 8031.2,
         sellingPriceExVatFormatted: '8 031 SEK',
+        vat: 2007.8,
+        vatFormatted: '2 007,80 SEK',
       },
     },
     quotation: {

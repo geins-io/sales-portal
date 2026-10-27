@@ -878,6 +878,7 @@
       "subtotal": "Delsumma",
       "subtotal_with_count": "Delsumma ({count} artiklar)",
       "shipping": "Frakt",
+      "discount_percent": "Rabatt {percent}",
       "grand_total": "Totalt",
       "accept": "Acceptera och lägg order",
       "decline": "Avvisa offert",

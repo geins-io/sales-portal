@@ -5,6 +5,11 @@ import { Button } from '~/components/ui/button';
 import { useQuotesStore } from '~/stores/quotes';
 import { safeConfirm } from '~/utils/client-helpers';
 import { getQuoteStatusVariant } from '~/utils/quote-status';
+import {
+  quoteAmounts,
+  quoteDiscountLabel,
+  quoteTotalRows,
+} from '~/utils/quote-view';
 import type { Quote, QuoteLineItem } from '#shared/types/quote';
 import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
 import { productPath } from '#shared/utils/route-helpers';
@@ -93,23 +98,9 @@ function totalPriceOf(item: QuoteLineItem): string {
     : item.totalPriceExVatFormatted;
 }
 
-const amounts = computed(() => {
-  const q = quote.value;
-  return {
-    subtotal: showIncVat.value
-      ? q?.subtotalFormatted
-      : q?.subtotalExVatFormatted,
-    shipping: showIncVat.value
-      ? q?.shippingFormatted
-      : q?.shippingExVatFormatted,
-    total: showIncVat.value ? q?.totalFormatted : q?.totalExVatFormatted,
-    // The inc amount under an ex-VAT total; never a 0.
-    totalIncVat:
-      !showIncVat.value && (q?.total ?? 0) > 0
-        ? q?.totalFormatted || undefined
-        : undefined,
-  };
-});
+const amounts = computed(() =>
+  quoteAmounts(quote.value, showIncVat.value, formatLocale.value),
+);
 
 // Normalised line items + totals for the mobile rows sheet (the desktop table
 // does not work on small screens).
@@ -127,39 +118,14 @@ const quoteItemRows = computed<PortalItemRow[]>(() =>
   })),
 );
 
-const quoteTotals = computed<PortalItemTotal[]>(() => {
-  const q = quote.value;
-  const rows: PortalItemTotal[] = [
-    {
-      label: t('portal.quotations.subtotal_with_count', {
-        count: q?.lineItems?.length ?? 0,
-      }),
-      value: amounts.value.subtotal,
-    },
-  ];
-  if ((q?.shipping ?? 0) > 0) {
-    rows.push({
-      label: t('portal.quotations.shipping'),
-      value: amounts.value.shipping,
-    });
-  }
-  rows.push({
-    label: t(showIncVat.value ? 'common.vat_included' : 'common.vat'),
-    value: q?.taxFormatted,
-  });
-  rows.push({
-    label: t('portal.quotations.grand_total'),
-    value: amounts.value.total,
-    emphasis: true,
-  });
-  if (amounts.value.totalIncVat) {
-    rows.push({
-      label: t('common.total_inc_vat'),
-      value: amounts.value.totalIncVat,
-    });
-  }
-  return rows;
-});
+const quoteTotals = computed<PortalItemTotal[]>(() =>
+  quoteTotalRows(
+    amounts.value,
+    quote.value?.lineItems?.length ?? 0,
+    showIncVat.value,
+    t,
+  ),
+);
 </script>
 
 <template>
@@ -315,7 +281,15 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
                   }}</span>
                 </div>
                 <div
-                  v-if="(quote?.shipping ?? 0) > 0"
+                  v-if="amounts.discount"
+                  class="text-danger flex justify-between text-sm"
+                  data-testid="quote-summary-discount"
+                >
+                  <span>{{ quoteDiscountLabel(amounts, t) }}</span>
+                  <span class="font-medium">-{{ amounts.discount }}</span>
+                </div>
+                <div
+                  v-if="amounts.shipping"
                   data-testid="shipping-row"
                   class="flex justify-between text-sm"
                 >
@@ -330,9 +304,7 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
                   <span class="text-muted-foreground">{{
                     t(showIncVat ? 'common.vat_included' : 'common.vat')
                   }}</span>
-                  <span data-testid="quote-summary-tax">{{
-                    quote.taxFormatted
-                  }}</span>
+                  <span data-testid="quote-summary-tax">{{ amounts.tax }}</span>
                 </div>
                 <div
                   class="border-border mt-2 flex justify-between border-t pt-2 font-semibold"

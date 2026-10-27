@@ -656,6 +656,66 @@ describe('PortalQuotationDetail', () => {
     );
   });
 
+  describe("the seller's discount", () => {
+    async function read(overrides: Partial<Quote>) {
+      mockData.value = { quote: makeQuote(overrides) };
+      const { wrapper } = await mountDetailPage();
+      const row = wrapper.find('[data-testid="quote-summary-discount"]');
+      const sheet = wrapper.findComponent({ name: 'PortalItemRowsSheet' });
+      const totals = sheet.props('totals') as {
+        label: string;
+        value?: string;
+      }[];
+      return {
+        card: row.exists()
+          ? row.findAll('span').map((span) => span.text())
+          : null,
+        // The discount sits right after the subtotal on the sheet too.
+        sheet: [totals[1]!.label, totals[1]!.value],
+      };
+    }
+
+    it.each([
+      [true, 'SEK\u00a062.50'],
+      [false, 'SEK\u00a050.00'],
+    ])(
+      'shows a percent discount with its rate on the card and the sheet (incl. VAT: %s)',
+      async (incVat, amount) => {
+        mockShowIncVat.value = incVat;
+        tSpy.mockClear();
+        const rows = await read({
+          discount: 62.5,
+          discountExVat: 50,
+          discountPercent: 5,
+        });
+
+        const label = 'portal.quotations.discount_percent';
+        expect(rows).toEqual({
+          card: [label, `-${amount}`],
+          sheet: [label, `-${amount}`],
+        });
+        expect(tSpy).toHaveBeenCalledWith(label, { percent: '5%' });
+      },
+    );
+
+    it('shows a fixed discount as "discount" on the card and the sheet', async () => {
+      mockShowIncVat.value = true;
+      const rows = await read({ discount: 62.5, discountExVat: 50 });
+
+      expect(rows).toEqual({
+        card: ['discount.discount', '-SEK\u00a062.50'],
+        sheet: ['discount.discount', '-SEK\u00a062.50'],
+      });
+    });
+
+    it('shows no discount row when there is none', async () => {
+      const rows = await read({ discount: 0, discountExVat: 0 });
+
+      expect(rows.card).toBeNull();
+      expect(rows.sheet[0]).toBe('common.vat_included');
+    });
+  });
+
   describe('header title (D1)', () => {
     it('renders quote.name as the H2 title when name is set', async () => {
       mockData.value = {

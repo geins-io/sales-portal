@@ -878,6 +878,7 @@
       "subtotal": "Zwischensumme",
       "subtotal_with_count": "Zwischensumme ({count} Artikel)",
       "shipping": "Versand",
+      "discount_percent": "Rabatt {percent}",
       "grand_total": "Gesamt",
       "accept": "Annehmen und bestellen",
       "decline": "Angebot ablehnen",

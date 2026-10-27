@@ -878,6 +878,7 @@
       "subtotal": "Välisumma",
       "subtotal_with_count": "Välisumma ({count} tuotetta)",
       "shipping": "Toimitus",
+      "discount_percent": "Alennus {percent}",
       "grand_total": "Yhteensä",
       "accept": "Hyväksy ja tee tilaus",
       "decline": "Hylkää tarjous",

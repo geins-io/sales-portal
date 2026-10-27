@@ -98,9 +98,10 @@ interface RawQuotation {
     country?: string;
   } | null;
   orderId?: string | null;
+  /** The seller's discount; the amount it comes to is on the cart summary. */
   discount?: {
-    discountIncVat?: number;
-    discountIncVatFormatted?: string;
+    type?: string | null;
+    value?: number | null;
   } | null;
 }
 
@@ -115,7 +116,12 @@ interface RawCartSummary {
     feeExVat?: number;
     feeExVatFormatted?: string;
   };
-  total?: RawPrice;
+  total?: RawPrice & {
+    vat?: number;
+    vatFormatted?: string;
+  };
+  fixedAmountDiscountIncVat?: number;
+  fixedAmountDiscountExVat?: number;
 }
 
 interface RawQuotationCart {
@@ -219,8 +225,10 @@ function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
     lineItems: items,
     subtotal: summary?.subTotal?.sellingPriceIncVat ?? 0,
     subtotalFormatted: summary?.subTotal?.sellingPriceIncVatFormatted ?? '',
-    tax: summary?.subTotal?.vat ?? 0,
-    taxFormatted: summary?.subTotal?.vatFormatted ?? '',
+    // The total's VAT, as the order view reads it: the subtotal's leaves out
+    // the shipping and the discount.
+    tax: summary?.total?.vat ?? 0,
+    taxFormatted: summary?.total?.vatFormatted ?? '',
     shipping: summary?.shipping?.feeIncVat ?? 0,
     shippingFormatted: summary?.shipping?.feeIncVatFormatted ?? '',
     total: summary?.total?.sellingPriceIncVat ?? 0,
@@ -231,6 +239,12 @@ function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
     shippingExVatFormatted: summary?.shipping?.feeExVatFormatted ?? '',
     totalExVat: summary?.total?.sellingPriceExVat ?? 0,
     totalExVatFormatted: summary?.total?.sellingPriceExVatFormatted ?? '',
+    discount: summary?.fixedAmountDiscountIncVat ?? 0,
+    discountExVat: summary?.fixedAmountDiscountExVat ?? 0,
+    discountPercent:
+      q.discount?.type === 'Percent'
+        ? (q.discount.value ?? undefined)
+        : undefined,
     currency: q.currency ?? '',
     paymentTerms: q.terms?.text ?? undefined,
     expiresAt: q.validTo ?? undefined,

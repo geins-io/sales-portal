@@ -878,6 +878,7 @@
       "subtotal": "Delsum",
       "subtotal_with_count": "Delsum ({count} varer)",
       "shipping": "Fragt",
+      "discount_percent": "Rabat {percent}",
       "grand_total": "I alt",
       "accept": "Accepter og afgiv ordre",
       "decline": "Afvis tilbud",

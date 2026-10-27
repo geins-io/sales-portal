@@ -84,6 +84,11 @@ export interface Quote {
   shippingExVatFormatted: string;
   totalExVat: number;
   totalExVatFormatted: string;
+  /** The seller's discount as a positive amount; 0 without one. Not formatted by the API. */
+  discount?: number;
+  discountExVat?: number;
+  /** The rate, only when the seller gave the discount as a percent. */
+  discountPercent?: number;
   currency: string;
   paymentTerms?: string;
   expiresAt?: string;

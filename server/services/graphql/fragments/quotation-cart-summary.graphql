@@ -18,5 +18,9 @@ fragment QuotationCartSummary on CartSummaryType {
     sellingPriceIncVatFormatted
     sellingPriceExVat
     sellingPriceExVatFormatted
+    vat
+    vatFormatted
   }
+  fixedAmountDiscountIncVat
+  fixedAmountDiscountExVat
 }

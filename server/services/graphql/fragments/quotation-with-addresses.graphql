@@ -28,4 +28,8 @@ fragment QuotationWithAddresses on CartQuotationType {
     region
     country
   }
+  discount {
+    type
+    value
+  }
 }
