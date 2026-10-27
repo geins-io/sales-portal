@@ -33,6 +33,9 @@ describe('ConfiguratorMessages', () => {
     const rows = wrapper.findAll('[data-testid="configurator-message"]');
     expect(rows).toHaveLength(1);
     expect(rows[0]?.attributes('data-severity')).toBe('error');
+    expect(rows[0]?.classes()).toEqual(
+      expect.arrayContaining(['bg-danger/10', 'text-danger']),
+    );
     expect(rows[0]?.text()).toContain('That table top is out of production.');
   });
 
@@ -47,7 +50,7 @@ describe('ConfiguratorMessages', () => {
     expect(row.text()).toContain('Electric legs require a power strip.');
   });
 
-  it('renders an info message in the neutral style, not as a warning', () => {
+  it('renders an info message in the info tone, not as a warning', () => {
     const wrapper = mountComponent(ConfiguratorMessages, {
       props: {
         messages: [{ severity: 'info', text: 'Delivered pre-assembled.' }],
@@ -57,7 +60,7 @@ describe('ConfiguratorMessages', () => {
     const row = wrapper.find('[data-testid="configurator-message"]');
     expect(row.attributes('data-severity')).toBe('info');
     expect(row.classes()).toEqual(
-      expect.arrayContaining(['bg-muted', 'text-muted-foreground']),
+      expect.arrayContaining(['bg-info/10', 'text-info']),
     );
     expect(row.classes()).not.toContain('text-warning');
     expect(row.find('[aria-label]').attributes('aria-label')).toBe(

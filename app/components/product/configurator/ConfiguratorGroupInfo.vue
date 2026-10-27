@@ -37,7 +37,7 @@ const icon = {
 } as const;
 
 const tone: Record<ConfigurationMessage['severity'], string> = {
-  error: 'text-destructive',
+  error: 'text-danger',
   warning: 'text-warning',
   info: 'text-muted-foreground hover:text-foreground',
 };

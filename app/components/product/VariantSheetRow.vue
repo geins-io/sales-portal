@@ -63,15 +63,11 @@ defineProps<{
       <div
         v-if="showStock"
         class="mt-1 flex items-center gap-1 text-xs"
-        :class="
-          inStock
-            ? 'text-emerald-600 dark:text-emerald-400'
-            : 'text-muted-foreground'
-        "
+        :class="inStock ? 'text-success' : 'text-muted-foreground'"
       >
         <span
           class="size-1.5 rounded-full"
-          :class="inStock ? 'bg-emerald-500' : 'bg-muted-foreground'"
+          :class="inStock ? 'bg-success' : 'bg-muted-foreground'"
         />
         {{ inStock ? $t('product.in_stock') : $t('product.out_of_stock') }}
       </div>

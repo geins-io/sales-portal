@@ -13,7 +13,8 @@ import ProductCard, {
 } from '~/components/shared/ProductCard.vue';
 import { useQuotesStore } from '~/stores/quotes';
 import { useFavoritesStore } from '~/stores/favorites';
-import { getQuoteStatusPillClass } from '~/utils/quote-status';
+import { getQuoteStatusVariant } from '~/utils/quote-status';
+import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 
 definePageMeta({
@@ -289,12 +290,9 @@ function handleProductAddToCart(
                 <div class="text-sm font-medium">
                   {{ quoteTotal(quote) }}
                 </div>
-                <span
-                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                  :class="getQuoteStatusPillClass(quote.status)"
-                >
+                <Badge :variant="getQuoteStatusVariant(quote.status)">
                   {{ getStatusLabel(quote.status) }}
-                </span>
+                </Badge>
               </div>
             </NuxtLink>
           </div>
@@ -332,12 +330,9 @@ function handleProductAddToCart(
                     {{ formatDate(quote.createdAt) }}
                   </td>
                   <td class="py-3 pr-4">
-                    <span
-                      class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-                      :class="getQuoteStatusPillClass(quote.status)"
-                    >
+                    <Badge :variant="getQuoteStatusVariant(quote.status)">
                       {{ getStatusLabel(quote.status) }}
-                    </span>
+                    </Badge>
                   </td>
                   <td class="py-3 pr-4">{{ quoteTotal(quote) }}</td>
                   <td class="py-3 text-right">

@@ -53,7 +53,7 @@ const open = ref(true);
           {{ title }}
           <span
             v-if="required"
-            class="text-destructive"
+            class="text-danger"
             :data-testid="`${name}-required`"
           >
             <span aria-hidden="true">*</span>

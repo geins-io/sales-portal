@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
-import { getQuoteStatusPillClass } from '~/utils/quote-status';
+import { getQuoteStatusVariant } from '~/utils/quote-status';
 import type { QuoteListItem, QuoteStatus } from '#shared/types/quote';
 
 definePageMeta({ middleware: ['auth', 'feature'], feature: 'quotes' });
@@ -160,13 +161,12 @@ function getStatusLabel(status: QuoteStatus): string {
           >
             <div class="mb-2 flex items-center justify-between">
               <span class="font-medium">{{ quote.quoteNumber || '—' }}</span>
-              <span
+              <Badge
                 data-testid="quote-status-badge"
-                class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-                :class="getQuoteStatusPillClass(quote.status)"
+                :variant="getQuoteStatusVariant(quote.status)"
               >
                 {{ getStatusLabel(quote.status) }}
-              </span>
+              </Badge>
             </div>
             <div class="text-muted-foreground space-y-1 text-sm">
               <div class="flex justify-between">
@@ -219,13 +219,12 @@ function getStatusLabel(status: QuoteStatus): string {
                   {{ totalOf(quote) }}
                 </td>
                 <td class="py-3 pr-4">
-                  <span
+                  <Badge
                     data-testid="quote-status-badge"
-                    class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-                    :class="getQuoteStatusPillClass(quote.status)"
+                    :variant="getQuoteStatusVariant(quote.status)"
                   >
                     {{ getStatusLabel(quote.status) }}
-                  </span>
+                  </Badge>
                 </td>
                 <td class="py-3 text-right">
                   <PortalRowAction

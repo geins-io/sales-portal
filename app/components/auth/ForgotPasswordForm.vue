@@ -103,7 +103,7 @@ async function handleSubmit() {
       />
       <p
         v-if="touched.email && fieldErrors.email"
-        class="text-destructive text-xs"
+        class="text-danger text-xs"
         data-testid="forgot-email-error"
       >
         {{ t(fieldErrors.email) }}

@@ -176,7 +176,7 @@ async function handleSubmit() {
     <div
       v-if="authStore.error"
       data-testid="register-error"
-      class="bg-destructive/10 text-destructive rounded-md p-3 text-sm"
+      class="bg-danger/10 text-danger rounded-md p-3 text-sm"
     >
       {{ t(authStore.error) }}
     </div>
@@ -198,7 +198,7 @@ async function handleSubmit() {
       />
       <p
         v-if="touched[field.name] && fieldErrors[field.name]"
-        class="text-destructive text-xs"
+        class="text-danger text-xs"
         :data-testid="`register-${field.name}-error`"
       >
         {{ t(fieldErrors[field.name]!, { min: MIN_PASSWORD_LENGTH }) }}

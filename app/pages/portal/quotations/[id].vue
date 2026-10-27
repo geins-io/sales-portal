@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ArrowLeft, Calendar, Clock, FileText, User } from 'lucide-vue-next';
+import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { useQuotesStore } from '~/stores/quotes';
 import { safeConfirm } from '~/utils/client-helpers';
-import { getQuoteStatusPillClass } from '~/utils/quote-status';
+import { getQuoteStatusVariant } from '~/utils/quote-status';
 import type { Quote, QuoteLineItem } from '#shared/types/quote';
 import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
 import { productPath } from '#shared/utils/route-helpers';
@@ -283,13 +284,12 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
                   {{ formatDate(quote.createdAt) }}
                 </p>
               </div>
-              <span
+              <Badge
                 data-testid="status-badge"
-                class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-                :class="getQuoteStatusPillClass(quote.status)"
+                :variant="getQuoteStatusVariant(quote.status)"
               >
                 {{ statusLabel(quote.status) }}
-              </span>
+              </Badge>
             </div>
 
             <!-- Summary + actions card -->
@@ -355,7 +355,7 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
                   v-if="store.error"
                   data-testid="action-error"
                   role="alert"
-                  class="bg-destructive/10 text-destructive border-destructive/20 mb-2 rounded-md border px-3 py-2 text-sm"
+                  class="bg-danger/10 text-danger border-danger/20 mb-2 rounded-md border px-3 py-2 text-sm"
                 >
                   {{ t(store.error) }}
                 </div>

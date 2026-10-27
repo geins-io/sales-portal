@@ -150,15 +150,12 @@ const { showPrice } = usePriceVisibility();
             </td>
           </tr>
           <tr v-if="amounts.discount">
-            <td
-              colspan="4"
-              class="text-destructive px-4 py-3 text-right text-sm"
-            >
+            <td colspan="4" class="text-danger px-4 py-3 text-right text-sm">
               {{ t('discount.discount') }}
             </td>
             <td
               data-testid="order-items-footer-discount"
-              class="text-destructive px-4 py-3 text-right text-sm font-medium"
+              class="text-danger px-4 py-3 text-right text-sm font-medium"
             >
               -{{ amounts.discount }}
             </td>

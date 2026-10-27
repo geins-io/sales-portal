@@ -32,7 +32,7 @@ const { error, clearError } = useErrorBoundary({
     <div
       v-else-if="!silent"
       role="alert"
-      class="border-destructive/20 bg-destructive/5 rounded-md border p-4 text-center"
+      class="border-danger/20 bg-danger/5 rounded-md border p-4 text-center"
     >
       <p class="text-muted-foreground text-sm">
         {{ $t('errors.section_failed') }}

@@ -4,7 +4,7 @@ import { Button } from '~/components/ui/button';
 import type { CartItemType, PriceType } from '#shared/types/commerce';
 import { filterVisibleCampaigns, formatPrice } from '#shared/types/commerce';
 import { productPath } from '#shared/utils/route-helpers';
-import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
+import { Badge } from '~/components/ui/badge';
 import { useCartStore } from '~/stores/cart';
 import { editLineHref } from '~/utils/configurator-edit';
 import { isShownAsDiscount } from '~/utils/price-discount';
@@ -213,14 +213,14 @@ const maxQuantity = computed(() => {
               v-if="visibleItemCampaigns.length"
               class="mt-0.5 flex flex-wrap gap-1"
             >
-              <span
+              <Badge
                 v-for="campaign in visibleItemCampaigns"
                 :key="campaign.name"
-                :class="BADGE_DESTRUCTIVE"
+                variant="destructive-soft"
                 data-testid="cart-item-campaign"
               >
                 {{ campaign.name }}
-              </span>
+              </Badge>
             </div>
           </div>
 
@@ -279,7 +279,7 @@ const maxQuantity = computed(() => {
                 data-testid="cart-item-regular-price"
                 >{{ regularTotalFormatted }}</span
               ><span
-                :class="{ 'text-destructive': onSale }"
+                :class="{ 'text-danger': onSale }"
                 data-testid="cart-item-total-price"
                 >{{ totalFormatted }}</span
               >
@@ -296,7 +296,7 @@ const maxQuantity = computed(() => {
 
         <p
           v-if="quantityFailed"
-          class="text-destructive text-xs"
+          class="text-danger text-xs"
           data-testid="cart-item-quantity-error"
         >
           {{ t('cart.quantity_change_failed') }}

@@ -1,22 +1,17 @@
 import type { QuoteStatus } from '#shared/types/quote';
+import type { BadgeVariant } from '~/components/ui/badge';
 
-/**
- * Tailwind class string for the quote status pill.
- *
- * Theme-aware where possible: success follows tenant `--primary`, error
- * follows `--destructive`, neutral follows `--muted`. Expired keeps a
- * hardcoded orange because the design system has no warning token.
- */
-export function getQuoteStatusPillClass(status: QuoteStatus): string {
+/** Badge variant for a quote status. */
+export function getQuoteStatusVariant(status: QuoteStatus): BadgeVariant {
   switch (status) {
     case 'pending':
-      return 'bg-muted text-muted-foreground';
+      return 'info';
     case 'accepted':
-      return 'bg-primary/10 text-primary';
+      return 'success';
     case 'rejected':
     case 'cancelled':
-      return 'bg-destructive/10 text-destructive';
+      return 'destructive-soft';
     case 'expired':
-      return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400';
+      return 'warning';
   }
 }

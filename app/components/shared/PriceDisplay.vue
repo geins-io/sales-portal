@@ -5,7 +5,7 @@ import type {
   ProductDiscountType,
 } from '#shared/types/commerce';
 import { formatPrice } from '#shared/types/commerce';
-import { BADGE_DESTRUCTIVE, BADGE_INFO } from '~/lib/badge-styles';
+import { Badge, type BadgeVariant } from '~/components/ui/badge';
 import { isShownAsDiscount } from '~/utils/price-discount';
 
 const props = withDefaults(
@@ -100,8 +100,8 @@ const discountLabel = computed(() => {
   }
 });
 
-const discountLabelClass = computed(() =>
-  props.discountType === 'EXTERNAL' ? BADGE_INFO : BADGE_DESTRUCTIVE,
+const discountLabelVariant = computed<BadgeVariant>(() =>
+  props.discountType === 'EXTERNAL' ? 'info' : 'destructive-soft',
 );
 
 const lowestPriceFormatted = computed(() => {
@@ -127,7 +127,7 @@ const lowestPriceFormatted = computed(() => {
       <span v-if="fromPrice" class="text-muted-foreground text-sm">From</span>
       <span
         class="font-semibold"
-        :class="isDiscounted ? 'text-destructive' : ''"
+        :class="isDiscounted ? 'text-danger' : ''"
         :data-testid="testid"
       >
         {{ sellingPrice }}
@@ -138,19 +138,19 @@ const lowestPriceFormatted = computed(() => {
       >
         {{ regularPrice }}
       </span>
-      <span
+      <Badge
         v-if="isDiscounted && discountPercentage > 0"
-        :class="BADGE_DESTRUCTIVE"
+        variant="destructive-soft"
       >
         -{{ discountPercentage }}%
-      </span>
-      <span
+      </Badge>
+      <Badge
         v-if="discountLabel"
-        :class="discountLabelClass"
+        :variant="discountLabelVariant"
         data-testid="discount-type-label"
       >
         {{ discountLabel }}
-      </span>
+      </Badge>
       <span
         v-if="vatLabel && !effectiveShowVat"
         class="text-muted-foreground text-xs"

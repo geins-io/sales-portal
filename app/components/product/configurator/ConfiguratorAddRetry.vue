@@ -29,7 +29,7 @@ const { t } = useI18n();
   <div class="space-y-3" data-testid="configurator-add-failed">
     <p
       v-if="message"
-      class="text-destructive flex items-start gap-2 text-sm"
+      class="text-danger flex items-start gap-2 text-sm"
       data-testid="configurator-add-error"
     >
       <AlertCircle class="mt-0.5 size-4 shrink-0" />

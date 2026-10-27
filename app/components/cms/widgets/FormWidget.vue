@@ -342,7 +342,7 @@ function selectPlaceholderFor(field: FormWidgetField): string {
           {{ entry.legend }}
           <span
             v-if="entry.required"
-            class="text-destructive ms-0.5"
+            class="text-danger ms-0.5"
             aria-hidden="true"
             >*</span
           >
@@ -376,7 +376,7 @@ function selectPlaceholderFor(field: FormWidgetField): string {
         <p
           v-if="touched[entry.name] && fieldErrors[entry.name]"
           :id="`form-field-${entry.name}-error`"
-          class="text-destructive text-xs"
+          class="text-danger text-xs"
           role="alert"
           :data-testid="`form-field-${entry.name}-error`"
         >
@@ -396,7 +396,7 @@ function selectPlaceholderFor(field: FormWidgetField): string {
           {{ entry.field.label }}
           <span
             v-if="entry.field.required"
-            class="text-destructive ms-0.5"
+            class="text-danger ms-0.5"
             aria-hidden="true"
             >*</span
           >
@@ -425,7 +425,7 @@ function selectPlaceholderFor(field: FormWidgetField): string {
               {{ entry.field.label }}
               <span
                 v-if="entry.field.required"
-                class="text-destructive ms-0.5"
+                class="text-danger ms-0.5"
                 aria-hidden="true"
                 >*</span
               >
@@ -515,7 +515,7 @@ function selectPlaceholderFor(field: FormWidgetField): string {
         <p
           v-if="touched[entry.field.name] && fieldErrors[entry.field.name]"
           :id="`form-field-${entry.field.name}-error`"
-          class="text-destructive text-xs"
+          class="text-danger text-xs"
           role="alert"
           :data-testid="`form-field-${entry.field.name}-error`"
         >

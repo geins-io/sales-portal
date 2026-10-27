@@ -84,7 +84,7 @@ async function handleSubmit() {
     class="space-y-3 py-4 text-center"
   >
     <div
-      class="bg-destructive/10 text-destructive mx-auto flex size-12 items-center justify-center rounded-full"
+      class="bg-danger/10 text-danger mx-auto flex size-12 items-center justify-center rounded-full"
     >
       <AlertCircle class="size-6" />
     </div>
@@ -126,7 +126,7 @@ async function handleSubmit() {
     <div
       v-if="authStore.error"
       data-testid="reset-error"
-      class="bg-destructive/10 text-destructive rounded-md p-3 text-sm"
+      class="bg-danger/10 text-danger rounded-md p-3 text-sm"
     >
       {{ t(authStore.error) }}
     </div>
@@ -145,7 +145,7 @@ async function handleSubmit() {
       />
       <p
         v-if="touched.password && fieldErrors.password"
-        class="text-destructive text-xs"
+        class="text-danger text-xs"
         data-testid="reset-password-error"
       >
         {{ t(fieldErrors.password, { min: MIN_PASSWORD_LENGTH }) }}
@@ -168,7 +168,7 @@ async function handleSubmit() {
       />
       <p
         v-if="touched.confirmPassword && fieldErrors.confirmPassword"
-        class="text-destructive text-xs"
+        class="text-danger text-xs"
         data-testid="reset-confirm-password-error"
       >
         {{ t(fieldErrors.confirmPassword) }}

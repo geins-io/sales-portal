@@ -126,7 +126,7 @@ describe('ConfiguratorOptionGroup', () => {
     const mark = header.find(MARK);
 
     expect(header.text()).toMatch(/^Table top/);
-    expect(mark.classes()).toContain('text-destructive');
+    expect(mark.classes()).toContain('text-danger');
     expect(mark.find('[aria-hidden="true"]').text()).toBe('*');
     expect(mark.find('.sr-only').text()).toBe('configurator.required');
   });
@@ -443,7 +443,7 @@ describe('ConfiguratorOptionGroup', () => {
     const cases = [
       ['info', 'text-muted-foreground', 'info'],
       ['warning', 'text-warning', 'triangle-alert'],
-      ['error', 'text-destructive', 'circle-alert'],
+      ['error', 'text-danger', 'circle-alert'],
     ] as const;
     for (const [severity, token, glyph] of cases) {
       const top = findOptionGroup(makeInitialConfiguration(), 'top');
@@ -675,7 +675,7 @@ describe('ConfiguratorOptionGroup', () => {
 
     const reason = wrapper.find('[data-testid="configurator-chooser-reason"]');
     expect(reason.text()).toBe('Not available with a steel top.');
-    expect(reason.classes()).toContain('text-destructive');
+    expect(reason.classes()).toContain('text-danger');
     expect(
       wrapper.find('[data-testid="configurator-chooser-lock"]').exists(),
     ).toBe(false);
@@ -1288,8 +1288,8 @@ describe('ConfiguratorOptionGroup', () => {
 
       const chooser = mountGroup(top).find(CHOOSER);
 
-      expect(chooser.classes()).not.toContain('border-selected/60');
-      expect(chooser.classes()).not.toContain('bg-selected/5');
+      expect(chooser.classes()).not.toContain('border-success/60');
+      expect(chooser.classes()).not.toContain('bg-success/5');
     });
 
     it('keeps the selected colour on a real chosen option in the same group', () => {
@@ -1299,8 +1299,8 @@ describe('ConfiguratorOptionGroup', () => {
 
       const chooser = mountGroup(top).find(CHOOSER);
 
-      expect(chooser.classes()).toContain('border-selected/60');
-      expect(chooser.classes()).toContain('bg-selected/5');
+      expect(chooser.classes()).toContain('border-success/60');
+      expect(chooser.classes()).toContain('bg-success/5');
     });
 
     it('gives the "nothing chosen" row in the sheet no selected colour, checked or not', async () => {
@@ -1314,8 +1314,8 @@ describe('ConfiguratorOptionGroup', () => {
 
         const row = wrapper.find(NONE);
         expect(row.attributes('data-selected')).toBe(String(!chosenId));
-        expect(row.classes()).not.toContain('border-selected/60');
-        expect(row.classes()).not.toContain('bg-selected/5');
+        expect(row.classes()).not.toContain('border-success/60');
+        expect(row.classes()).not.toContain('bg-success/5');
         const radio = row.find('[role="radio"]');
         expect(radio.attributes('aria-checked')).toBe(String(!chosenId));
         expect(radio.classes().join(' ')).not.toContain('selected');

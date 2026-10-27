@@ -197,7 +197,7 @@ describe('PriceDisplay', () => {
       });
       expect(wrapper.find('.line-through').exists()).toBe(false);
       expect(wrapper.find('[data-testid="amount"]').classes()).not.toContain(
-        'text-destructive',
+        'text-danger',
       );
       expect(wrapper.find('[data-testid="discount-type-label"]').exists()).toBe(
         false,
@@ -209,7 +209,7 @@ describe('PriceDisplay', () => {
         props: { price: makePrice(), testid: 'amount' },
       });
       expect(wrapper.find('[data-testid="amount"]').classes()).toContain(
-        'text-destructive',
+        'text-danger',
       );
       expect(wrapper.find('.line-through').text()).toContain('299,00 kr');
     });
@@ -238,7 +238,7 @@ describe('PriceDisplay', () => {
       const wrapper = mountTotal(roundingTotal(), 3);
       expect(wrapper.find('.line-through').exists()).toBe(false);
       expect(wrapper.find('[data-testid="amount"]').classes()).not.toContain(
-        'text-destructive',
+        'text-danger',
       );
     });
 
@@ -254,7 +254,7 @@ describe('PriceDisplay', () => {
         3,
       );
       expect(wrapper.find('[data-testid="amount"]').classes()).toContain(
-        'text-destructive',
+        'text-danger',
       );
       expect(wrapper.find('.line-through').text()).toContain('260,22 kr');
     });
@@ -262,7 +262,7 @@ describe('PriceDisplay', () => {
     it('judges one unit without a quantity, as before', () => {
       const wrapper = mountTotal(roundingTotal());
       expect(wrapper.find('[data-testid="amount"]').classes()).toContain(
-        'text-destructive',
+        'text-danger',
       );
     });
   });
@@ -373,14 +373,17 @@ describe('PriceDisplay', () => {
       expect(label.text()).toBe('discount.campaign');
     });
 
-    it('shows "Your price" for EXTERNAL in blue styling', () => {
+    it('shows "Your price" for EXTERNAL as an info badge', () => {
       const wrapper = mountComponent(PriceDisplay, {
         props: { price: makePrice(), discountType: 'EXTERNAL' },
       });
       const label = wrapper.find('[data-testid="discount-type-label"]');
       expect(label.exists()).toBe(true);
       expect(label.text()).toBe('discount.your_price');
-      expect(label.classes()).toContain('text-blue-800');
+      expect(label.attributes('data-slot')).toBe('badge');
+      expect(label.classes()).toEqual(
+        expect.arrayContaining(['bg-info/10', 'text-info']),
+      );
     });
 
     it('shows no label for NONE', () => {
@@ -413,12 +416,15 @@ describe('PriceDisplay', () => {
       );
     });
 
-    it('uses destructive styling for SALE_PRICE', () => {
+    it('uses the danger badge for SALE_PRICE', () => {
       const wrapper = mountComponent(PriceDisplay, {
         props: { price: makePrice(), discountType: 'SALE_PRICE' },
       });
       const label = wrapper.find('[data-testid="discount-type-label"]');
-      expect(label.classes()).toContain('text-destructive');
+      expect(label.attributes('data-slot')).toBe('badge');
+      expect(label.classes()).toEqual(
+        expect.arrayContaining(['bg-danger/10', 'text-danger']),
+      );
     });
   });
 

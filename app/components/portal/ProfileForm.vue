@@ -155,7 +155,7 @@ defineExpose({ submit: handleSubmit, isLoading: readonly(isLoading) });
     <div
       v-if="errorMessage"
       data-testid="profile-error"
-      class="bg-destructive/10 text-destructive rounded-md p-3 text-sm"
+      class="bg-danger/10 text-danger rounded-md p-3 text-sm"
     >
       {{ errorMessage }}
     </div>

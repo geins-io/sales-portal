@@ -270,7 +270,7 @@ async function handlePlaceOrder() {
           class="flex flex-col items-center gap-4"
           data-testid="checkout-redirect-error"
         >
-          <p class="text-destructive text-sm">{{ redirectError }}</p>
+          <p class="text-danger text-sm">{{ redirectError }}</p>
           <Button
             type="button"
             variant="outline"
@@ -287,7 +287,7 @@ async function handlePlaceOrder() {
         <!-- Error -->
         <div
           v-if="checkoutStore.error && !showEmptyCart"
-          class="bg-destructive/10 text-destructive mb-6 rounded-md p-4 text-sm"
+          class="bg-danger/10 text-danger mb-6 rounded-md p-4 text-sm"
           data-testid="checkout-error"
         >
           {{ t(checkoutStore.error) }}
@@ -299,7 +299,7 @@ async function handlePlaceOrder() {
           <!-- Blacklisted warning -->
           <div
             v-if="checkoutStore.isBlacklisted"
-            class="mb-6 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800"
+            class="border-warning/20 bg-warning/10 text-warning mb-6 rounded-md border p-4 text-sm"
             data-testid="checkout-blacklisted"
           >
             {{ t('checkout.blacklisted') }}

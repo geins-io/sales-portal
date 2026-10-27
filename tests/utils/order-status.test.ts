@@ -3,8 +3,9 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import {
   ORDER_STATUSES,
+  ORDER_STATUS_VARIANT,
   getOrderStatusLabel,
-  getOrderStatusPillClass,
+  getOrderStatusVariant,
 } from '../../app/utils/order-status';
 
 const LOCALES_DIR = resolve(__dirname, '../../app/locales');
@@ -62,35 +63,45 @@ describe('getOrderStatusLabel', () => {
   });
 });
 
-describe('getOrderStatusPillClass', () => {
+describe('getOrderStatusVariant', () => {
   it.each([
-    ['placed', 'bg-muted text-muted-foreground'],
-    ['processing', 'bg-amber-100'],
-    ['shipped', 'bg-indigo-100'],
-    ['delivered', 'bg-primary/10 text-primary'],
-    ['completed', 'bg-primary/10 text-primary'],
-    ['Cancelled', 'bg-destructive/10 text-destructive'],
-  ])('gives %s its own pill', (status, cls) => {
-    expect(getOrderStatusPillClass(status)).toContain(cls);
+    ['placed', 'neutral'],
+    ['pending', 'neutral'],
+    ['refunded', 'neutral'],
+    ['inactive', 'neutral'],
+    ['processing', 'info'],
+    ['shipped', 'info'],
+    ['backorder', 'info'],
+    ['partial', 'info'],
+    ['delivered', 'success-solid'],
+    ['completed', 'success-solid'],
+    ['on-hold', 'warning'],
+    ['cancelled', 'destructive-soft'],
+  ])('gives %s the %s tone', (status, variant) => {
+    expect(getOrderStatusVariant(status)).toBe(variant);
   });
 
-  it.each([
-    'on-hold',
-    'inactive',
-    'refunded',
-    'partial',
-    'backorder',
-    'pending',
-  ])('gives %s the default muted pill', (status) => {
-    expect(getOrderStatusPillClass(status)).toBe(
-      'bg-muted text-muted-foreground',
-    );
+  it('has a tone for every known status', () => {
+    for (const status of ORDER_STATUSES) {
+      expect(ORDER_STATUS_VARIANT[status], status).toEqual(expect.any(String));
+    }
   });
 
-  it('gives a missing status the default muted pill', () => {
-    expect(getOrderStatusPillClass(undefined)).toBe(
-      'bg-muted text-muted-foreground',
-    );
+  it('matches the status case-insensitively', () => {
+    expect(getOrderStatusVariant('Cancelled')).toBe('destructive-soft');
+    expect(getOrderStatusVariant('ON-HOLD')).toBe('warning');
+  });
+
+  it('gives an unknown or missing status the neutral tone', () => {
+    expect(getOrderStatusVariant('ready-for-pickup')).toBe('neutral');
+    expect(getOrderStatusVariant(undefined)).toBe('neutral');
+    expect(getOrderStatusVariant(null)).toBe('neutral');
+    expect(getOrderStatusVariant('')).toBe('neutral');
+  });
+
+  it('does not read a status from the object prototype', () => {
+    expect(getOrderStatusVariant('constructor')).toBe('neutral');
+    expect(getOrderStatusVariant('toString')).toBe('neutral');
   });
 });
 

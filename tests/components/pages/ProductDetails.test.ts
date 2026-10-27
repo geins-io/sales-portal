@@ -893,6 +893,9 @@ describe('ProductDetails', () => {
       const banner = wrapper.find('[data-testid="negotiated-price-banner"]');
       expect(banner.exists()).toBe(true);
       expect(banner.text()).toContain('discount.negotiated_price_info');
+      expect(banner.classes()).toEqual(
+        expect.arrayContaining(['bg-info/10', 'text-info']),
+      );
     });
 
     it('does not show banner for SALE_PRICE', async () => {

@@ -169,7 +169,7 @@ function onDate(event: Event) {
       {{ variable.name }}
       <span
         v-if="variable.required && variable.available && !readOnly"
-        class="text-destructive"
+        class="text-danger"
       >
         <span aria-hidden="true">*</span>
         <span class="sr-only">{{ t('configurator.required') }}</span>
@@ -260,7 +260,7 @@ function onDate(event: Event) {
 
     <p
       v-if="refused"
-      class="text-destructive flex items-start gap-2 text-sm"
+      class="text-danger flex items-start gap-2 text-sm"
       data-testid="configurator-change-refused"
     >
       <AlertCircle class="mt-0.5 size-4 shrink-0" />

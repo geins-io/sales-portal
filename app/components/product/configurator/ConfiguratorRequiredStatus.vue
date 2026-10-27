@@ -37,7 +37,7 @@ const listId = useId();
     class="flex gap-2 rounded-md px-3 py-2 text-xs lg:min-h-0"
     :class="
       configuration.isValid
-        ? 'bg-success/10 text-success items-center'
+        ? 'bg-success/8 text-success items-center'
         : 'bg-warning/10 text-warning items-stretch'
     "
     data-testid="configurator-required-status"

@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { Badge } from '~/components/ui/badge';
-import { getOrderStatusLabel } from '~/utils/order-status';
+import {
+  getOrderStatusLabel,
+  getOrderStatusVariant,
+} from '~/utils/order-status';
 
 const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
@@ -62,20 +65,6 @@ function getPlacedBy(order: { placedBy?: string | null }): string {
   return order.placedBy || '-';
 }
 
-function getStatusVariant(
-  status: string,
-): 'default' | 'secondary' | 'destructive' | 'outline' {
-  switch (status.toLowerCase()) {
-    case 'delivered':
-    case 'completed':
-      return 'default';
-    case 'cancelled':
-      return 'destructive';
-    default:
-      return 'secondary';
-  }
-}
-
 function getTotal(order: {
   cart?: {
     summary?: {
@@ -135,7 +124,7 @@ function handleSortCreated() {
         >
           <div class="mb-2 flex items-center justify-between">
             <span class="font-medium">#{{ order.id }}</span>
-            <Badge :variant="getStatusVariant(order.status)">
+            <Badge :variant="getOrderStatusVariant(order.status)">
               {{ getOrderStatusLabel(order.status, t) }}
             </Badge>
           </div>
@@ -202,7 +191,7 @@ function handleSortCreated() {
               {{ getTotal(order) }}
             </td>
             <td class="py-3 pr-4">
-              <Badge :variant="getStatusVariant(order.status)">
+              <Badge :variant="getOrderStatusVariant(order.status)">
                 {{ getOrderStatusLabel(order.status, t) }}
               </Badge>
             </td>

@@ -136,7 +136,7 @@ function onRow() {
     :data-selected="option.selected"
     class="rounded-lg border p-3 transition-colors"
     :class="[
-      option.selected ? 'border-selected/60 bg-selected/5' : '',
+      option.selected ? 'border-success/60 bg-success/5' : '',
       blocked ? 'opacity-50' : 'hover:bg-accent/50 cursor-pointer',
       readOnly ? 'cursor-default' : '',
     ]"
@@ -154,7 +154,7 @@ function onRow() {
         :value="option.id"
         :disabled="blocked"
         :title="reason"
-        class="data-[state=checked]:border-selected [&_svg]:fill-selected"
+        class="data-[state=checked]:border-success [&_svg]:fill-success"
         @click.stop
       />
       <Checkbox
@@ -162,7 +162,7 @@ function onRow() {
         :model-value="option.selected"
         :disabled="blocked"
         :title="reason"
-        class="data-[state=checked]:border-selected data-[state=checked]:bg-selected"
+        class="data-[state=checked]:border-success data-[state=checked]:bg-success"
         @click.stop
         @update:model-value="onToggle"
       />
@@ -214,7 +214,7 @@ function onRow() {
           v-if="reason"
           data-testid="configurator-option-reason"
           class="text-xs"
-          :class="available ? 'text-muted-foreground' : 'text-destructive'"
+          :class="available ? 'text-muted-foreground' : 'text-danger'"
         >
           {{ reason }}
         </p>

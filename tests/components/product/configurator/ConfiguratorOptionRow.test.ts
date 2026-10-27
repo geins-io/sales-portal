@@ -506,7 +506,7 @@ describe('ConfiguratorOptionRow', () => {
     expect(reason.text()).toBe(
       'Braked castors cannot be combined with electric legs.',
     );
-    expect(reason.classes()).toContain('text-destructive');
+    expect(reason.classes()).toContain('text-danger');
     expect(
       wrapper.find('[data-testid="configurator-option-lock"]').exists(),
     ).toBe(false);
@@ -536,7 +536,7 @@ describe('ConfiguratorOptionRow', () => {
 
     expect(
       wrapper.find('[data-testid="configurator-option-reason"]').classes(),
-    ).toContain('text-destructive');
+    ).toContain('text-danger');
     expect(
       wrapper.find('[data-testid="configurator-option-lock"]').exists(),
     ).toBe(true);
@@ -675,7 +675,7 @@ describe('ConfiguratorOptionRow', () => {
     ).toBeDefined();
     const reason = wrapper.find('[data-testid="configurator-option-reason"]');
     expect(reason.text()).toBe('configurator.unavailable');
-    expect(reason.classes()).toContain('text-destructive');
+    expect(reason.classes()).toContain('text-danger');
   });
 
   it('emits nothing when a row of an unavailable group is clicked', async () => {

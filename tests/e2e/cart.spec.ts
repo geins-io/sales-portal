@@ -843,7 +843,7 @@ test.describe('Cart layout', () => {
     expect(
       await regular.evaluate((el) => getComputedStyle(el).textDecorationLine),
     ).toContain('line-through');
-    await expect(total).toHaveClass(/text-destructive/);
+    await expect(total).toHaveClass(/text-danger/);
     const [regularBox, totalBox] = await boxesInOneFrame(item, [
       'cart-item-regular-price',
       'cart-item-total-price',

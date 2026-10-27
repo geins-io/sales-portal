@@ -319,12 +319,12 @@ describe('PortalQuotations page', () => {
     }
 
     it.each<[QuoteListItem['status'], string]>([
-      ['pending', 'muted'],
-      ['accepted', 'primary'],
-      ['rejected', 'destructive'],
-      ['cancelled', 'destructive'],
-      ['expired', 'orange'],
-    ])('paints %s pill with theme-aware %s token', (status, token) => {
+      ['pending', 'bg-info/10'],
+      ['accepted', 'bg-success/8'],
+      ['rejected', 'bg-danger/10'],
+      ['cancelled', 'bg-danger/10'],
+      ['expired', 'bg-warning/10'],
+    ])('paints %s badge with its tone %s', (status, token) => {
       mockData.value = {
         quotes: [makeQuote({ status })],
         total: 1,

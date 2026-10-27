@@ -200,11 +200,11 @@ function goToCheckout() {
                 class="flex items-center justify-between"
                 data-testid="cart-summary-discount"
               >
-                <dt class="text-destructive">
+                <dt class="text-danger">
                   {{ $t('discount.discount') }}
                 </dt>
                 <dd
-                  class="text-destructive font-medium"
+                  class="text-danger font-medium"
                   data-testid="cart-summary-discount-amount"
                 >
                   -{{ discountFormatted }}
@@ -241,8 +241,8 @@ function goToCheckout() {
                 :key="campaign.name"
                 class="flex items-center gap-1 text-xs"
               >
-                <Tag class="text-destructive size-3" />
-                <span class="text-destructive">{{ campaign.name }}</span>
+                <Tag class="text-danger size-3" />
+                <span class="text-danger">{{ campaign.name }}</span>
               </div>
             </div>
             <div v-if="showPrice" class="border-border border-t pt-3">
@@ -267,7 +267,7 @@ function goToCheckout() {
 
           <p
             v-if="cartStore.error"
-            class="text-destructive text-sm"
+            class="text-danger text-sm"
             data-testid="cart-error"
           >
             {{ cartStore.error }}

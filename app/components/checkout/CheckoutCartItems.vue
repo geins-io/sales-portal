@@ -155,7 +155,7 @@ function handleRemove(item: CartItemType) {
             </div>
             <p
               v-if="item.id != null && cartStore.quantityFailed.has(item.id)"
-              class="text-destructive mt-2 text-xs"
+              class="text-danger mt-2 text-xs"
               data-testid="checkout-cart-item-quantity-error"
             >
               {{ t('cart.quantity_change_failed') }}

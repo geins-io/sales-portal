@@ -72,7 +72,7 @@ const reason = computed(() => {
     :data-selected="!!chosen"
     :data-none="showsNone"
     class="hover:bg-accent/50 flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors"
-    :class="chosen ? 'border-selected/60 bg-selected/5' : ''"
+    :class="chosen ? 'border-success/60 bg-success/5' : ''"
     @click="emit('open')"
   >
     <ConfiguratorOptionImage
@@ -118,7 +118,7 @@ const reason = computed(() => {
         :class="
           chosen?.available && !unavailable
             ? 'text-muted-foreground'
-            : 'text-destructive'
+            : 'text-danger'
         "
       >
         {{ reason }}

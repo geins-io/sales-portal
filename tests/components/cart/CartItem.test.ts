@@ -242,7 +242,7 @@ describe('CartItem', () => {
     ).toBe(false);
     expect(
       wrapper.find('[data-testid="cart-item-total-price"]').classes(),
-    ).not.toContain('text-destructive');
+    ).not.toContain('text-danger');
   });
 
   describe('campaign badges', () => {
@@ -867,7 +867,7 @@ describe('CartItem', () => {
         ]),
       );
       expect(total.text()).toBe('4980,00 kr');
-      expect(total.classes()).toContain('text-destructive');
+      expect(total.classes()).toContain('text-danger');
       expect(wrapper.text()).not.toContain('%');
     });
 
@@ -884,7 +884,7 @@ describe('CartItem', () => {
 
       expect(byId(wrapper, 'cart-item-regular-price').exists()).toBe(false);
       expect(byId(wrapper, 'cart-item-total-price').classes()).not.toContain(
-        'text-destructive',
+        'text-danger',
       );
     });
 

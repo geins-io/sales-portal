@@ -641,13 +641,31 @@ describe('OrderDetail', () => {
       expect(wrapper.find('[data-testid="portal-shell"]').exists()).toBe(true);
     });
 
-    function statusBadgeText(status: string): string {
+    // Shallow mounting stubs Badge without its slot; this one keeps the
+    // label and exposes the tone.
+    const badgeStub = {
+      template: '<span :data-variant="variant"><slot /></span>',
+      props: ['variant'],
+    };
+
+    function statusBadge(status: string) {
       mockData.value = makeOrder({ status });
       const wrapper = shallowMountComponent(OrderDetail, {
-        global: { stubs: defaultStubs },
+        global: { stubs: { ...defaultStubs, Badge: badgeStub } },
       });
-      return wrapper.find('[data-testid="status-badge"]').text();
+      return wrapper.find('[data-testid="status-badge"]');
     }
+
+    function statusBadgeText(status: string): string {
+      return statusBadge(status).text();
+    }
+
+    it('gives the status badge the tone the order list uses', () => {
+      expect(statusBadge('backorder').attributes('data-variant')).toBe('info');
+      expect(statusBadge('delivered').attributes('data-variant')).toBe(
+        'success-solid',
+      );
+    });
 
     it('translates a Geins status outside the original six', () => {
       expect(statusBadgeText('backorder')).toBe(

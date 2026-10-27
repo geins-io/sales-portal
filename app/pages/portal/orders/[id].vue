@@ -2,11 +2,12 @@
 import { ArrowLeft, LoaderCircle, RotateCw } from 'lucide-vue-next';
 import type { OrderDetailType } from '#shared/types/commerce';
 import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
+import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
 import {
   getOrderStatusLabel,
-  getOrderStatusPillClass,
+  getOrderStatusVariant,
 } from '~/utils/order-status';
 import { reorderLines } from '~/utils/reorder';
 import { productPath } from '#shared/utils/route-helpers';
@@ -289,14 +290,13 @@ const orderTotals = computed<PortalItemTotal[]>(() =>
                   {{ formatDate(order?.createdAt) }}
                 </p>
               </div>
-              <span
+              <Badge
                 v-if="order?.status"
                 data-testid="status-badge"
-                class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-                :class="getOrderStatusPillClass(order?.status)"
+                :variant="getOrderStatusVariant(order?.status)"
               >
                 {{ getOrderStatusLabel(order?.status, t) }}
-              </span>
+              </Badge>
             </div>
 
             <!-- Summary Card -->

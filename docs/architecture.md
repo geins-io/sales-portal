@@ -1010,7 +1010,7 @@ The `DetailProduct` interface in `shared/types/commerce.ts` extends `ProductType
 
 ### Shared Patterns
 
-- **Badge styles**: `app/lib/badge-styles.ts` — `BADGE_DESTRUCTIVE` (sales/campaigns) and `BADGE_INFO` (negotiated/external)
+- **Badges**: the shadcn `Badge` with a tone variant — `destructive-soft` (sales/campaigns) and `info` (negotiated/external)
 - **Campaign filter**: `filterVisibleCampaigns()` in `shared/types/commerce.ts` — filters `hideTitle: true` campaigns
 - **Cart discount getters**: `discountAmount` and `visibleCartCampaigns` live in the cart Pinia store to avoid duplication between CartDrawer and CartPage
 

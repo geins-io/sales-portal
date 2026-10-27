@@ -13,7 +13,7 @@ const cartStore = useCartStore();
     data-testid="cart-load-failed"
     class="bg-muted flex items-center gap-3 rounded-md px-4 py-3 text-sm"
   >
-    <AlertCircle class="text-destructive size-4 shrink-0" />
+    <AlertCircle class="text-danger size-4 shrink-0" />
     <span class="flex-1">{{
       $t(cartStore.isEmpty ? 'cart.load_failed' : 'cart.refresh_failed')
     }}</span>

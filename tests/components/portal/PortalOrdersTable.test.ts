@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { mountComponent } from '../../utils/component';
 import { mockShowIncVat, mockTenantTimezone } from '../../setup-components';
 import PortalOrdersTable from '../../../app/components/portal/PortalOrdersTable.vue';
+import { badgeVariants } from '../../../app/components/ui/badge';
 
 const mockShowPrice = ref(true);
 vi.mock('../../../app/composables/usePriceVisibility', () => ({
@@ -203,17 +204,28 @@ describe('PortalOrdersTable', () => {
     expect(wrapper.emitted('sort')![0]).toEqual(['created']);
   });
 
-  it('renders correct status badge variants', () => {
-    const ordersWithStatuses = [
-      { ...mockOrders[0], status: 'delivered' },
-      { ...mockOrders[1], status: 'cancelled' },
-    ];
-    const wrapper = mountComponent(PortalOrdersTable, {
-      props: { orders: ordersWithStatuses },
-    });
-    expect(wrapper.text()).toContain('portal.orders.status.delivered');
-    expect(wrapper.text()).toContain('portal.orders.status.cancelled');
-  });
+  it.each([
+    ['delivered', 'success-solid'],
+    ['cancelled', 'destructive-soft'],
+    ['processing', 'info'],
+    ['on-hold', 'warning'],
+    ['backorder', 'info'],
+    ['placed', 'neutral'],
+  ] as const)(
+    'renders %s as the %s badge in both layouts',
+    (status, variant) => {
+      const wrapper = mountComponent(PortalOrdersTable, {
+        props: { orders: [{ ...mockOrders[0], status }] },
+      });
+      const badges = wrapper.findAll('[data-slot="badge"]');
+      expect(badges).toHaveLength(2);
+      for (const badge of badges) {
+        expect(badge.classes()).toEqual(
+          expect.arrayContaining(badgeVariants({ variant }).split(' ')),
+        );
+      }
+    },
+  );
 
   it('translates a Geins status outside the original six', () => {
     const wrapper = mountComponent(PortalOrdersTable, {

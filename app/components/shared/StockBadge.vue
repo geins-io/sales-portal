@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { StockType, StockStatus } from '#shared/types/commerce';
 import { getStockStatus } from '#shared/types/commerce';
+import type { BadgeVariant } from '~/components/ui/badge';
 
 const props = withDefaults(
   defineProps<{
@@ -34,31 +35,31 @@ const label = computed(() => {
   }
 });
 
-const badgeClass = computed(() => {
+const variant = computed<BadgeVariant | undefined>(() => {
   switch (status.value) {
     case 'in-stock':
-      return 'bg-green-100 text-green-800 border-green-200';
+      return 'success';
     case 'low-stock':
-      return 'bg-amber-100 text-amber-800 border-amber-200';
+      return 'warning';
     case 'out-of-stock':
-      return 'bg-red-100 text-red-800 border-red-200';
+      return 'destructive-soft';
     case 'on-demand':
-      return 'bg-blue-100 text-blue-800 border-blue-200';
+      return 'info';
     default:
-      return '';
+      return undefined;
   }
 });
 
 const dotColor = computed(() => {
   switch (status.value) {
     case 'in-stock':
-      return 'border-green-600';
+      return 'border-success';
     case 'low-stock':
-      return 'border-amber-600';
+      return 'border-warning';
     case 'out-of-stock':
-      return 'border-red-600';
+      return 'border-danger';
     case 'on-demand':
-      return 'border-blue-600';
+      return 'border-info';
     default:
       return '';
   }
@@ -66,7 +67,7 @@ const dotColor = computed(() => {
 </script>
 
 <template>
-  <!-- Compact inline: green dot + text -->
+  <!-- Compact inline: tone dot + text -->
   <span
     v-if="showStock && status && size === 'sm'"
     class="inline-flex items-center gap-1 text-xs"
@@ -79,7 +80,7 @@ const dotColor = computed(() => {
   </span>
 
   <!-- Default: pill badge -->
-  <Badge v-else-if="showStock && status" variant="outline" :class="badgeClass">
+  <Badge v-else-if="showStock && status" :variant="variant">
     {{ label }}
   </Badge>
 </template>

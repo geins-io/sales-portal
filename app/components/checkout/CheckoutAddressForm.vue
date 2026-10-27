@@ -243,7 +243,7 @@ defineExpose({ validate });
           />
           <p
             v-if="touched[field.name] && fieldErrors[field.name]"
-            class="text-destructive text-xs"
+            class="text-danger text-xs"
             :data-testid="`${prefix}-${field.name}-error`"
           >
             {{ t(fieldErrors[field.name]!) }}

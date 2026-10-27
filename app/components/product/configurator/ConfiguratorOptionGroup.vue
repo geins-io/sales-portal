@@ -221,7 +221,7 @@ function onSheetPick(value: unknown) {
 
       <p
         v-if="refusedHere"
-        class="text-destructive flex items-start gap-2 text-sm"
+        class="text-danger flex items-start gap-2 text-sm"
         data-testid="configurator-change-refused"
       >
         <AlertCircle class="mt-0.5 size-4 shrink-0" />

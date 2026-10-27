@@ -28,7 +28,8 @@ const SIGNED_IN: AuthUser = {
 };
 
 const badgeStub = {
-  template: '<span class="badge" :class="$attrs.class"><slot /></span>',
+  template:
+    '<span class="badge" :class="$attrs.class" :data-variant="variant"><slot /></span>',
   props: ['variant'],
 };
 
@@ -103,6 +104,43 @@ describe('StockBadge', () => {
       global: { stubs },
     });
     expect(wrapper.text()).toBe('');
+  });
+
+  describe('tone', () => {
+    it.each([
+      ['in-stock', 'success', 'border-success', makeStock()],
+      [
+        'low-stock',
+        'warning',
+        'border-warning',
+        makeStock({ totalStock: 3, inStock: 3 }),
+      ],
+      [
+        'out-of-stock',
+        'destructive-soft',
+        'border-danger',
+        makeStock({ totalStock: 0, inStock: 0 }),
+      ],
+      [
+        'on-demand',
+        'info',
+        'border-info',
+        makeStock({ totalStock: 0, inStock: 0, static: 10 }),
+      ],
+    ])('renders %s as the %s badge, dot %s', (_, variant, dot, stock) => {
+      const pill = mountComponent(StockBadge, {
+        props: { stock },
+        global: { stubs },
+      });
+      expect(pill.find('.badge').attributes('data-variant')).toBe(variant);
+      expect(pill.find('.badge').attributes('class')).toBe('badge');
+
+      const compact = mountComponent(StockBadge, {
+        props: { stock, size: 'sm' },
+        global: { stubs },
+      });
+      expect(compact.find('.rounded-full').classes()).toContain(dot);
+    });
   });
 
   // One test per configured value of `stockStatus`, each writing the value

@@ -54,9 +54,9 @@ const emit = defineEmits<{
         class="flex items-center justify-between text-sm"
         data-testid="checkout-summary-discount"
       >
-        <span class="text-destructive">{{ t('checkout.discount') }}</span>
+        <span class="text-danger">{{ t('checkout.discount') }}</span>
         <span
-          class="text-destructive font-medium"
+          class="text-danger font-medium"
           data-testid="checkout-summary-discount-amount"
           >-{{ props.discount }}</span
         >

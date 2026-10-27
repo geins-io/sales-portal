@@ -114,7 +114,7 @@ async function handleSubmit() {
     <div
       v-if="errorMessage"
       data-testid="password-error"
-      class="bg-destructive/10 text-destructive rounded-md p-3 text-sm"
+      class="bg-danger/10 text-danger rounded-md p-3 text-sm"
     >
       {{ errorMessage }}
     </div>
@@ -133,7 +133,7 @@ async function handleSubmit() {
       />
       <p
         v-if="touched.currentPassword && fieldErrors.currentPassword"
-        class="text-destructive text-xs"
+        class="text-danger text-xs"
         data-testid="password-current-error"
       >
         {{ t(fieldErrors.currentPassword) }}
@@ -154,7 +154,7 @@ async function handleSubmit() {
       />
       <p
         v-if="touched.newPassword && fieldErrors.newPassword"
-        class="text-destructive text-xs"
+        class="text-danger text-xs"
         data-testid="password-new-error"
       >
         {{ t(fieldErrors.newPassword, { min: MIN_PASSWORD_LENGTH }) }}
@@ -175,7 +175,7 @@ async function handleSubmit() {
       />
       <p
         v-if="touched.confirmPassword && fieldErrors.confirmPassword"
-        class="text-destructive text-xs"
+        class="text-danger text-xs"
         data-testid="password-confirm-error"
       >
         {{ t(fieldErrors.confirmPassword) }}

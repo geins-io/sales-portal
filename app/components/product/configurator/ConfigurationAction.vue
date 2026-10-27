@@ -116,7 +116,7 @@ const auth = useAuthStore();
 
     <p
       v-if="error"
-      class="text-destructive mt-2 flex items-start gap-2 text-sm"
+      class="text-danger mt-2 flex items-start gap-2 text-sm"
       data-testid="configurator-action-error"
     >
       <AlertCircle class="mt-0.5 size-4 shrink-0" />

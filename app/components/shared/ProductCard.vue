@@ -3,7 +3,7 @@ import type { DetailProduct, ListProduct } from '#shared/types/commerce';
 import { filterVisibleCampaigns, getStockStatus } from '#shared/types/commerce';
 import { productPath } from '#shared/utils/route-helpers';
 import { THUMBNAIL_WIDTHS } from '#shared/utils/image';
-import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
+import { Badge } from '~/components/ui/badge';
 import {
   ShoppingCart,
   SlidersHorizontal,
@@ -247,14 +247,14 @@ async function addToCart() {
           v-if="visibleCampaigns.length"
           class="absolute top-2 left-2 flex flex-col gap-1"
         >
-          <span
+          <Badge
             v-for="campaign in visibleCampaigns"
             :key="campaign.name"
-            :class="BADGE_DESTRUCTIVE"
+            variant="destructive-soft"
             data-testid="campaign-badge"
           >
             {{ campaign.name }}
-          </span>
+          </Badge>
         </div>
       </div>
     </div>
@@ -340,7 +340,7 @@ async function addToCart() {
       >
         <span
           v-if="product.salePrice != null"
-          class="text-destructive text-sm font-semibold"
+          class="text-danger text-sm font-semibold"
           data-testid="sale-price"
         >
           {{ product.salePrice }}
@@ -464,14 +464,14 @@ async function addToCart() {
           v-if="visibleCampaigns.length"
           class="absolute top-1 left-1 flex flex-col gap-0.5"
         >
-          <span
+          <Badge
             v-for="campaign in visibleCampaigns"
             :key="campaign.name"
-            :class="BADGE_DESTRUCTIVE"
+            variant="destructive-soft"
             data-testid="campaign-badge"
           >
             {{ campaign.name }}
-          </span>
+          </Badge>
         </div>
       </div>
 

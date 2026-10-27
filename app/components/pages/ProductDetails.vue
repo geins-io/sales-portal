@@ -3,7 +3,7 @@ import type { DetailProduct, ListProduct } from '#shared/types/commerce';
 import { filterVisibleCampaigns, getStockStatus } from '#shared/types/commerce';
 import type { ContentAreaType } from '#shared/types/cms';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
-import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
+import { Badge } from '~/components/ui/badge';
 import {
   BadgeCheck,
   Download,
@@ -576,19 +576,19 @@ useProductSeo({
               class="flex flex-wrap gap-1"
               data-testid="pdp-campaign-badges"
             >
-              <span
+              <Badge
                 v-for="campaign in visibleCampaigns"
                 :key="campaign.name"
-                :class="BADGE_DESTRUCTIVE"
+                variant="destructive-soft"
               >
                 {{ campaign.name }}
-              </span>
+              </Badge>
             </div>
 
             <!-- Negotiated price info banner -->
             <div
               v-if="product.discountType === 'EXTERNAL'"
-              class="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800"
+              class="bg-info/10 text-info flex items-center gap-2 rounded-md px-3 py-2 text-sm"
               data-testid="negotiated-price-banner"
             >
               <BadgeCheck class="size-4 shrink-0" />

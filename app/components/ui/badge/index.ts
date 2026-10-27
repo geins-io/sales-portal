@@ -16,6 +16,13 @@ export const badgeVariants = cva(
           'bg-destructive [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60 border-transparent text-white',
         outline:
           'text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground',
+        neutral: 'border-transparent bg-neutral-500/10 text-neutral-600',
+        info: 'bg-info/10 text-info border-transparent',
+        success: 'bg-success/8 text-success border-transparent',
+        'success-solid': 'bg-success border-transparent text-white',
+        warning: 'bg-warning/10 text-warning border-transparent',
+        'destructive-soft': 'bg-danger/10 text-danger border-transparent',
+        draft: 'text-muted-foreground border-dashed border-neutral-300',
       },
     },
     defaultVariants: {
@@ -24,3 +31,4 @@ export const badgeVariants = cva(
   },
 );
 export type BadgeVariants = VariantProps<typeof badgeVariants>;
+export type BadgeVariant = NonNullable<BadgeVariants['variant']>;

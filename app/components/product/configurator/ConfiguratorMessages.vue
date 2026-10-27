@@ -12,9 +12,9 @@ defineProps<{ messages: ConfigurationMessage[] }>();
 const { t } = useI18n();
 
 const tone: Record<ConfigurationMessage['severity'], string> = {
-  error: 'bg-destructive/10 text-destructive',
+  error: 'bg-danger/10 text-danger',
   warning: 'bg-warning/10 text-warning',
-  info: 'bg-muted text-muted-foreground',
+  info: 'bg-info/10 text-info',
 };
 </script>
 

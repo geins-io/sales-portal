@@ -82,7 +82,7 @@ const unknownType = computed(() => {
   <div
     v-else-if="unknownType && isDev"
     data-testid="cms-widget-unknown"
-    class="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+    class="border-warning/20 bg-warning/10 text-warning rounded border px-3 py-2 text-xs"
   >
     Unknown widget: {{ unknownType }}
   </div>

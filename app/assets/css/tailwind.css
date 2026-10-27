@@ -33,9 +33,10 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  --color-selected: var(--selected);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-danger: var(--danger);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -95,13 +96,17 @@
     --accent-foreground: #171717;
     --destructive: #d80027;
     --destructive-foreground: #ffffff;
-    /* The three states the tenant theme does not carry. `selected` marks a
-       chosen row and is deliberately not themed: a tenant whose primary is a
-       near-black neutral would otherwise mark its choices in grey. Used as
-       `bg-x/10 text-x`, the way `destructive` already is. */
-    --selected: #0f766e;
-    --success: #047857;
-    --warning: #b45309;
+    /* The four state tones the tenant theme does not carry, so a status reads
+       the same on every tenant whatever its brand colour. Used as `bg-x/10
+       text-x`. `danger` is the soft red; `destructive` stays for solid danger.
+       Tailwind 4 palette colours (emerald-700, sky-800, red-700), except
+       `warning`, a custom value between amber-700 and amber-800 chosen so its
+       text on its tint stays above 4.5:1. `success` uses an 8 % tint instead
+       of 10 % for the same reason. */
+    --success: #007a55;
+    --warning: #b24800;
+    --info: #00598a;
+    --danger: #c10007;
     --border: #e5e5e5;
     --input: #e5e5e5;
     --ring: #4497f7;

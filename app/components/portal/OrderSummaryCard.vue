@@ -34,7 +34,7 @@ const { showPrice } = usePriceVisibility();
       </div>
       <div
         v-if="amounts.discount"
-        class="text-destructive flex justify-between text-sm"
+        class="text-danger flex justify-between text-sm"
         data-testid="order-summary-discount"
       >
         <span>{{ t('discount.discount') }}</span>

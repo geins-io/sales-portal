@@ -212,9 +212,7 @@ const mockProductOutOfStock = {
               <span v-else class="text-xs italic">None</span>
             </div>
             <p v-if="isLoading" class="text-muted-foreground">Loading...</p>
-            <p v-if="error" class="text-destructive">
-              Error: {{ error?.message }}
-            </p>
+            <p v-if="error" class="text-danger">Error: {{ error?.message }}</p>
           </CardContent>
         </Card>
 
