@@ -30,6 +30,8 @@
 #   ROUND_PAUSE         seconds between rounds (20)
 #   LIVENESS_ATTEMPTS   polls of /api/health until it reports EXPECTED_SHA (20)
 #   LIVENESS_INTERVAL   seconds between those polls (15)
+#   STARTED_AFTER       optional epoch seconds on the target's own clock; liveness
+#                       also waits for a process that started at or after it
 #   WARM_HITS           requests per page, the first discarded (4)
 #   HIT_PAUSE           seconds between hits on the same page (2)
 #   MAX_TIME            curl timeout per request (30)
@@ -52,6 +54,7 @@ ROUNDS="${ROUNDS:-3}"
 ROUND_PAUSE="${ROUND_PAUSE:-20}"
 LIVENESS_ATTEMPTS="${LIVENESS_ATTEMPTS:-20}"
 LIVENESS_INTERVAL="${LIVENESS_INTERVAL:-15}"
+STARTED_AFTER="${STARTED_AFTER:-}"
 WARM_HITS="${WARM_HITS:-4}"
 HIT_PAUSE="${HIT_PAUSE:-2}"
 MAX_TIME="${MAX_TIME:-30}"
@@ -63,7 +66,14 @@ readonly READY=0
 readonly SOFT=1
 readonly HARD=2
 
+# Seconds a process start may read before STARTED_AFTER and still count as after
+# it: uptime is rounded to whole seconds and the threshold drops its milliseconds.
+# Safe only while the process it must reject is older than this; deploy.yml's
+# "Prepare the swap" says why it is.
+readonly START_MARGIN=2
+
 SERVED_SHA=""
+SERVED_STARTED=""
 SERVED_TENANT=""
 VERIFY_PATHS=""
 PAGE_ROWS=""
@@ -108,6 +118,11 @@ if ((ROUNDS < 1)); then
   exit 1
 fi
 
+if [[ -n "$STARTED_AFTER" && ! "$STARTED_AFTER" =~ ^[0-9]+$ ]]; then
+  err "STARTED_AFTER is '${STARTED_AFTER}'; expected epoch seconds."
+  exit 1
+fi
+
 if ! command -v jq >/dev/null 2>&1; then
   err "jq is required to read /api/config, /api/health and the sitemap."
   exit 1
@@ -137,6 +152,20 @@ median() {
   printf '%s\n' "$@" | sort -n | awk -v i="$(($# / 2 + 1))" 'NR == i { print; exit }'
 }
 
+# Echoes when the process behind an authorized /api/health body started, in epoch
+# seconds on the target's clock (timestamp - uptime), or nothing when either field
+# is missing. Nothing means "not known", never "started after".
+process_started() {
+  printf '%s' "$1" | jq -r '
+    if (.timestamp | type) == "string" and (.uptime | type) == "number"
+    then (.timestamp | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) - .uptime | floor
+    else empty end' 2>/dev/null
+}
+
+iso() {
+  jq -nr --argjson s "$1" '$s | todate'
+}
+
 # -----------------------------------------------------------------------------
 # Checks
 # -----------------------------------------------------------------------------
@@ -152,8 +181,13 @@ median() {
 # health key in its environment and failed the build id check. A public health
 # response here therefore means "not yet", and only the last attempt reads it
 # as a key problem.
+#
+# The build alone does not tell the process the preview restarted from the one
+# before it: both run the same image. With STARTED_AFTER it also waits for a
+# process that started after the preview, so the renders below warm the process
+# the swap promotes, not one that is stopped seconds later.
 wait_for_liveness() {
-  local i response code body sha public_answers=0 last=""
+  local i response code body sha started public_answers=0 no_start=0 last="" stale_started=""
   for ((i = 1; i <= LIVENESS_ATTEMPTS; i++)); do
     response=$(fetch "${BASE_URL}/api/health?key=${HEALTH_KEY}")
     code=$(printf '%s' "$response" | tail -n 1)
@@ -167,8 +201,22 @@ wait_for_liveness() {
         public_answers=$((public_answers + 1))
         say "liveness: public health response (no commitSha) on attempt ${i}/${LIVENESS_ATTEMPTS}, waiting for ${EXPECTED_SHA}"
       elif [[ "$sha" == "$EXPECTED_SHA" ]]; then
-        say "liveness: ${LABEL} serves ${sha} on attempt ${i}/${LIVENESS_ATTEMPTS}"
-        return 0
+        if [[ -z "$STARTED_AFTER" ]]; then
+          say "liveness: ${LABEL} serves ${sha} on attempt ${i}/${LIVENESS_ATTEMPTS}"
+          return 0
+        fi
+
+        started=$(process_started "$body")
+        if [[ -z "$started" ]]; then
+          no_start=1
+          say "liveness: ${LABEL} serves ${sha} but reports no timestamp or uptime on attempt ${i}/${LIVENESS_ATTEMPTS}, waiting for a process started after the preview"
+        elif ((started >= STARTED_AFTER - START_MARGIN)); then
+          say "liveness: ${LABEL} serves ${sha} from a process started $(iso "$started"), after the preview, on attempt ${i}/${LIVENESS_ATTEMPTS}"
+          return 0
+        else
+          stale_started="$started"
+          say "liveness: ${LABEL} serves ${sha} from a process started $(iso "$started"), $((STARTED_AFTER - started)) s before the preview, on attempt ${i}/${LIVENESS_ATTEMPTS}; waiting for a process started after it"
+        fi
       else
         last="$sha"
         say "liveness: ${LABEL} serves ${sha} on attempt ${i}/${LIVENESS_ATTEMPTS}, waiting for ${EXPECTED_SHA}"
@@ -180,7 +228,11 @@ wait_for_liveness() {
     fi
   done
 
-  if [[ -z "$last" && "$public_answers" -gt 0 ]]; then
+  if [[ -n "$stale_started" ]]; then
+    err "No process on ${LABEL} started after the preview ($(iso "$STARTED_AFTER"), ${LABEL} clock) in ${LIVENESS_ATTEMPTS} attempts. The last process seen that reported a start serves ${EXPECTED_SHA} and started at $(iso "$stale_started"), $((STARTED_AFTER - stale_started)) s before the preview. The preview has restarted the slot in every release so far, so the restart failed or is still running; readiness would warm a process the swap does not promote."
+  elif ((no_start)); then
+    err "${LABEL} served ${EXPECTED_SHA} but never reported timestamp and uptime in ${LIVENESS_ATTEMPTS} attempts, so whether its process started after the preview is unknown."
+  elif [[ -z "$last" && "$public_answers" -gt 0 ]]; then
     err "${LABEL} never reported a build in ${LIVENESS_ATTEMPTS} attempts: every 200 was the public health response. Either the new container never took over, or NUXT_HEALTH_CHECK_SECRET on the target does not match HEALTH_CHECK_SECRET here - the Bicep step of this workflow sets it, and a slot picks it up at that step or at --action preview."
   else
     err "${LABEL} never reported ${EXPECTED_SHA} after ${LIVENESS_ATTEMPTS} attempts; the last build it reported was ${last:-none}."
@@ -238,6 +290,9 @@ check_build_id() {
   fi
 
   SERVED_SHA="$sha"
+  # Recorded for the summary: the same row from the readiness run and from the
+  # production run after the swap shows whether the warmed process went live.
+  SERVED_STARTED=$(process_started "$body")
   if [[ "$sha" != "$EXPECTED_SHA" ]]; then
     err "build id: expected ${EXPECTED_SHA}, ${LABEL} serves ${sha}. Not retried; a wrong build does not become the right one."
     return $HARD
@@ -388,10 +443,17 @@ run_round() {
 # -----------------------------------------------------------------------------
 
 write_summary() {
-  local verdict="$1"
+  local verdict="$1" started_row="not read"
 
   if [[ -z "${GITHUB_STEP_SUMMARY:-}" ]]; then
     return 0
+  fi
+
+  if [[ -n "$SERVED_STARTED" ]]; then
+    started_row="$(iso "$SERVED_STARTED") (${LABEL} clock)"
+    if [[ -n "$STARTED_AFTER" ]]; then
+      started_row="${started_row}, preview at $(iso "$STARTED_AFTER")"
+    fi
   fi
 
   {
@@ -403,6 +465,7 @@ write_summary() {
     echo "| Tenant | ${SERVED_TENANT:-not read} |"
     echo "| Expected build | \`${EXPECTED_SHA}\` |"
     echo "| Served build | \`${SERVED_SHA:-not read}\` |"
+    echo "| Process started | ${started_row} |"
     echo "| Median TTFB budget | ${TTFB_BUDGET_MS} ms |"
     echo ""
 

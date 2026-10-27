@@ -436,13 +436,33 @@ jobs:
           fi
 
       - name: Prepare the swap
+        id: preview
         if: needs.prepare.outputs.environment == 'prod'
+        env:
+          HEALTH_URL: ${{ steps.image.outputs.health_url }}
         run: |
           # --action preview applies production's app settings to the slot, restarts it if
           # they differ, and leaves the swap pending without moving any traffic. Readiness
           # runs after this and never before: a warm-up against the slot's own settings
           # warms a configuration that is about to be replaced, and the restart would throw
           # the warm caches away anyway.
+          #
+          # The command returns before the restarted process takes traffic, and both
+          # processes report the same build. So the slot's clock is read just before the
+          # preview, and readiness waits for a process that started after it, within a 2 s
+          # margin for rounding. Both sides of that comparison are the slot's clock; the
+          # runner's never enters it. The margin cannot admit the previous process because
+          # the wait step above only passes on a process serving the new build, the last
+          # start before this read: measured 13-17 s before it, ~5-7 s at worst by
+          # construction. A longer poll there or a step moved in between shrinks that gap.
+          if ! PREVIEW_AT=$(curl -fsS --max-time 30 "${HEALTH_URL}/api/health" |
+            jq -er '.timestamp | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601'); then
+            echo "::error::Could not read the slot's clock from ${HEALTH_URL}/api/health, so readiness could not tell the restarted process from the previous one. Nothing has been swapped."
+            exit 1
+          fi
+          echo "preview_at=${PREVIEW_AT}" >> "$GITHUB_OUTPUT"
+          echo "$(date -u +%T) UTC - slot clock before the preview: $(jq -nr --argjson s "$PREVIEW_AT" '$s | todate')"
+
           echo "$(date -u +%T) UTC - applying production's settings to the slot (preview)"
           az webapp deployment slot swap \
             --resource-group ${{ needs.prepare.outputs.resource_group }} \
@@ -460,12 +480,19 @@ jobs:
           EXPECTED_TENANT_ID: ${{ vars.SWAP_VERIFY_TENANT_ID }}
           EXPECTED_SHA: ${{ github.sha }}
           HEALTH_KEY: ${{ secrets.HEALTH_CHECK_SECRET }}
+          # Makes readiness wait for the process the preview restarted, the one the swap
+          # promotes; without it the renders can land on the process about to be stopped.
+          STARTED_AFTER: ${{ steps.preview.outputs.preview_at }}
           LABEL: staging slot
         run: |
           # The requests that prove the app renders are the ones that fill its caches, so
           # this step is the warm-up and the gate at the same time. A health-only gate
           # would pass here in under a second on an instance that needs seventeen to draw
           # a page, which is what happened on 2026-09-10.
+          if [[ -z "$STARTED_AFTER" ]]; then
+            echo "::error::No preview time was set, so readiness could not tell the restarted process from the previous one. The preview step must export preview_at."
+            exit 1
+          fi
           bash .github/scripts/verify-deployment.sh
 
       - name: Create deployment summary
