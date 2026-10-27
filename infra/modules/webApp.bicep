@@ -241,8 +241,7 @@ var appSettingsAlways = [
   }
 ]
 
-// Only when set: a new app setting restarts production in place during the Bicep step,
-// so an environment without the URL keeps exactly the settings it has.
+// Only when set, so an environment without the URL keeps exactly the settings it has.
 var configuratorMerchantApiUrlSetting = empty(configuratorMerchantApiUrl)
   ? []
   : [
@@ -252,9 +251,10 @@ var configuratorMerchantApiUrlSetting = empty(configuratorMerchantApiUrl)
       }
     ]
 
-// App settings for the site and the staging slot. One definition on purpose: a slot swap
-// exchanges app settings, so a name declared on one side only lands in production at the
-// next swap. Nothing here is a slot setting - see infra/README.md.
+// App settings for the staging slot, and for the site where there is no slot. On prod they reach
+// production only through the swap, which carries a slot's app settings with it; written to the
+// site here, any change would restart production in place before the slot is even warmed.
+// Nothing here is a slot setting - see infra/README.md.
 var sharedAppSettings = concat(appSettingsAlways, configuratorMerchantApiUrlSetting)
 
 // Prod only: the container's stdout and its start/stop events, sent to the workspace. Without
@@ -330,14 +330,18 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
     serverFarmId: appServicePlanId
     httpsOnly: true
     clientAffinityEnabled: false
-    siteConfig: {
-      alwaysOn: environment != 'dev' // Always On for staging and prod
-      ftpsState: 'Disabled'
-      minTlsVersion: '1.2'
-      http20Enabled: true
-      healthCheckPath: '/api/health'
-      appSettings: sharedAppSettings
-    }
+    // Leaving appSettings out keeps the stored set: a PUT without it does not clear them. The
+    // other properties here still restart production in place when one of them changes.
+    siteConfig: union(
+      {
+        alwaysOn: environment != 'dev' // Always On for staging and prod
+        ftpsState: 'Disabled'
+        minTlsVersion: '1.2'
+        http20Enabled: true
+        healthCheckPath: '/api/health'
+      },
+      environment == 'prod' ? {} : { appSettings: sharedAppSettings }
+    )
   }
 }
 

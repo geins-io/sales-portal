@@ -52,6 +52,9 @@ check_az_cli() {
     if ! command -v az &> /dev/null; then
         log_error "Azure CLI is not installed. Please install it from https://docs.microsoft.com/cli/azure/install-azure-cli"
     fi
+    if ! command -v jq &> /dev/null; then
+        log_error "jq is not installed; it builds the request that sets the container image."
+    fi
 }
 
 check_az_login() {
@@ -191,7 +194,8 @@ deploy() {
 
         # The template never carries the image, so it is set here, the same way the deploy
         # workflow does it: on prod against the staging slot only, so that a swap stays the
-        # only thing that changes production's image.
+        # only thing that changes production's image. A PATCH of config/web, because
+        # az webapp config set --slot also PUTs the production site's app settings.
         # $slot_args is expanded unquoted on purpose: az needs --slot and staging as two
         # arguments, and quoting would hand it one argument it rejects.
         local slot_args=""
@@ -203,11 +207,15 @@ deploy() {
         # and is therefore a second source of it; the deploy workflow reads it from the
         # deployment outputs instead. Rename the resource in one place and this drifts.
         log_info "Setting container image: $container_image"
-        az webapp config set \
+        local target_id
+        target_id=$(az webapp show \
             --resource-group "$resource_group" \
             --name "${APP_NAME}-${environment}-app" \
             $slot_args \
-            --linux-fx-version "DOCKER|${container_image}" \
+            --query id --output tsv)
+        az rest --method patch \
+            --url "https://management.azure.com${target_id}/config/web?api-version=2023-12-01" \
+            --body "$(jq -nc --arg fx "DOCKER|${container_image}" '{properties: {linuxFxVersion: $fx}}')" \
             --output none
         log_success "Container image set"
 

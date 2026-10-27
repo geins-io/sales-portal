@@ -110,6 +110,9 @@ jobs:
       # this web app, it is looking at another subscription and must not report the
       # slot as clean.
       webapp_name: ${{ steps.outputs.outputs.webapp_name }}
+      # Production's app settings before this run touched anything; the swap job
+      # compares against it just before it completes the swap.
+      prod_settings_digest: ${{ steps.prodsettings.outputs.digest }}
     environment:
       name: ${{ needs.prepare.outputs.environment }}
       url: ${{ steps.outputs.outputs.webapp_url }}
@@ -220,10 +223,33 @@ jobs:
             fi
           fi
 
-          echo "site_image=${SITE_IMAGE}" >> $GITHUB_OUTPUT
-          echo "slot_image=${SLOT_IMAGE}" >> $GITHUB_OUTPUT
+          {
+            echo "webapp_name=${WEBAPP_NAME}"
+            echo "site_image=${SITE_IMAGE}"
+            echo "slot_image=${SLOT_IMAGE}"
+          } >> "$GITHUB_OUTPUT"
           echo "Site image before the deployment: ${SITE_IMAGE:-<none>}"
           echo "Slot image before the deployment: ${SLOT_IMAGE:-<none>}"
+
+      - name: Record production's app settings
+        id: prodsettings
+        if: needs.prepare.outputs.environment == 'prod'
+        env:
+          RESOURCE_GROUP: ${{ needs.prepare.outputs.resource_group }}
+          WEBAPP_NAME: ${{ steps.before.outputs.webapp_name }}
+        run: |
+          # On prod nothing in this release writes production's app settings: Bicep and the
+          # image step write the slot, and the swap carries the slot's set over. The swap job
+          # compares this digest just before it completes the swap, so a write that lands in
+          # between - a hand change, or a step that writes the site after all - stops the
+          # release instead of being swapped away unseen.
+          if [[ -z "$WEBAPP_NAME" ]]; then
+            echo "::error::No web app was found to read production's app settings from. Refusing to continue on prod."
+            exit 1
+          fi
+          DIGEST=$(bash .github/scripts/app-settings.sh digest)
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "$(date -u +%T) UTC - production's app settings: ${DIGEST}"
 
       - name: Deploy Bicep infrastructure
         id: deploy
@@ -337,6 +363,25 @@ jobs:
 
           echo "✅ The production site's image is unchanged."
 
+      - name: Compare production's app settings with the slot's
+        if: needs.prepare.outputs.environment == 'prod'
+        env:
+          RESOURCE_GROUP: ${{ needs.prepare.outputs.resource_group }}
+          WEBAPP_NAME: ${{ steps.outputs.outputs.webapp_name }}
+        run: |
+          # The slot now holds the set Bicep declares, and the swap will make it production's.
+          # A difference is expected when this release changes a setting. A setting that
+          # differs without such a change is one set on production by hand, which the swap
+          # replaces. Names only: the values include secrets.
+          if ! DIFFERING=$(bash .github/scripts/app-settings.sh differing); then
+            exit 1
+          fi
+          if [[ -z "$DIFFERING" ]]; then
+            echo "$(date -u +%T) UTC - production and the slot carry the same app settings."
+          else
+            echo "::warning::These app settings differ between production and the slot, and the swap gives production the slot's values: $(paste -sd, - <<<"$DIFFERING")"
+          fi
+
       - name: Start the staging slot
         if: needs.prepare.outputs.environment == 'prod'
         run: |
@@ -358,38 +403,35 @@ jobs:
         run: |
           # On prod only the staging slot is written, so that a swap stays the only thing
           # that changes production's image. Dev has no slot, so the site is the target.
-          # az webapp config set is used rather than az webapp config container set: it
-          # writes this one property, where the container command would also rewrite the
-          # DOCKER_REGISTRY_SERVER_* app settings, which the Bicep templates own.
+          # A PATCH of config/web writes this one property. az webapp config set is not
+          # used: with --slot it also PUTs the production site's app settings first, which
+          # this release must not touch; az webapp config container set would rewrite the
+          # DOCKER_REGISTRY_SERVER_* settings, which the Bicep templates own.
           echo "$(date -u +%T) UTC - setting the image"
           RG="${{ needs.prepare.outputs.resource_group }}"
           WEBAPP_NAME="${{ steps.outputs.outputs.webapp_name }}"
           FX="DOCKER|${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}"
 
-          # $SLOT_ARGS is expanded unquoted on purpose: az needs --slot and staging as two
-          # arguments, and quoting would hand it one argument it rejects.
-          SLOT_ARGS=""
-          HEALTH_HOST=""
+          SLOT_ARGS=()
           if [[ "${{ needs.prepare.outputs.environment }}" == "prod" ]]; then
-            SLOT_ARGS="--slot staging"
-            HEALTH_HOST=$(az webapp show \
-              --resource-group "$RG" --name "$WEBAPP_NAME" --slot staging \
-              --query defaultHostName --output tsv)
-          else
-            HEALTH_HOST=$(az webapp show \
-              --resource-group "$RG" --name "$WEBAPP_NAME" \
-              --query defaultHostName --output tsv)
+            SLOT_ARGS=(--slot staging)
           fi
+          TARGET_ID=$(az webapp show \
+            --resource-group "$RG" --name "$WEBAPP_NAME" "${SLOT_ARGS[@]}" \
+            --query id --output tsv)
+          HEALTH_HOST=$(az webapp show \
+            --resource-group "$RG" --name "$WEBAPP_NAME" "${SLOT_ARGS[@]}" \
+            --query defaultHostName --output tsv)
 
-          az webapp config set \
-            --resource-group "$RG" --name "$WEBAPP_NAME" $SLOT_ARGS \
-            --linux-fx-version "$FX" \
+          az rest --method patch \
+            --url "https://management.azure.com${TARGET_ID}/config/web?api-version=2023-12-01" \
+            --body "$(jq -nc --arg fx "$FX" '{properties: {linuxFxVersion: $fx}}')" \
             --output none
 
           # Read back, because a step that quietly wrote nothing would leave the wait below
           # passing against the previous image.
           ACTUAL=$(az webapp config show \
-            --resource-group "$RG" --name "$WEBAPP_NAME" $SLOT_ARGS \
+            --resource-group "$RG" --name "$WEBAPP_NAME" "${SLOT_ARGS[@]}" \
             --query linuxFxVersion --output tsv)
 
           if [[ "$ACTUAL" != "$FX" ]]; then
@@ -440,12 +482,15 @@ jobs:
         if: needs.prepare.outputs.environment == 'prod'
         env:
           HEALTH_URL: ${{ steps.image.outputs.health_url }}
+          RESOURCE_GROUP: ${{ needs.prepare.outputs.resource_group }}
+          WEBAPP_NAME: ${{ steps.outputs.outputs.webapp_name }}
+          SLOT: staging
         run: |
-          # --action preview applies production's app settings to the slot, restarts it if
-          # they differ, and leaves the swap pending without moving any traffic. Readiness
-          # runs after this and never before: a warm-up against the slot's own settings
-          # warms a configuration that is about to be replaced, and the restart would throw
-          # the warm caches away anyway.
+          # --action preview applies production's slot-specific settings to the slot (there
+          # are none), restarts it, and leaves the swap pending without moving any traffic.
+          # The slot's own app settings - the set Bicep declared, which the swap carries into
+          # production - stay as they are; the digest around the preview checks that. Readiness
+          # runs after this and never before: the restart would throw a warm-up away.
           #
           # The command returns before the restarted process takes traffic, and both
           # processes report the same build. So the slot's clock is read just before the
@@ -463,7 +508,9 @@ jobs:
           echo "preview_at=${PREVIEW_AT}" >> "$GITHUB_OUTPUT"
           echo "$(date -u +%T) UTC - slot clock before the preview: $(jq -nr --argjson s "$PREVIEW_AT" '$s | todate')"
 
-          echo "$(date -u +%T) UTC - applying production's settings to the slot (preview)"
+          SLOT_BEFORE=$(bash .github/scripts/app-settings.sh digest)
+
+          echo "$(date -u +%T) UTC - preparing the swap (preview)"
           az webapp deployment slot swap \
             --resource-group ${{ needs.prepare.outputs.resource_group }} \
             --name ${{ steps.outputs.outputs.webapp_name }} \
@@ -472,6 +519,13 @@ jobs:
             --action preview
 
           echo "$(date -u +%T) UTC - swap is pending; the cleanup job resets it unless the swap completes."
+
+          SLOT_AFTER=$(bash .github/scripts/app-settings.sh digest)
+          if [[ "$SLOT_AFTER" != "$SLOT_BEFORE" ]]; then
+            echo "::error::The preview changed the slot's app settings (${SLOT_BEFORE} -> ${SLOT_AFTER}), so the swap would not carry the set Bicep declared into production. Nothing has been swapped; the cleanup job resets the pending swap."
+            exit 1
+          fi
+          echo "$(date -u +%T) UTC - the slot's app settings are unchanged by the preview."
 
       - name: Warm up the slot and check readiness
         if: needs.prepare.outputs.environment == 'prod'
@@ -571,12 +625,33 @@ jobs:
             --output tsv)
           echo "webapp_name=${WEBAPP_NAME}" >> $GITHUB_OUTPUT
 
+      - name: Check that production's app settings did not change
+        env:
+          RESOURCE_GROUP: ${{ needs.prepare.outputs.resource_group }}
+          WEBAPP_NAME: ${{ steps.get-webapp.outputs.webapp_name }}
+          PROD_SETTINGS_BEFORE: ${{ needs.deploy.outputs.prod_settings_digest }}
+        run: |
+          # Nothing in this release writes production's app settings, so they must be what
+          # the deploy job recorded before Bicep ran. A difference is a write from outside the
+          # release - by hand, or by the platform - and the swap would replace it with the
+          # slot's set without anyone having seen it.
+          if [[ -z "$PROD_SETTINGS_BEFORE" ]]; then
+            echo "::error::The deploy job recorded no digest of production's app settings, so this check cannot run. Nothing has been swapped; rerun the release."
+            exit 1
+          fi
+          NOW=$(bash .github/scripts/app-settings.sh digest)
+          if [[ "$NOW" != "$PROD_SETTINGS_BEFORE" ]]; then
+            echo "::error::Production's app settings changed during this release (${PROD_SETTINGS_BEFORE} -> ${NOW}). Nothing has been swapped; find out what wrote them, then rerun the release."
+            exit 1
+          fi
+          echo "$(date -u +%T) UTC - production's app settings are unchanged since the deploy job started."
+
       - name: Complete the swap
         id: swap
         run: |
-          # Second phase only. The slot has been running with production's settings since
-          # the preview, and readiness was measured on that configuration, so this moves
-          # routing and nothing else.
+          # Second phase only. The slot has run with the settings it takes into production
+          # since the preview, and readiness was measured on that configuration, so this
+          # moves routing and the slot's app settings, and restarts nothing in production.
           echo "$(date -u +%T) UTC - completing the pending swap"
           az webapp deployment slot swap \
             --resource-group ${{ needs.prepare.outputs.resource_group }} \
@@ -639,6 +714,51 @@ jobs:
           echo "az webapp deployment slot swap --resource-group ${{ needs.prepare.outputs.resource_group }} --name ${{ steps.get-webapp.outputs.webapp_name }} --slot staging --target-slot production" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
+      - name: Copy production's app settings to the slot
+        # Also after a production that did not verify: the rollback it may need wants the
+        # same settings. On that path the slot is still running, so the copy restarts it
+        # on the previous build.
+        if: always() && steps.swap.outcome == 'success'
+        env:
+          RESOURCE_GROUP: ${{ needs.prepare.outputs.resource_group }}
+          WEBAPP_NAME: ${{ steps.get-webapp.outputs.webapp_name }}
+        run: |
+          # The swap left the slot with the set production had before this release. A
+          # rollback swaps the slot back in, and it should bring the previous build with the
+          # current settings, as it always has - so production's set is copied over, exactly.
+          # A replacing PUT rather than az webapp config appsettings set, which merges and
+          # never deletes. The body holds secrets: it stays in a file and is never printed.
+          set -o pipefail
+          degraded() {
+            echo "::error::$1 Production is live and verified on this release; Rollback Production is degraded until this step is rerun."
+            {
+              echo "### Release Done, Settings Copy Missing ⚠️"
+              echo ""
+              echo "Production is live and verified. Only the copy of production's app settings to the staging slot is missing, so a rollback would bring back the previous settings with the previous build. Rerun this job to copy them."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
+
+          SITE_ID=$(az webapp show --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --query id --output tsv) || degraded "Could not read the web app."
+          BODY="${RUNNER_TEMP}/prod-appsettings.json"
+          trap 'rm -f "$BODY"' EXIT
+
+          az rest --method post \
+            --url "https://management.azure.com${SITE_ID}/config/appsettings/list?api-version=2023-12-01" \
+            --output json | jq '{properties}' >"$BODY" || degraded "Could not read production's app settings."
+          az rest --method put \
+            --url "https://management.azure.com${SITE_ID}/slots/staging/config/appsettings?api-version=2023-12-01" \
+            --body "@${BODY}" \
+            --output none || degraded "Could not write the slot's app settings."
+
+          SITE_DIGEST=$(bash .github/scripts/app-settings.sh digest) || degraded "Could not read production's app settings back."
+          SLOT_DIGEST=$(SLOT=staging bash .github/scripts/app-settings.sh digest) || degraded "Could not read the slot's app settings back."
+          if [[ "$SITE_DIGEST" != "$SLOT_DIGEST" ]]; then
+            degraded "The slot's app settings do not match production's after the copy."
+          fi
+          echo "$(date -u +%T) UTC - ✅ the slot carries production's app settings."
+
       - name: Create deployment summary
         run: |
           # "Complete" is written here and nowhere else: production has reported the build
@@ -650,7 +770,7 @@ jobs:
           echo "| Verified | https://${{ vars.SWAP_VERIFY_HOST }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Build | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Image | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Staging slot | stopped, holding the previous image for a rollback |" >> $GITHUB_STEP_SUMMARY
+          echo "| Staging slot | stopped, holding the previous image with production's settings for a rollback |" >> $GITHUB_STEP_SUMMARY
 
   # ---------------------------------------------------------------------------
   # Clear a swap left pending (failure, rejection, cancellation)

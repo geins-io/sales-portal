@@ -387,13 +387,18 @@ az deployment group create \
   --parameters ghcrUsername="<github-username>" \
                ghcrToken="<github-pat>"
 
-# The templates never carry an image, so this second command is not optional: a site or a
+# The templates never carry an image, so this second step is not optional: a site or a
 # slot the template just created has no runtime until it has run. On prod, target the
-# staging slot (--slot staging) and let the swap promote it.
-az webapp config set \
+# staging slot (add --slot staging to az webapp show) and let the swap promote it.
+# A PATCH of config/web rather than az webapp config set: with --slot, that command also
+# PUTs the production site's app settings.
+TARGET_ID=$(az webapp show \
   --resource-group rg-sales-portal-dev \
   --name sales-portal-dev-app \
-  --linux-fx-version "DOCKER|ghcr.io/geins-io/sales-portal:dev"
+  --query id --output tsv)
+az rest --method patch \
+  --url "https://management.azure.com${TARGET_ID}/config/web?api-version=2023-12-01" \
+  --body '{"properties":{"linuxFxVersion":"DOCKER|ghcr.io/geins-io/sales-portal:dev"}}'
 ```
 
 ### Validate Templates
@@ -472,11 +477,25 @@ Two consequences to keep in mind:
 
 ### Slot Settings (Sticky Settings)
 
-`webApp.bicep` defines the app settings once, in the `sharedAppSettings` variable, and applies that
-same list to the production site and to the staging slot. A slot swap exchanges app settings, so a
-name declared on one side only arrives in production at the next swap — which is how production came
-to run without `NUXT_GEINS_TENANT_API_URL`, `NUXT_HEALTH_CHECK_SECRET` and `NUXT_PUBLIC_VERSION_X`
-after the release of 2026-09-03, on the code's defaults.
+`webApp.bicep` defines the app settings once, in the `sharedAppSettings` variable. On prod it writes
+them to the staging slot only; dev, which has no slot, gets them on the site. A slot swap carries a
+slot's app settings with it, so on prod **settings reach production only through the swap**: the
+release warms the slot with the new set, and the swap moves settings and image together. Writing them
+to the production site in the Bicep step restarted production in place whenever its settings
+differed from the declared set — a new setting, or one changed by hand that Bicep wrote back.
+
+What follows from that:
+
+- A setting added or changed on production by hand disappears at the next swap unless it is in
+  Bicep. The deploy workflow warns with the names that differ between production and the slot, and
+  fails the release if production's settings change while it runs ("rerun the release").
+- After every completed swap the workflow copies production's settings onto the slot, exactly. A
+  rollback therefore brings back the previous build with the current settings.
+- The site's other `siteConfig` properties (`alwaysOn`, `healthCheckPath`, `minTlsVersion`,
+  `http20Enabled`, `ftpsState`) and `httpsOnly` are still written by the Bicep step, and changing one
+  of them still restarts production in place.
+- `az deployment group what-if` against prod shows `appSettings` removed from the site. That is
+  expected: a PUT that leaves `appSettings` out keeps the stored set.
 
 **No setting is sticky.** `slotConfigNames` is not declared anywhere in `infra/`, and no setting is
 marked as a slot setting in Azure. That is deliberate: identical lists on both sides are the point,
@@ -498,7 +517,8 @@ settings() {
 diff <(settings) <(settings --slot staging) && echo "identical"
 ```
 
-`diff` prints nothing and every line ends in `False`.
+Between releases `diff` prints nothing and every line ends in `False`; during a release that changes
+a setting, the slot is ahead until the swap.
 
 ## Re-running Setup
 
