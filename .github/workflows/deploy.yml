@@ -485,6 +485,8 @@ jobs:
           RESOURCE_GROUP: ${{ needs.prepare.outputs.resource_group }}
           WEBAPP_NAME: ${{ steps.outputs.outputs.webapp_name }}
           SLOT: staging
+          HEALTH_KEY: ${{ secrets.HEALTH_CHECK_SECRET }}
+          EXPECTED_SHA: ${{ github.sha }}
         run: |
           # --action preview applies production's slot-specific settings to the slot (there
           # are none), restarts it, and leaves the swap pending without moving any traffic.
@@ -493,22 +495,30 @@ jobs:
           # runs after this and never before: the restart would throw a warm-up away.
           #
           # The command returns before the restarted process takes traffic, and both
-          # processes report the same build. So the slot's clock is read just before the
-          # preview, and readiness waits for a process that started after it, within a 2 s
-          # margin for rounding. Both sides of that comparison are the slot's clock; the
-          # runner's never enters it. The margin cannot admit the previous process because
-          # the wait step above only passes on a process serving the new build, the last
-          # start before this read: measured 13-17 s before it, ~5-7 s at worst by
-          # construction. A longer poll there or a step moved in between shrinks that gap.
-          if ! PREVIEW_AT=$(curl -fsS --max-time 30 "${HEALTH_URL}/api/health" |
-            jq -er '.timestamp | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601'); then
-            echo "::error::Could not read the slot's clock from ${HEALTH_URL}/api/health, so readiness could not tell the restarted process from the previous one. Nothing has been swapped."
+          # processes report the same build. So the process serving the slot is read just
+          # before the preview - its start, timestamp - uptime from the authorized
+          # /api/health - and readiness waits for one that started at least 3 s later.
+          # Comparing two processes rather than a process with a clock time does not depend
+          # on how long ago the previous one started: on v2026.10.27-4 it had started only
+          # 3 s before a clock read. Both starts come from the slot's clock. The 3 s covers
+          # rounding (two reads of the same process can differ by 1 s); a restart takes 16 s
+          # or more.
+          SLOT_BEFORE=$(bash .github/scripts/app-settings.sh digest)
+
+          HEALTH=$(curl -fsS --max-time 30 "${HEALTH_URL}/api/health?key=${HEALTH_KEY}") || HEALTH=""
+          SERVED_SHA=$(jq -r '.commitSha // empty' <<<"$HEALTH" 2>/dev/null) || SERVED_SHA=""
+          if [[ "$SERVED_SHA" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Before the preview the slot's process serves '${SERVED_SHA:-no build (no answer, or a public one)}', not ${EXPECTED_SHA}, so it is not the process the wait step accepted. A public answer means NUXT_HEALTH_CHECK_SECRET on the slot does not match HEALTH_CHECK_SECRET. Nothing has been swapped."
             exit 1
           fi
-          echo "preview_at=${PREVIEW_AT}" >> "$GITHUB_OUTPUT"
-          echo "$(date -u +%T) UTC - slot clock before the preview: $(jq -nr --argjson s "$PREVIEW_AT" '$s | todate')"
-
-          SLOT_BEFORE=$(bash .github/scripts/app-settings.sh digest)
+          if ! PREVIOUS_STARTED=$(jq -er 'if (.timestamp | type) == "string" and (.uptime | type) == "number"
+              then (.timestamp | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) - .uptime | floor
+              else error("no timestamp and uptime") end' <<<"$HEALTH"); then
+            echo "::error::The slot's process did not report when it started (timestamp and uptime on /api/health), so readiness could not tell the restarted process from the previous one. Nothing has been swapped."
+            exit 1
+          fi
+          echo "previous_started=${PREVIOUS_STARTED}" >> "$GITHUB_OUTPUT"
+          echo "$(date -u +%T) UTC - the slot's process before the preview started $(jq -nr --argjson s "$PREVIOUS_STARTED" '$s | todate') (slot clock)"
 
           echo "$(date -u +%T) UTC - preparing the swap (preview)"
           az webapp deployment slot swap \
@@ -536,15 +546,15 @@ jobs:
           HEALTH_KEY: ${{ secrets.HEALTH_CHECK_SECRET }}
           # Makes readiness wait for the process the preview restarted, the one the swap
           # promotes; without it the renders can land on the process about to be stopped.
-          STARTED_AFTER: ${{ steps.preview.outputs.preview_at }}
+          PREVIOUS_STARTED: ${{ steps.preview.outputs.previous_started }}
           LABEL: staging slot
         run: |
           # The requests that prove the app renders are the ones that fill its caches, so
           # this step is the warm-up and the gate at the same time. A health-only gate
           # would pass here in under a second on an instance that needs seventeen to draw
           # a page, which is what happened on 2026-09-10.
-          if [[ -z "$STARTED_AFTER" ]]; then
-            echo "::error::No preview time was set, so readiness could not tell the restarted process from the previous one. The preview step must export preview_at."
+          if [[ -z "$PREVIOUS_STARTED" ]]; then
+            echo "::error::No pre-preview process start was set, so readiness could not tell the restarted process from the previous one. The preview step must export previous_started."
             exit 1
           fi
           bash .github/scripts/verify-deployment.sh
