@@ -661,7 +661,9 @@ describe('OrderDetail', () => {
     }
 
     it('gives the status badge the tone the order list uses', () => {
-      expect(statusBadge('backorder').attributes('data-variant')).toBe('info');
+      expect(statusBadge('backorder').attributes('data-variant')).toBe(
+        'warning',
+      );
       expect(statusBadge('delivered').attributes('data-variant')).toBe(
         'success-solid',
       );

@@ -209,7 +209,7 @@ describe('PortalOrdersTable', () => {
     ['cancelled', 'destructive-soft'],
     ['processing', 'info'],
     ['on-hold', 'warning'],
-    ['backorder', 'info'],
+    ['backorder', 'warning'],
     ['placed', 'neutral'],
   ] as const)(
     'renders %s as the %s badge in both layouts',

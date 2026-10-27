@@ -71,11 +71,11 @@ describe('getOrderStatusVariant', () => {
     ['inactive', 'neutral'],
     ['processing', 'info'],
     ['shipped', 'info'],
-    ['backorder', 'info'],
     ['partial', 'info'],
     ['delivered', 'success-solid'],
     ['completed', 'success-solid'],
     ['on-hold', 'warning'],
+    ['backorder', 'warning'],
     ['cancelled', 'destructive-soft'],
   ])('gives %s the %s tone', (status, variant) => {
     expect(getOrderStatusVariant(status)).toBe(variant);

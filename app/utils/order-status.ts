@@ -44,8 +44,6 @@ export function getOrderStatusLabel(
 
 /**
  * Badge tone per order status, read by the order list and the order page.
- * on-hold, refunded, inactive, partial, backorder and completed are provisional
- * until the design answer lands.
  */
 export const ORDER_STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
   placed: 'neutral',
@@ -54,11 +52,11 @@ export const ORDER_STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
   inactive: 'neutral',
   processing: 'info',
   shipped: 'info',
-  backorder: 'info',
   partial: 'info',
   delivered: 'success-solid',
   completed: 'success-solid',
   'on-hold': 'warning',
+  backorder: 'warning',
   cancelled: 'destructive-soft',
 };
 
