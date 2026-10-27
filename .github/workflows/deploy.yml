@@ -170,8 +170,8 @@ jobs:
         env:
           RESOURCE_GROUP: ${{ needs.prepare.outputs.resource_group }}
         run: |
-          # Between --action preview and --action swap the slot runs with production's
-          # settings and the switch is half applied. Writing a new image into that state
+          # Between --action preview and --action swap the slot has been restarted for the
+          # swap and the switch is half applied. Writing a new image into that state
           # is not safe, and the cleanup job below clears it on every other path - so a
           # pending swap here means a previous run was killed before its cleanup ran.
           # The lookup is a script because the cleanup job asks the same question, and a
@@ -729,12 +729,25 @@ jobs:
           # A replacing PUT rather than az webapp config appsettings set, which merges and
           # never deletes. The body holds secrets: it stays in a file and is never printed.
           set -o pipefail
+          # Never "rerun this job" on failure: a re-run starts at the first step, where the
+          # settings guard fails or "Complete the swap" swaps again with no preview pending.
           degraded() {
-            echo "::error::$1 Production is live and verified on this release; Rollback Production is degraded until this step is rerun."
+            echo "::error::$1 The swap completed and production serves this release; Rollback Production is degraded until production's app settings are copied to the slot by hand (see the summary). Do not re-run this job."
             {
-              echo "### Release Done, Settings Copy Missing ⚠️"
+              echo "### Settings Copy Missing ⚠️"
               echo ""
-              echo "Production is live and verified. Only the copy of production's app settings to the staging slot is missing, so a rollback would bring back the previous settings with the previous build. Rerun this job to copy them."
+              echo "The swap completed and production serves this release. Only the copy of production's app settings to the staging slot is missing, so a rollback would bring back the previous settings with the previous build."
+              echo ""
+              echo "**Do not re-run this job**: it starts again at the first step and would swap the slots a second time. Copy the settings by hand instead:"
+              echo ""
+              echo '```'
+              echo "SITE_ID=\$(az webapp show --resource-group ${RESOURCE_GROUP} --name ${WEBAPP_NAME} --query id --output tsv)"
+              cat <<'EOF'
+          az rest --method post --url "https://management.azure.com${SITE_ID}/config/appsettings/list?api-version=2023-12-01" --output json | jq '{properties}' > prod-appsettings.json
+          az rest --method put --url "https://management.azure.com${SITE_ID}/slots/staging/config/appsettings?api-version=2023-12-01" --body @prod-appsettings.json --output none
+          rm prod-appsettings.json
+          EOF
+              echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           }
@@ -811,7 +824,7 @@ jobs:
           EXPECTED_WEBAPP_NAME: ${{ needs.deploy.outputs.webapp_name }}
         run: |
           # A swap left in preview is a state on Azure, not a step in this workflow: the
-          # slot keeps production's settings and the next deploy refuses to touch it. So
+          # switch stays half applied and the next deploy refuses to touch it. So
           # every path that does not complete the swap ends here.
           if ! STATE=$(bash .github/scripts/pending-swap.sh); then
             exit 1

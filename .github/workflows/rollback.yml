@@ -134,7 +134,7 @@ jobs:
         id: slot
         run: |
           # A swap left in preview means a deploy is mid-flight or was killed before its
-          # cleanup ran: the slot is already carrying production's settings and the switch
+          # cleanup ran: the slot has already been restarted for that swap and the switch
           # is half applied. Swapping on top of that state is not a rollback.
           # The same script the deploy guard uses, so a failed lookup cannot read as
           # "nothing pending" here either. It also hands back the web app name, which is
