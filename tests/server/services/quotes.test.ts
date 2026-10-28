@@ -256,6 +256,29 @@ describe('quotes service', () => {
   // getQuote
   // -------------------------------------------------------------------------
   describe('getQuote', () => {
+    it('gives the order a finalized quotation placed', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: makeRawQuotationCart({
+          status: 'FINALIZED',
+          orderId: '1712',
+        }),
+      });
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(result.orderId).toBe('1712');
+    });
+
+    it('gives a quotation without an order no order id', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: makeRawQuotationCart(),
+      });
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(result).not.toHaveProperty('orderId');
+    });
+
     it('gives a line without a library image no image url', async () => {
       const cart = makeRawQuotationCart();
       const [item] = cart.items as Record<string, unknown>[];
@@ -698,9 +721,9 @@ describe('quotes service', () => {
   });
 
   // -------------------------------------------------------------------------
-  // acceptQuote / rejectQuote
+  // acceptQuote / rejectQuote / finalizeQuote
   // -------------------------------------------------------------------------
-  // Geins answers both mutations with a Boolean; the quotation is read again
+  // Geins answers all three mutations with a Boolean; the quotation is read again
   // with getQuotationCart for the page.
   describe.each([
     {
@@ -716,6 +739,13 @@ describe('quotes service', () => {
       file: 'quotes/reject-quotation.graphql',
       rawStatus: 'REJECTED',
       status: 'rejected',
+    },
+    {
+      action: 'finalizeQuote' as const,
+      field: 'finalizeQuotation',
+      file: 'quotes/finalize-quotation.graphql',
+      rawStatus: 'FINALIZED',
+      status: 'finalized',
     },
   ])('$action', ({ action, field, file, rawStatus, status }) => {
     it('asks for no timeout: a write may finish upstream after a cut', async () => {

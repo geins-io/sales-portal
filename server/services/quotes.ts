@@ -304,6 +304,7 @@ function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
     externalReference: mapExternalReference(q.externalReference),
     seller: mapSeller(q.owner),
     ...mapAccepted(q.customer),
+    ...(q.orderId ? { orderId: q.orderId } : {}),
   };
 }
 
@@ -443,4 +444,9 @@ export function acceptQuote(quoteId: string, event: H3Event): Promise<Quote> {
 /** Reject a quotation via Geins GraphQL API */
 export function rejectQuote(quoteId: string, event: H3Event): Promise<Quote> {
   return respondToQuote('quotes/reject-quotation.graphql', quoteId, event);
+}
+
+/** Place the order for a quotation; Geins builds it from the quotation's cart */
+export function finalizeQuote(quoteId: string, event: H3Event): Promise<Quote> {
+  return respondToQuote('quotes/finalize-quotation.graphql', quoteId, event);
 }

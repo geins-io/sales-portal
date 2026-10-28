@@ -120,6 +120,8 @@ export interface Quote {
   /** When the buyer accepted, once the API sets it. */
   acceptedAt?: string;
   acceptedBy?: string;
+  /** Set once the quotation is finalized into an order. */
+  orderId?: string;
 }
 
 // ---------------------------------------------------------------------------
