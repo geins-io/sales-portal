@@ -112,6 +112,21 @@ describe('AuthSheet', () => {
       );
     });
 
+    it('hides divider, business info and apply link when applyForAccount enabled and apply page unresolved', () => {
+      mockApplyTo.value = undefined;
+      mockApplyResolved.value = false;
+      const wrapper = mountAuthSheet();
+      expect(wrapper.find('[data-testid="auth-sheet-divider"]').exists()).toBe(
+        false,
+      );
+      expect(
+        wrapper.find('[data-testid="auth-sheet-business-info"]').exists(),
+      ).toBe(false);
+      expect(wrapper.find('[data-testid="auth-sheet-apply"]').exists()).toBe(
+        false,
+      );
+    });
+
     it('hides apply link when applyForAccount feature is disabled', () => {
       setFeatures({ applyForAccount: { enabled: false } });
       const wrapper = mountAuthSheet();

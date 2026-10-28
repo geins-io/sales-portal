@@ -219,6 +219,19 @@ describe('AuthCard', () => {
       );
     });
 
+    it('hides divider, business-info, and apply button when applyForAccount enabled and apply page unresolved', () => {
+      mockApplyTo.value = undefined;
+      mockApplyResolved.value = false;
+      const wrapper = mountAuthCard();
+      expect(wrapper.find('[data-testid="auth-divider"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="auth-business-info"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.find('[data-testid="auth-apply-button"]').exists()).toBe(
+        false,
+      );
+    });
+
     it('shows divider, business-info, and apply button when applyForAccount enabled and registration disabled', () => {
       mockFeatures.value = {
         applyForAccount: { enabled: true },

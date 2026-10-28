@@ -72,7 +72,7 @@ watch(
         <template v-if="authStore.sheetView === 'login'">
           <LoginForm @success="handleSuccess" @forgot="handleForgot" />
 
-          <template v-if="hasFeature('applyForAccount')">
+          <template v-if="hasFeature('applyForAccount') && applyResolved">
             <div class="relative my-6">
               <Separator />
               <span
@@ -91,7 +91,6 @@ watch(
             </p>
 
             <NuxtLink
-              v-if="applyResolved"
               :to="applyTo"
               class="border-input bg-background hover:bg-accent hover:text-accent-foreground inline-flex h-10 w-full items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors"
               data-testid="auth-sheet-apply"
