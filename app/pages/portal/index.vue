@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { OrderListItem, PurchasedProduct } from '#shared/types/commerce';
-import type { QuoteListItem, QuoteStatus } from '#shared/types/quote';
+import type { QuoteListItem } from '#shared/types/quote';
 import {
   ChevronRight,
   FileText,
@@ -13,7 +13,10 @@ import ProductCard, {
 } from '~/components/shared/ProductCard.vue';
 import { useQuotesStore } from '~/stores/quotes';
 import { useFavoritesStore } from '~/stores/favorites';
-import { getQuoteStatusVariant } from '~/utils/quote-status';
+import {
+  getQuoteStatusLabelKey,
+  getQuoteStatusVariant,
+} from '~/utils/quote-status';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 
@@ -140,10 +143,6 @@ function formatDate(dateStr: string | number | null | undefined): string {
   } catch {
     return String(dateStr);
   }
-}
-
-function getStatusLabel(status: QuoteStatus): string {
-  return t(`portal.quotations.status_${status}`);
 }
 
 function mapPurchasedProduct(product: PurchasedProduct): ProductCardItem {
@@ -291,7 +290,7 @@ function handleProductAddToCart(
                   {{ quoteTotal(quote) }}
                 </div>
                 <Badge :variant="getQuoteStatusVariant(quote.status)">
-                  {{ getStatusLabel(quote.status) }}
+                  {{ t(getQuoteStatusLabelKey(quote.status)) }}
                 </Badge>
               </div>
             </NuxtLink>
@@ -331,7 +330,7 @@ function handleProductAddToCart(
                   </td>
                   <td class="py-3 pr-4">
                     <Badge :variant="getQuoteStatusVariant(quote.status)">
-                      {{ getStatusLabel(quote.status) }}
+                      {{ t(getQuoteStatusLabelKey(quote.status)) }}
                     </Badge>
                   </td>
                   <td class="py-3 pr-4">{{ quoteTotal(quote) }}</td>

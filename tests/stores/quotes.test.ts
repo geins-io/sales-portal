@@ -440,6 +440,18 @@ describe('useQuotesStore', () => {
 
       expect(store.pendingQuotes).toEqual([]);
     });
+
+    it('leaves out requests still with the seller', () => {
+      const store = useQuotesStore();
+      store.quotes = [
+        makeQuoteListItem({ id: 'q-draft', status: 'request_draft' }),
+        makeQuoteListItem({ id: 'q-requested', status: 'requested' }),
+        makeQuoteListItem({ id: 'q-unknown', status: 'unknown' }),
+        mockQuoteListItem3,
+      ];
+
+      expect(store.pendingQuotes.map((q) => q.id)).toEqual(['q-003']);
+    });
   });
 
   describe('pendingCount computed', () => {

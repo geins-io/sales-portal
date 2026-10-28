@@ -135,20 +135,22 @@ interface RawQuotationCart {
 // Status mapping
 // ---------------------------------------------------------------------------
 
+// DRAFT is the seller's unsent draft and never reaches the buyer, so it is
+// left to `unknown` with anything else the API may add.
 const QUOTATION_STATUS_MAP: Record<string, QuoteStatus> = {
-  DRAFT: 'pending',
+  REQUEST_DRAFT: 'request_draft',
+  REQUESTED: 'requested',
   PENDING: 'pending',
-  EXPIRED: 'expired',
-  REJECTED: 'rejected',
   ACCEPTED: 'accepted',
-  CONFIRMED: 'accepted',
-  FINALIZED: 'accepted',
-  CANCELED: 'cancelled',
+  CONFIRMED: 'confirmed',
+  FINALIZED: 'finalized',
+  REJECTED: 'rejected',
+  CANCELED: 'canceled',
+  EXPIRED: 'expired',
 };
 
 function mapStatus(raw?: string): QuoteStatus {
-  if (!raw) return 'pending';
-  return QUOTATION_STATUS_MAP[raw] ?? 'pending';
+  return (raw && QUOTATION_STATUS_MAP[raw]) || 'unknown';
 }
 
 // ---------------------------------------------------------------------------

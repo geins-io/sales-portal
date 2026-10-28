@@ -2,11 +2,16 @@
 // Quote Status
 // ---------------------------------------------------------------------------
 export type QuoteStatus =
+  | 'request_draft'
+  | 'requested'
   | 'pending'
   | 'accepted'
+  | 'confirmed'
+  | 'finalized'
   | 'rejected'
+  | 'canceled'
   | 'expired'
-  | 'cancelled';
+  | 'unknown';
 
 // ---------------------------------------------------------------------------
 // Quote Line Item

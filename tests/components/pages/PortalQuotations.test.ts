@@ -296,11 +296,16 @@ describe('PortalQuotations page', () => {
 
   describe('status badges', () => {
     const statuses = [
+      'request_draft',
+      'requested',
       'pending',
       'accepted',
+      'confirmed',
+      'finalized',
       'rejected',
+      'canceled',
       'expired',
-      'cancelled',
+      'unknown',
     ] as const;
 
     for (const status of statuses) {
@@ -319,11 +324,16 @@ describe('PortalQuotations page', () => {
     }
 
     it.each<[QuoteListItem['status'], string]>([
+      ['request_draft', 'border-dashed'],
+      ['requested', 'bg-neutral-500/10'],
       ['pending', 'bg-info/10'],
       ['accepted', 'bg-success/8'],
+      ['confirmed', 'bg-success/8'],
+      ['finalized', 'bg-success'],
       ['rejected', 'bg-danger/10'],
-      ['cancelled', 'bg-danger/10'],
+      ['canceled', 'bg-danger/10'],
       ['expired', 'bg-warning/10'],
+      ['unknown', 'bg-neutral-500/10'],
     ])('paints %s badge with its tone %s', (status, token) => {
       mockData.value = {
         quotes: [makeQuote({ status })],
@@ -334,7 +344,7 @@ describe('PortalQuotations page', () => {
       });
       const badge = wrapper.find('[data-testid="quote-status-badge"]');
       expect(badge.exists()).toBe(true);
-      expect(badge.attributes('class')).toContain(token);
+      expect(badge.classes()).toContain(token);
     });
 
     it('gives expired a distinct palette from pending', () => {

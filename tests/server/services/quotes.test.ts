@@ -147,16 +147,17 @@ describe('quotes service', () => {
       expect(result.total).toBe(0);
     });
 
-    it('maps QuotationStatus enum values to lowercase QuoteStatus', async () => {
+    it('maps each buyer-facing QuotationStatus to its own QuoteStatus', async () => {
       const statuses = [
-        'DRAFT',
+        'REQUEST_DRAFT',
+        'REQUESTED',
         'PENDING',
-        'EXPIRED',
-        'REJECTED',
         'ACCEPTED',
         'CONFIRMED',
         'FINALIZED',
+        'REJECTED',
         'CANCELED',
+        'EXPIRED',
       ];
       const carts = statuses.map((status) => makeRawQuotationCart({ status }));
       mockGraphqlQuery.mockResolvedValueOnce({ listQuotationCarts: carts });
@@ -170,16 +171,35 @@ describe('quotes service', () => {
 
       const mappedStatuses = result.quotes.map((q) => q.status);
       expect(mappedStatuses).toEqual([
+        'request_draft',
+        'requested',
         'pending',
-        'pending',
-        'expired',
+        'accepted',
+        'confirmed',
+        'finalized',
         'rejected',
-        'accepted',
-        'accepted',
-        'accepted',
-        'cancelled',
+        'canceled',
+        'expired',
       ]);
     });
+
+    it.each([['DRAFT'], ['SOMETHING_NEW'], [undefined]])(
+      'maps %s to unknown, never to pending',
+      async (status) => {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          listQuotationCarts: [makeRawQuotationCart({ status })],
+        });
+
+        const result = await quotesService.listQuotes(
+          'org-1',
+          undefined,
+          undefined,
+          mockEvent,
+        );
+
+        expect(result.quotes[0]?.status).toBe('unknown');
+      },
+    );
 
     it('sorts quotes newest first by createdAt', async () => {
       // Scrambled createdAt order from the API (mid, old, new).

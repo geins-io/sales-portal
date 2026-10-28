@@ -4,7 +4,10 @@ import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { useQuotesStore } from '~/stores/quotes';
 import { safeConfirm } from '~/utils/client-helpers';
-import { getQuoteStatusVariant } from '~/utils/quote-status';
+import {
+  getQuoteStatusLabelKey,
+  getQuoteStatusVariant,
+} from '~/utils/quote-status';
 import {
   quoteAmounts,
   quoteDiscountLabel,
@@ -70,10 +73,6 @@ async function handleDecline() {
   if (!safeConfirm(t('portal.quotations.decline_confirm'))) return;
   const answered = await store.rejectQuote(quote.value.id);
   if (answered) data.value = { quote: answered };
-}
-
-function statusLabel(status: string): string {
-  return t(`portal.quotations.status_${status}`);
 }
 
 function formatDate(iso: string): string {
@@ -257,7 +256,7 @@ const quoteTotals = computed<PortalItemTotal[]>(() =>
                 data-testid="status-badge"
                 :variant="getQuoteStatusVariant(quote.status)"
               >
-                {{ statusLabel(quote.status) }}
+                {{ t(getQuoteStatusLabelKey(quote.status)) }}
               </Badge>
             </div>
 

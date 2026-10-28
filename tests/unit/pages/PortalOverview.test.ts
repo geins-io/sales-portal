@@ -372,6 +372,7 @@ describe('Portal Overview page', () => {
     const row = wrapper.find('table').find('[data-testid="pending-quote-row"]');
     expect(row.text()).toContain('Q-1001');
     expect(row.text()).toContain('$500.00');
+    expect(row.text()).toContain('portal.quotations.status_pending');
   });
 
   it('caps displayed quotes at 5', () => {

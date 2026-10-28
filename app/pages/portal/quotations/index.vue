@@ -2,8 +2,11 @@
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
-import { getQuoteStatusVariant } from '~/utils/quote-status';
-import type { QuoteListItem, QuoteStatus } from '#shared/types/quote';
+import {
+  getQuoteStatusLabelKey,
+  getQuoteStatusVariant,
+} from '~/utils/quote-status';
+import type { QuoteListItem } from '#shared/types/quote';
 
 definePageMeta({ middleware: ['auth', 'feature'], feature: 'quotes' });
 
@@ -65,10 +68,6 @@ function formatDate(dateStr: string): string {
   } catch {
     return dateStr;
   }
-}
-
-function getStatusLabel(status: QuoteStatus): string {
-  return t(`portal.quotations.status_${status}`);
 }
 </script>
 
@@ -165,7 +164,7 @@ function getStatusLabel(status: QuoteStatus): string {
                 data-testid="quote-status-badge"
                 :variant="getQuoteStatusVariant(quote.status)"
               >
-                {{ getStatusLabel(quote.status) }}
+                {{ t(getQuoteStatusLabelKey(quote.status)) }}
               </Badge>
             </div>
             <div class="text-muted-foreground space-y-1 text-sm">
@@ -223,7 +222,7 @@ function getStatusLabel(status: QuoteStatus): string {
                     data-testid="quote-status-badge"
                     :variant="getQuoteStatusVariant(quote.status)"
                   >
-                    {{ getStatusLabel(quote.status) }}
+                    {{ t(getQuoteStatusLabelKey(quote.status)) }}
                   </Badge>
                 </td>
                 <td class="py-3 text-right">

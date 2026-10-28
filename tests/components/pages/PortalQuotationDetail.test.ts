@@ -9,7 +9,7 @@ import {
 } from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
 import { defaultMountOptions } from '../../utils/component';
-import type { Quote } from '../../../shared/types/quote';
+import type { Quote, QuoteStatus } from '../../../shared/types/quote';
 import { makeQuote } from '../../fixtures/quote';
 import { mockShowIncVat } from '../../setup-components';
 
@@ -1003,34 +1003,29 @@ describe('PortalQuotationDetail', () => {
   });
 
   describe('status badge', () => {
-    it('shows pending badge for pending quotes', async () => {
-      mockData.value = { quote: makeQuote({ status: 'pending' }) };
+    it.each<[QuoteStatus, string]>([
+      ['request_draft', 'border-dashed'],
+      ['requested', 'bg-neutral-500/10'],
+      ['pending', 'bg-info/10'],
+      ['accepted', 'bg-success/8'],
+      ['confirmed', 'bg-success/8'],
+      ['finalized', 'bg-success'],
+      ['rejected', 'bg-danger/10'],
+      ['canceled', 'bg-danger/10'],
+      ['expired', 'bg-warning/10'],
+      ['unknown', 'bg-neutral-500/10'],
+    ])('shows the %s label with its tone %s', async (status, token) => {
+      mockData.value = { quote: makeQuote({ status }) };
       const { wrapper } = await mountDetailPage();
 
       const badge = wrapper.find('[data-testid="status-badge"]');
-      expect(badge.exists()).toBe(true);
-      expect(badge.text()).toContain('portal.quotations.status_pending');
-    });
-
-    it('shows accepted badge for accepted quotes', async () => {
-      mockData.value = { quote: makeQuote({ status: 'accepted' }) };
-      const { wrapper } = await mountDetailPage();
-
-      const badge = wrapper.find('[data-testid="status-badge"]');
-      expect(badge.text()).toContain('portal.quotations.status_accepted');
-    });
-
-    it('shows rejected badge for rejected quotes', async () => {
-      mockData.value = { quote: makeQuote({ status: 'rejected' }) };
-      const { wrapper } = await mountDetailPage();
-
-      const badge = wrapper.find('[data-testid="status-badge"]');
-      expect(badge.text()).toContain('portal.quotations.status_rejected');
+      expect(badge.text()).toContain(`portal.quotations.status_${status}`);
+      expect(badge.classes()).toContain(token);
     });
   });
 
   describe('accept / decline buttons', () => {
-    it('shows accept and decline buttons only for pending quotes', async () => {
+    it('shows accept and decline buttons for pending quotes', async () => {
       mockData.value = { quote: makeQuote({ status: 'pending' }) };
       const { wrapper } = await mountDetailPage();
 
@@ -1038,16 +1033,18 @@ describe('PortalQuotationDetail', () => {
       expect(wrapper.find('[data-testid="decline-btn"]').exists()).toBe(true);
     });
 
-    it('hides accept and decline buttons for accepted quotes', async () => {
-      mockData.value = { quote: makeQuote({ status: 'accepted' }) };
-      const { wrapper } = await mountDetailPage();
-
-      expect(wrapper.find('[data-testid="accept-btn"]').exists()).toBe(false);
-      expect(wrapper.find('[data-testid="decline-btn"]').exists()).toBe(false);
-    });
-
-    it('hides accept and decline buttons for rejected quotes', async () => {
-      mockData.value = { quote: makeQuote({ status: 'rejected' }) };
+    it.each<QuoteStatus>([
+      'request_draft',
+      'requested',
+      'accepted',
+      'confirmed',
+      'finalized',
+      'rejected',
+      'canceled',
+      'expired',
+      'unknown',
+    ])('hides accept and decline buttons for %s quotes', async (status) => {
+      mockData.value = { quote: makeQuote({ status }) };
       const { wrapper } = await mountDetailPage();
 
       expect(wrapper.find('[data-testid="accept-btn"]').exists()).toBe(false);
