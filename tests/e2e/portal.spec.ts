@@ -704,8 +704,20 @@ test.describe('Portal Quotations', () => {
     await expect(
       page.locator('[data-testid="quote-meta-status"]'),
     ).toBeVisible();
-    // The contact row is the seller, who every quotation has.
-    await expect(page.locator('[data-testid="sale-contact"]')).toBeVisible();
+    // The contact row is the seller. A request the buyer sent has no owner
+    // until a seller takes it, so the row follows the quotation's data.
+    const id = new URL(page.url()).pathname.split('/').pop();
+    const response = await page.request.get(`/api/quotes/${id}`);
+    expect(response.ok(), `/api/quotes/${id} did not answer 200`).toBe(true);
+    const { quote } = (await response.json()) as {
+      quote: { seller?: { name: string } | null };
+    };
+    const saleContact = page.locator('[data-testid="sale-contact"]');
+    if (quote.seller) {
+      await expect(saleContact).toContainText(quote.seller.name);
+    } else {
+      await expect(saleContact).toHaveCount(0);
+    }
 
     // Customer and addresses sit in a collapsed card; open it first.
     await page.locator('[data-testid="customer-card-trigger"]').click();
