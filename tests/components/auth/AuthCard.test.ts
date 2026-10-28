@@ -3,12 +3,19 @@ import { ref } from 'vue';
 import { shallowMountComponent } from '../../utils/component';
 import AuthCard from '../../../app/components/auth/AuthCard.vue';
 
-// useTenant mock, default: registration enabled
+// useTenant mock, default: registration and applyForAccount enabled.
+// `hasFeature` reads the configured value the same way the real composable
+// does — `features[name]?.enabled === true` (useTenant.ts:45) — so a test
+// drives the apply section by writing the config the merchant would set.
 const mockFeatures = ref<Record<string, { enabled: boolean }>>({
   registration: { enabled: true },
+  applyForAccount: { enabled: true },
 });
 vi.mock('../../../app/composables/useTenant', () => ({
-  useTenant: () => ({ features: mockFeatures }),
+  useTenant: () => ({
+    features: mockFeatures,
+    hasFeature: (name: string) => mockFeatures.value?.[name]?.enabled === true,
+  }),
 }));
 
 // useCmsPageLink mock, default: apply page resolved
@@ -46,8 +53,11 @@ const stubs = {
 
 describe('AuthCard', () => {
   beforeEach(() => {
-    // Reset to registration enabled and apply resolved before each test
-    mockFeatures.value = { registration: { enabled: true } };
+    // Reset to both flags enabled and apply resolved before each test
+    mockFeatures.value = {
+      registration: { enabled: true },
+      applyForAccount: { enabled: true },
+    };
     mockApplyTo.value = '/se/sv/ansok-om-konto';
     mockApplyResolved.value = true;
   });
@@ -75,7 +85,7 @@ describe('AuthCard', () => {
     expect(wrapper.find('[data-testid="register-slot"]').exists()).toBe(false);
   });
 
-  it('shows register view when defaultView is register', () => {
+  it('shows register view when defaultView is register and registration enabled', () => {
     const wrapper = mountAuthCard('register');
     expect(wrapper.find('[data-testid="register-slot"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="login-slot"]').exists()).toBe(false);
@@ -169,9 +179,9 @@ describe('AuthCard', () => {
     expect(wrapper.find('[data-testid="forgot-slot"]').exists()).toBe(false);
   });
 
-  describe('registration feature flag', () => {
-    it('shows divider, business-info, and apply button when registration enabled and apply resolved', () => {
-      mockFeatures.value = { registration: { enabled: true } };
+  describe('applyForAccount feature flag', () => {
+    it('shows divider, business-info, and apply button when applyForAccount enabled and apply resolved', () => {
+      mockFeatures.value = { applyForAccount: { enabled: true } };
       const wrapper = mountAuthCard();
       expect(wrapper.find('[data-testid="auth-divider"]').exists()).toBe(true);
       expect(wrapper.find('[data-testid="auth-business-info"]').exists()).toBe(
@@ -182,8 +192,11 @@ describe('AuthCard', () => {
       );
     });
 
-    it('hides divider, business-info, and apply button when registration disabled', () => {
-      mockFeatures.value = { registration: { enabled: false } };
+    it('hides divider, business-info, and apply button when applyForAccount disabled and registration enabled', () => {
+      mockFeatures.value = {
+        applyForAccount: { enabled: false },
+        registration: { enabled: true },
+      };
       const wrapper = mountAuthCard();
       expect(wrapper.find('[data-testid="auth-divider"]').exists()).toBe(false);
       expect(wrapper.find('[data-testid="auth-business-info"]').exists()).toBe(
@@ -194,8 +207,23 @@ describe('AuthCard', () => {
       );
     });
 
-    it('shows affordances (fail-open) when registration key is absent from features', () => {
-      mockFeatures.value = {};
+    it('hides divider, business-info, and apply button (fail-closed) when applyForAccount key is absent and registration enabled', () => {
+      mockFeatures.value = { registration: { enabled: true } };
+      const wrapper = mountAuthCard();
+      expect(wrapper.find('[data-testid="auth-divider"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="auth-business-info"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.find('[data-testid="auth-apply-button"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('shows divider, business-info, and apply button when applyForAccount enabled and registration disabled', () => {
+      mockFeatures.value = {
+        applyForAccount: { enabled: true },
+        registration: { enabled: false },
+      };
       const wrapper = mountAuthCard();
       expect(wrapper.find('[data-testid="auth-divider"]').exists()).toBe(true);
       expect(wrapper.find('[data-testid="auth-business-info"]').exists()).toBe(
@@ -205,21 +233,23 @@ describe('AuthCard', () => {
         true,
       );
     });
+  });
 
-    it('shows affordances (fail-open) when features is undefined', () => {
+  describe('registration feature flag', () => {
+    it('shows register view (fail-open) when registration key is absent from features', () => {
+      mockFeatures.value = {};
+      const wrapper = mountAuthCard('register');
+      expect(wrapper.find('[data-testid="register-slot"]').exists()).toBe(true);
+    });
+
+    it('shows register view (fail-open) when features is undefined', () => {
       // Simulate no tenant config loaded yet
       mockFeatures.value = undefined as unknown as Record<
         string,
         { enabled: boolean }
       >;
-      const wrapper = mountAuthCard();
-      expect(wrapper.find('[data-testid="auth-divider"]').exists()).toBe(true);
-      expect(wrapper.find('[data-testid="auth-business-info"]').exists()).toBe(
-        true,
-      );
-      expect(wrapper.find('[data-testid="auth-apply-button"]').exists()).toBe(
-        true,
-      );
+      const wrapper = mountAuthCard('register');
+      expect(wrapper.find('[data-testid="register-slot"]').exists()).toBe(true);
     });
 
     it('forces login view when defaultView=register but registration disabled', async () => {

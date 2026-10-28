@@ -21,7 +21,7 @@ const emit = defineEmits<{
   close: [];
 }>();
 
-const { features } = useTenant();
+const { features, hasFeature } = useTenant();
 
 // Fail-open: missing key, missing features map, or missing tenant all default
 // to enabled. Only an explicit `registration.enabled === false` disables.
@@ -82,7 +82,7 @@ defineExpose({ switchToForgot });
           <!-- Login form slot -->
           <slot name="login" />
 
-          <template v-if="registrationEnabled">
+          <template v-if="hasFeature('applyForAccount')">
             <!-- Divider -->
             <div class="relative my-6">
               <Separator />

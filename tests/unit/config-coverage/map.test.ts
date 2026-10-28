@@ -98,7 +98,7 @@ const KEY_IN_TITLE_EXEMPT: ReadonlyArray<{
 }> = [
   {
     spec: 'tests/components/auth/AuthCard.test.ts',
-    title: 'shows affordances (fail-open) when features is undefined',
+    title: 'shows register view (fail-open) when features is undefined',
     reason:
       'The fixture has no features object at all; the test proves the fall-open branch, and a title naming the key would be untrue.',
   },

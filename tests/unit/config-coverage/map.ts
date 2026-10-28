@@ -1832,6 +1832,20 @@ export const CONFIG_COVERAGE_MAP = {
           kind: 'consumer',
           drives: 'reader',
         },
+        {
+          spec: AUTH_CARD,
+          title:
+            'shows divider, business-info, and apply button when applyForAccount enabled and apply resolved',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        {
+          spec: AUTH_CARD,
+          title:
+            'shows divider, business-info, and apply button when applyForAccount enabled and registration disabled',
+          kind: 'consumer',
+          drives: 'field',
+        },
       ],
       off: [
         {
@@ -1840,19 +1854,35 @@ export const CONFIG_COVERAGE_MAP = {
           kind: 'consumer',
           drives: 'field',
         },
+        {
+          spec: AUTH_CARD,
+          title:
+            'hides divider, business-info, and apply button when applyForAccount disabled and registration enabled',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        {
+          spec: AUTH_CARD,
+          title:
+            'hides divider, business-info, and apply button (fail-closed) when applyForAccount key is absent and registration enabled',
+          kind: 'consumer',
+          drives: 'field',
+        },
       ],
       access: accessNeverRead(HAS_FEATURE_ONLY_NOTE),
       note:
-        "AuthSheet's useTenant mock implements hasFeature over a features " +
-        'record the same way the real composable does, so both of its cases ' +
-        'write the configured value. That re-implementation is a copy of a ' +
-        'one-line function and has to follow useTenant.ts:44: were an absent ' +
-        'key to start counting as enabled there, this mock and the one in ' +
-        'setup-components.ts would both drift without anything turning red. ' +
-        'The topbar spec answers a predicate on ' +
+        "AuthSheet's and AuthCard's useTenant mocks implement hasFeature over " +
+        'a features record the same way the real composable does, so all of ' +
+        'their cases write the configured value. Those re-implementations are ' +
+        'copies of a one-line function and have to follow useTenant.ts:45: ' +
+        'were an absent key to start counting as enabled there, these mocks ' +
+        'and the one in setup-components.ts would all drift without anything ' +
+        'turning red. The topbar spec answers a predicate on ' +
         'the key from an immutable set, so it stays a reader reference and has ' +
-        'no disabled case. The second call site is ' +
-        'app/components/layout/header/LayoutHeaderTopbar.vue:57. Storefront ' +
+        'no disabled case. The other call sites are ' +
+        'app/components/layout/header/LayoutHeaderTopbar.vue:57 and ' +
+        'app/components/auth/AuthCard.vue:85. An absent key hides, so the ' +
+        'AuthCard fail-closed case sits on the disabled cell. Storefront ' +
         'settings exposes no control for this key, so the value reaches the ' +
         'app from the seeded defaults or a features override rather than from ' +
         'anything a merchant sets.',
@@ -2084,20 +2114,21 @@ export const CONFIG_COVERAGE_MAP = {
             {
               spec: AUTH_CARD,
               title:
-                'shows divider, business-info, and apply button when registration enabled and apply resolved',
+                'shows register view when defaultView is register and registration enabled',
               kind: 'consumer',
               drives: 'field',
             },
             {
               spec: AUTH_CARD,
               title:
-                'shows affordances (fail-open) when registration key is absent from features',
+                'shows register view (fail-open) when registration key is absent from features',
               kind: 'consumer',
               drives: 'field',
             },
             {
               spec: AUTH_CARD,
-              title: 'shows affordances (fail-open) when features is undefined',
+              title:
+                'shows register view (fail-open) when features is undefined',
               kind: 'consumer',
               drives: 'field',
             },
@@ -2134,13 +2165,6 @@ export const CONFIG_COVERAGE_MAP = {
             {
               spec: AUTH_CARD,
               title:
-                'hides divider, business-info, and apply button when registration disabled',
-              kind: 'consumer',
-              drives: 'field',
-            },
-            {
-              spec: AUTH_CARD,
-              title:
                 'forces login view when defaultView=register but registration disabled',
               kind: 'consumer',
               drives: 'field',
@@ -2152,7 +2176,7 @@ export const CONFIG_COVERAGE_MAP = {
               drives: 'field',
             },
           ],
-          note: 'The client hides the affordance and the endpoint refuses the call.',
+          note: 'The client leaves the register view and the endpoint refuses the call.',
         },
       },
       access: REGISTRATION_ACCESS,
