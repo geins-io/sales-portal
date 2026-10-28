@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
+  quoteAcceptKind,
   quoteAmounts,
   quoteDiscountLabel,
-  quoteTotalRows,
+  quoteKindLabelKey,
+  quoteResponses,
+  quoteStatusInfoKey,
+  quoteSummaryRows,
 } from '../../app/utils/quote-view';
+import type { QuoteStatus } from '../../shared/types/quote';
 import { makeQuote } from '../fixtures/quote';
 
 // The two sonoralab quotations the ticket measured, as the API gives them.
@@ -151,12 +156,12 @@ describe('quoteDiscountLabel', () => {
   });
 });
 
-describe('quoteTotalRows', () => {
+describe('quoteSummaryRows', () => {
   const t = (key: string, named?: Record<string, unknown>) =>
     named ? `${key}:${JSON.stringify(named)}` : key;
 
-  it('lists every row the amounts carry, the discount right after the subtotal', () => {
-    const rows = quoteTotalRows(
+  it('lists every row under the lead amount, the discount right after the count', () => {
+    const rows = quoteSummaryRows(
       {
         subtotal: 's',
         discount: 'd',
@@ -172,23 +177,26 @@ describe('quoteTotalRows', () => {
     );
 
     expect(rows).toEqual([
+      { key: 'count', label: 'portal.quotations.items_count', value: '3' },
       {
-        label: 'portal.quotations.subtotal_with_count:{"count":3}',
-        value: 's',
-      },
-      {
+        key: 'discount',
         label: 'portal.quotations.discount_percent:{"percent":"5 %"}',
         value: '-d',
       },
-      { label: 'portal.quotations.shipping', value: 'sh' },
-      { label: 'common.vat', value: 'v' },
-      { label: 'portal.quotations.grand_total', value: 'tot', emphasis: true },
-      { label: 'common.total_inc_vat', value: 'inc' },
+      { key: 'shipping', label: 'portal.quotations.shipping', value: 'sh' },
+      { key: 'tax', label: 'common.vat', value: 'v' },
+      {
+        key: 'total',
+        label: 'portal.quotations.grand_total',
+        value: 'tot',
+        emphasis: true,
+      },
+      { key: 'total-inc-vat', label: 'common.total_inc_vat', value: 'inc' },
     ]);
   });
 
   it('leaves out what the amounts lack, and labels VAT as included on the inc side', () => {
-    const rows = quoteTotalRows(
+    const rows = quoteSummaryRows(
       { subtotal: 's', tax: 'v', total: 't' },
       1,
       true,
@@ -196,9 +204,124 @@ describe('quoteTotalRows', () => {
     );
 
     expect(rows.map((row) => row.label)).toEqual([
-      'portal.quotations.subtotal_with_count:{"count":1}',
+      'portal.quotations.items_count',
       'common.vat_included',
       'portal.quotations.grand_total',
     ]);
+  });
+});
+
+describe('quoteAcceptKind', () => {
+  it('is plain when the seller asks for no confirmation', () => {
+    expect(quoteAcceptKind(makeQuote({ requiresConfirmation: false }))).toBe(
+      'plain',
+    );
+  });
+
+  it('is plain when the setting is missing', () => {
+    expect(quoteAcceptKind(makeQuote())).toBe('plain');
+  });
+
+  it('is confirm when the seller confirms first', () => {
+    expect(quoteAcceptKind(makeQuote({ requiresConfirmation: true }))).toBe(
+      'confirm',
+    );
+  });
+
+  it('is monitor when the quotation is linked, whatever the confirmation', () => {
+    const externalReference = { system: 'Monitor', number: 'M-1' };
+    expect(
+      quoteAcceptKind(
+        makeQuote({ externalReference, requiresConfirmation: true }),
+      ),
+    ).toBe('monitor');
+    expect(
+      quoteAcceptKind(
+        makeQuote({ externalReference, requiresConfirmation: false }),
+      ),
+    ).toBe('monitor');
+  });
+});
+
+describe('quoteResponses', () => {
+  const none = { withdraw: false, decline: false, accept: false };
+
+  it('lets a sent request be withdrawn, nothing else', () => {
+    expect(quoteResponses('requested')).toEqual({
+      withdraw: true,
+      decline: false,
+      accept: false,
+    });
+  });
+
+  it('lets a pending quotation be declined or accepted', () => {
+    expect(quoteResponses('pending')).toEqual({
+      withdraw: false,
+      decline: true,
+      accept: true,
+    });
+  });
+
+  it.each<QuoteStatus>([
+    'request_draft',
+    'accepted',
+    'confirmed',
+    'finalized',
+    'rejected',
+    'canceled',
+    'expired',
+    'unknown',
+  ])('offers no response on %s', (status) => {
+    expect(quoteResponses(status)).toEqual(none);
+  });
+});
+
+describe('quoteStatusInfoKey', () => {
+  it.each<[QuoteStatus, string]>([
+    ['requested', 'portal.quotations.status_info_requested'],
+    ['pending', 'portal.quotations.status_info_pending'],
+    ['confirmed', 'portal.quotations.status_info_confirmed'],
+    ['finalized', 'portal.quotations.status_info_finalized'],
+    ['rejected', 'portal.quotations.status_info_rejected'],
+    ['canceled', 'portal.quotations.status_info_canceled'],
+    ['expired', 'portal.quotations.status_info_expired'],
+  ])('explains %s', (status, key) => {
+    expect(quoteStatusInfoKey(makeQuote({ status }))).toBe(key);
+  });
+
+  it.each([
+    [{}, 'portal.quotations.status_info_accepted_plain'],
+    [
+      { requiresConfirmation: true },
+      'portal.quotations.status_info_accepted_confirm',
+    ],
+    [
+      { externalReference: { number: 'M-1' } },
+      'portal.quotations.status_info_accepted_monitor',
+    ],
+  ])('explains an accepted quotation by how it was accepted (%j)', (o, key) => {
+    expect(quoteStatusInfoKey(makeQuote({ status: 'accepted', ...o }))).toBe(
+      key,
+    );
+  });
+
+  it.each<QuoteStatus>(['request_draft', 'unknown'])(
+    'has no text for %s',
+    (status) => {
+      expect(quoteStatusInfoKey(makeQuote({ status }))).toBeUndefined();
+    },
+  );
+});
+
+describe('quoteKindLabelKey', () => {
+  it.each<[QuoteStatus, string]>([
+    ['request_draft', 'portal.quotations.kind_request'],
+    ['requested', 'portal.quotations.kind_request'],
+    ['pending', 'portal.quotations.kind_quotation'],
+    ['accepted', 'portal.quotations.kind_quotation'],
+    ['rejected', 'portal.quotations.kind_quotation'],
+    ['unknown', 'portal.quotations.kind_quotation'],
+  ])('calls a %s one %s', (status, key) => {
+    expect(quoteKindLabelKey(status)).toBe(key);
   });
 });

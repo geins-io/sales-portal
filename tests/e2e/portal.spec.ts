@@ -687,59 +687,35 @@ test.describe('Portal Quotations', () => {
     await expect(page.locator('[data-testid="quote-title"]')).toBeVisible();
     await expect(page.locator('[data-testid="status-badge"]')).toBeVisible();
 
-    // The line items render as a desktop table (`hidden lg:block`) or, below
-    // lg, inside a sheet behind a trigger — the same split the order detail
-    // page has. Assert the shape this project can actually see and count the
-    // rows in it; the desktop-only assertion could not pass on Mobile Chrome.
-    // `lg` is 1024px (Tailwind), the breakpoint the page itself branches on.
-    const isNarrow = (page.viewportSize()?.width ?? 1280) < 1024;
-    if (isNarrow) {
-      const rowsTrigger = page.locator('[data-testid="view-rows-trigger"]');
-      await expect(rowsTrigger).toBeVisible({ timeout: PAGE_TIMEOUT });
-      await rowsTrigger.click();
-      const sheetRows = page.locator('[data-testid="item-rows-row"]');
-      await expect(sheetRows.first()).toBeVisible({ timeout: PAGE_TIMEOUT });
-      expect(await sheetRows.count()).toBeGreaterThan(0);
-      // Close it again: an open sheet covers the back link asserted below.
-      await page.keyboard.press('Escape');
-      await expect(page.locator('[data-testid="item-rows-sheet"]')).toBeHidden({
-        timeout: PAGE_TIMEOUT,
-      });
-    } else {
-      await expect(
-        page.locator('[data-testid="line-items-table"]'),
-      ).toBeVisible();
-      const lineItemCount = await page
-        .locator('[data-testid="line-item-row"]')
-        .count();
-      expect(lineItemCount).toBeGreaterThan(0);
-    }
+    // The lines render as a desktop table (`hidden md:block`) or, below md,
+    // as cards on the page. Assert the shape this project can see and count
+    // its rows. `md` is 768px (Tailwind), the breakpoint the page branches on.
+    const isNarrow = (page.viewportSize()?.width ?? 1280) < 768;
+    const lineRows = page.locator(
+      isNarrow
+        ? '[data-testid="line-item-card"]'
+        : '[data-testid="line-item-row"]',
+    );
+    await expect(lineRows.first()).toBeVisible({ timeout: PAGE_TIMEOUT });
+    expect(await lineRows.count()).toBeGreaterThan(0);
 
-    // Sidebar summary
+    // Sidebar summary and details
     await expect(page.locator('[data-testid="quote-summary"]')).toBeVisible();
-
-    // Sidebar info blocks — customer info + sale contact are always rendered
-    await expect(page.locator('[data-testid="customer-info"]')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="quote-meta-status"]'),
+    ).toBeVisible();
+    // The contact row is the seller, who every quotation has.
     await expect(page.locator('[data-testid="sale-contact"]')).toBeVisible();
 
-    // Address blocks — may be absent depending on quotation data, soft check
+    // Customer and addresses sit in a collapsed card; open it first.
+    await page.locator('[data-testid="customer-card-trigger"]').click();
+    await expect(page.locator('[data-testid="customer-info"]')).toBeVisible();
     const invoiceAddress = page.locator('[data-testid="invoice-address"]');
     const deliveryAddress = page.locator('[data-testid="delivery-address"]');
     const hasInvoice = await invoiceAddress.isVisible().catch(() => false);
     const hasDelivery = await deliveryAddress.isVisible().catch(() => false);
     // At least one address block should render when the quote has billing data
     expect(hasInvoice || hasDelivery).toBe(true);
-
-    // Accept/Decline buttons only for pending quotes — presence is acceptable
-    // but we NEVER click them (mutating the real backend is out of scope)
-    const acceptBtn = page.locator('[data-testid="accept-btn"]');
-    const declineBtn = page.locator('[data-testid="decline-btn"]');
-    const hasAccept = await acceptBtn.isVisible().catch(() => false);
-    if (hasAccept) {
-      await expect(acceptBtn).toBeEnabled();
-      await expect(declineBtn).toBeVisible();
-      await expect(declineBtn).toBeEnabled();
-    }
 
     // Back link round-trip — returns to list
     await page.locator('[data-testid="back-link"]').click();
@@ -749,6 +725,45 @@ test.describe('Portal Quotations', () => {
     await expect(page.locator('[data-testid="quotations-table"]')).toBeVisible({
       timeout: PAGE_TIMEOUT,
     });
+  });
+  // An answer cannot be undone and the account's quotations are shared test
+  // data, so this only opens the dialog and cancels it — it never confirms.
+  test('a pending quotation asks before it is declined, and cancel changes nothing', async ({
+    page,
+  }) => {
+    await page.goto('/se/sv/portal/quotations');
+    await page.waitForLoadState('load');
+    const response = await page.request.get('/api/quotes');
+    expect(response.ok(), '/api/quotes did not answer 200').toBe(true);
+    const { quotes } = (await response.json()) as {
+      quotes: { id: string; status: string }[];
+    };
+    const pendingQuote = quotes.find((quote) => quote.status === 'pending');
+    outOfScope(
+      !pendingQuote,
+      'fixture-missing',
+      'the test account has no pending quotation left to open the dialog on',
+    );
+
+    await page.goto(`/se/sv/portal/quotations/${pendingQuote!.id}`);
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+    await expect(page.locator('[data-testid="quote-detail"]')).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
+    await expect(page.locator('[data-testid="accept-btn"]')).toBeEnabled();
+
+    await page.locator('[data-testid="decline-btn"]').click();
+    const dialog = page.locator('[data-testid="quote-action-dialog"]');
+    await expect(dialog).toBeVisible({ timeout: PAGE_TIMEOUT });
+    await expect(dialog.getByRole('heading')).toHaveText('Avböj offerten?');
+
+    await dialog.locator('[data-testid="quote-action-cancel"]').click();
+    await expect(dialog).toBeHidden({ timeout: PAGE_TIMEOUT });
+    await expect(page.locator('[data-testid="status-badge"]')).toHaveText(
+      'Väntande',
+    );
+    await expect(page.locator('[data-testid="decline-btn"]')).toBeVisible();
   });
 });
 
@@ -855,10 +870,10 @@ test.describe('Portal Quotation Values', () => {
   }
 
   /**
-   * The lines as the running project can see them. Above `lg` they are the
-   * desktop table; below it that table is hidden and the rows live in the
-   * sheet behind `view-rows-trigger`. Both carry the same three numbers per
-   * line, so no project has to leave the line assertions off.
+   * The lines as the running project can see them. From `md` up they are the
+   * desktop table; below it each line is a card on the page. Both carry the
+   * same three numbers per line, so no project has to leave the line
+   * assertions off.
    */
   async function readQuoteLines(page: Page): Promise<ScreenLine[]> {
     const onDesktop = await page
@@ -866,20 +881,11 @@ test.describe('Portal Quotation Values', () => {
       .isVisible()
       .catch(() => false);
 
-    if (!onDesktop) {
-      await page.locator('[data-testid="view-rows-trigger"]').click();
-      await expect(page.locator('[data-testid="item-rows-sheet"]')).toBeVisible(
-        {
-          timeout: PAGE_TIMEOUT,
-        },
-      );
-    }
-
-    const prefix = onDesktop ? 'line-item' : 'item-rows';
+    const prefix = onDesktop ? 'line-item' : 'line-item-card';
     const rows = page.locator(
       onDesktop
         ? '[data-testid="line-item-row"]'
-        : '[data-testid="item-rows-row"]',
+        : '[data-testid="line-item-card"]',
     );
 
     const lines: ScreenLine[] = [];

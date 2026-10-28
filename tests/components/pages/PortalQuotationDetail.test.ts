@@ -152,17 +152,6 @@ vi.mock('#app/composables/router', async (importOriginal) => {
   };
 });
 
-// Mock safeConfirm — the detail page calls it before rejecting. Default true
-// so the decline flow proceeds in tests; override per-test to assert cancel.
-const mockSafeConfirm = vi.fn(() => true);
-vi.mock('../../../app/utils/client-helpers', () => ({
-  safeConfirm: (...args: Parameters<typeof mockSafeConfirm>) =>
-    mockSafeConfirm(...args),
-  safeScrollTo: vi.fn(),
-  safeLocationRedirect: vi.fn(),
-  safeHistoryBack: vi.fn(),
-}));
-
 vi.mock('../../../app/stores/quotes', () => ({
   useQuotesStore: () => ({
     // currentQuote is read/written by the detail page — back with a hoisted ref
@@ -216,6 +205,25 @@ const defaultStubs = {
   }),
   // NuxtIcon is stubbed globally in tests/utils/component.ts — no per-file
   // entry needed. @nuxt/icon actually registers as <NuxtIcon>, not <Icon>.
+  // The dialog itself is covered in PortalDialogConfirmQuoteAction.test.ts;
+  // here it only has to show what the page passes and hand back the answer.
+  PortalDialogConfirmQuoteAction: {
+    props: [
+      'open',
+      'title',
+      'description',
+      'confirmLabel',
+      'destructive',
+      'pending',
+    ],
+    emits: ['update:open', 'confirm'],
+    template: `<div v-if="open" data-testid="quote-action-dialog" :data-destructive="String(!!destructive)" :data-pending="String(!!pending)">
+      <h2 data-testid="dialog-title">{{ title }}</h2>
+      <p data-testid="dialog-description">{{ description }}</p>
+      <button data-testid="quote-action-cancel" @click="$emit('update:open', false)">cancel</button>
+      <button data-testid="quote-action-confirm" @click="$emit('confirm')">{{ confirmLabel }}</button>
+    </div>`,
+  },
   GeinsImage: {
     template:
       '<img data-testid="geins-image" :data-file-name="fileName" :data-type="type" :alt="alt" />',
@@ -257,6 +265,35 @@ async function mountDetailPage() {
   return { wrapper, captured };
 }
 
+const pending = (overrides: Partial<Quote> = {}) =>
+  makeQuote({ status: 'pending', ...overrides });
+const monitorLinked = { system: 'Monitor', number: 'M-1001' };
+
+async function mountWith(quote: Quote) {
+  mockData.value = { quote };
+  return (await mountDetailPage()).wrapper;
+}
+
+type Wrapper = Awaited<ReturnType<typeof mountWith>>;
+
+/** Opens the dialog from a button and confirms it. */
+async function answer(wrapper: Wrapper, button: string) {
+  await wrapper.find(`[data-testid="${button}"]`).trigger('click');
+  await wrapper.find('[data-testid="quote-action-confirm"]').trigger('click');
+  await flushPromises();
+}
+
+async function openCustomerCard(wrapper: Wrapper) {
+  await wrapper.find('[data-testid="customer-card-trigger"]').trigger('click');
+  await flushPromises();
+}
+
+function metaKeys(wrapper: Wrapper): string[] {
+  return wrapper
+    .findAll('[data-testid="quote-meta"] [data-meta-row]')
+    .map((row) => row.attributes('data-meta-row')!);
+}
+
 describe('PortalQuotationDetail', () => {
   beforeEach(() => {
     mockData.value = null;
@@ -277,8 +314,6 @@ describe('PortalQuotationDetail', () => {
       mockStoreError.value = null;
       return Promise.resolve(null);
     });
-    mockSafeConfirm.mockClear();
-    mockSafeConfirm.mockReturnValue(true);
     mockShowIncVat.value = true;
   });
 
@@ -292,750 +327,387 @@ describe('PortalQuotationDetail', () => {
       // Vue may capture the same error at multiple boundaries (Suspense +
       // wrapper) — assert at least one matches our 404 throw.
       expect(captured.length).toBeGreaterThanOrEqual(1);
-      expect(captured[0]).toMatchObject({
-        statusCode: 404,
-        fatal: true,
-      });
+      expect(captured[0]).toMatchObject({ statusCode: 404, fatal: true });
     });
 
     it('throws createError with statusCode 404 when data has no quote', async () => {
-      mockData.value = null;
-      mockError.value = null;
-
       const { captured } = await mountDetailPage();
 
       expect(captured.length).toBeGreaterThanOrEqual(1);
-      expect(captured[0]).toMatchObject({
-        statusCode: 404,
-        fatal: true,
-      });
+      expect(captured[0]).toMatchObject({ statusCode: 404, fatal: true });
     });
   });
 
   describe('useFetch call', () => {
-    it('calls useFetch with the correct quote id URL', async () => {
-      mockData.value = { quote: makeQuote() };
-      await mountDetailPage();
+    it('calls useFetch with the quote id URL and dedupe: defer', async () => {
+      await mountWith(makeQuote());
 
-      expect(mockUseFetch).toHaveBeenCalled();
-      const [urlOrFn] = mockUseFetch.mock.calls[0]!;
+      const [urlOrFn, options] = mockUseFetch.mock.calls[0]!;
       const url = typeof urlOrFn === 'function' ? urlOrFn() : urlOrFn;
       expect(url).toBe('/api/quotes/q-001');
-    });
-
-    it('passes dedupe: defer to useFetch', async () => {
-      mockData.value = { quote: makeQuote() };
-      await mountDetailPage();
-      expect(mockUseFetch.mock.calls[0]?.[1]).toMatchObject({
-        dedupe: 'defer',
-      });
+      expect(options).toMatchObject({ dedupe: 'defer' });
     });
   });
 
-  describe('line items table', () => {
-    it('renders line items with product details', async () => {
-      mockData.value = { quote: makeQuote() };
-      const { wrapper } = await mountDetailPage();
+  describe('lines', () => {
+    const twoLines = () =>
+      makeQuote({
+        lineItems: [
+          makeQuote().lineItems[0]!,
+          {
+            productId: 2,
+            sku: 'SKU-B',
+            name: 'Gadget Plus',
+            articleNumber: 'ART-002',
+            quantity: 1,
+            unitPrice: 50,
+            unitPriceFormatted: '50,00 kr',
+            totalPrice: 50,
+            totalPriceFormatted: '50,00 kr',
+            unitPriceExVat: 40,
+            unitPriceExVatFormatted: '40,00 kr',
+            totalPriceExVat: 40,
+            totalPriceExVatFormatted: '40,00 kr',
+            alias: 'gadget-plus',
+          },
+        ],
+      });
+
+    it('renders every line in the desktop table', async () => {
+      const wrapper = await mountWith(twoLines());
 
       const table = wrapper.find('[data-testid="line-items-table"]');
-      expect(table.exists()).toBe(true);
-      expect(table.text()).toContain('Widget Pro');
-      expect(table.text()).toContain('ART-001');
-      expect(table.text()).toContain('2');
-      expect(table.text()).toContain('100,00 kr');
-      expect(table.text()).toContain('200,00 kr');
+      const rows = table.findAll('[data-testid="line-item-row"]');
+      expect(rows.map((row) => row.text())).toEqual([
+        expect.stringContaining('Widget Pro'),
+        expect.stringContaining('Gadget Plus'),
+      ]);
+      expect(rows[0]!.text()).toContain('ART-001');
+      expect(rows[0]!.find('[data-testid="line-item-quantity"]').text()).toBe(
+        '2',
+      );
     });
 
-    it('renders a GeinsImage with the product file name and type=product when imageFileName is set', async () => {
-      mockData.value = { quote: makeQuote() };
-      const { wrapper } = await mountDetailPage();
+    it('renders every line as a card for small screens, with the same numbers', async () => {
+      const wrapper = await mountWith(twoLines());
 
-      const img = wrapper.find('[data-testid="geins-image"]');
-      expect(img.exists()).toBe(true);
-      expect(img.attributes('data-file-name')).toBe('/img/widget.jpg');
-      expect(img.attributes('data-type')).toBe('product');
-      expect(img.attributes('alt')).toBe('Widget Pro');
+      const cards = wrapper.findAll('[data-testid="line-item-card"]');
+      expect(
+        cards.map((card) => [
+          card.find('[data-testid="line-item-card-quantity"]').text(),
+          card.find('[data-testid="line-item-card-unit-price"]').text(),
+          card.find('[data-testid="line-item-card-total-price"]').text(),
+        ]),
+      ).toEqual([
+        ['2', '100,00 kr', '200,00 kr'],
+        ['1', '50,00 kr', '50,00 kr'],
+      ]);
+      expect(cards[1]!.text()).toContain('ART-002');
     });
 
-    it('does not render a GeinsImage when imageFileName is missing', async () => {
-      mockData.value = {
-        quote: makeQuote({
-          lineItems: [
-            {
-              productId: 1,
-              sku: 'SKU-A',
-              name: 'Widget Pro',
-              articleNumber: 'ART-001',
-              quantity: 2,
-              unitPrice: 100,
-              unitPriceFormatted: '100,00 kr',
-              totalPrice: 200,
-              totalPriceFormatted: '200,00 kr',
-              unitPriceExVat: 0,
-              unitPriceExVatFormatted: '',
-              totalPriceExVat: 0,
-              totalPriceExVatFormatted: '',
-            },
-          ],
-        }),
-      };
-      const { wrapper } = await mountDetailPage();
+    it('splits the two at md, as the prototype does', async () => {
+      const wrapper = await mountWith(makeQuote());
 
-      expect(wrapper.find('[data-testid="geins-image"]').exists()).toBe(false);
+      expect(
+        wrapper.find('[data-testid="line-items-desktop"]').classes(),
+      ).toEqual(expect.arrayContaining(['hidden', 'md:block']));
+      expect(
+        wrapper.find('[data-testid="line-item-cards"]').classes(),
+      ).toContain('md:hidden');
     });
 
-    it('does not render any raw <img> tags for line item thumbnails', async () => {
-      mockData.value = { quote: makeQuote() };
-      const { wrapper } = await mountDetailPage();
+    it('no longer opens the lines in a sheet', async () => {
+      const wrapper = await mountWith(makeQuote());
 
-      // The only <img> rendered inside the line items table should be the
-      // GeinsImage stub (which carries data-testid="geins-image"). No raw
-      // <img :src="..."> for the thumbnail should remain.
-      const table = wrapper.find('[data-testid="line-items-table"]');
-      const imgs = table.findAll('img');
+      expect(
+        wrapper.findComponent({ name: 'PortalItemRowsSheet' }).exists(),
+      ).toBe(false);
+    });
+
+    it('links a line with an alias to its product and leaves the others plain', async () => {
+      const wrapper = await mountWith(twoLines());
+
+      const links = wrapper.findAll('[data-testid="line-item-name-link"]');
+      expect(links.every((link) => link.text() === 'Gadget Plus')).toBe(true);
+      expect(links.length).toBeGreaterThan(0);
+      expect(wrapper.findAll('[data-testid="line-item-name"]')[0]!.text()).toBe(
+        'Widget Pro',
+      );
+    });
+
+    it('shows the thumbnail through GeinsImage, never a raw img', async () => {
+      const wrapper = await mountWith(makeQuote());
+
+      const imgs = wrapper.findAll('img');
+      expect(imgs.length).toBeGreaterThan(0);
       for (const img of imgs) {
         expect(img.attributes('data-testid')).toBe('geins-image');
+        expect(img.attributes('data-file-name')).toBe('/img/widget.jpg');
       }
     });
 
-    it('renders all line items', async () => {
-      mockData.value = {
-        quote: makeQuote({
-          lineItems: [
-            {
-              productId: 1,
-              sku: 'SKU-A',
-              name: 'Widget Pro',
-              articleNumber: 'ART-001',
-              quantity: 2,
-              unitPrice: 100,
-              unitPriceFormatted: '100,00 kr',
-              totalPrice: 200,
-              totalPriceFormatted: '200,00 kr',
-              unitPriceExVat: 0,
-              unitPriceExVatFormatted: '',
-              totalPriceExVat: 0,
-              totalPriceExVatFormatted: '',
-            },
-            {
-              productId: 2,
-              sku: 'SKU-B',
-              name: 'Gadget Plus',
-              articleNumber: 'ART-002',
-              quantity: 1,
-              unitPrice: 50,
-              unitPriceFormatted: '50,00 kr',
-              totalPrice: 50,
-              totalPriceFormatted: '50,00 kr',
-              unitPriceExVat: 0,
-              unitPriceExVatFormatted: '',
-              totalPriceExVat: 0,
-              totalPriceExVatFormatted: '',
-            },
-          ],
-        }),
-      };
-      const { wrapper } = await mountDetailPage();
+    it.each([
+      [true, ['100,00 kr', '200,00 kr']],
+      [false, ['80,00 kr', '160,00 kr']],
+    ])(
+      'prices the lines on the chosen VAT side (incl. VAT: %s)',
+      async (incVat, [unit, line]) => {
+        mockShowIncVat.value = incVat;
+        const wrapper = await mountWith(makeQuote());
 
-      const rows = wrapper.findAll('[data-testid="line-item-row"]');
-      expect(rows).toHaveLength(2);
-      expect(rows[0]!.text()).toContain('Widget Pro');
-      expect(rows[1]!.text()).toContain('Gadget Plus');
-    });
+        expect([
+          wrapper.find('[data-testid="line-item-unit-price"]').text(),
+          wrapper.find('[data-testid="line-item-total-price"]').text(),
+          wrapper.find('[data-testid="line-item-card-unit-price"]').text(),
+          wrapper.find('[data-testid="line-item-card-total-price"]').text(),
+        ]).toEqual([unit, line, unit, line]);
+      },
+    );
   });
 
-  describe('summary sidebar', () => {
-    it('shows subtotal, tax, and grand total', async () => {
-      mockData.value = { quote: makeQuote() };
-      const { wrapper } = await mountDetailPage();
-
-      const summary = wrapper.find('[data-testid="quote-summary"]');
-      expect(summary.exists()).toBe(true);
-      expect(summary.text()).toContain('200,00 kr');
-      expect(summary.text()).toContain('50,00 kr');
-      expect(summary.text()).toContain('250,00 kr');
+  describe('header', () => {
+    it('shows the name, or "detail_title #number" without one', async () => {
+      expect(
+        (await mountWith(makeQuote({ name: 'Dec order' })))
+          .find('[data-testid="quote-title"]')
+          .text(),
+      ).toBe('Dec order');
+      expect(
+        (await mountWith(makeQuote({ name: undefined })))
+          .find('[data-testid="quote-title"]')
+          .text(),
+      ).toBe('portal.quotations.detail_title #QUO-2026-001');
     });
 
-    it('shows payment terms when present', async () => {
-      mockData.value = { quote: makeQuote({ paymentTerms: 'Net 30' }) };
-      const { wrapper } = await mountDetailPage();
+    it.each<[QuoteStatus, string]>([
+      ['requested', 'portal.quotations.kind_request · QUO-2026-001'],
+      ['pending', 'portal.quotations.kind_quotation · QUO-2026-001'],
+    ])('says what a %s one is, with its number', async (status, text) => {
+      const wrapper = await mountWith(makeQuote({ status }));
 
-      expect(wrapper.find('[data-testid="payment-terms"]').text()).toContain(
-        'Net 30',
+      expect(wrapper.find('[data-testid="quote-kind"]').text()).toBe(text);
+    });
+
+    it('leaves the number off the kind line when there is none', async () => {
+      const wrapper = await mountWith(makeQuote({ quoteNumber: '' }));
+
+      expect(wrapper.find('[data-testid="quote-kind"]').text()).toBe(
+        'portal.quotations.kind_quotation',
       );
     });
 
-    it('hides payment terms block when absent', async () => {
-      mockData.value = { quote: makeQuote({ paymentTerms: undefined }) };
-      const { wrapper } = await mountDetailPage();
+    it.each<[QuoteStatus, string]>([
+      ['requested', 'portal.quotations.status_requested'],
+      ['pending', 'portal.quotations.status_pending'],
+      ['confirmed', 'portal.quotations.status_confirmed'],
+      ['canceled', 'portal.quotations.status_canceled'],
+    ])('shows the %s badge', async (status, label) => {
+      const wrapper = await mountWith(makeQuote({ status }));
 
-      expect(wrapper.find('[data-testid="payment-terms"]').exists()).toBe(
-        false,
-      );
+      expect(wrapper.find('[data-testid="status-badge"]').text()).toBe(label);
     });
 
-    it('shows expiration date when present', async () => {
-      mockData.value = {
-        quote: makeQuote({ expiresAt: '2026-04-01T00:00:00Z' }),
-      };
-      const { wrapper } = await mountDetailPage();
+    it('sits above the summary card, outside it', async () => {
+      const wrapper = await mountWith(makeQuote());
 
-      expect(wrapper.find('[data-testid="expires-at"]').exists()).toBe(true);
+      const header = wrapper.find('[data-testid="quote-header"]').element;
+      const card = wrapper.find('[data-testid="quote-summary-card"]').element;
+      expect(card.contains(header)).toBe(false);
+      expect(
+        header.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
     });
 
-    it('shows contact info', async () => {
-      mockData.value = {
-        quote: makeQuote({
-          contactName: 'Jane Doe',
-          contactEmail: 'jane@example.com',
-        }),
-      };
-      const { wrapper } = await mountDetailPage();
+    it('links back to the quotations list', async () => {
+      const wrapper = await mountWith(makeQuote());
 
-      const contact = wrapper.find('[data-testid="sale-contact"]');
-      expect(contact.text()).toContain('Jane Doe');
-      expect(contact.text()).toContain('jane@example.com');
+      const back = wrapper.find('[data-testid="back-link"]');
+      expect(back.attributes('href')).toContain('/portal/quotations');
+      expect(back.text()).toContain('portal.quotations.back_to_quotations');
+    });
+
+    it('has no communication button (it comes with the message thread)', async () => {
+      const wrapper = await mountWith(makeQuote());
+
+      expect(
+        wrapper.find('[data-testid="quote-communication-open"]').exists(),
+      ).toBe(false);
     });
   });
 
-  describe('prices follow the VAT choice', () => {
-    const shipped = () =>
+  describe('summary', () => {
+    const shipped = (overrides: Partial<Quote> = {}) =>
       makeQuote({
         shipping: 100,
         shippingFormatted: '100,00 kr',
         shippingExVat: 80,
         shippingExVatFormatted: '80,00 kr',
+        ...overrides,
       });
 
-    async function read() {
-      mockData.value = { quote: shipped() };
-      const { wrapper } = await mountDetailPage();
-      const sheet = wrapper.findComponent({ name: 'PortalItemRowsSheet' });
+    function read(wrapper: Wrapper) {
+      const card = wrapper.find('[data-testid="quote-summary-card"]');
       return {
-        unit: wrapper.find('[data-testid="line-item-unit-price"]').text(),
-        line: wrapper.find('[data-testid="line-item-total-price"]').text(),
-        subtotal: wrapper.find('[data-testid="quote-summary-subtotal"]').text(),
-        shipping: wrapper.find('[data-testid="quote-summary-shipping"]').text(),
-        tax: wrapper.find('[data-testid="quote-summary-tax"]').text(),
-        total: wrapper.find('[data-testid="quote-summary-total"]').text(),
-        sheetRows: (
-          sheet.props('items') as {
-            unitPriceFormatted?: string;
-            totalPriceFormatted?: string;
-          }[]
-        ).map((row) => [row.unitPriceFormatted, row.totalPriceFormatted]),
-        sheetTotals: (sheet.props('totals') as { value?: string }[]).map(
-          (row) => row.value,
-        ),
+        lead: [
+          card.find('[data-testid="quote-summary-lead-label"]').text(),
+          card.find('[data-testid="quote-summary-subtotal"]').text(),
+        ],
+        rows: card
+          .findAll('[data-summary-row]')
+          .map((row) => [
+            row.attributes('data-summary-row'),
+            row.find('dt').text(),
+            row.find('dd').text(),
+          ]),
       };
     }
 
-    it.each([
-      [true, 'common.vat_included'],
-      [false, 'common.vat'],
-    ])(
-      'labels the VAT row by the chosen side on the card and the sheet (incl. VAT: %s)',
-      async (incVat, label) => {
-        mockShowIncVat.value = incVat;
-        mockData.value = { quote: shipped() };
-        const { wrapper } = await mountDetailPage();
-        const tax = wrapper.find('[data-testid="quote-summary-tax"]');
-        const sheet = wrapper.findComponent({ name: 'PortalItemRowsSheet' });
-        const sheetLabels = (sheet.props('totals') as { label: string }[]).map(
-          (row) => row.label,
-        );
-
-        expect(tax.element.previousElementSibling?.textContent?.trim()).toBe(
-          label,
-        );
-        expect(sheetLabels).toContain(label);
-      },
-    );
-
-    it('shows every amount inc VAT when inc is chosen', async () => {
+    it('leads with the subtotal inc VAT, then the rows, when inc is chosen', async () => {
       mockShowIncVat.value = true;
-      expect(await read()).toEqual({
-        unit: '100,00 kr',
-        line: '200,00 kr',
-        subtotal: '200,00 kr',
-        shipping: '100,00 kr',
-        tax: '50,00 kr',
-        total: '250,00 kr',
-        sheetRows: [['100,00 kr', '200,00 kr']],
-        sheetTotals: ['200,00 kr', '100,00 kr', '50,00 kr', '250,00 kr'],
-      });
-    });
-
-    it('shows every amount ex VAT when ex is chosen, VAT unchanged', async () => {
-      mockShowIncVat.value = false;
-      expect(await read()).toEqual({
-        unit: '80,00 kr',
-        line: '160,00 kr',
-        subtotal: '160,00 kr',
-        shipping: '80,00 kr',
-        tax: '50,00 kr',
-        total: '200,00 kr',
-        sheetRows: [['80,00 kr', '160,00 kr']],
-        sheetTotals: [
-          '160,00 kr',
-          '80,00 kr',
-          '50,00 kr',
-          '200,00 kr',
-          '250,00 kr',
+      expect(read(await mountWith(shipped()))).toEqual({
+        lead: ['portal.quotations.sum_inc_vat', '200,00 kr'],
+        rows: [
+          ['count', 'portal.quotations.items_count', '1'],
+          ['shipping', 'portal.quotations.shipping', '100,00 kr'],
+          ['tax', 'common.vat_included', '50,00 kr'],
+          ['total', 'portal.quotations.grand_total', '250,00 kr'],
         ],
       });
     });
 
-    it('lets the mobile sheet show its prices, which a quotation always keeps', async () => {
-      mockData.value = { quote: shipped() };
-      const { wrapper } = await mountDetailPage();
-
-      expect(
-        wrapper
-          .findComponent({ name: 'PortalItemRowsSheet' })
-          .props('showPrices'),
-      ).toBe(true);
-    });
-  });
-
-  describe('the inc-VAT total under an ex-VAT total', () => {
-    async function read(overrides: Partial<Quote> = {}) {
-      mockData.value = { quote: makeQuote(overrides) };
-      const { wrapper } = await mountDetailPage();
-      const value = wrapper.find('[data-testid="quote-summary-total-inc-vat"]');
-      const sheet = wrapper.findComponent({ name: 'PortalItemRowsSheet' });
-      const totals = sheet.props('totals') as {
-        label: string;
-        value?: string;
-      }[];
-      return {
-        wrapper,
-        rows: {
-          card: value.exists()
-            ? [
-                value.element.previousElementSibling?.textContent?.trim(),
-                value.text(),
-              ]
-            : null,
-          // No shipping in the fixture: subtotal, VAT, total, then this row.
-          sheet: totals.slice(3).map((r) => [r.label, r.value]),
-        },
-      };
-    }
-
-    it('shows "Totalt inkl. moms" under the total on the card and the sheet in ex mode', async () => {
+    it('leads with the subtotal ex VAT and ends on the inc total, when ex is chosen', async () => {
       mockShowIncVat.value = false;
-      const row = ['common.total_inc_vat', '250,00 kr'];
-
-      expect((await read()).rows).toEqual({ card: row, sheet: [row] });
-    });
-
-    it('adds no row in inc mode', async () => {
-      mockShowIncVat.value = true;
-      const { wrapper, rows } = await read();
-
-      expect(rows).toEqual({ card: null, sheet: [] });
-      expect(wrapper.text()).not.toContain('common.total_inc_vat');
-    });
-
-    it.each([
-      ['missing', { totalFormatted: '' }],
-      ['0', { total: 0, totalFormatted: '0,00 kr' }],
-    ])(
-      'hides the row when the inc amount is %s, and never puts the ex amount under the inc label',
-      async (_, overrides) => {
-        mockShowIncVat.value = false;
-        const { wrapper, rows } = await read(overrides);
-
-        expect(rows).toEqual({ card: null, sheet: [] });
-        expect(wrapper.text()).not.toContain('common.total_inc_vat');
-        expect(wrapper.find('[data-testid="quote-summary-total"]').text()).toBe(
-          '200,00 kr',
-        );
-      },
-    );
-  });
-
-  describe("the seller's discount", () => {
-    async function read(overrides: Partial<Quote>) {
-      mockData.value = { quote: makeQuote(overrides) };
-      const { wrapper } = await mountDetailPage();
-      const row = wrapper.find('[data-testid="quote-summary-discount"]');
-      const sheet = wrapper.findComponent({ name: 'PortalItemRowsSheet' });
-      const totals = sheet.props('totals') as {
-        label: string;
-        value?: string;
-      }[];
-      return {
-        card: row.exists()
-          ? row.findAll('span').map((span) => span.text())
-          : null,
-        // The discount sits right after the subtotal on the sheet too.
-        sheet: [totals[1]!.label, totals[1]!.value],
-      };
-    }
-
-    it.each([
-      [true, 'SEK\u00a062.50'],
-      [false, 'SEK\u00a050.00'],
-    ])(
-      'shows a percent discount with its rate on the card and the sheet (incl. VAT: %s)',
-      async (incVat, amount) => {
-        mockShowIncVat.value = incVat;
-        tSpy.mockClear();
-        const rows = await read({
-          discount: 62.5,
-          discountExVat: 50,
-          discountPercent: 5,
-        });
-
-        const label = 'portal.quotations.discount_percent';
-        expect(rows).toEqual({
-          card: [label, `-${amount}`],
-          sheet: [label, `-${amount}`],
-        });
-        expect(tSpy).toHaveBeenCalledWith(label, { percent: '5%' });
-      },
-    );
-
-    it('shows a fixed discount as "discount" on the card and the sheet', async () => {
-      mockShowIncVat.value = true;
-      const rows = await read({ discount: 62.5, discountExVat: 50 });
-
-      expect(rows).toEqual({
-        card: ['discount.discount', '-SEK\u00a062.50'],
-        sheet: ['discount.discount', '-SEK\u00a062.50'],
+      expect(read(await mountWith(shipped()))).toEqual({
+        lead: ['portal.quotations.sum_ex_vat', '160,00 kr'],
+        rows: [
+          ['count', 'portal.quotations.items_count', '1'],
+          ['shipping', 'portal.quotations.shipping', '80,00 kr'],
+          ['tax', 'common.vat', '50,00 kr'],
+          ['total', 'portal.quotations.grand_total', '200,00 kr'],
+          ['total-inc-vat', 'common.total_inc_vat', '250,00 kr'],
+        ],
       });
     });
 
-    it('shows no discount row when there is none', async () => {
-      const rows = await read({ discount: 0, discountExVat: 0 });
+    it.each([
+      [true, 'SEK 62.50'],
+      [false, 'SEK 50.00'],
+    ])(
+      "shows the seller's percent discount with its rate (incl. VAT: %s)",
+      async (incVat, amount) => {
+        mockShowIncVat.value = incVat;
+        tSpy.mockClear();
+        const wrapper = await mountWith(
+          makeQuote({ discount: 62.5, discountExVat: 50, discountPercent: 5 }),
+        );
 
-      expect(rows.card).toBeNull();
-      expect(rows.sheet[0]).toBe('common.vat_included');
-    });
-  });
+        expect(read(wrapper).rows[1]).toEqual([
+          'discount',
+          'portal.quotations.discount_percent',
+          `-${amount}`,
+        ]);
+        expect(tSpy).toHaveBeenCalledWith(
+          'portal.quotations.discount_percent',
+          {
+            percent: '5%',
+          },
+        );
+      },
+    );
 
-  describe('header title (D1)', () => {
-    it('renders quote.name as the H2 title when name is set', async () => {
-      mockData.value = {
-        quote: makeQuote({ name: 'Dec order proposal' }),
-      };
-      const { wrapper } = await mountDetailPage();
-
-      const title = wrapper.find('[data-testid="quote-title"]');
-      expect(title.exists()).toBe(true);
-      expect(title.text()).toBe('Dec order proposal');
-    });
-
-    it('falls back to "detail_title #number" when name is absent', async () => {
-      mockData.value = {
-        quote: makeQuote({ name: undefined, quoteNumber: 'QUO-2026-001' }),
-      };
-      const { wrapper } = await mountDetailPage();
-
-      const title = wrapper.find('[data-testid="quote-title"]');
-      expect(title.text()).toContain('portal.quotations.detail_title');
-      expect(title.text()).toContain('#QUO-2026-001');
-    });
-
-    it('renders the header above the grey summary card, not inside it', async () => {
-      mockData.value = { quote: makeQuote() };
-      const { wrapper } = await mountDetailPage();
-
-      const header = wrapper.find('[data-testid="quote-header"]').element;
-      const card = wrapper.find('[data-testid="quote-summary-card"]').element;
-
-      // Header must not be a descendant of the grey card.
-      expect(card.contains(header)).toBe(false);
-      // Header must come before the card in document order.
+    it('keeps the shipping-row testid on the shipping row, and drops the row without a fee', async () => {
       expect(
-        header.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy();
-    });
-  });
-
-  describe('back to quotations link (D2)', () => {
-    it('renders a back link pointing to the locale-prefixed quotations list', async () => {
-      mockData.value = { quote: makeQuote() };
-      const { wrapper } = await mountDetailPage();
-
-      const back = wrapper.find('[data-testid="back-link"]');
-      expect(back.exists()).toBe(true);
-      // setup-components.ts stubs localePath() to '/se/en' + path
-      expect(back.attributes('href')).toBe('/se/en/portal/quotations');
-      expect(back.text()).toContain('portal.quotations.back_to_quotations');
+        (await mountWith(shipped()))
+          .find('[data-testid="shipping-row"]')
+          .exists(),
+      ).toBe(true);
+      expect(
+        (await mountWith(makeQuote()))
+          .find('[data-testid="shipping-row"]')
+          .exists(),
+      ).toBe(false);
     });
 
-    it('renders a lucide:arrow-left icon inside the back link', async () => {
-      const { ArrowLeft } = await import('lucide-vue-next');
-      mockData.value = { quote: makeQuote() };
-      const { wrapper } = await mountDetailPage();
-
-      const back = wrapper.find('[data-testid="back-link"]');
-      expect(back.findComponent(ArrowLeft).exists()).toBe(true);
-    });
-  });
-
-  describe('shipping row (D3)', () => {
-    it('renders shipping line when shipping > 0', async () => {
-      mockData.value = {
-        quote: makeQuote({ shipping: 100, shippingFormatted: '100,00 kr' }),
-      };
-      const { wrapper } = await mountDetailPage();
-
-      const row = wrapper.find('[data-testid="shipping-row"]');
-      expect(row.exists()).toBe(true);
-      expect(row.text()).toContain('portal.quotations.shipping');
-      expect(row.text()).toContain('100,00 kr');
-    });
-
-    it('hides shipping row when shipping is 0', async () => {
-      mockData.value = { quote: makeQuote({ shipping: 0 }) };
-      const { wrapper } = await mountDetailPage();
-
-      expect(wrapper.find('[data-testid="shipping-row"]').exists()).toBe(false);
-    });
-  });
-
-  describe('subtotal with item count (D8)', () => {
-    it('renders subtotal label interpolated with lineItems length', async () => {
-      // Clear the shared `t` spy so `toHaveBeenCalledWith` reflects only the
-      // calls made by this test's mount — mountDetailPage triggers a full
-      // template render that invokes `t` many times.
-      tSpy.mockClear();
-      mockData.value = {
-        quote: makeQuote({
-          lineItems: [
-            {
-              productId: 1,
-              sku: 'SKU-A',
-              name: 'A',
-              articleNumber: 'ART-A',
-              quantity: 1,
-              unitPrice: 10,
-              unitPriceFormatted: '10 kr',
-              totalPrice: 10,
-              totalPriceFormatted: '10 kr',
-              unitPriceExVat: 0,
-              unitPriceExVatFormatted: '',
-              totalPriceExVat: 0,
-              totalPriceExVatFormatted: '',
-            },
-            {
-              productId: 2,
-              sku: 'SKU-B',
-              name: 'B',
-              articleNumber: 'ART-B',
-              quantity: 1,
-              unitPrice: 20,
-              unitPriceFormatted: '20 kr',
-              totalPrice: 20,
-              totalPriceFormatted: '20 kr',
-              unitPriceExVat: 0,
-              unitPriceExVatFormatted: '',
-              totalPriceExVat: 0,
-              totalPriceExVatFormatted: '',
-            },
-            {
-              productId: 3,
-              sku: 'SKU-C',
-              name: 'C',
-              articleNumber: 'ART-C',
-              quantity: 1,
-              unitPrice: 30,
-              unitPriceFormatted: '30 kr',
-              totalPrice: 30,
-              totalPriceFormatted: '30 kr',
-              unitPriceExVat: 0,
-              unitPriceExVatFormatted: '',
-              totalPriceExVat: 0,
-              totalPriceExVatFormatted: '',
-            },
-          ],
-        }),
-      };
-      const { wrapper } = await mountDetailPage();
-
-      // Strong assertion: verify the component actually passed `{ count: 3 }`
-      // to `t()` for the subtotal label. Guards against a regression where
-      // someone drops the interpolation args (the passthrough mock would
-      // otherwise mask it).
-      expect(tSpy).toHaveBeenCalledWith(
-        'portal.quotations.subtotal_with_count',
-        { count: 3 },
+    it('keeps the value testids the e2e reads', async () => {
+      mockShowIncVat.value = false;
+      const wrapper = await mountWith(
+        shipped({ discount: 62.5, discountExVat: 50 }),
       );
-      expect(mockUseFetch).toHaveBeenCalled();
-      // lineItems.length is 3 — confirm the component read the right input
-      expect(wrapper.findAll('[data-testid="line-item-row"]')).toHaveLength(3);
+
+      expect(
+        [
+          'quote-summary-subtotal',
+          'quote-summary-discount',
+          'quote-summary-shipping',
+          'quote-summary-tax',
+          'quote-summary-total',
+          'quote-summary-total-inc-vat',
+        ].map((id) => wrapper.find(`[data-testid="${id}"]`).text()),
+      ).toEqual([
+        '160,00 kr',
+        '-SEK 50.00',
+        '80,00 kr',
+        '50,00 kr',
+        '200,00 kr',
+        '250,00 kr',
+      ]);
     });
   });
 
-  describe('customer information block (D5)', () => {
-    it('renders customer info when quote.company is present', async () => {
-      mockData.value = {
-        quote: makeQuote({
-          company: {
-            name: 'Acme AB',
-            companyId: '556677-8899',
-            vatNumber: 'SE556677889901',
-          },
-        }),
-      };
-      const { wrapper } = await mountDetailPage();
+  describe('responses', () => {
+    it('offers only "withdraw" on a sent request', async () => {
+      const wrapper = await mountWith(makeQuote({ status: 'requested' }));
 
-      const card = wrapper.find('[data-testid="customer-info"]');
-      expect(card.exists()).toBe(true);
-      expect(card.text()).toContain('Acme AB');
-      expect(card.text()).toContain('556677-8899');
-      expect(card.text()).toContain('SE556677889901');
-    });
-
-    it('hides customer info block when quote.company is undefined', async () => {
-      mockData.value = { quote: makeQuote({ company: undefined }) };
-      const { wrapper } = await mountDetailPage();
-
-      expect(wrapper.find('[data-testid="customer-info"]').exists()).toBe(
-        false,
+      expect(wrapper.find('[data-testid="quote-withdraw"]').text()).toBe(
+        'portal.quotations.withdraw',
       );
-    });
-  });
-
-  describe('invoice address block (D6)', () => {
-    it('renders invoice address when billingAddress is present', async () => {
-      mockData.value = {
-        quote: makeQuote({
-          billingAddress: {
-            company: 'Acme AB',
-            firstName: 'Jane',
-            lastName: 'Doe',
-            addressLine1: 'Main Street 1',
-            zip: '12345',
-            city: 'Stockholm',
-            country: 'Sweden',
-          },
-        }),
-      };
-      const { wrapper } = await mountDetailPage();
-
-      const card = wrapper.find('[data-testid="invoice-address"]');
-      expect(card.exists()).toBe(true);
-      expect(card.text()).toContain('Acme AB');
-      expect(card.text()).toContain('Jane Doe');
-      expect(card.text()).toContain('Main Street 1');
-      expect(card.text()).toContain('12345 Stockholm');
-      expect(card.text()).toContain('Sweden');
+      expect(wrapper.find('[data-testid="accept-btn"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="decline-btn"]').exists()).toBe(false);
     });
 
-    it('hides invoice address block when billingAddress is undefined', async () => {
-      mockData.value = { quote: makeQuote({ billingAddress: undefined }) };
-      const { wrapper } = await mountDetailPage();
+    it.each([
+      ['no confirmation', {}, 'portal.quotations.accept_plain', undefined],
+      [
+        'confirmation',
+        { requiresConfirmation: true },
+        'portal.quotations.accept_confirm',
+        'portal.quotations.note_confirm',
+      ],
+      [
+        'Monitor-linked',
+        { externalReference: monitorLinked },
+        'portal.quotations.accept_monitor',
+        'portal.quotations.note_monitor',
+      ],
+    ])(
+      'offers decline and accept on a pending quotation (%s)',
+      async (_, overrides, acceptLabel, note) => {
+        const wrapper = await mountWith(pending(overrides));
 
-      expect(wrapper.find('[data-testid="invoice-address"]').exists()).toBe(
-        false,
+        expect(wrapper.find('[data-testid="decline-btn"]').text()).toBe(
+          'portal.quotations.decline',
+        );
+        expect(wrapper.find('[data-testid="accept-btn"]').text()).toBe(
+          acceptLabel,
+        );
+        const noteEl = wrapper.find('[data-testid="quote-accept-note"]');
+        expect(noteEl.exists() ? noteEl.text() : undefined).toBe(note);
+        expect(wrapper.find('[data-testid="quote-withdraw"]').exists()).toBe(
+          false,
+        );
+      },
+    );
+
+    it('never promises an order on the accept button', async () => {
+      const wrapper = await mountWith(pending());
+
+      expect(wrapper.text()).not.toContain(
+        'portal.quotations.accept_and_order',
       );
-    });
-  });
-
-  describe('delivery address block (D7)', () => {
-    it('renders delivery address when shippingAddress is present', async () => {
-      mockData.value = {
-        quote: makeQuote({
-          shippingAddress: {
-            company: 'Acme AB',
-            firstName: 'John',
-            lastName: 'Smith',
-            addressLine1: 'Warehouse Lane 5',
-            zip: '54321',
-            city: 'Gothenburg',
-            country: 'Sweden',
-          },
-        }),
-      };
-      const { wrapper } = await mountDetailPage();
-
-      const card = wrapper.find('[data-testid="delivery-address"]');
-      expect(card.exists()).toBe(true);
-      expect(card.text()).toContain('Acme AB');
-      expect(card.text()).toContain('John Smith');
-      expect(card.text()).toContain('Warehouse Lane 5');
-      expect(card.text()).toContain('54321 Gothenburg');
-      expect(card.text()).toContain('Sweden');
-    });
-
-    it('hides delivery address block when shippingAddress is undefined', async () => {
-      mockData.value = { quote: makeQuote({ shippingAddress: undefined }) };
-      const { wrapper } = await mountDetailPage();
-
-      expect(wrapper.find('[data-testid="delivery-address"]').exists()).toBe(
-        false,
-      );
-    });
-  });
-
-  describe('sidebar icons (D10)', () => {
-    it('renders a calendar icon inside the expires-at block', async () => {
-      const { Calendar } = await import('lucide-vue-next');
-      mockData.value = { quote: makeQuote() };
-      const { wrapper } = await mountDetailPage();
-
-      const block = wrapper.find('[data-testid="expires-at"]');
-      expect(block.findComponent(Calendar).exists()).toBe(true);
-    });
-
-    it('renders a clock icon inside the payment-terms block', async () => {
-      const { Clock } = await import('lucide-vue-next');
-      mockData.value = { quote: makeQuote() };
-      const { wrapper } = await mountDetailPage();
-
-      const block = wrapper.find('[data-testid="payment-terms"]');
-      expect(block.findComponent(Clock).exists()).toBe(true);
-    });
-
-    it('renders a user icon inside the sale-contact block', async () => {
-      const { User } = await import('lucide-vue-next');
-      mockData.value = { quote: makeQuote() };
-      const { wrapper } = await mountDetailPage();
-
-      const block = wrapper.find('[data-testid="sale-contact"]');
-      expect(block.findComponent(User).exists()).toBe(true);
-    });
-  });
-
-  describe('status badge', () => {
-    it.each<[QuoteStatus, string]>([
-      ['request_draft', 'border-dashed'],
-      ['requested', 'bg-neutral-500/10'],
-      ['pending', 'bg-info/10'],
-      ['accepted', 'bg-success/8'],
-      ['confirmed', 'bg-success/8'],
-      ['finalized', 'bg-success'],
-      ['rejected', 'bg-danger/10'],
-      ['canceled', 'bg-danger/10'],
-      ['expired', 'bg-warning/10'],
-      ['unknown', 'bg-neutral-500/10'],
-    ])('shows the %s label with its tone %s', async (status, token) => {
-      mockData.value = { quote: makeQuote({ status }) };
-      const { wrapper } = await mountDetailPage();
-
-      const badge = wrapper.find('[data-testid="status-badge"]');
-      expect(badge.text()).toContain(`portal.quotations.status_${status}`);
-      expect(badge.classes()).toContain(token);
-    });
-  });
-
-  describe('accept / decline buttons', () => {
-    it('shows accept and decline buttons for pending quotes', async () => {
-      mockData.value = { quote: makeQuote({ status: 'pending' }) };
-      const { wrapper } = await mountDetailPage();
-
-      expect(wrapper.find('[data-testid="accept-btn"]').exists()).toBe(true);
-      expect(wrapper.find('[data-testid="decline-btn"]').exists()).toBe(true);
     });
 
     it.each<QuoteStatus>([
       'request_draft',
-      'requested',
       'accepted',
       'confirmed',
       'finalized',
@@ -1043,183 +715,133 @@ describe('PortalQuotationDetail', () => {
       'canceled',
       'expired',
       'unknown',
-    ])('hides accept and decline buttons for %s quotes', async (status) => {
-      mockData.value = { quote: makeQuote({ status }) };
-      const { wrapper } = await mountDetailPage();
+    ])('offers no response on %s', async (status) => {
+      const wrapper = await mountWith(makeQuote({ status }));
 
-      expect(wrapper.find('[data-testid="accept-btn"]').exists()).toBe(false);
-      expect(wrapper.find('[data-testid="decline-btn"]').exists()).toBe(false);
+      for (const id of ['quote-withdraw', 'decline-btn', 'accept-btn']) {
+        expect(wrapper.find(`[data-testid="${id}"]`).exists()).toBe(false);
+      }
     });
 
-    it('calls acceptQuote when accept button is clicked', async () => {
-      mockData.value = { quote: makeQuote({ status: 'pending' }) };
-      const { wrapper } = await mountDetailPage();
-
-      await wrapper.find('[data-testid="accept-btn"]').trigger('click');
-
-      expect(mockAcceptQuote).toHaveBeenCalledWith('q-001');
-    });
-
-    it('does not render a decline-reason textarea', async () => {
-      mockData.value = { quote: makeQuote({ status: 'pending' }) };
-      const { wrapper } = await mountDetailPage();
-
-      expect(wrapper.find('[data-testid="decline-form"]').exists()).toBe(false);
-      expect(
-        wrapper.find('[data-testid="decline-reason-input"]').exists(),
-      ).toBe(false);
-    });
-
-    it('calls rejectQuote with id only when decline button is clicked', async () => {
-      mockData.value = { quote: makeQuote({ status: 'pending' }) };
-      const { wrapper } = await mountDetailPage();
-
-      await wrapper.find('[data-testid="decline-btn"]').trigger('click');
-
-      expect(mockSafeConfirm).toHaveBeenCalled();
-      expect(mockRejectQuote).toHaveBeenCalledWith('q-001');
-      expect(mockRejectQuote.mock.calls[0]).toHaveLength(1);
-    });
-
-    it('does not call rejectQuote when decline confirm is cancelled', async () => {
-      mockSafeConfirm.mockReturnValue(false);
-      mockData.value = { quote: makeQuote({ status: 'pending' }) };
-      const { wrapper } = await mountDetailPage();
-
-      await wrapper.find('[data-testid="decline-btn"]').trigger('click');
-
-      expect(mockSafeConfirm).toHaveBeenCalled();
-      expect(mockRejectQuote).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('action error banner (B6)', () => {
-    it('does not render the error banner by default', async () => {
-      mockData.value = { quote: makeQuote({ status: 'pending' }) };
-      const { wrapper } = await mountDetailPage();
-
-      expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(false);
-    });
-
-    it('renders the error banner with accept_failed text when acceptQuote sets store.error', async () => {
-      // Simulate the real store's catch block: on failure, set store.error
-      // to the i18n key and leave the promise resolved (store swallows the
-      // throw internally). This mirrors the real contract at
-      // app/stores/quotes.ts acceptQuote catch branch.
-      mockAcceptQuote.mockImplementationOnce(() => {
-        mockStoreError.value = 'portal.quotations.accept_failed';
-        return Promise.resolve(null);
-      });
-      mockData.value = { quote: makeQuote({ status: 'pending' }) };
-      const { wrapper } = await mountDetailPage();
-
-      await wrapper.find('[data-testid="accept-btn"]').trigger('click');
-      await flushPromises();
-
-      const banner = wrapper.find('[data-testid="action-error"]');
-      expect(banner.exists()).toBe(true);
-      expect(banner.text()).toContain('portal.quotations.accept_failed');
-      expect(banner.attributes('role')).toBe('alert');
-    });
-
-    it('renders the error banner with decline_failed text when rejectQuote sets store.error', async () => {
-      mockRejectQuote.mockImplementationOnce(() => {
-        mockStoreError.value = 'portal.quotations.decline_failed';
-        return Promise.resolve(null);
-      });
-      mockData.value = { quote: makeQuote({ status: 'pending' }) };
-      const { wrapper } = await mountDetailPage();
-
-      await wrapper.find('[data-testid="decline-btn"]').trigger('click');
-      await flushPromises();
-
-      const banner = wrapper.find('[data-testid="action-error"]');
-      expect(banner.exists()).toBe(true);
-      expect(banner.text()).toContain('portal.quotations.decline_failed');
-    });
-
-    it('clears the error banner when the user clicks Accept again and it succeeds', async () => {
-      mockAcceptQuote.mockImplementationOnce(() => {
-        mockStoreError.value = 'portal.quotations.accept_failed';
-        return Promise.resolve(null);
-      });
-      mockData.value = { quote: makeQuote({ status: 'pending' }) };
-      const { wrapper } = await mountDetailPage();
-
-      await wrapper.find('[data-testid="accept-btn"]').trigger('click');
-      await flushPromises();
-      expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(true);
-
-      // Second click succeeds — the default mockAcceptQuote impl clears
-      // store.error at the start (mirroring the real store), so the banner
-      // should disappear.
-      await wrapper.find('[data-testid="accept-btn"]').trigger('click');
-      await flushPromises();
-
-      expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(false);
-    });
-
-    it('clears the error banner when the user clicks Decline again and it succeeds', async () => {
-      mockRejectQuote.mockImplementationOnce(() => {
-        mockStoreError.value = 'portal.quotations.decline_failed';
-        return Promise.resolve(null);
-      });
-      mockData.value = { quote: makeQuote({ status: 'pending' }) };
-      const { wrapper } = await mountDetailPage();
-
-      await wrapper.find('[data-testid="decline-btn"]').trigger('click');
-      await flushPromises();
-      expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(true);
-
-      await wrapper.find('[data-testid="decline-btn"]').trigger('click');
-      await flushPromises();
-
-      expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(false);
-    });
-
-    it('does not render the error banner when acceptQuote succeeds', async () => {
-      mockData.value = { quote: makeQuote({ status: 'pending' }) };
-      const { wrapper } = await mountDetailPage();
-
-      await wrapper.find('[data-testid="accept-btn"]').trigger('click');
-      await flushPromises();
-
-      expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(false);
-    });
-
-    it('clears a stale store.error on mount so the banner starts hidden on navigation', async () => {
-      // Simulate a stale error left over from a previous route — the page
-      // setup should reset store.error to null when it seeds currentQuote.
-      mockStoreError.value = 'portal.quotations.accept_failed';
-      mockData.value = { quote: makeQuote({ status: 'pending' }) };
-      const { wrapper } = await mountDetailPage();
-
-      expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(false);
-    });
-  });
-
-  // The page renders from its useFetch data; an answer writes the quotation
-  // the server read again back into it.
-  describe('after an answer', () => {
     it.each([
-      { button: 'accept-btn', status: 'accepted' as const },
-      { button: 'decline-btn', status: 'rejected' as const },
+      [
+        'withdraw',
+        makeQuote({ status: 'requested' }),
+        'quote-withdraw',
+        'withdraw',
+        true,
+      ],
+      ['decline', pending(), 'decline-btn', 'decline', true],
+      ['plain accept', pending(), 'accept-btn', 'accept_plain', false],
+      [
+        'accept with confirmation',
+        pending({ requiresConfirmation: true }),
+        'accept-btn',
+        'accept_confirm',
+        false,
+      ],
+      [
+        'Monitor-linked accept',
+        pending({ externalReference: monitorLinked }),
+        'accept-btn',
+        'accept_monitor',
+        false,
+      ],
     ])(
-      'shows $status and drops the buttons after $button succeeds',
-      async ({ button, status }) => {
-        const answered = makeQuote({ status });
-        const answer =
-          button === 'accept-btn' ? mockAcceptQuote : mockRejectQuote;
-        answer.mockResolvedValueOnce(answered);
-        mockData.value = { quote: makeQuote({ status: 'pending' }) };
-        const { wrapper } = await mountDetailPage();
+      'asks first before a %s, and does nothing yet',
+      async (_, quote, button, copy, destructive) => {
+        const wrapper = await mountWith(quote);
+        expect(
+          wrapper.find('[data-testid="quote-action-dialog"]').exists(),
+        ).toBe(false);
 
         await wrapper.find(`[data-testid="${button}"]`).trigger('click');
-        await flushPromises();
 
-        expect(wrapper.find('[data-testid="status-badge"]').text()).toContain(
+        const dialog = wrapper.find('[data-testid="quote-action-dialog"]');
+        const k = (key: string) => `portal.quotations.${key}`;
+        expect({
+          title: dialog.find('[data-testid="dialog-title"]').text(),
+          description: dialog.find('[data-testid="dialog-description"]').text(),
+          confirm: dialog.find('[data-testid="quote-action-confirm"]').text(),
+          destructive: dialog.attributes('data-destructive'),
+        }).toEqual({
+          title: k(`${copy}_title`),
+          description: k(`${copy}_body`),
+          confirm: k(copy),
+          destructive: String(destructive),
+        });
+        expect(mockAcceptQuote).not.toHaveBeenCalled();
+        expect(mockRejectQuote).not.toHaveBeenCalled();
+      },
+    );
+
+    it('does nothing when the dialog is cancelled', async () => {
+      const wrapper = await mountWith(pending());
+
+      await wrapper.find('[data-testid="decline-btn"]').trigger('click');
+      await wrapper
+        .find('[data-testid="quote-action-cancel"]')
+        .trigger('click');
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="quote-action-dialog"]').exists()).toBe(
+        false,
+      );
+      expect(mockRejectQuote).not.toHaveBeenCalled();
+      expect(mockAcceptQuote).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['withdraw', 'requested' as const, 'quote-withdraw', 'reject'],
+      ['decline', 'pending' as const, 'decline-btn', 'reject'],
+      ['accept', 'pending' as const, 'accept-btn', 'accept'],
+    ])(
+      'sends a confirmed %s once, with the id only',
+      async (_, status, button, call) => {
+        const wrapper = await mountWith(makeQuote({ status }));
+
+        await answer(wrapper, button);
+
+        const [used, unused] =
+          call === 'accept'
+            ? [mockAcceptQuote, mockRejectQuote]
+            : [mockRejectQuote, mockAcceptQuote];
+        expect(used).toHaveBeenCalledTimes(1);
+        expect(used).toHaveBeenCalledWith('q-001');
+        expect(unused).not.toHaveBeenCalled();
+      },
+    );
+
+    it('disables the confirm while the answer is on its way', async () => {
+      mockIsActionLoading.value = true;
+      const wrapper = await mountWith(pending());
+
+      await wrapper.find('[data-testid="accept-btn"]').trigger('click');
+
+      expect(
+        wrapper
+          .find('[data-testid="quote-action-dialog"]')
+          .attributes('data-pending'),
+      ).toBe('true');
+    });
+
+    it.each([
+      ['accept-btn', 'accepted' as const, mockAcceptQuote],
+      ['decline-btn', 'rejected' as const, mockRejectQuote],
+    ])(
+      'after %s succeeds: shows %s, closes the dialog, drops the buttons',
+      async (button, status, call) => {
+        call.mockResolvedValueOnce(makeQuote({ status }));
+        const wrapper = await mountWith(pending());
+
+        await answer(wrapper, button);
+
+        expect(wrapper.find('[data-testid="status-badge"]').text()).toBe(
           `portal.quotations.status_${status}`,
         );
+        expect(
+          wrapper.find('[data-testid="quote-action-dialog"]').exists(),
+        ).toBe(false);
         expect(wrapper.find('[data-testid="accept-btn"]').exists()).toBe(false);
         expect(wrapper.find('[data-testid="decline-btn"]').exists()).toBe(
           false,
@@ -1227,41 +849,293 @@ describe('PortalQuotationDetail', () => {
       },
     );
 
+    it('after a withdraw succeeds the request shows as rejected, without the button', async () => {
+      mockRejectQuote.mockResolvedValueOnce(makeQuote({ status: 'rejected' }));
+      const wrapper = await mountWith(makeQuote({ status: 'requested' }));
+
+      await answer(wrapper, 'quote-withdraw');
+
+      expect(wrapper.find('[data-testid="status-badge"]').text()).toBe(
+        'portal.quotations.status_rejected',
+      );
+      expect(wrapper.find('[data-testid="quote-withdraw"]').exists()).toBe(
+        false,
+      );
+    });
+
     it.each([
-      { button: 'accept-btn', key: 'portal.quotations.accept_failed' },
-      { button: 'decline-btn', key: 'portal.quotations.decline_failed' },
+      ['accept-btn', 'portal.quotations.accept_failed', mockAcceptQuote],
+      ['decline-btn', 'portal.quotations.decline_failed', mockRejectQuote],
     ])(
-      'stays pending with the buttons and the banner after $button fails',
-      async ({ button, key }) => {
-        const answer =
-          button === 'accept-btn' ? mockAcceptQuote : mockRejectQuote;
-        answer.mockImplementationOnce(() => {
+      'after %s fails: stays pending with the buttons and the banner',
+      async (button, key, call) => {
+        call.mockImplementationOnce(() => {
           mockStoreError.value = key;
           return Promise.resolve(null);
         });
-        mockData.value = { quote: makeQuote({ status: 'pending' }) };
-        const { wrapper } = await mountDetailPage();
+        const wrapper = await mountWith(pending());
 
-        await wrapper.find(`[data-testid="${button}"]`).trigger('click');
-        await flushPromises();
+        await answer(wrapper, button);
 
-        expect(wrapper.find('[data-testid="status-badge"]').text()).toContain(
+        expect(wrapper.find('[data-testid="status-badge"]').text()).toBe(
           'portal.quotations.status_pending',
         );
+        expect(
+          wrapper.find('[data-testid="quote-action-dialog"]').exists(),
+        ).toBe(false);
         expect(wrapper.find('[data-testid="accept-btn"]').exists()).toBe(true);
-        expect(wrapper.find('[data-testid="decline-btn"]').exists()).toBe(true);
-        expect(wrapper.find('[data-testid="action-error"]').text()).toContain(
-          key,
-        );
+        const banner = wrapper.find('[data-testid="action-error"]');
+        expect(banner.text()).toBe(key);
+        expect(banner.attributes('role')).toBe('alert');
       },
     );
+
+    it('clears the banner when a second try succeeds', async () => {
+      mockAcceptQuote.mockImplementationOnce(() => {
+        mockStoreError.value = 'portal.quotations.accept_failed';
+        return Promise.resolve(null);
+      });
+      const wrapper = await mountWith(pending());
+
+      await answer(wrapper, 'accept-btn');
+      expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(true);
+      await answer(wrapper, 'accept-btn');
+
+      expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(false);
+    });
+
+    it('clears a stale store error on mount', async () => {
+      mockStoreError.value = 'portal.quotations.accept_failed';
+      const wrapper = await mountWith(pending());
+
+      expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(false);
+    });
+
+    // No Monitor-linked quotation exists on the test tenant; this is the proof
+    // for that case.
+    it('Monitor-linked: accepting says the order is placed, and then says it is on its way', async () => {
+      mockAcceptQuote.mockResolvedValueOnce(
+        makeQuote({ status: 'accepted', externalReference: monitorLinked }),
+      );
+      const wrapper = await mountWith(
+        pending({
+          externalReference: monitorLinked,
+          requiresConfirmation: true,
+        }),
+      );
+
+      expect(wrapper.find('[data-testid="accept-btn"]').text()).toBe(
+        'portal.quotations.accept_monitor',
+      );
+      await wrapper.find('[data-testid="accept-btn"]').trigger('click');
+      expect(wrapper.find('[data-testid="dialog-title"]').text()).toBe(
+        'portal.quotations.accept_monitor_title',
+      );
+      await wrapper
+        .find('[data-testid="quote-action-confirm"]')
+        .trigger('click');
+      await flushPromises();
+
+      expect(mockAcceptQuote).toHaveBeenCalledWith('q-001');
+      expect(
+        wrapper.find('[data-testid="quote-meta-status"]').text(),
+      ).toContain('portal.quotations.status_info_accepted_monitor');
+    });
+  });
+
+  describe('details', () => {
+    it('lists the rows in the prototype order, only those with a value', async () => {
+      const wrapper = await mountWith(
+        makeQuote({
+          seller: { name: 'Sam Seller', phone: '+4670000' },
+          acceptedAt: '2026-10-28T09:00:00Z',
+          acceptedBy: 'Bo Buyer',
+          status: 'accepted',
+        }),
+      );
+
+      expect(metaKeys(wrapper)).toEqual([
+        'reference',
+        'created',
+        'status',
+        'expires',
+        'terms',
+        'accepted',
+        'contact',
+      ]);
+    });
+
+    it('leaves out a row without a value', async () => {
+      const wrapper = await mountWith(
+        makeQuote({
+          quoteNumber: '',
+          expiresAt: undefined,
+          paymentTerms: undefined,
+        }),
+      );
+
+      expect(metaKeys(wrapper)).toEqual(['created', 'status']);
+    });
+
+    it('keeps the testids the e2e and the old view used', async () => {
+      const wrapper = await mountWith(
+        makeQuote({ seller: { name: 'Sam Seller' } }),
+      );
+
+      for (const id of [
+        'quote-reference',
+        'expires-at',
+        'payment-terms',
+        'sale-contact',
+      ]) {
+        expect(wrapper.find(`[data-testid="${id}"]`).exists()).toBe(true);
+      }
+      expect(wrapper.find('[data-testid="quote-reference"]').text()).toContain(
+        'REF: QUO-2026-001',
+      );
+    });
+
+    it('names the seller and their phone, never the buyer', async () => {
+      const wrapper = await mountWith(
+        makeQuote({
+          contactName: 'Jane Buyer',
+          contactEmail: 'jane@buyer.test',
+          seller: { name: 'Sam Seller', phone: '+4670000' },
+        }),
+      );
+
+      const contact = wrapper.find('[data-testid="sale-contact"]');
+      expect(contact.text()).toContain('portal.quotations.sale_contact');
+      expect(contact.text()).toContain('Sam Seller');
+      expect(contact.text()).toContain('+4670000');
+      expect(contact.text()).not.toContain('Jane Buyer');
+      expect(contact.text()).not.toContain('jane@buyer.test');
+    });
+
+    it('has no contact row without a seller', async () => {
+      const wrapper = await mountWith(
+        makeQuote({ contactName: 'Jane Buyer', seller: undefined }),
+      );
+
+      expect(wrapper.find('[data-testid="sale-contact"]').exists()).toBe(false);
+    });
+
+    it('says when and by whom it was accepted, only once the API says so', async () => {
+      const without = await mountWith(makeQuote({ status: 'accepted' }));
+      expect(without.find('[data-testid="quote-meta-accepted"]').exists()).toBe(
+        false,
+      );
+
+      const withIt = await mountWith(
+        makeQuote({
+          status: 'accepted',
+          acceptedAt: '2026-10-28T09:00:00Z',
+          acceptedBy: 'Bo Buyer',
+        }),
+      );
+      const row = withIt.find('[data-testid="quote-meta-accepted"]');
+      expect(row.text()).toContain('portal.quotations.accepted_at');
+      expect(row.text()).toContain('Bo Buyer');
+      expect(row.text()).toMatch(/2026/);
+    });
+
+    it.each([
+      ['pending', {}, 'status_info_pending'],
+      ['requested', {}, 'status_info_requested'],
+      ['accepted', {}, 'status_info_accepted_plain'],
+      [
+        'accepted',
+        { requiresConfirmation: true },
+        'status_info_accepted_confirm',
+      ],
+      [
+        'accepted',
+        { externalReference: monitorLinked },
+        'status_info_accepted_monitor',
+      ],
+      ['confirmed', {}, 'status_info_confirmed'],
+    ] as const)(
+      'explains a %s quotation in the status row (%j)',
+      async (status, overrides, key) => {
+        const wrapper = await mountWith(makeQuote({ status, ...overrides }));
+
+        const row = wrapper.find('[data-testid="quote-meta-status"]');
+        expect(row.text()).toContain('portal.quotations.status_label');
+        expect(row.text()).toContain(`portal.quotations.${key}`);
+      },
+    );
+
+    it('has no status row on a request draft', async () => {
+      const wrapper = await mountWith(makeQuote({ status: 'request_draft' }));
+
+      expect(wrapper.find('[data-testid="quote-meta-status"]').exists()).toBe(
+        false,
+      );
+    });
+  });
+
+  describe('customer and addresses', () => {
+    it('is collapsed, with company and delivery address on one line', async () => {
+      const wrapper = await mountWith(
+        makeQuote({
+          company: { name: 'Acme Corp' },
+          shippingAddress: { addressLine1: 'Street 1', city: 'Stockholm' },
+        }),
+      );
+
+      expect(wrapper.find('[data-testid="customer-info"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.find('[data-testid="customer-card-summary"]').text()).toBe(
+        'Acme Corp · portal.quotations.delivery_short',
+      );
+      expect(tSpy).toHaveBeenCalledWith('portal.quotations.delivery_short', {
+        address: 'Street 1, Stockholm',
+      });
+    });
+
+    it('opens to the customer and both addresses', async () => {
+      const wrapper = await mountWith(
+        makeQuote({
+          company: { name: 'Acme Corp', companyId: '556', vatNumber: 'SE1' },
+          billingAddress: { addressLine1: 'Bill 1', city: 'Lund' },
+          shippingAddress: { addressLine1: 'Ship 1', city: 'Malmö' },
+        }),
+      );
+
+      await openCustomerCard(wrapper);
+
+      const info = wrapper.find('[data-testid="customer-info"]');
+      expect(info.text()).toContain('Acme Corp');
+      expect(info.text()).toContain('556');
+      expect(info.text()).toContain('SE1');
+      expect(wrapper.find('[data-testid="invoice-address"]').text()).toContain(
+        'Bill 1',
+      );
+      expect(wrapper.find('[data-testid="delivery-address"]').text()).toContain(
+        'Ship 1',
+      );
+    });
+
+    it('is not there without a company or an address', async () => {
+      const wrapper = await mountWith(
+        makeQuote({
+          company: undefined,
+          billingAddress: undefined,
+          shippingAddress: undefined,
+        }),
+      );
+
+      expect(wrapper.find('[data-testid="customer-info-card"]').exists()).toBe(
+        false,
+      );
+    });
   });
 
   describe('store seeding', () => {
     it('seeds the quotes store currentQuote from the fetch result', async () => {
       const quote = makeQuote({ id: 'q-001' });
-      mockData.value = { quote };
-      await mountDetailPage();
+      await mountWith(quote);
 
       expect(mockStoreCurrentQuote.value).toEqual(quote);
     });

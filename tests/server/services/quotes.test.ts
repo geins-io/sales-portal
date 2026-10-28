@@ -559,6 +559,135 @@ describe('quotes service', () => {
       ).toBeUndefined();
     });
 
+    describe('what the buyer may do and who answers for the seller', () => {
+      async function getMapped(overrides: Record<string, unknown> = {}) {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          getQuotationCart: makeRawQuotationCart(overrides),
+        });
+        return quotesService.getQuote('cart-001', mockEvent);
+      }
+
+      it.each([
+        [{ requireConfirmation: true }, true],
+        [{ requireConfirmation: false }, false],
+        [{ requireConfirmation: null }, false],
+        [null, false],
+      ])(
+        'maps settings %j to requiresConfirmation %s',
+        async (settings, expected) => {
+          const quote = await getMapped({ settings });
+          expect(quote.requiresConfirmation).toBe(expected);
+        },
+      );
+
+      it('carries an external reference when the quotation is linked', async () => {
+        const quote = await getMapped({
+          externalReference: {
+            system: 'Monitor',
+            number: 'M-1001',
+            orderNumber: null,
+          },
+        });
+        expect(quote.externalReference).toEqual({
+          system: 'Monitor',
+          number: 'M-1001',
+          orderNumber: undefined,
+        });
+      });
+
+      it.each([
+        [{ system: 'Monitor', number: null, orderNumber: null }],
+        [{ system: null, number: 'M-1001', orderNumber: null }],
+        [{ system: null, number: null, orderNumber: 'MO-77' }],
+      ])(
+        'reads a reference with any one value set, %j, as linked',
+        async (ref) => {
+          const quote = await getMapped({ externalReference: ref });
+          expect(quote.externalReference).toBeDefined();
+        },
+      );
+
+      it.each([
+        null,
+        undefined,
+        { system: null, number: null, orderNumber: null },
+        { system: '', number: '', orderNumber: '' },
+      ])('reads %j as not linked', async (externalReference) => {
+        const quote = await getMapped({ externalReference });
+        expect(quote.externalReference).toBeUndefined();
+      });
+
+      it('names the seller from the owner, never the buyer', async () => {
+        const quote = await getMapped({
+          owner: {
+            ownerId: 'owner-1',
+            firstName: 'Sam',
+            lastName: 'Seller',
+            phone: '+4670000',
+          },
+          customer: { firstName: 'Bo', lastName: 'Buyer', approvedAt: null },
+        });
+        expect(quote.seller).toEqual({ name: 'Sam Seller', phone: '+4670000' });
+      });
+
+      it('leaves the seller out when the owner has no name', async () => {
+        const quote = await getMapped({
+          owner: {
+            ownerId: 'owner-1',
+            firstName: '',
+            lastName: null,
+            phone: '+46',
+          },
+        });
+        expect(quote.seller).toBeUndefined();
+      });
+
+      it('has no seller when the quotation carries no owner', async () => {
+        const quote = await getMapped({ owner: undefined });
+        expect(quote.seller).toBeUndefined();
+      });
+
+      it('says nothing about accepting when the quotation carries no customer', async () => {
+        const quote = await getMapped({ customer: undefined });
+        expect({ at: quote.acceptedAt, by: quote.acceptedBy }).toEqual({
+          at: undefined,
+          by: undefined,
+        });
+      });
+
+      it('gives a seller without a phone no phone', async () => {
+        const quote = await getMapped({
+          owner: { firstName: 'Sam', lastName: '', phone: '' },
+        });
+        expect(quote.seller).toEqual({ name: 'Sam', phone: undefined });
+      });
+
+      it('says when and by whom it was accepted, once the API sets it', async () => {
+        const quote = await getMapped({
+          customer: {
+            firstName: 'Bo',
+            lastName: 'Buyer',
+            approvedAt: '2026-10-28T09:00:00+00:00',
+          },
+        });
+        expect({ at: quote.acceptedAt, by: quote.acceptedBy }).toEqual({
+          at: '2026-10-28T09:00:00+00:00',
+          by: 'Bo Buyer',
+        });
+      });
+
+      it('says nothing about accepting while approvedAt is not set', async () => {
+        const quote = await getMapped({
+          status: 'ACCEPTED',
+          customer: { firstName: 'Bo', lastName: 'Buyer', approvedAt: null },
+        });
+        expect({ at: quote.acceptedAt, by: quote.acceptedBy }).toEqual({
+          at: undefined,
+          by: undefined,
+        });
+      });
+    });
+
     it('throws when quotation cart is not found', async () => {
       mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: null });
 

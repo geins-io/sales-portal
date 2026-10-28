@@ -1,6 +1,5 @@
 import { formatPrice } from '#shared/types/commerce';
-import type { Quote } from '#shared/types/quote';
-import type { PortalItemTotal } from '#shared/types/portal-rows';
+import type { Quote, QuoteStatus } from '#shared/types/quote';
 
 /** A quotation's summary amounts, formatted, on one side of the VAT choice. */
 export interface QuoteAmounts {
@@ -70,44 +69,115 @@ export function quoteDiscountLabel(
     : t('discount.discount');
 }
 
-/** The totals under the rows in the mobile sheet, in the summary's order. */
-export function quoteTotalRows(
+/** One row under the summary's lead amount; `key` names it for the page. */
+export interface QuoteSummaryRow {
+  key: 'count' | 'discount' | 'shipping' | 'tax' | 'total' | 'total-inc-vat';
+  label: string;
+  value?: string;
+  emphasis?: boolean;
+}
+
+/** The rows under the lead amount (the subtotal), in the summary's order. */
+export function quoteSummaryRows(
   amounts: QuoteAmounts,
   itemCount: number,
   incVat: boolean,
   t: Translate,
-): PortalItemTotal[] {
-  const rows: PortalItemTotal[] = [
+): QuoteSummaryRow[] {
+  const rows: QuoteSummaryRow[] = [
     {
-      label: t('portal.quotations.subtotal_with_count', { count: itemCount }),
-      value: amounts.subtotal,
+      key: 'count',
+      label: t('portal.quotations.items_count'),
+      value: String(itemCount),
     },
   ];
   if (amounts.discount) {
     rows.push({
+      key: 'discount',
       label: quoteDiscountLabel(amounts, t),
       value: `-${amounts.discount}`,
     });
   }
   if (amounts.shipping) {
     rows.push({
+      key: 'shipping',
       label: t('portal.quotations.shipping'),
       value: amounts.shipping,
     });
   }
   rows.push(
     {
+      key: 'tax',
       label: t(incVat ? 'common.vat_included' : 'common.vat'),
       value: amounts.tax,
     },
     {
+      key: 'total',
       label: t('portal.quotations.grand_total'),
       value: amounts.total,
       emphasis: true,
     },
   );
   if (amounts.totalIncVat) {
-    rows.push({ label: t('common.total_inc_vat'), value: amounts.totalIncVat });
+    rows.push({
+      key: 'total-inc-vat',
+      label: t('common.total_inc_vat'),
+      value: amounts.totalIncVat,
+    });
   }
   return rows;
+}
+
+/** What accepting means: Monitor places the order, or the seller confirms first, or neither. */
+export type QuoteAcceptKind = 'monitor' | 'confirm' | 'plain';
+
+export function quoteAcceptKind(
+  quote: Pick<Quote, 'externalReference' | 'requiresConfirmation'>,
+): QuoteAcceptKind {
+  if (quote.externalReference) return 'monitor';
+  return quote.requiresConfirmation ? 'confirm' : 'plain';
+}
+
+/** The answers the buyer can give in a status. */
+export interface QuoteResponses {
+  withdraw: boolean;
+  decline: boolean;
+  accept: boolean;
+}
+
+export function quoteResponses(status: QuoteStatus): QuoteResponses {
+  return {
+    withdraw: status === 'requested',
+    decline: status === 'pending',
+    accept: status === 'pending',
+  };
+}
+
+const STATUSES_WITH_INFO = new Set<QuoteStatus>([
+  'requested',
+  'pending',
+  'confirmed',
+  'finalized',
+  'rejected',
+  'canceled',
+  'expired',
+]);
+
+/** The details card's status text; none for a draft or an unknown status. */
+export function quoteStatusInfoKey(
+  quote: Pick<Quote, 'status' | 'externalReference' | 'requiresConfirmation'>,
+): string | undefined {
+  if (quote.status === 'accepted') {
+    return `portal.quotations.status_info_accepted_${quoteAcceptKind(quote)}`;
+  }
+  return STATUSES_WITH_INFO.has(quote.status)
+    ? `portal.quotations.status_info_${quote.status}`
+    : undefined;
+}
+
+/** "Quote request" until the seller has priced it, "Quotation" after. */
+export function quoteKindLabelKey(status: QuoteStatus): string {
+  return status === 'request_draft' || status === 'requested'
+    ? 'portal.quotations.kind_request'
+    : 'portal.quotations.kind_quotation';
 }

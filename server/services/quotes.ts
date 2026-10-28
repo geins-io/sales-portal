@@ -3,6 +3,7 @@ import type {
   Quote,
   QuoteAddress,
   QuoteCompany,
+  QuoteExternalReference,
   QuoteLineItem,
   QuoteListItem,
   QuoteStatus,
@@ -55,20 +56,26 @@ interface RawQuotation {
   company?: { companyId?: string; name?: string; vatNumber?: string };
   owner?: {
     ownerId?: string;
-    firstName?: string;
-    lastName?: string;
-    phone?: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    phone?: string | null;
   };
   customer?: {
     customerId?: string;
     internalCustomerId?: string;
-    firstName?: string;
-    lastName?: string;
-    phone?: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    phone?: string | null;
     approvedAt?: string | null;
     rejectedAt?: string | null;
   };
   terms?: { text?: string };
+  settings?: { requireConfirmation?: boolean | null } | null;
+  externalReference?: {
+    system?: string | null;
+    number?: string | null;
+    orderNumber?: string | null;
+  } | null;
   billingAddress?: {
     email?: string;
     phone?: string;
@@ -205,6 +212,42 @@ function mapCompany(c: NonNullable<RawQuotation['company']>): QuoteCompany {
   };
 }
 
+function fullName(person: {
+  firstName?: string | null;
+  lastName?: string | null;
+}): string {
+  return [person.firstName, person.lastName].filter(Boolean).join(' ');
+}
+
+function mapSeller(owner: RawQuotation['owner']): Quote['seller'] {
+  if (!owner) return undefined;
+  const name = fullName(owner);
+  return name ? { name, phone: owner.phone || undefined } : undefined;
+}
+
+/** Who accepted and when; the API leaves `approvedAt` empty for now. */
+function mapAccepted(
+  customer: RawQuotation['customer'],
+): Pick<Quote, 'acceptedAt' | 'acceptedBy'> {
+  if (!customer?.approvedAt) return {};
+  return {
+    acceptedAt: customer.approvedAt,
+    acceptedBy: fullName(customer) || undefined,
+  };
+}
+
+/** Linked only when the reference carries a value; the API may send empty strings. */
+function mapExternalReference(
+  ref: RawQuotation['externalReference'],
+): QuoteExternalReference | undefined {
+  if (!ref || !(ref.system || ref.number || ref.orderNumber)) return undefined;
+  return {
+    system: ref.system || undefined,
+    number: ref.number || undefined,
+    orderNumber: ref.orderNumber || undefined,
+  };
+}
+
 function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
   const q = cart.quotation ?? {};
   const summary = cart.summary;
@@ -257,6 +300,10 @@ function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
       ? mapAddress(q.shippingAddress)
       : undefined,
     company: q.company ? mapCompany(q.company) : undefined,
+    requiresConfirmation: q.settings?.requireConfirmation === true,
+    externalReference: mapExternalReference(q.externalReference),
+    seller: mapSeller(q.owner),
+    ...mapAccepted(q.customer),
   };
 }
 
