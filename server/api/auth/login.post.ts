@@ -1,23 +1,8 @@
-import { H3Error } from 'h3';
 import * as authService from '../../services/auth';
-import * as cartService from '../../services/cart';
 import { loginRateLimiter, getClientIp } from '../../utils/rate-limiter';
 import { LoginSchema } from '../../schemas/api-input';
 import { resolveBuyerMarket } from '../../utils/buyer-market-resolver';
-import {
-  buyerIdOf,
-  cartAtSignIn,
-  readCartOwners,
-  rememberCart,
-} from '../../utils/cart-owner';
-
-/** Geins refused the cart as another buyer's; anything else is a failed copy. */
-function refusedCart(error: unknown): boolean {
-  return (
-    error instanceof H3Error &&
-    Reflect.get(Object(error.data), 'code') === ErrorCode.CART_NOT_OWN
-  );
-}
+import { settleSignInCart } from '../../utils/sign-in-cart';
 
 export default defineEventHandler(async (event) => {
   const clientIp = getClientIp(event);
@@ -56,36 +41,7 @@ export default defineEventHandler(async (event) => {
     rememberMe: body.rememberMe !== false,
   });
 
-  // The buyer's own cart when this browser noted one; otherwise a guest cart
-  // is copied into a new authenticated cart, as before. Another buyer's cart
-  // is never copied.
-  const signIn = cartAtSignIn(
-    getCartCookie(event),
-    buyerIdOf(tokens.token),
-    readCartOwners(event),
-  );
-  if (signIn.kind === 'keep') {
-    setCartCookie(event, signIn.cartId);
-    // Written again, so a buyer who only signs in is not the one evicted.
-    rememberCart(event, tokens.token, signIn.cartId);
-  } else if (signIn.kind === 'copy') {
-    try {
-      const newCart = await cartService.copyCart(
-        signIn.cartId,
-        event,
-        tokens.token!,
-      );
-      setCartCookie(event, newCart.id);
-      rememberCart(event, tokens.token, newCart.id);
-    } catch (error) {
-      // A failed copy never fails the sign-in. A cart Geins refused is gone
-      // for this buyer: a new cart on the first add. Any other failure keeps
-      // the cart, as before.
-      if (refusedCart(error)) clearCartCookie(event);
-    }
-  } else {
-    clearCartCookie(event);
-  }
+  await settleSignInCart(event, tokens.token!);
 
   // Land the buyer on the market whose country matches their company's
   // delivery address, so Geins's catalog resolves to a currency they can see
