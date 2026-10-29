@@ -1,3 +1,4 @@
+import { H3Error } from 'h3';
 import * as authService from '../../services/auth';
 import * as cartService from '../../services/cart';
 import { loginRateLimiter, getClientIp } from '../../utils/rate-limiter';
@@ -9,6 +10,14 @@ import {
   readCartOwners,
   rememberCart,
 } from '../../utils/cart-owner';
+
+/** Geins refused the cart as another buyer's; anything else is a failed copy. */
+function refusedCart(error: unknown): boolean {
+  return (
+    error instanceof H3Error &&
+    Reflect.get(Object(error.data), 'code') === ErrorCode.CART_NOT_OWN
+  );
+}
 
 export default defineEventHandler(async (event) => {
   const clientIp = getClientIp(event);
@@ -68,9 +77,11 @@ export default defineEventHandler(async (event) => {
       );
       setCartCookie(event, newCart.id);
       rememberCart(event, tokens.token, newCart.id);
-    } catch {
-      // A refused copy must not fail the sign-in: a new cart on the first add.
-      clearCartCookie(event);
+    } catch (error) {
+      // A failed copy never fails the sign-in. A cart Geins refused is gone
+      // for this buyer: a new cart on the first add. Any other failure keeps
+      // the cart, as before.
+      if (refusedCart(error)) clearCartCookie(event);
     }
   } else {
     clearCartCookie(event);

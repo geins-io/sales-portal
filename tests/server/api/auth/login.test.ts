@@ -98,6 +98,7 @@ vi.stubGlobal(
 vi.stubGlobal('ErrorCode', {
   RATE_LIMITED: 'RATE_LIMITED',
   UNAUTHORIZED: 'UNAUTHORIZED',
+  CART_NOT_OWN: 'CART_NOT_OWN',
 });
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 
@@ -542,10 +543,13 @@ describe('POST /api/auth/login', () => {
       expect(ownerJar.get('note')).toBe(`${B}|cart-b,${A}|cart-a`);
     });
 
-    it('gives a new cart when the copy is refused, still signs the buyer in, and leaves the note as it was', async () => {
+    it('gives a new cart when Geins refuses the cart, still signs the buyer in, and leaves the note as it was', async () => {
+      const { createAppError, ErrorCode } = await vi.importActual<
+        typeof import('../../../../server/utils/errors')
+      >('../../../../server/utils/errors');
       ownerJar.set('note', `${A}|cart-a`);
       mockGetCartCookie.mockReturnValue('guest-cart');
-      mockCopyCart.mockRejectedValue(new Error('copy refused'));
+      mockCopyCart.mockRejectedValue(createAppError(ErrorCode.CART_NOT_OWN));
 
       const result = await signIn(B);
 
@@ -554,6 +558,37 @@ describe('POST /api/auth/login', () => {
       expect(mockClearCartCookie).toHaveBeenCalledWith(mockEvent);
       expect(ownerJar.get('note')).toBe(`${A}|cart-a`);
     });
+
+    it.each([
+      ['a Geins outage, as the service answers it', 'outage'],
+      ['an error with no portal code', 'bare'],
+      ['a failure that is not an HTTP error', 'plain'],
+    ] as const)(
+      'keeps the cart as it was when the copy fails with %s, and still signs the buyer in',
+      async (_case, kind) => {
+        const errors = await vi.importActual<
+          typeof import('../../../../server/utils/errors')
+        >('../../../../server/utils/errors');
+        const { createError } =
+          await vi.importActual<typeof import('h3')>('h3');
+        const failure = {
+          outage: () =>
+            errors.createExternalApiError('cart', new Error('502 Bad Gateway')),
+          bare: () => createError({ statusCode: 504 }),
+          plain: () => new TypeError('fetch failed'),
+        }[kind]();
+        ownerJar.set('note', `${A}|cart-a`);
+        mockGetCartCookie.mockReturnValue('guest-cart');
+        mockCopyCart.mockRejectedValue(failure);
+
+        const result = await signIn(B);
+
+        expect(result).toHaveProperty('user');
+        expect(mockClearCartCookie).not.toHaveBeenCalled();
+        expect(mockSetCartCookie).not.toHaveBeenCalled();
+        expect(ownerJar.get('note')).toBe(`${A}|cart-a`);
+      },
+    );
 
     it('copies as before, and notes nothing, for a token without a buyer id', async () => {
       mockGetCartCookie.mockReturnValue('guest-cart');

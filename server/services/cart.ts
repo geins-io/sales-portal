@@ -283,7 +283,9 @@ export async function copyCart(
   return wrapServiceCall(
     async () => {
       const [guest, lines] = await Promise.all([
-        oms.cart.get(cartId, false, ctx),
+        oms.cart
+          .get(cartId, false, ctx)
+          .catch((error: unknown) => notOwn(error, event, cartId)),
         backend.cartLineConfigurations?.(cartId, configuratorCtx),
       ]);
       const authed = await oms.cart.create(ctx);

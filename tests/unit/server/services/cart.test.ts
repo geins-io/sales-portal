@@ -995,6 +995,29 @@ describe('the cart service', () => {
       expect(oms.cart.addItem).toHaveBeenCalledTimes(3);
     });
 
+    it.each(['CartBelongsToAnotherCompany', 'CartBelongsToAnotherBuyer'])(
+      'answers 403 CART_NOT_OWN, before a new cart, when Geins refuses the read with %s',
+      async (code) => {
+        const failure = notOwnRead();
+        failure.cause.graphQLErrors[0]!.extensions.code = code;
+        oms.cart.get.mockReset().mockRejectedValue(failure);
+
+        await expect(copy()).rejects.toMatchObject({
+          statusCode: 403,
+          data: { code: 'CART_NOT_OWN' },
+        });
+        expect(oms.cart.create).not.toHaveBeenCalled();
+      },
+    );
+
+    it('passes any other failed read on as it was thrown', async () => {
+      const failure = new Error('fetch failed');
+      oms.cart.get.mockReset().mockRejectedValue(failure);
+
+      await expect(copy()).rejects.toBe(failure);
+      expect(oms.cart.create).not.toHaveBeenCalled();
+    });
+
     it('gives up before a new cart when the lines cannot be read', async () => {
       cartLineConfigurations.mockRejectedValue(new Error('timed out'));
 
