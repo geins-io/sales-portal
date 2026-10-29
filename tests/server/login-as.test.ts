@@ -73,7 +73,6 @@ async function importHandler() {
   vi.stubGlobal('setPreviewAuthToken', freshCookies.setPreviewAuthToken);
   vi.stubGlobal('setSpoofedByCookie', freshCookies.setSpoofedByCookie);
   vi.stubGlobal('clearCartCookie', freshCookies.clearCartCookie);
-  vi.stubGlobal('clearCartOwnerCookie', freshCookies.clearCartOwnerCookie);
 
   const mod = await import('../../server/api/auth/login-as.get');
   return mod.default;
@@ -206,7 +205,7 @@ describe('login-as endpoint', () => {
     expect(spoofedCalls).toHaveLength(0);
   });
 
-  it("drops the browser's cart and its owner note, so the customer never lands on another buyer's cart", async () => {
+  it("drops the browser's cart, so the customer never lands on another buyer's cart, and keeps the owner note", async () => {
     getQueryMock.mockReturnValue({
       loginToken: fakeJwt({ SpoofedBy: 'admin@geins.io' }),
     });
@@ -217,9 +216,30 @@ describe('login-as endpoint', () => {
     expect(deleteCookieMock).toHaveBeenCalledWith(mockEvent, 'cart_id', {
       path: '/',
     });
-    expect(deleteCookieMock).toHaveBeenCalledWith(mockEvent, 'cart_owner', {
-      path: '/',
+    expect(deleteCookieMock).not.toHaveBeenCalledWith(
+      mockEvent,
+      'cart_owner',
+      expect.anything(),
+    );
+  });
+
+  it("leaves the buyers' noted carts as they were", async () => {
+    getQueryMock.mockReturnValue({
+      loginToken: fakeJwt({ SpoofedBy: 'admin@geins.io' }),
     });
+    getCookieMock.mockImplementation((_event: unknown, name: string) =>
+      name === 'cart_owner' ? 'buyer-a|cart-a,buyer-b|cart-b' : undefined,
+    );
+
+    const handler = await importHandler();
+    handler(mockEvent);
+
+    const touched = [
+      ...setCookieMock.mock.calls,
+      ...deleteCookieMock.mock.calls,
+    ].map((call) => call[1]);
+    expect(touched).not.toContain('cart_owner');
+    getCookieMock.mockReset();
   });
 
   it('redirects to /portal by default', async () => {
