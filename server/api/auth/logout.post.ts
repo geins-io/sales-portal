@@ -1,7 +1,13 @@
 import * as authService from '../../services/auth';
+import { rememberCartUnlessOthers } from '../../utils/cart-owner';
 
 export default defineEventHandler(async (event) => {
-  // Clear cookies first — always succeeds
+  // A cart from before this browser noted carts is noted now, so the buyer
+  // gets it back at the next sign-in. An expired token still names the buyer.
+  const cartId = getCartCookie(event);
+  if (cartId) rememberCartUnlessOthers(event, getSessionToken(event), cartId);
+
+  // Clear the session cookies — always succeeds
   clearAuthCookies(event);
   clearSpoofedByCookie(event);
   clearPreviewCookie(event);

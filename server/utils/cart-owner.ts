@@ -67,6 +67,21 @@ export function rememberCart(
   );
 }
 
+/**
+ * Notes the cart for the token's buyer unless it is noted for another buyer,
+ * whose entry it never takes over.
+ */
+export function rememberCartUnlessOthers(
+  event: H3Event,
+  token: string | undefined,
+  cartId: string,
+): void {
+  const buyerId = buyerIdOf(token);
+  const owners = readCartOwners(event);
+  if (owners.some((o) => o.cartId === cartId && o.buyerId !== buyerId)) return;
+  rememberCart(event, token, cartId);
+}
+
 /** Forgets the cart only for the buyer whose entry it is. */
 export function forgetCart(
   event: H3Event,
