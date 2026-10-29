@@ -2,8 +2,8 @@ import * as authService from '../../services/auth';
 import { rememberCartUnlessOthers } from '../../utils/cart-owner';
 
 export default defineEventHandler(async (event) => {
-  // A cart from before this browser noted carts is noted now, so the buyer
-  // gets it back at the next sign-in. An expired token still names the buyer.
+  // A cart from before carts were noted is noted now, for the next sign-in;
+  // only while the browser still sends auth_token, expired or not.
   const cartId = getCartCookie(event);
   if (cartId) rememberCartUnlessOthers(event, getSessionToken(event), cartId);
 
