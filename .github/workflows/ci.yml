@@ -200,8 +200,8 @@ jobs:
       E2E_EXPECTED_TENANT_ID: ${{ vars.E2E_EXPECTED_TENANT_ID }}
       E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
       E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
-      E2E_USERNAME_E: ${{ secrets.E2E_USERNAME_E }}
-      E2E_PASSWORD_E: ${{ secrets.E2E_PASSWORD_E }}
+      E2E_USERNAME_F: ${{ secrets.E2E_USERNAME_F }}
+      E2E_PASSWORD_F: ${{ secrets.E2E_PASSWORD_F }}
       E2E_USERNAME_B: ${{ secrets.E2E_USERNAME_B }}
       E2E_PASSWORD_B: ${{ secrets.E2E_PASSWORD_B }}
       E2E_EXTERNAL_SERVER: '1'

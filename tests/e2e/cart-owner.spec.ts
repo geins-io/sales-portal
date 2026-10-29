@@ -3,29 +3,29 @@ import {
   addToCart,
   discoverPurchasableProduct,
   fetchCart,
-  login,
   outOfScope,
+  waitForHydration,
 } from './helpers';
 
 /**
  * Buyers taking turns in one browser. Each buyer gets their own cart, never
  * the cart of the buyer before them, and gets theirs back at the next sign-in.
  *
- * The pairs come from the `.env` letters: `E2E_USERNAME` and `E2E_USERNAME_E`
+ * The pairs come from the `.env` letters: `E2E_USERNAME` and `E2E_USERNAME_F`
  * are buyers in the same company, `E2E_USERNAME_B` is a buyer in another one.
  */
-const buyer = (letter: '' | '_E' | '_B') => ({
+const buyer = (letter: '' | '_F' | '_B') => ({
   username: process.env[`E2E_USERNAME${letter}`] ?? '',
   password: process.env[`E2E_PASSWORD${letter}`] ?? '',
 });
 const A = buyer('');
-const SAME_COMPANY = buyer('_E');
+const SAME_COMPANY = buyer('_F');
 const OTHER_COMPANY = buyer('_B');
 
 outOfScope(
   ![A, SAME_COMPANY, OTHER_COMPANY].every((c) => c.username && c.password),
   'no-credentials',
-  'switching buyers needs E2E_USERNAME, E2E_USERNAME_E and E2E_USERNAME_B with their passwords',
+  'switching buyers needs E2E_USERNAME, E2E_USERNAME_F and E2E_USERNAME_B with their passwords',
 );
 
 // Every test signs its buyers in itself, in one fresh browser.
@@ -35,6 +35,47 @@ async function cartIdOf(page: Page): Promise<string | undefined> {
   return (await page.context().cookies()).find(
     (cookie) => cookie.name === 'cart_id',
   )?.value;
+}
+
+/**
+ * The shared `login`, waiting for the reload the sign-in makes. The login page
+ * moves its old app off `/login` while that reload is still on its way, so the
+ * URL alone resolves too early and the next `goto` is aborted.
+ */
+async function signIn(
+  page: Page,
+  credentials: { username: string; password: string },
+): Promise<void> {
+  await page.goto('/se/sv/login');
+  await page.waitForLoadState('load');
+  await waitForHydration(page);
+
+  const emailInput = page.locator('[data-testid="login-email"]');
+  await expect(emailInput).toBeVisible({ timeout: 20000 });
+  await emailInput.fill(credentials.username);
+  await page
+    .locator('[data-testid="login-password"]')
+    .fill(credentials.password);
+
+  const reloaded = page.waitForEvent('load', { timeout: 30000 });
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.url().includes('/api/auth/login') && r.request().method() === 'POST',
+      { timeout: 20000 },
+    ),
+    page.locator('[data-testid="login-submit"]').click(),
+  ]);
+  expect(
+    response.ok(),
+    `sign-in failed (HTTP ${response.status()}): check the E2E_USERNAME* / E2E_PASSWORD* pair in .env`,
+  ).toBe(true);
+
+  await page.waitForURL((url) => !url.pathname.includes('/login'), {
+    timeout: 20000,
+  });
+  await reloaded;
+  await waitForHydration(page);
 }
 
 async function signOut(page: Page): Promise<void> {
@@ -77,7 +118,7 @@ test.describe('the cart follows its buyer', () => {
     page,
   }) => {
     test.slow();
-    await login(page, A);
+    await signIn(page, A);
     const product = await discoverPurchasableProduct(page);
     await addToCart(page, product.alias);
     const cartA = await cartIdOf(page);
@@ -91,7 +132,7 @@ test.describe('the cart follows its buyer', () => {
     ).toBeUndefined();
 
     // Same company: the case Geins refused on a configurator account.
-    await login(page, SAME_COMPANY);
+    await signIn(page, SAME_COMPANY);
     expect(
       await cartIdOf(page),
       "the next buyer was handed A's cart",
@@ -105,7 +146,7 @@ test.describe('the cart follows its buyer', () => {
     ]);
 
     await signOut(page);
-    await login(page, OTHER_COMPANY);
+    await signIn(page, OTHER_COMPANY);
     expect(
       await cartIdOf(page),
       'a buyer in another company got a cart',
@@ -119,7 +160,7 @@ test.describe('the cart follows its buyer', () => {
     ]);
 
     await signOut(page);
-    await login(page, A);
+    await signIn(page, A);
     expect(await cartIdOf(page), 'A did not get their cart back').toBe(cartA);
     expect((await fetchCart(page)).items).toEqual([
       expect.objectContaining({ skuId: product.skuId, quantity: 1 }),
@@ -130,7 +171,7 @@ test.describe('the cart follows its buyer', () => {
     page,
   }) => {
     test.slow();
-    await login(page, A);
+    await signIn(page, A);
     const product = await discoverPurchasableProduct(page);
     await addToCart(page, product.alias);
     const cartA = await cartIdOf(page);
@@ -141,7 +182,7 @@ test.describe('the cart follows its buyer', () => {
     await page.context().clearCookies({ name: 'refresh_token' });
     expect(await cartIdOf(page)).toBe(cartA);
 
-    await login(page, SAME_COMPANY);
+    await signIn(page, SAME_COMPANY);
     expect(
       await cartIdOf(page),
       "the next buyer was handed A's cart",
@@ -149,7 +190,7 @@ test.describe('the cart follows its buyer', () => {
 
     await page.context().clearCookies({ name: 'auth_token' });
     await page.context().clearCookies({ name: 'refresh_token' });
-    await login(page, A);
+    await signIn(page, A);
     expect(await cartIdOf(page), 'A did not get their cart back').toBe(cartA);
     expect((await fetchCart(page)).items).toEqual([
       expect.objectContaining({ skuId: product.skuId, quantity: 1 }),
