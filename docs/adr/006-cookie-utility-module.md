@@ -39,6 +39,7 @@ The `COOKIE_NAMES` constant lives in `shared/constants/storage.ts` (alongside `K
 | `session_only`  | yes        | session              | Sign-in without "remember me"; rotations keep auth cookies session-only |
 | `tenant_id`     | yes        | 1 day                | Real tenantId (not hostname) for edge workers                           |
 | `cart_id`       | **no**     | 30 days              | Client reads for optimistic UI                                          |
+| `cart_owner`    | yes        | 30 days              | Up to 5 signed-in buyers' carts, by token `sid`; picks the sign-in cart |
 | `locale`        | —          | —                    | Managed by `@nuxtjs/i18n`                                               |
 | `market`        | **no**     | 1 year               | Client reads for UI, server reads for GraphQL                           |
 | `preview_mode`  | **no**     | 1 hour               | Client reads for preview banner UI                                      |

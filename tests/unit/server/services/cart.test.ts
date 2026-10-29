@@ -46,6 +46,11 @@ vi.mock('../../../../server/services/configured-line-quantity', () => ({
     changeConfiguredQuantity(...args),
 }));
 
+const forgetCart = vi.fn();
+vi.mock('../../../../server/utils/cart-owner', () => ({
+  forgetCart: (...args: unknown[]) => forgetCart(...args),
+}));
+
 vi.mock('../../../../server/utils/feature-access', () => ({
   canConfigureServer: (...args: unknown[]) => canConfigureServer(...args),
 }));
@@ -65,6 +70,31 @@ function loginRequiredRead() {
       name: 'ApolloError',
       graphQLErrors: [{ extensions: { code: 'LoginRequired' } }],
     },
+  });
+}
+
+/** Geins refusing a cart another buyer owns, as the SDK throws it on a read. */
+function notOwnRead() {
+  return Object.assign(new Error('Error getting cart'), {
+    name: 'CartError',
+    code: 'CART_OPERATION_FAILED',
+    cause: {
+      name: 'ApolloError',
+      graphQLErrors: [
+        {
+          message: 'This cart belongs to another company',
+          extensions: { code: 'CartBelongsToAnotherCompany' },
+        },
+      ],
+    },
+  });
+}
+
+/** The same refusal on a write, which the SDK throws as it is. */
+function notOwnWrite() {
+  return Object.assign(new Error('This cart belongs to another company'), {
+    name: 'ApolloError',
+    graphQLErrors: [{ extensions: { code: 'CartBelongsToAnotherCompany' } }],
   });
 }
 
@@ -145,6 +175,7 @@ describe('the cart service', () => {
     changeConfiguredQuantity.mockReset().mockResolvedValue(undefined);
     canConfigureServer.mockReset().mockResolvedValue(true);
     sessionToken.mockReset().mockReturnValue('user-token-1');
+    forgetCart.mockReset();
     warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
     error = vi.spyOn(logger, 'error').mockImplementation(() => {});
     service = await import('../../../../server/services/cart');
@@ -743,6 +774,104 @@ describe('the cart service', () => {
       await expect(
         service.addItem('cart-1', { skuId: 1, quantity: 1 }, EVENT),
       ).rejects.toBe(failure);
+    });
+  });
+
+  describe('a cart another buyer owns', () => {
+    const NOT_OWN = { statusCode: 403, data: { code: 'CART_NOT_OWN' } };
+
+    it.each(CALLS)(
+      '%s answers 403 CART_NOT_OWN and forgets the cart for the buyer asking',
+      async (_name, sdkCall, call) => {
+        oms.cart[sdkCall].mockRejectedValue(
+          sdkCall === 'get' ? notOwnRead() : notOwnWrite(),
+        );
+
+        await expect(call(service)).rejects.toMatchObject(NOT_OWN);
+        expect(forgetCart).toHaveBeenCalledWith(
+          EVENT,
+          'user-token-1',
+          'cart-1',
+        );
+      },
+    );
+
+    it('is classified inside the call it wraps, before the wrapper can turn it into a 502', async () => {
+      oms.cart.get.mockRejectedValue(notOwnRead());
+      await service.getCart('cart-1', EVENT).catch(() => {});
+
+      const wrapped = wrapServiceCall.mock.calls[0]![0];
+      await expect(wrapped()).rejects.toMatchObject(NOT_OWN);
+    });
+
+    it('answers a plain quantity change the same way', async () => {
+      canConfigureServer.mockResolvedValue(false);
+      oms.cart.updateItem.mockRejectedValue(notOwnWrite());
+
+      await expect(
+        service.updateItem('cart-1', { id: 'item-2', quantity: 3 }, EVENT),
+      ).rejects.toMatchObject(NOT_OWN);
+      expect(forgetCart).toHaveBeenCalledWith(EVENT, 'user-token-1', 'cart-1');
+    });
+
+    it('answers the read before a configured quantity change the same way, and changes nothing', async () => {
+      oms.cart.get.mockRejectedValue(notOwnRead());
+
+      await expect(
+        service.updateItem('cart-1', { id: 'item-1', quantity: 3 }, EVENT),
+      ).rejects.toMatchObject(NOT_OWN);
+      expect(changeConfiguredQuantity).not.toHaveBeenCalled();
+      expect(oms.cart.updateItem).not.toHaveBeenCalled();
+    });
+
+    it("answers a colleague's refusal in the same company the same way", async () => {
+      const failure = notOwnRead();
+      failure.cause.graphQLErrors[0]!.extensions.code =
+        'CartBelongsToAnotherBuyer';
+      oms.cart.get.mockRejectedValue(failure);
+
+      await expect(service.getCart('cart-1', EVENT)).rejects.toMatchObject(
+        NOT_OWN,
+      );
+      expect(forgetCart).toHaveBeenCalledWith(EVENT, 'user-token-1', 'cart-1');
+    });
+
+    it('asks to forget with no token for a request signed out, which forgets nothing', async () => {
+      sessionToken.mockReturnValue(undefined);
+      oms.cart.get.mockRejectedValue(notOwnRead());
+
+      await expect(service.getCart('cart-1', EVENT)).rejects.toMatchObject(
+        NOT_OWN,
+      );
+      expect(forgetCart).toHaveBeenCalledWith(EVENT, undefined, 'cart-1');
+    });
+
+    it('is not a failure of the service: nothing is logged as an error', async () => {
+      oms.cart.get.mockRejectedValue(notOwnRead());
+
+      await service.getCart('cart-1', EVENT).catch(() => {});
+
+      expect(error).not.toHaveBeenCalled();
+    });
+
+    it('leaves a network failure as it was thrown and forgets nothing', async () => {
+      const failure = new Error('fetch failed');
+      oms.cart.get.mockRejectedValue(failure);
+      oms.cart.addItem.mockRejectedValue(failure);
+
+      await expect(service.getCart('cart-1', EVENT)).rejects.toBe(failure);
+      await expect(
+        service.addItem('cart-1', { skuId: 1, quantity: 1 }, EVENT),
+      ).rejects.toBe(failure);
+      expect(forgetCart).not.toHaveBeenCalled();
+    });
+
+    it('leaves a sign-in refusal to a buyer signed in as it was thrown, and forgets nothing', async () => {
+      const failure = loginRequiredRead();
+      oms.cart.get.mockRejectedValue(failure);
+
+      await expect(service.getCart('cart-1', EVENT)).rejects.toBe(failure);
+      expect(forgetCart).not.toHaveBeenCalled();
     });
   });
 

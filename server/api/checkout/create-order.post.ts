@@ -8,6 +8,7 @@ import { requireAuth } from '../../utils/auth';
 import { createOrderRateLimiter, getClientIp } from '../../utils/rate-limiter';
 import { assertCommerceMode } from '../../utils/catalog-mode';
 import { orderRefusalCode } from '../../utils/order-refusal';
+import { forgetCart } from '../../utils/cart-owner';
 
 /**
  * Reject an order for a cart the platform reports as having no lines.
@@ -103,6 +104,9 @@ export default defineEventHandler(async (event) => {
         });
         throw createAppError(orderRefusalCode(result?.code));
       }
+
+      // The placed cart is done; the buyer's next sign-in starts a new one.
+      forgetCart(event, getSessionToken(event), body.cartId);
 
       return { orderId: result.orderId, publicId: result.publicId };
     },

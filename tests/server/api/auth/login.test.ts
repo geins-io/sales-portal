@@ -46,8 +46,19 @@ vi.stubGlobal('setAuthCookies', mockSetAuthCookies);
 
 const mockGetCartCookie = vi.fn().mockReturnValue(undefined);
 const mockSetCartCookie = vi.fn();
+const mockClearCartCookie = vi.fn();
 vi.stubGlobal('getCartCookie', mockGetCartCookie);
 vi.stubGlobal('setCartCookie', mockSetCartCookie);
+vi.stubGlobal('clearCartCookie', mockClearCartCookie);
+
+const SID_CLAIM = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/sid';
+
+/** A sign-in token for one buyer, carrying the claims Geins issues. */
+function tokenFor(sid: string): string {
+  const part = (value: object) =>
+    Buffer.from(JSON.stringify(value)).toString('base64url');
+  return `${part({ alg: 'HS256' })}.${part({ [SID_CLAIM]: sid, MemberId: '2' })}.signature`;
+}
 
 // resolveBuyerMarket reads/writes the market cookie via cookies.ts which
 // imports h3 helpers not present in the test environment. Mock both
@@ -55,9 +66,15 @@ vi.stubGlobal('setCartCookie', mockSetCartCookie);
 // pulling in the full h3 cookie machinery.
 const mockSetMarketCookie = vi.fn();
 const mockGetMarketCookie = vi.fn();
+// The cart owner note runs for real against this jar.
+const ownerJar = new Map<string, string>();
 vi.mock('../../../../server/utils/cookies', () => ({
   setMarketCookie: (...args: unknown[]) => mockSetMarketCookie(...args),
   getMarketCookie: (...args: unknown[]) => mockGetMarketCookie(...args),
+  getCartOwnerCookie: () => ownerJar.get('note'),
+  setCartOwnerCookie: (_event: unknown, value: string) =>
+    ownerJar.set('note', value),
+  clearCartOwnerCookie: () => ownerJar.delete('note'),
 }));
 
 // Market resolution matches the company's delivery country (getCompany) to the
@@ -89,6 +106,8 @@ describe('POST /api/auth/login', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    ownerJar.clear();
+    mockGetCartCookie.mockReturnValue(undefined);
     mockCheck.mockResolvedValue({
       allowed: true,
       remaining: 4,
@@ -447,5 +466,112 @@ describe('POST /api/auth/login', () => {
 
     expect(result).toHaveProperty('user');
     expect(mockSetCartCookie).not.toHaveBeenCalled();
+  });
+  describe('the cart a buyer gets at sign-in', () => {
+    const A = 'buyer-a';
+    const B = 'buyer-b';
+
+    async function signIn(sid: string | null) {
+      mockAuthLogin.mockResolvedValue({
+        succeeded: true,
+        tokens: {
+          token: sid ? tokenFor(sid) : 'access-token',
+          refreshToken: 'refresh-token',
+          expiresIn: 3600,
+        },
+        user: { id: 1 },
+      });
+      const handler = (await import('../../../../server/api/auth/login.post'))
+        .default;
+      return handler(mockEvent);
+    }
+
+    it('gives the buyer their noted cart and drops the guest cart unmerged', async () => {
+      ownerJar.set('note', `${A}|cart-a`);
+      mockGetCartCookie.mockReturnValue('guest-cart');
+
+      await signIn(A);
+
+      expect(mockSetCartCookie).toHaveBeenCalledWith(mockEvent, 'cart-a');
+      expect(mockCopyCart).not.toHaveBeenCalled();
+    });
+
+    it('moves the buyer to the front of the note, so signing in alone keeps them from being evicted', async () => {
+      ownerJar.set('note', `${B}|cart-b,${A}|cart-a`);
+
+      await signIn(A);
+
+      expect(ownerJar.get('note')).toBe(`${A}|cart-a,${B}|cart-b`);
+    });
+
+    it('gives the buyer their own cart back after an expired session', async () => {
+      ownerJar.set('note', `${A}|cart-a`);
+      mockGetCartCookie.mockReturnValue('cart-a');
+
+      await signIn(A);
+
+      expect(mockSetCartCookie).toHaveBeenCalledWith(mockEvent, 'cart-a');
+      expect(mockCopyCart).not.toHaveBeenCalled();
+    });
+
+    it("gives another buyer no cart, and never copies or touches the noted buyer's cart", async () => {
+      ownerJar.set('note', `${A}|cart-a`);
+      mockGetCartCookie.mockReturnValue('cart-a');
+
+      await signIn(B);
+
+      expect(mockCopyCart).not.toHaveBeenCalled();
+      expect(mockSetCartCookie).not.toHaveBeenCalled();
+      expect(mockClearCartCookie).toHaveBeenCalledWith(mockEvent);
+      expect(ownerJar.get('note')).toBe(`${A}|cart-a`);
+    });
+
+    it('copies a guest cart for a buyer with no note, and notes the copy as theirs', async () => {
+      ownerJar.set('note', `${A}|cart-a`);
+      mockGetCartCookie.mockReturnValue('guest-cart');
+      mockCopyCart.mockResolvedValue({ id: 'cart-b' });
+
+      await signIn(B);
+
+      expect(mockCopyCart).toHaveBeenCalledWith(
+        'guest-cart',
+        mockEvent,
+        tokenFor(B),
+      );
+      expect(mockSetCartCookie).toHaveBeenCalledWith(mockEvent, 'cart-b');
+      expect(ownerJar.get('note')).toBe(`${B}|cart-b,${A}|cart-a`);
+    });
+
+    it('gives a new cart when the copy is refused, still signs the buyer in, and leaves the note as it was', async () => {
+      ownerJar.set('note', `${A}|cart-a`);
+      mockGetCartCookie.mockReturnValue('guest-cart');
+      mockCopyCart.mockRejectedValue(new Error('copy refused'));
+
+      const result = await signIn(B);
+
+      expect(result).toHaveProperty('user');
+      expect(mockSetCartCookie).not.toHaveBeenCalled();
+      expect(mockClearCartCookie).toHaveBeenCalledWith(mockEvent);
+      expect(ownerJar.get('note')).toBe(`${A}|cart-a`);
+    });
+
+    it('copies as before, and notes nothing, for a token without a buyer id', async () => {
+      mockGetCartCookie.mockReturnValue('guest-cart');
+      mockCopyCart.mockResolvedValue({ id: 'authed-cart' });
+
+      await signIn(null);
+
+      expect(mockSetCartCookie).toHaveBeenCalledWith(mockEvent, 'authed-cart');
+      expect(ownerJar.has('note')).toBe(false);
+    });
+
+    it('gives a buyer with no note and no cart nothing until the first add', async () => {
+      ownerJar.set('note', `${A}|cart-a`);
+
+      await signIn(B);
+
+      expect(mockCopyCart).not.toHaveBeenCalled();
+      expect(mockSetCartCookie).not.toHaveBeenCalled();
+    });
   });
 });

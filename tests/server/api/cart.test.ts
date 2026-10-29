@@ -105,7 +105,14 @@ vi.stubGlobal('readValidatedBody', vi.fn());
 vi.stubGlobal('readBody', vi.fn());
 vi.stubGlobal('defineEventHandler', (fn: AnyFn) => fn);
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
-vi.stubGlobal('getSessionToken', () => undefined);
+const sessionToken = vi.fn<() => string | undefined>(() => undefined);
+vi.stubGlobal('getSessionToken', () => sessionToken());
+
+const rememberCart = vi.fn();
+vi.mock('../../../server/utils/cart-owner', () => ({
+  rememberCart: (...args: unknown[]) => rememberCart(...args),
+  forgetCart: vi.fn(),
+}));
 
 const mockEvent = {
   context: {
@@ -173,6 +180,36 @@ describe('Cart API Routes', () => {
 
       expect(mockCartCreate).toHaveBeenCalledWith(undefined);
       expect(result).toEqual(mockCart);
+    });
+
+    it("notes the new cart as the signed-in buyer's", async () => {
+      sessionToken.mockReturnValue('buyer-token');
+      mockCartCreate.mockResolvedValue(mockCart);
+
+      const handler = (await import('../../../server/api/cart/index.post'))
+        .default;
+      await handler(mockEvent);
+
+      expect(rememberCart).toHaveBeenCalledWith(
+        mockEvent,
+        'buyer-token',
+        'cart-123',
+      );
+      sessionToken.mockReturnValue(undefined);
+    });
+
+    it('notes nothing it can tie to a buyer for a visitor signed out', async () => {
+      mockCartCreate.mockResolvedValue(mockCart);
+
+      const handler = (await import('../../../server/api/cart/index.post'))
+        .default;
+      await handler(mockEvent);
+
+      expect(rememberCart).toHaveBeenCalledWith(
+        mockEvent,
+        undefined,
+        'cart-123',
+      );
     });
   });
 

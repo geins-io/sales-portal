@@ -85,10 +85,12 @@ function knownFailure(code: string) {
         ErrorCode.CART_LINE_GONE,
         'The cart line carries no configuration',
       );
+    // A colleague in the same company gets the second code.
     case 'CartBelongsToAnotherCompany':
+    case 'CartBelongsToAnotherBuyer':
       return createAppError(
         ErrorCode.CART_NOT_OWN,
-        "The cart is another company's",
+        "The cart is another buyer's",
       );
     case 'NotAvailable':
       return createAppError(

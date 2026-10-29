@@ -81,6 +81,17 @@ export const useCartStore = defineStore('cart', () => {
     loadFailed.value = false;
   }
 
+  /**
+   * Geins refused the cart: another buyer owns it. It is gone for this buyer,
+   * like a completed cart, so the id goes and the next add makes a new one.
+   */
+  function droppedRefused(failure: unknown): boolean {
+    if (errorCodeOf(failure) !== 'CART_NOT_OWN') return false;
+    cart.value = null;
+    cartId.value = null;
+    return true;
+  }
+
   const visibleCartCampaigns = computed(() =>
     filterVisibleCampaigns(cart.value?.appliedCampaigns ?? []),
   );
@@ -107,9 +118,29 @@ export const useCartStore = defineStore('cart', () => {
         needsSignIn.value = true;
         return;
       }
+      if (droppedRefused(failure)) return;
       loadFailed.value = true;
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  async function ensuredCartId(): Promise<string> {
+    if (!cartId.value) {
+      cartId.value = (
+        await $fetch<CartType>('/api/cart', { method: 'POST' })
+      ).id;
+    }
+    return cartId.value;
+  }
+
+  /** Runs `add`, and once more on a new cart when Geins refused this one. */
+  async function onOwnCart<T>(add: () => Promise<T>): Promise<T> {
+    try {
+      return await add();
+    } catch (failure) {
+      if (!droppedRefused(failure)) throw failure;
+      return await add();
     }
   }
 
@@ -123,18 +154,18 @@ export const useCartStore = defineStore('cart', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      if (!cartId.value) {
-        const newCart = await $fetch<CartType>('/api/cart', { method: 'POST' });
-        cartId.value = newCart.id;
-      }
-      answered(
-        await $fetch<CartType>('/api/cart/items', {
-          method: 'POST',
-          body: { cartId: cartId.value, skuId, quantity },
-        }),
-      );
+      await onOwnCart(async () => {
+        const id = await ensuredCartId();
+        answered(
+          await $fetch<CartType>('/api/cart/items', {
+            method: 'POST',
+            body: { cartId: id, skuId, quantity },
+          }),
+        );
+      });
       isOpen.value = true;
-    } catch {
+    } catch (failure) {
+      droppedRefused(failure);
       error.value = 'Failed to add item';
     } finally {
       isLoading.value = false;
@@ -158,23 +189,25 @@ export const useCartStore = defineStore('cart', () => {
     }
     isLoading.value = true;
     try {
-      let id = cartId.value;
-      if (!id) {
-        id = (await $fetch<CartType>('/api/cart', { method: 'POST' })).id;
-        cartId.value = id;
-      }
-      const answer = await $fetch<{
-        cart: CartType | null;
-        itemId: string | null;
-      }>(`/api/configurations/${committedConfigurationId}/cart`, {
-        method: 'POST',
-        body: { cartId: id, skuId, quantity },
+      const { id, answer } = await onOwnCart(async () => {
+        const id = await ensuredCartId();
+        const answer = await $fetch<{
+          cart: CartType | null;
+          itemId: string | null;
+        }>(`/api/configurations/${committedConfigurationId}/cart`, {
+          method: 'POST',
+          body: { cartId: id, skuId, quantity },
+        });
+        return { id, answer };
       });
       // The line is in even when the route could not read the cart back.
       if (answer.cart) answered(answer.cart);
       else await fetchCart();
       isOpen.value = true;
       return answer.itemId ? { cartId: id, itemId: answer.itemId } : null;
+    } catch (failure) {
+      droppedRefused(failure);
+      throw failure;
     } finally {
       isLoading.value = false;
     }
@@ -203,6 +236,9 @@ export const useCartStore = defineStore('cart', () => {
       else await fetchCart();
       isOpen.value = true;
       return { cartId: line.cartId, itemId: answer.itemId };
+    } catch (failure) {
+      droppedRefused(failure);
+      throw failure;
     } finally {
       isLoading.value = false;
     }
@@ -279,8 +315,8 @@ export const useCartStore = defineStore('cart', () => {
           body: { cartId: cartId.value, itemId, quantity },
         }),
       );
-    } catch {
-      quantityFailed.value.add(itemId);
+    } catch (failure) {
+      if (!droppedRefused(failure)) quantityFailed.value.add(itemId);
     } finally {
       isLoading.value = false;
     }
@@ -296,8 +332,8 @@ export const useCartStore = defineStore('cart', () => {
           query: { cartId: cartId.value, itemId },
         }),
       );
-    } catch {
-      error.value = 'Failed to update item';
+    } catch (failure) {
+      if (!droppedRefused(failure)) error.value = 'Failed to update item';
     } finally {
       isLoading.value = false;
     }
@@ -318,8 +354,8 @@ export const useCartStore = defineStore('cart', () => {
           body: { cartId: cartId.value, promoCode: code },
         }),
       );
-    } catch {
-      error.value = 'Invalid promo code';
+    } catch (failure) {
+      if (!droppedRefused(failure)) error.value = 'Invalid promo code';
     } finally {
       isLoading.value = false;
     }
@@ -336,8 +372,8 @@ export const useCartStore = defineStore('cart', () => {
           query: { cartId: cartId.value },
         }),
       );
-    } catch {
-      error.value = 'Failed to remove promo code';
+    } catch (failure) {
+      if (!droppedRefused(failure)) error.value = 'Failed to remove promo code';
     } finally {
       isLoading.value = false;
     }

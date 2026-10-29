@@ -72,6 +72,8 @@ async function importHandler() {
   const freshCookies = await import('../../server/utils/cookies');
   vi.stubGlobal('setPreviewAuthToken', freshCookies.setPreviewAuthToken);
   vi.stubGlobal('setSpoofedByCookie', freshCookies.setSpoofedByCookie);
+  vi.stubGlobal('clearCartCookie', freshCookies.clearCartCookie);
+  vi.stubGlobal('clearCartOwnerCookie', freshCookies.clearCartOwnerCookie);
 
   const mod = await import('../../server/api/auth/login-as.get');
   return mod.default;
@@ -202,6 +204,22 @@ describe('login-as endpoint', () => {
       (call: unknown[]) => call[1] === 'geins-spoofed-by',
     );
     expect(spoofedCalls).toHaveLength(0);
+  });
+
+  it("drops the browser's cart and its owner note, so the customer never lands on another buyer's cart", async () => {
+    getQueryMock.mockReturnValue({
+      loginToken: fakeJwt({ SpoofedBy: 'admin@geins.io' }),
+    });
+
+    const handler = await importHandler();
+    handler(mockEvent);
+
+    expect(deleteCookieMock).toHaveBeenCalledWith(mockEvent, 'cart_id', {
+      path: '/',
+    });
+    expect(deleteCookieMock).toHaveBeenCalledWith(mockEvent, 'cart_owner', {
+      path: '/',
+    });
   });
 
   it('redirects to /portal by default', async () => {

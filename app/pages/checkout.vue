@@ -12,7 +12,6 @@ import type { Company } from '#shared/types/company';
 import { useCheckoutStore } from '~/stores/checkout';
 import { useCartStore } from '~/stores/cart';
 import { useAuthStore } from '~/stores/auth';
-import { COOKIE_NAMES } from '#shared/constants/storage';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
@@ -92,10 +91,10 @@ useHead({
   title: computed(() => t('checkout.title')),
 });
 
-// SSR-safe cart validation: useCookie works on both server and client.
-// If no cart cookie exists, redirect immediately — no need to wait for onMounted.
-const cartIdCookie = useCookie<string | null>(COOKIE_NAMES.CART_ID);
-if (!cartIdCookie.value) {
+// SSR-safe cart validation, on the store's id: the cart plugin's read runs
+// first and drops an id Geins refused, which the request's cookie still holds.
+// Without a cart, redirect immediately — no need to wait for onMounted.
+if (!cartStore.cartId) {
   await navigateTo(localePath('/cart'), { replace: true });
 }
 
@@ -107,15 +106,15 @@ if (!cartIdCookie.value) {
 // blocked the client retry entirely, so any SSR failure stuck the page on
 // the load-failed banner until full nav. Re-running fetchCheckout on
 // client when the store is empty self-heals that path.
-if (cartIdCookie.value) {
+if (cartStore.cartId) {
   if (import.meta.server) {
-    await checkoutStore.fetchCheckout(cartIdCookie.value);
+    await checkoutStore.fetchCheckout(cartStore.cartId);
   } else if (
     !checkoutStore.checkout ||
     checkoutStore.error ||
     !checkoutStore.checkout.paymentOptions?.length
   ) {
-    await checkoutStore.fetchCheckout(cartIdCookie.value);
+    await checkoutStore.fetchCheckout(cartStore.cartId);
   }
 }
 

@@ -9,8 +9,9 @@ import { isSafeInternalPath } from '#shared/utils/redirect';
  * The account page redirects here. This endpoint:
  * 1. Validates the JWT format (not crypto — Geins signs it)
  * 2. Sets the auth token cookie
- * 3. If SpoofedBy claim is present, sets the impersonation cookie
- * 4. Redirects to /portal (or a custom redirect path)
+ * 3. Drops the browser's cart and its owner note
+ * 4. If SpoofedBy claim is present, sets the impersonation cookie
+ * 5. Redirects to /portal (or a custom redirect path)
  */
 export default defineEventHandler((event) => {
   const query = getQuery(event);
@@ -31,6 +32,10 @@ export default defineEventHandler((event) => {
 
   // Set the auth token cookie (same approach as preview-enter)
   setPreviewAuthToken(event, loginToken);
+
+  // The browser's cart may be another buyer's.
+  clearCartCookie(event);
+  clearCartOwnerCookie(event);
 
   // If this is an admin impersonation, set the spoofed-by cookie
   if (spoofedBy) {

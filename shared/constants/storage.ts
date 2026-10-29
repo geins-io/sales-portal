@@ -47,6 +47,8 @@ export const COOKIE_NAMES = {
   LOCALE: 'locale',
   MARKET: 'market',
   CART_ID: 'cart_id',
+  /** Server-only: which signed-in buyer in this browser had which cart. */
+  CART_OWNER: 'cart_owner',
   PREVIEW_MODE: 'preview_mode',
   SPOOFED_BY: 'geins-spoofed-by',
   VAT_DISPLAY: 'vat_display',

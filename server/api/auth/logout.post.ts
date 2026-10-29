@@ -5,6 +5,9 @@ export default defineEventHandler(async (event) => {
   clearAuthCookies(event);
   clearSpoofedByCookie(event);
   clearPreviewCookie(event);
+  // The next buyer in this browser never gets this cart; the owner note keeps
+  // it for this buyer's next sign-in.
+  clearCartCookie(event);
 
   // Best-effort server-side logout — don't fail if Geins API errors
   try {

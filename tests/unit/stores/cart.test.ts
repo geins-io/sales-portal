@@ -274,6 +274,194 @@ describe('useCartStore', () => {
     });
   }
 
+  /** What `$fetch` throws when Geins refuses a cart another buyer owns. */
+  function notOwn() {
+    return Object.assign(new Error('[GET] "/api/cart": 403'), {
+      statusCode: 403,
+      data: { statusCode: 403, data: { code: 'CART_NOT_OWN' } },
+    });
+  }
+
+  describe('a cart another buyer owns', () => {
+    const NEW_CART = { ...mockCart, id: 'new-cart' };
+
+    it('drops the cart id on the read, like a completed cart, and is not failed', async () => {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch.mockRejectedValueOnce(notOwn());
+
+      const store = useCartStore();
+      await store.fetchCart();
+
+      expect(mockCartIdRef.value).toBeNull();
+      expect(store.cart).toBeNull();
+      expect(store.loadFailed).toBe(false);
+      expect(store.needsSignIn).toBe(false);
+    });
+
+    it('keeps the cart id on a read that failed for any other reason', async () => {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch.mockRejectedValueOnce(
+        Object.assign(new Error('502'), { statusCode: 502 }),
+      );
+
+      const store = useCartStore();
+      await store.fetchCart();
+
+      expect(mockCartIdRef.value).toBe('cart-123');
+      expect(store.loadFailed).toBe(true);
+    });
+
+    it('adds the line to a new cart when the add is refused, so the click is not lost', async () => {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch
+        .mockRejectedValueOnce(notOwn()) // POST /api/cart/items, refused
+        .mockResolvedValueOnce(NEW_CART) // POST /api/cart
+        .mockResolvedValueOnce(NEW_CART); // POST /api/cart/items
+
+      const store = useCartStore();
+      await store.addItem(100, 1);
+
+      expect(mockFetch).toHaveBeenNthCalledWith(1, '/api/cart/items', {
+        method: 'POST',
+        body: { cartId: 'cart-123', skuId: 100, quantity: 1 },
+      });
+      expect(mockFetch).toHaveBeenNthCalledWith(2, '/api/cart', {
+        method: 'POST',
+      });
+      expect(mockFetch).toHaveBeenNthCalledWith(3, '/api/cart/items', {
+        method: 'POST',
+        body: { cartId: 'new-cart', skuId: 100, quantity: 1 },
+      });
+      expect(mockCartIdRef.value).toBe('new-cart');
+      expect(store.cart).toEqual(NEW_CART);
+      expect(store.error).toBeNull();
+      expect(store.isOpen).toBe(true);
+      expect(store.isLoading).toBe(false);
+    });
+
+    it('tries the new cart once: a second refusal is a failed add', async () => {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch
+        .mockRejectedValueOnce(notOwn())
+        .mockResolvedValueOnce(NEW_CART)
+        .mockRejectedValueOnce(notOwn());
+
+      const store = useCartStore();
+      await store.addItem(100, 1);
+
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(store.error).toBe('Failed to add item');
+      expect(mockCartIdRef.value).toBeNull();
+    });
+
+    it('keeps the cart id, and tries nothing else, when an add fails for any other reason', async () => {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch.mockRejectedValueOnce(
+        Object.assign(new Error('502'), { statusCode: 502 }),
+      );
+
+      const store = useCartStore();
+      await store.addItem(100, 1);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockCartIdRef.value).toBe('cart-123');
+      expect(store.error).toBe('Failed to add item');
+    });
+
+    it('adds a configured line to a new cart when the add is refused', async () => {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch
+        .mockRejectedValueOnce(notOwn())
+        .mockResolvedValueOnce(NEW_CART)
+        .mockResolvedValueOnce({ cart: NEW_CART, itemId: 'item-9' });
+
+      const store = useCartStore();
+      await expect(
+        store.addConfiguredItem('committed-1', 1652, 1),
+      ).resolves.toEqual({ cartId: 'new-cart', itemId: 'item-9' });
+
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        3,
+        '/api/configurations/committed-1/cart',
+        {
+          method: 'POST',
+          body: { cartId: 'new-cart', skuId: 1652, quantity: 1 },
+        },
+      );
+      expect(mockCartIdRef.value).toBe('new-cart');
+    });
+
+    it('fails a configured add to its caller when the new cart is refused too', async () => {
+      mockCartIdRef.value = 'cart-123';
+      const second = notOwn();
+      mockFetch
+        .mockRejectedValueOnce(notOwn())
+        .mockResolvedValueOnce(NEW_CART)
+        .mockRejectedValueOnce(second);
+
+      const store = useCartStore();
+      await expect(
+        store.addConfiguredItem('committed-1', 1652, 1),
+      ).rejects.toBe(second);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(mockCartIdRef.value).toBeNull();
+    });
+
+    it('drops the cart id when a configured swap is refused, and fails to its caller', async () => {
+      mockCartIdRef.value = 'cart-123';
+      const failure = notOwn();
+      mockFetch.mockRejectedValueOnce(failure);
+
+      const store = useCartStore();
+      await expect(
+        store.replaceConfiguredItem('committed-2', {
+          cartId: 'cart-123',
+          itemId: 'item-1',
+        }),
+      ).rejects.toBe(failure);
+
+      expect(mockCartIdRef.value).toBeNull();
+      expect(store.cart).toBeNull();
+    });
+
+    it.each([
+      [
+        'a quantity change',
+        (store: ReturnType<typeof useCartStore>) =>
+          store.updateQuantity('item-1', 3),
+      ],
+      [
+        'a removal',
+        (store: ReturnType<typeof useCartStore>) => store.removeItem('item-1'),
+      ],
+      [
+        'a promo code',
+        (store: ReturnType<typeof useCartStore>) =>
+          store.applyPromoCode('SAVE'),
+      ],
+      [
+        'a promo code removal',
+        (store: ReturnType<typeof useCartStore>) => store.removePromoCode(),
+      ],
+    ])(
+      'drops the cart id and the cart when %s is refused',
+      async (_case, change) => {
+        mockCartIdRef.value = 'cart-123';
+        mockFetch.mockRejectedValueOnce(notOwn());
+
+        const store = useCartStore();
+        store.cart = mockCart as unknown as typeof store.cart;
+        await change(store);
+
+        expect(mockCartIdRef.value).toBeNull();
+        expect(store.cart).toBeNull();
+        expect(store.error).toBeNull();
+        expect(store.quantityFailed.size).toBe(0);
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+      },
+    );
+  });
+
   describe('a cart that needs the buyer signed in', () => {
     async function readRefused() {
       mockCartIdRef.value = 'cart-123';
@@ -1017,6 +1205,17 @@ describe('useCartStore', () => {
       const store = useCartStore();
       await store.removePromoCode();
       expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('says so, and keeps the cart, when the removal fails', async () => {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch.mockRejectedValueOnce(new Error('fail'));
+
+      const store = useCartStore();
+      await store.removePromoCode();
+
+      expect(store.error).toBe('Failed to remove promo code');
+      expect(mockCartIdRef.value).toBe('cart-123');
     });
   });
 

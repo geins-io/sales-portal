@@ -87,6 +87,7 @@ vi.mock('#shared/constants/storage', () => ({
     LOCALE: 'locale',
     MARKET: 'market',
     CART_ID: 'cart_id',
+    CART_OWNER: 'cart_owner',
     TENANT_ID: 'tenant_id',
   },
 }));
@@ -480,7 +481,30 @@ describe('server/plugins/02.tenant-context', () => {
         'cart_id',
         expect.anything(),
       );
+      expect(mockDeleteCookie).not.toHaveBeenCalledWith(
+        event,
+        'cart_owner',
+        expect.anything(),
+      );
       expect(mockSetTenantCookie).not.toHaveBeenCalled();
+    });
+
+    it("drops the cart and its owner note on a switch to another tenant on the same host: the carts are the other tenant's", async () => {
+      mockResolveTenant.mockResolvedValue(makeTenant());
+      mockGetTenantCookie.mockReturnValue('a-different-tenant');
+
+      const event = createEvent('/se/sv/products', {
+        localeMarket: { market: 'se', locale: 'sv' },
+      });
+
+      await handler(event);
+
+      expect(mockDeleteCookie).toHaveBeenCalledWith(event, 'cart_id', {
+        path: '/',
+      });
+      expect(mockDeleteCookie).toHaveBeenCalledWith(event, 'cart_owner', {
+        path: '/',
+      });
     });
 
     it('API route with ?preview=1 also uses resolvePreviewTenant', async () => {

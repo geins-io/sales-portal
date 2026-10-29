@@ -13,7 +13,8 @@ import type {
 import { createAppError, ErrorCode } from '../utils/errors';
 import { canConfigureServer } from '../utils/feature-access';
 import { logger } from '../utils/logger';
-import { isSdkLoginRequired } from '../utils/sdk-error';
+import { forgetCart } from '../utils/cart-owner';
+import { isSdkCartNotOwn, isSdkLoginRequired } from '../utils/sdk-error';
 import { getTenantSDK, buildRequestContext } from './_sdk';
 import { changeConfiguredQuantity } from './configured-line-quantity';
 import {
@@ -82,15 +83,32 @@ function withLineConfigurations(
 }
 
 /**
- * A refusal to read until the buyer signs in is the buyer's state, not an
- * outage. Signed in, it is another buyer's cart, which sign-in cannot open, so
- * it fails as before and the buyer gets a cart of their own.
+ * A cart another buyer owns is gone for this buyer, on a read or a write, and
+ * so is the buyer's note of it. Classified inside the call `wrapServiceCall`
+ * wraps, which answers anything it does not know as a 502.
  */
-function signInRequired(error: unknown, signedIn: boolean): never {
+function notOwn(error: unknown, event: H3Event, cartId: string): never {
+  if (isSdkCartNotOwn(error)) {
+    forgetCart(event, getSessionToken(event), cartId);
+    throw createAppError(ErrorCode.CART_NOT_OWN);
+  }
+  throw error;
+}
+
+/**
+ * A refusal to read until the buyer signs in is the buyer's state, not an
+ * outage. Signed in, sign-in cannot open it, so it fails as a failed read.
+ */
+function readRefused(
+  error: unknown,
+  signedIn: boolean,
+  event: H3Event,
+  cartId: string,
+): never {
   if (!signedIn && isSdkLoginRequired(error)) {
     throw createAppError(ErrorCode.CART_LOGIN_REQUIRED);
   }
-  throw error;
+  return notOwn(error, event, cartId);
 }
 
 async function readCart(
@@ -106,7 +124,9 @@ async function readCart(
       () =>
         oms.cart
           .get(cartId, false, ctx)
-          .catch((error: unknown) => signInRequired(error, signedIn)),
+          .catch((error: unknown) =>
+            readRefused(error, signedIn, event, cartId),
+          ),
       'cart',
       CartError,
     ),
@@ -122,7 +142,11 @@ async function changed(
   change: () => Promise<SdkCartType>,
 ): Promise<CartType> {
   const backend = await configuratorFor(event);
-  const cart = await wrapServiceCall(change, 'cart', CartError);
+  const cart = await wrapServiceCall(
+    () => change().catch((error: unknown) => notOwn(error, event, cartId)),
+    'cart',
+    CartError,
+  );
   return withLineConfigurations(
     cart,
     await lineConfigurations(cartId, event, backend),
@@ -169,7 +193,10 @@ export async function updateItem(
     const configuratorCtx = await buildConfiguratorRequestContext(event);
     const [cart, lines] = await Promise.all([
       wrapServiceCall(
-        () => oms.cart.get(cartId, false, ctx),
+        () =>
+          oms.cart
+            .get(cartId, false, ctx)
+            .catch((error: unknown) => notOwn(error, event, cartId)),
         'cart',
         CartError,
       ),

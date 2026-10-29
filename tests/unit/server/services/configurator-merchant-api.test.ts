@@ -2354,6 +2354,7 @@ describe('the merchant-api backend', () => {
       ['ConfigurationMismatch', 422],
       ['LoginRequired', 401],
       ['CartBelongsToAnotherCompany', 403],
+      ['CartBelongsToAnotherBuyer', 403],
       ['ConfigurationNotReopenable', 422],
       ['CartItemNotConfigured', 404],
       ['NotAvailable', 404],
@@ -2371,6 +2372,7 @@ describe('the merchant-api backend', () => {
     it.each([
       ['CartItemNotConfigured', 'CART_LINE_GONE'],
       ['CartBelongsToAnotherCompany', 'CART_NOT_OWN'],
+      ['CartBelongsToAnotherBuyer', 'CART_NOT_OWN'],
       ['MissingCustomerNumber', 'FORBIDDEN'],
       ['ConfigurationNotFound', 'NOT_FOUND'],
       ['NotAvailable', 'CONFIGURATOR_NOT_AVAILABLE'],

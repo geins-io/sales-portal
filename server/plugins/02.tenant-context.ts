@@ -144,6 +144,7 @@ export default defineNitroPlugin((nitroApp) => {
         deleteCookie(event, COOKIE_NAMES.LOCALE, { path: '/' });
         deleteCookie(event, COOKIE_NAMES.MARKET, { path: '/' });
         deleteCookie(event, COOKIE_NAMES.CART_ID, { path: '/' });
+        deleteCookie(event, COOKIE_NAMES.CART_OWNER, { path: '/' });
       }
 
       if (

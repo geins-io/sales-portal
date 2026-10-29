@@ -44,7 +44,13 @@ vi.mock('../../../server/utils/rate-limiter', () => ({
   getClientIp: () => '127.0.0.1',
 }));
 
+const forgetCart = vi.fn();
+vi.mock('../../../server/utils/cart-owner', () => ({
+  forgetCart: (...args: unknown[]) => forgetCart(...args),
+}));
+
 // Stub Nitro auto-imports
+vi.stubGlobal('getSessionToken', () => 'buyer-token');
 vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal(
   'createError',
@@ -272,6 +278,27 @@ describe('Checkout API routes', () => {
         event,
       );
       expect(result).toEqual({ orderId: '123', publicId: 'pub-123' });
+    });
+
+    it("forgets the placed cart as the buyer's, so the next sign-in starts a new one", async () => {
+      mockCreateOrder.mockResolvedValue({
+        created: true,
+        orderId: '123',
+        publicId: 'pub-123',
+      });
+
+      const event = mockEvent({ body: validBody });
+      await handler(event);
+
+      expect(forgetCart).toHaveBeenCalledWith(event, 'buyer-token', 'cart-1');
+    });
+
+    it("keeps the cart as the buyer's when the order is refused", async () => {
+      forgetCart.mockClear();
+      mockCreateOrder.mockResolvedValue({ created: false, code: 'X' });
+
+      await expect(handler(mockEvent({ body: validBody }))).rejects.toThrow();
+      expect(forgetCart).not.toHaveBeenCalled();
     });
 
     it('rejects a cart the platform reports as empty', async () => {

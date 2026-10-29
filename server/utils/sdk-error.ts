@@ -90,7 +90,7 @@ export function isSdkClientFault(error: unknown): boolean {
   return isObject(error) && CLIENT_FAULT_CODES.has(Reflect.get(error, 'code'));
 }
 
-function carriesLoginRequired(value: unknown): boolean {
+function carriesCode(value: unknown, code: string): boolean {
   if (!isObject(value)) return false;
   const graphQLErrors: unknown = Reflect.get(value, 'graphQLErrors');
   return (
@@ -98,22 +98,34 @@ function carriesLoginRequired(value: unknown): boolean {
     graphQLErrors.some((graphQLError: unknown) => {
       if (!isObject(graphQLError)) return false;
       const extensions: unknown = Reflect.get(graphQLError, 'extensions');
-      return (
-        isObject(extensions) &&
-        Reflect.get(extensions, 'code') === 'LoginRequired'
-      );
+      return isObject(extensions) && Reflect.get(extensions, 'code') === code;
     })
+  );
+}
+
+/** A write throws the GraphQL error as it is; the read rewraps it as `cause`. */
+function carriesCodeOrCause(error: unknown, code: string): boolean {
+  return (
+    carriesCode(error, code) ||
+    (isObject(error) && carriesCode(Reflect.get(error, 'cause'), code))
   );
 }
 
 /**
  * True when Geins refused a cart until the buyer signs in: a cart holding a
  * configured line answers `LoginRequired` to a request without a user token.
- * A write throws the GraphQL error as it is; the read rewraps it as `cause`.
  */
 export function isSdkLoginRequired(error: unknown): boolean {
+  return carriesCodeOrCause(error, 'LoginRequired');
+}
+
+/**
+ * True when Geins refused a cart because another buyer owns it: a buyer in
+ * another company, or a colleague in the same one.
+ */
+export function isSdkCartNotOwn(error: unknown): boolean {
   return (
-    carriesLoginRequired(error) ||
-    (isObject(error) && carriesLoginRequired(Reflect.get(error, 'cause')))
+    carriesCodeOrCause(error, 'CartBelongsToAnotherCompany') ||
+    carriesCodeOrCause(error, 'CartBelongsToAnotherBuyer')
   );
 }

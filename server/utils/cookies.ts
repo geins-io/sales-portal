@@ -21,7 +21,7 @@
  *                 Om nom nom nom!
  *
  * @module server/utils/cookies
- * @see docs/adr/007-cookie-utility-module.md
+ * @see docs/adr/006-cookie-utility-module.md
  */
 
 import type { H3Event } from 'h3';
@@ -110,6 +110,27 @@ export function setCartCookie(event: H3Event, cartId: string) {
 
 export function getCartCookie(event: H3Event) {
   return getCookie(event, COOKIE_NAMES.CART_ID);
+}
+
+export function clearCartCookie(event: H3Event) {
+  deleteCookie(event, COOKIE_NAMES.CART_ID, { path: '/' });
+}
+
+// --- Cart owner cookie (read through server/utils/cart-owner) ---
+
+export function getCartOwnerCookie(event: H3Event) {
+  return getCookie(event, COOKIE_NAMES.CART_OWNER);
+}
+
+export function setCartOwnerCookie(event: H3Event, value: string) {
+  setCookie(event, COOKIE_NAMES.CART_OWNER, value, {
+    ...cookieDefaults(),
+    maxAge: 30 * 24 * 60 * 60, // 30 days, as the cart cookie
+  });
+}
+
+export function clearCartOwnerCookie(event: H3Event) {
+  deleteCookie(event, COOKIE_NAMES.CART_OWNER, { path: '/' });
 }
 
 // --- Preview cookies ---

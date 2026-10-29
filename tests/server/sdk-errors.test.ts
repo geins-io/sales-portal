@@ -14,7 +14,10 @@ import {
 import { GeinsOMS } from '@geins/oms';
 import { RuntimeContext } from '@geins/types';
 import { ErrorCode, wrapServiceCall } from '../../server/utils/errors';
-import { isSdkLoginRequired } from '../../server/utils/sdk-error';
+import {
+  isSdkCartNotOwn,
+  isSdkLoginRequired,
+} from '../../server/utils/sdk-error';
 import { logger } from '../../server/utils/logger';
 
 vi.mock('../../server/utils/logger', () => ({
@@ -76,6 +79,29 @@ function loginRequired(path: string) {
         locations: [{ line: 1, column: 19 }],
         path: [path],
         extensions: { code: 'LoginRequired', codes: ['LoginRequired'] },
+      },
+    ],
+    data: { [path]: null },
+  };
+}
+
+/**
+ * Geins refusing a cart another buyer owns, as measured on a quotation cart:
+ * one code for another company, one for a colleague in the same company. The
+ * message is Geins's own text, never read.
+ */
+const NOT_OWN_CODES = [
+  'CartBelongsToAnotherCompany',
+  'CartBelongsToAnotherBuyer',
+] as const;
+
+function cartNotOwn(path: string, code: (typeof NOT_OWN_CODES)[number]) {
+  return {
+    errors: [
+      {
+        message: 'This cart belongs to another company',
+        path: [path],
+        extensions: { code },
       },
     ],
     data: { [path]: null },
@@ -377,6 +403,75 @@ describe('wrapServiceCall with errors from the real Geins SDK', () => {
       );
 
       expect(error.statusCode).toBe(502);
+    });
+  });
+
+  describe('a cart another buyer owns', () => {
+    async function rejection(call: () => Promise<unknown>): Promise<unknown> {
+      try {
+        await call();
+      } catch (error) {
+        return error;
+      }
+      throw new Error('expected the call to throw');
+    }
+
+    it.each(NOT_OWN_CODES)(
+      'is recognised by %s on the read, which the SDK rewraps',
+      async (code) => {
+        const oms = omsAnswering(async () => json(cartNotOwn('getCart', code)));
+
+        const error = await rejection(() => oms.cart.get(ORDER_ID));
+
+        expect(error).toMatchObject({ code: 'CART_OPERATION_FAILED' });
+        expect(isSdkCartNotOwn(error)).toBe(true);
+        expect(isSdkLoginRequired(error)).toBe(false);
+      },
+    );
+
+    it.each(NOT_OWN_CODES)(
+      'is recognised by %s on a write, which the SDK throws as it is',
+      async (code) => {
+        const oms = omsAnswering(async () =>
+          json(cartNotOwn('addToCart', code)),
+        );
+
+        const error = await rejection(() =>
+          oms.cart.addItem(ORDER_ID, { skuId: 1, quantity: 1 }),
+        );
+
+        expect(isSdkCartNotOwn(error)).toBe(true);
+      },
+    );
+
+    it.each(NOT_OWN_CODES)(
+      'is recognised by %s at the top level and as the cause, built by hand',
+      (code) => {
+        const graphQLErrors = [{ extensions: { code } }];
+
+        expect(isSdkCartNotOwn({ graphQLErrors })).toBe(true);
+        expect(isSdkCartNotOwn({ cause: { graphQLErrors } })).toBe(true);
+      },
+    );
+
+    it('is not a sign-in refusal, another GraphQL error, or the message text alone', async () => {
+      const loginRequiredRead = await rejection(() =>
+        omsAnswering(async () => json(loginRequired('getCart'))).cart.get(
+          ORDER_ID,
+        ),
+      );
+
+      expect(isSdkCartNotOwn(loginRequiredRead)).toBe(false);
+      expect(
+        isSdkCartNotOwn(new Error('This cart belongs to another company')),
+      ).toBe(false);
+      expect(
+        isSdkCartNotOwn({
+          graphQLErrors: [{ message: 'This cart belongs to another company' }],
+        }),
+      ).toBe(false);
+      expect(isSdkCartNotOwn(new Error('fetch failed'))).toBe(false);
+      expect(isSdkCartNotOwn(null)).toBe(false);
     });
   });
 

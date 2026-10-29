@@ -3,6 +3,12 @@ import * as cartService from '../../services/cart';
 import { loginRateLimiter, getClientIp } from '../../utils/rate-limiter';
 import { LoginSchema } from '../../schemas/api-input';
 import { resolveBuyerMarket } from '../../utils/buyer-market-resolver';
+import {
+  buyerIdOf,
+  cartAtSignIn,
+  readCartOwners,
+  rememberCart,
+} from '../../utils/cart-owner';
 
 export default defineEventHandler(async (event) => {
   const clientIp = getClientIp(event);
@@ -41,21 +47,33 @@ export default defineEventHandler(async (event) => {
     rememberMe: body.rememberMe !== false,
   });
 
-  // Copy the guest cart into a new authenticated cart so the logged-in
-  // user's pricelist prices are applied. Geins OMS won't reprice a
-  // pre-existing guest cart even when a valid userToken is present.
-  const guestCartId = getCartCookie(event);
-  if (guestCartId) {
+  // The buyer's own cart when this browser noted one; otherwise a guest cart
+  // is copied into a new authenticated cart, as before. Another buyer's cart
+  // is never copied.
+  const signIn = cartAtSignIn(
+    getCartCookie(event),
+    buyerIdOf(tokens.token),
+    readCartOwners(event),
+  );
+  if (signIn.kind === 'keep') {
+    setCartCookie(event, signIn.cartId);
+    // Written again, so a buyer who only signs in is not the one evicted.
+    rememberCart(event, tokens.token, signIn.cartId);
+  } else if (signIn.kind === 'copy') {
     try {
       const newCart = await cartService.copyCart(
-        guestCartId,
+        signIn.cartId,
         event,
         tokens.token!,
       );
       setCartCookie(event, newCart.id);
+      rememberCart(event, tokens.token, newCart.id);
     } catch {
-      // Non-fatal: cart copy failed, user gets fresh pricing on next add
+      // A refused copy must not fail the sign-in: a new cart on the first add.
+      clearCartCookie(event);
     }
+  } else {
+    clearCartCookie(event);
   }
 
   // Land the buyer on the market whose country matches their company's
