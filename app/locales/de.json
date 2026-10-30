@@ -370,6 +370,7 @@
     "reset": "Zurücksetzen",
     "sections": "Abschnitte",
     "remaining_required": "{count} Pflichtauswahl fehlt | {count} Pflichtauswahlen fehlen",
+    "released_choice": "{name} wurde entfernt, da es sich nicht mit der aktuellen Auswahl kombinieren lässt",
     "previous": "Zurück",
     "next": "Weiter",
     "section_position": "Abschnitt {current} von {total}",

@@ -370,6 +370,7 @@
     "reset": "Reset",
     "sections": "Sections",
     "remaining_required": "{count} required choice missing | {count} required choices missing",
+    "released_choice": "{name} was removed because it cannot be combined with your current choices",
     "previous": "Previous",
     "next": "Next",
     "section_position": "Section {current} of {total}",

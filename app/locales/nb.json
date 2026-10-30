@@ -370,6 +370,7 @@
     "reset": "Tilbakestill",
     "sections": "Seksjoner",
     "remaining_required": "{count} obligatorisk valg mangler | {count} obligatoriske valg mangler",
+    "released_choice": "{name} ble fjernet fordi det ikke kan kombineres med gjeldende valg",
     "previous": "Forrige",
     "next": "Neste",
     "section_position": "Seksjon {current} av {total}",

@@ -17,6 +17,7 @@ import { readConfiguratorBackendValue } from './configurator-config';
 import { fixtureConfiguratorBackend } from './configurator-fixture';
 import { merchantApiConfiguratorBackend } from './configurator-merchant-api';
 import { withoutRestatedRequirements } from './configurator-messages';
+import { withStaleLocksReleased } from './configurator-stale-locks';
 
 // ---------------------------------------------------------------------------
 // The seam between the portal and whatever produces a configuration.
@@ -198,9 +199,11 @@ const BACKENDS: Record<ConfiguratorBackendName, () => ConfiguratorBackend> = {
 
 export function getConfiguratorBackend(event: H3Event): ConfiguratorBackend {
   return withoutRestatedRequirements(
-    BACKENDS[
-      resolveConfiguratorBackendName(readConfiguratorBackendValue(event))
-    ](),
+    withStaleLocksReleased(
+      BACKENDS[
+        resolveConfiguratorBackendName(readConfiguratorBackendValue(event))
+      ](),
+    ),
   );
 }
 

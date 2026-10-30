@@ -953,6 +953,9 @@ function onRetryOpen(): void {
                     v-if="railEntries.length"
                     class="border-border mt-6 hidden border-t pt-6 lg:block lg:shrink-0"
                   />
+                  <ConfiguratorReleasedNotice
+                    :released="configuration.released"
+                  />
                   <ConfiguratorRequiredStatus
                     :configuration="configuration"
                     @go-to="goToMissing"

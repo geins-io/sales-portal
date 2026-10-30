@@ -341,6 +341,11 @@ const stubs = {
     ],
     emits: ['restart'],
   },
+  ConfiguratorReleasedNotice: {
+    template: `<div v-if="released?.length" data-testid="released-notice"
+      :data-released="released.map((r) => r.name).join('|')"></div>`,
+    props: ['released'],
+  },
   ConfiguratorRequiredStatus: {
     template: `<div data-testid="required-status"
       :data-valid="String(configuration.isValid)">
@@ -2383,6 +2388,44 @@ describe('ConfiguratorProduct required status', () => {
     session.status.value = 'expired';
     await nextTick();
     expect(wrapper.find('[data-testid="required-status"]').exists()).toBe(
+      false,
+    );
+  });
+});
+
+describe('ConfiguratorProduct released notice', () => {
+  const KIT = { optionId: 'im-kit', instanceId: '0', name: 'IM kit' };
+
+  it('stands right above the status, under the rail', async () => {
+    const wrapper = mountPage();
+    activeWith({ ...makeSectionTreeConfiguration(), released: [KIT] });
+    await nextTick();
+
+    const notice = wrapper.find('[data-testid="released-notice"]').element;
+    const status = wrapper.find('[data-testid="required-status"]').element;
+    expect(notice.nextElementSibling).toBe(status);
+  });
+
+  it('shows what the answer released, until the next answer replaces it', async () => {
+    const wrapper = mountPage();
+    activeWith({ ...makeSectionTreeConfiguration(), released: [KIT] });
+    await nextTick();
+    expect(
+      wrapper
+        .find('[data-testid="released-notice"]')
+        .attributes('data-released'),
+    ).toBe('IM kit');
+
+    session.configuration.value = makeSectionTreeConfiguration();
+    await nextTick();
+    expect(wrapper.find('[data-testid="released-notice"]').exists()).toBe(
+      false,
+    );
+  });
+
+  it('renders no notice while the session starts', () => {
+    const wrapper = mountPage();
+    expect(wrapper.find('[data-testid="released-notice"]').exists()).toBe(
       false,
     );
   });

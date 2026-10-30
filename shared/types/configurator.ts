@@ -186,6 +186,18 @@ export interface Configuration {
   templateVersion: string;
   messages: ConfigurationMessage[];
   sections: ConfigurationSection[];
+  /**
+   * The portal's, never the provider's: choices the portal deselected in this
+   * answer because the provider had ruled them out and kept them locked.
+   */
+  released?: ReleasedChoice[];
+}
+
+/** A choice taken out of the configuration, named for the buyer. */
+export interface ReleasedChoice {
+  optionId: string;
+  instanceId: string;
+  name: string;
 }
 
 // ---------------------------------------------------------------------------

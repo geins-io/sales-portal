@@ -370,6 +370,7 @@
     "reset": "Nulstil",
     "sections": "Sektioner",
     "remaining_required": "{count} påkrævet valg mangler | {count} påkrævede valg mangler",
+    "released_choice": "{name} blev fjernet, fordi det ikke kan kombineres med de nuværende valg",
     "previous": "Forrige",
     "next": "Næste",
     "section_position": "Sektion {current} af {total}",

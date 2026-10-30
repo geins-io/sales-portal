@@ -370,6 +370,7 @@
     "reset": "Palauta",
     "sections": "Osiot",
     "remaining_required": "{count} pakollinen valinta puuttuu | {count} pakollista valintaa puuttuu",
+    "released_choice": "{name} poistettiin, koska sitä ei voi yhdistää nykyisiin valintoihin",
     "previous": "Edellinen",
     "next": "Seuraava",
     "section_position": "Osio {current}/{total}",

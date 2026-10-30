@@ -370,6 +370,7 @@
     "reset": "Återställ",
     "sections": "Sektioner",
     "remaining_required": "{count} obligatoriskt val saknas | {count} obligatoriska val saknas",
+    "released_choice": "{name} togs bort eftersom det inte går att kombinera med nuvarande val",
     "previous": "Föregående",
     "next": "Nästa",
     "section_position": "Sektion {current} av {total}",

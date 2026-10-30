@@ -57,6 +57,7 @@ configure button only when ordering is allowed and the tenant is not in catalogu
 - `app/utils/configurator-page.ts`, `configurator-form.ts`, `configurator-order.ts`, `configurator-sections.ts`
 - `shared/utils/configurator-requirement.ts`, `shared/utils/configurator-choice.ts`
 - `server/services/configurator-messages.ts`
+- `server/services/configurator-stale-locks.ts`
 - `app/composables/useConfiguratorSession.ts`
 - `server/api/configurations/index.post.ts`, `server/api/configurations/[id]/changes.post.ts`
 
@@ -68,7 +69,10 @@ no second batch is sent. Whether a choice is missing is read from the node, by o
 client and server. `canCommit` allows a commit when the provider's `isValid` is true, the session
 is active with nothing in flight, the product has one SKU, the stock allows it and the page's
 quantity matches the line's. A refused change is told apart by the error's code in
-`refusedChange`.
+`refusedChange`. A choice the provider has ruled out but keeps locked (deselected, unavailable,
+`locked`, with an error) is deselected by the server in a second batch, after a change and after a
+reopen, and the answer names it in `released`. The page says what went until the next change. A row
+the batch itself picked is left, because a pick sent before its unlock looks the same.
 
 **What proves it**
 
@@ -79,6 +83,7 @@ quantity matches the line's. A refused change is told apart by the error's code 
 - `tests/unit/configurator-sections.test.ts`
 - `tests/unit/shared/configurator-requirement.test.ts`
 - `tests/unit/server/services/configurator-messages.test.ts`
+- `tests/unit/server/services/configurator-stale-locks.test.ts`
 - `tests/components/pages/ConfiguratorProduct.test.ts`
 - `tests/components/product/configurator/`
 - `tests/components/product/ConfiguratorRequiredStatus.test.ts`
