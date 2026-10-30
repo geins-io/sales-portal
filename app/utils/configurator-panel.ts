@@ -213,6 +213,37 @@ export function unnamedBlockingMessages(config: Configuration): string[] {
   ];
 }
 
+const groupHasUnmet = (group: ConfigurationOptionGroup): boolean =>
+  isGroupUnmet(group) || group.optionGroups.some(groupHasUnmet);
+
+const holdsUnmet = (sections: ConfigurationSection[]): boolean =>
+  sections.some(
+    (section) =>
+      section.optionGroups.some(groupHasUnmet) ||
+      section.variables.some(isVariableUnmet) ||
+      holdsUnmet(section.sections),
+  );
+
+/**
+ * Whether the document is invalid only because of a requirement in a section
+ * the provider hid: nothing on screen to name, no message to show, and a
+ * required group or variable there still unmet. The buyer cannot reach it, so
+ * the banner says the configuration cannot be completed rather than that it is
+ * incomplete.
+ *
+ * Decided from `visible:false` and the requirements alone, never from a
+ * message's text. A visible error, root included, is something to show, so
+ * the banner lists it as before.
+ */
+export function blockedOnlyByHiddenSections(config: Configuration): boolean {
+  if (config.isValid) return false;
+  if (collectBlockingItems(config).length) return false;
+  if (unnamedBlockingMessages(config).length) return false;
+  // Anywhere is enough: with nothing visible named above, an unmet node can
+  // only sit in a hidden section.
+  return holdsUnmet(config.sections);
+}
+
 // ---------------------------------------------------------------------------
 // The specification: what has been chosen, grouped the way the form is
 // ---------------------------------------------------------------------------

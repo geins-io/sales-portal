@@ -325,7 +325,8 @@
     "required_status": {
       "remaining_count": "Resterende obligatoriske valg\u00a0({count})",
       "all_done": "Alle obligatoriske valg er truffet",
-      "unspecified": "Konfigurationen er ikke komplet."
+      "unspecified": "Konfigurationen er ikke komplet.",
+      "cannot_complete": "Konfigurationen kan ikke færdiggøres. Kontakt sælgeren."
     },
     "read_only": "Angives af konfigurationen",
     "set_automatically": "Sættes automatisk",

@@ -5,6 +5,7 @@ import { ref } from 'vue';
 import { mountComponent } from '../../utils/component';
 import ConfiguratorRequiredStatus from '../../../app/components/product/configurator/ConfiguratorRequiredStatus.vue';
 import {
+  makeInitialConfiguration,
   makeInvalidConfiguration,
   makeValidConfiguration,
 } from '../../fixtures/configurator';
@@ -185,6 +186,17 @@ describe('ConfiguratorRequiredStatus', () => {
     const wrapper = mountStatus(makeValidConfiguration({ isValid: false }));
     expect(box(wrapper).text()).toBe(
       'configurator.required_status.unspecified',
+    );
+    expect(toggle(wrapper).exists()).toBe(false);
+  });
+
+  it('says the configuration cannot be completed when only a hidden section is missing something', () => {
+    const configuration = makeInitialConfiguration();
+    configuration.sections[0]!.sections[0]!.visible = false;
+    const wrapper = mountStatus(configuration);
+
+    expect(box(wrapper).text()).toBe(
+      'configurator.required_status.cannot_complete',
     );
     expect(toggle(wrapper).exists()).toBe(false);
   });

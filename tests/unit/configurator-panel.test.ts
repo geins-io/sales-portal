@@ -8,6 +8,7 @@ import type {
 import type { Configuration } from '#shared/types/configurator';
 import {
   basePrice,
+  blockedOnlyByHiddenSections,
   collectBlockingItems,
   collectBlockingMessages,
   committedSpecificationRows,
@@ -476,6 +477,109 @@ describe('unnamedBlockingMessages', () => {
     expect(unnamedBlockingMessages(config)).toEqual([
       'The width is out of range.',
     ]);
+  });
+});
+
+describe('blockedOnlyByHiddenSections', () => {
+  // Measured on the real provider: a required group or variable in a section
+  // with `visible:false` left empty, nothing on screen to name, and no root
+  // message. The buyer has no way forward on the page.
+
+  /** The initial document, its only unmet group (Colour) in a hidden Finish. */
+  function hiddenColour(overrides: Partial<Configuration> = {}) {
+    const config = makeInitialConfiguration(overrides);
+    config.sections[0]!.sections[0]!.visible = false;
+    return config;
+  }
+
+  /** A complete document made invalid by an empty Width, Frame hidden. */
+  function hiddenWidth() {
+    const config = makeValidConfiguration({ isValid: false });
+    findVariable(config, 'width').value = null;
+    config.sections[0]!.visible = false;
+    return config;
+  }
+
+  it('is true when the only unmet group sits in a hidden section', () => {
+    expect(blockedOnlyByHiddenSections(hiddenColour())).toBe(true);
+  });
+
+  it('is true when the only unmet variable sits in a hidden section', () => {
+    expect(blockedOnlyByHiddenSections(hiddenWidth())).toBe(true);
+  });
+
+  it('is true for a visible section nested in a hidden one', () => {
+    const config = makeInitialConfiguration();
+    config.sections[0]!.visible = false;
+    expect(config.sections[0]!.sections[0]!.visible).toBe(true);
+    expect(blockedOnlyByHiddenSections(config)).toBe(true);
+  });
+
+  it('is true for a group inside a group in a hidden section', () => {
+    const config = makeValidConfiguration({ isValid: false });
+    const legs = findOptionGroup(config, 'legs');
+    legs.optionGroups = [
+      {
+        ...legs,
+        id: 'legs-mounting',
+        name: 'Mounting',
+        minSelections: 1,
+        optionGroups: [],
+        options: [],
+        messages: [],
+      },
+    ];
+    config.sections[0]!.visible = false;
+    expect(blockedOnlyByHiddenSections(config)).toBe(true);
+  });
+
+  it('is false when only visible sections hold what is missing', () => {
+    expect(blockedOnlyByHiddenSections(makeInitialConfiguration())).toBe(false);
+  });
+
+  it('is false when something visible is missing too', () => {
+    const config = hiddenColour();
+    findVariable(config, 'width').value = null;
+    expect(blockedOnlyByHiddenSections(config)).toBe(false);
+  });
+
+  it('is false when the document carries an error of its own', () => {
+    const config = hiddenColour({
+      messages: [{ severity: 'error', text: 'The template is out of date.' }],
+    });
+    expect(blockedOnlyByHiddenSections(config)).toBe(false);
+  });
+
+  it('is false when a visible node carries an error', () => {
+    const config = hiddenColour();
+    findVariable(config, 'width').messages = [
+      { severity: 'error', text: 'The width is out of range.' },
+    ];
+    expect(blockedOnlyByHiddenSections(config)).toBe(false);
+  });
+
+  it('is false when the hidden group does not apply to the current choices', () => {
+    const config = hiddenColour();
+    findOptionGroup(config, 'color').available = false;
+    expect(blockedOnlyByHiddenSections(config)).toBe(false);
+  });
+
+  it('is false when the hidden variable is the provider’s to fill', () => {
+    const config = hiddenWidth();
+    findVariable(config, 'width').readOnly = true;
+    expect(blockedOnlyByHiddenSections(config)).toBe(false);
+  });
+
+  it('is false for a valid document, whatever a hidden section holds', () => {
+    expect(blockedOnlyByHiddenSections(hiddenColour({ isValid: true }))).toBe(
+      false,
+    );
+  });
+
+  it('is false for an invalid document with nothing unmet anywhere', () => {
+    const config = makeValidConfiguration({ isValid: false });
+    config.sections[0]!.sections[0]!.visible = false;
+    expect(blockedOnlyByHiddenSections(config)).toBe(false);
   });
 });
 
