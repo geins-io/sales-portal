@@ -1,0 +1,3 @@
+mutation finalizeQuotation($quotationId: Guid!, $languageId: String) {
+  finalizeQuotation(quotationId: $quotationId, languageId: $languageId)
+}

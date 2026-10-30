@@ -108,6 +108,7 @@ describe('GraphQL loader', () => {
     it.each([
       ['quotes/accept-quotation.graphql', 'acceptQuotation'],
       ['quotes/reject-quotation.graphql', 'rejectQuotation'],
+      ['quotes/finalize-quotation.graphql', 'finalizeQuotation'],
     ])('selects nothing on %s: Geins answers a Boolean', (file, field) => {
       const query = loadQuery(file);
 
