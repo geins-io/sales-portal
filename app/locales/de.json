@@ -339,6 +339,8 @@
     "choose": "Wählen",
     "option_count": "{count} Optionen",
     "add_more": "Weitere hinzufügen",
+    "add_bounded": "Hinzufügen ({count} von {max} gewählt)",
+    "choose_up_to": "Bis zu {max} wählen · {count} gewählt",
     "search": "Suchen…",
     "no_matches": "Keine Treffer.",
     "bounds_narrowed": "Grenze durch eine frühere Auswahl angepasst",

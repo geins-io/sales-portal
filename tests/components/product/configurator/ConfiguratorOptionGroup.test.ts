@@ -32,6 +32,9 @@ vi.mock('../../../../app/components/ui/sheet', () => ({
   },
   SheetHeader: { template: '<div><slot /></div>' },
   SheetTitle: { template: '<div data-testid="sheet-title"><slot /></div>' },
+  SheetDescription: {
+    template: '<div data-testid="sheet-description"><slot /></div>',
+  },
 }));
 
 // The tooltip's content inline and always there, so what the icon carries can
@@ -1559,5 +1562,116 @@ describe('ConfiguratorOptionGroup', () => {
     expect(
       wrapper.find(`[data-group-id="industrial"] ${REFUSED}`).exists(),
     ).toBe(true);
+  });
+
+  describe('a multi choice bounded by its maximum', () => {
+    const LIMIT = '[data-testid="configurator-group-limit"]';
+
+    /** The seeded accessories, at most two, with these rows chosen. */
+    function bounded(...chosen: string[]) {
+      const workbench = makeInitialConfiguration();
+      const accessories = findOptionGroup(workbench, 'accessories');
+      accessories.maxSelections = 2;
+      for (const id of chosen) findOption(workbench, id).selected = true;
+      return accessories;
+    }
+
+    const checkbox = (wrapper: ReturnType<typeof mountGroup>, id: string) =>
+      wrapper.find(`${SHEET} [data-option-id="${id}"] [role="checkbox"]`);
+
+    it('asks for a first choice as an unbounded group does', () => {
+      const wrapper = mountGroup(bounded());
+
+      expect(wrapper.find(ADD).text()).toBe('configurator.choose');
+    });
+
+    it('states the count and the limit on the add row below the maximum', () => {
+      const wrapper = mountGroup(bounded('acc-light'));
+
+      expect(wrapper.find(ADD).text()).toBe('configurator.add_bounded');
+    });
+
+    it('states the limit and the count under the panel title, every row open', async () => {
+      const wrapper = mountGroup(bounded('acc-light'));
+      await wrapper.find(ADD).trigger('click');
+
+      expect(wrapper.find(LIMIT).text()).toBe('configurator.choose_up_to');
+      for (const option of findOptionGroup(
+        makeInitialConfiguration(),
+        'accessories',
+      ).options) {
+        expect(checkbox(wrapper, option.id).attributes('disabled')).toBe(
+          undefined,
+        );
+      }
+    });
+
+    it('offers no add row at the maximum', () => {
+      const wrapper = mountGroup(bounded('acc-light', 'acc-castors'));
+
+      expect(
+        wrapper.findAll('[data-testid="configurator-option"]'),
+      ).toHaveLength(2);
+      expect(wrapper.find(ADD).exists()).toBe(false);
+    });
+
+    it('disables the unchosen rows in the panel at the maximum, the chosen ones stay open to untick', async () => {
+      // The panel stays open across the pick that reaches the maximum.
+      const wrapper = mountGroup(bounded('acc-light'));
+      await wrapper.find(ADD).trigger('click');
+      await wrapper.setProps({ group: bounded('acc-light', 'acc-castors') });
+
+      expect(wrapper.find(LIMIT).exists()).toBe(true);
+      expect(checkbox(wrapper, 'acc-light').attributes('disabled')).toBe(
+        undefined,
+      );
+      expect(checkbox(wrapper, 'acc-castors').attributes('disabled')).toBe(
+        undefined,
+      );
+      expect(
+        checkbox(wrapper, 'acc-power').attributes('disabled'),
+      ).toBeDefined();
+    });
+  });
+
+  describe('a multi choice whose maximum is as many as it has', () => {
+    it('reads as unbounded: no count on the add row, no line in the panel', async () => {
+      const workbench = makeInitialConfiguration();
+      const accessories = findOptionGroup(workbench, 'accessories');
+      accessories.maxSelections = 99;
+      findOption(workbench, 'acc-light').selected = true;
+
+      const wrapper = mountGroup(accessories);
+      expect(wrapper.find(ADD).text()).toBe('configurator.add_more');
+
+      await wrapper.find(ADD).trigger('click');
+      expect(
+        wrapper.find('[data-testid="configurator-group-limit"]').exists(),
+      ).toBe(false);
+    });
+  });
+
+  describe('an unbounded multi choice', () => {
+    it('keeps its add row and says nothing about a limit in the panel', async () => {
+      const workbench = makeInitialConfiguration();
+      const accessories = findOptionGroup(workbench, 'accessories');
+      expect(accessories.maxSelections).toBeUndefined();
+      findOption(workbench, 'acc-light').selected = true;
+      findOption(workbench, 'acc-castors').selected = true;
+      findOption(workbench, 'acc-power').selected = true;
+
+      const wrapper = mountGroup(accessories);
+      expect(wrapper.find(ADD).text()).toBe('configurator.add_more');
+
+      await wrapper.find(ADD).trigger('click');
+      expect(
+        wrapper.find('[data-testid="configurator-group-limit"]').exists(),
+      ).toBe(false);
+      expect(
+        wrapper
+          .findAll(`${SHEET} [role="checkbox"]`)
+          .every((box) => box.attributes('disabled') === undefined),
+      ).toBe(true);
+    });
   });
 });

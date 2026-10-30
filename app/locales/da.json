@@ -339,6 +339,8 @@
     "choose": "Vælg",
     "option_count": "{count} valg",
     "add_more": "Tilføj flere",
+    "add_bounded": "Tilføj ({count} af {max} valgt)",
+    "choose_up_to": "Vælg op til {max} · {count} valgt",
     "search": "Søg…",
     "no_matches": "Ingen resultater.",
     "bounds_narrowed": "grænse justeret af tidligere valg",

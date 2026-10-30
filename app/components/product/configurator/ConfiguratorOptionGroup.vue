@@ -9,10 +9,12 @@ import {
   groupSummary,
   hasImageColumn,
   hasNothingToChoose,
+  isAtSelectionLimit,
   matchesOptionQuery,
   NONE_ROW_VALUE,
   offersNoneRow,
   refusesOptionIn,
+  selectionLimit,
   shownOptions,
   showsRequiredMark,
   usesChooser,
@@ -27,6 +29,7 @@ import { RadioGroup } from '~/components/ui/radio-group';
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '~/components/ui/sheet';
@@ -51,6 +54,10 @@ import {
  * A refused choice is said once for the group, above its rows: a group with
  * more than one option picks from a panel that has closed by the time the
  * answer comes, and the refused row is not the one on show.
+ *
+ * A multi choice with a maximum stops offering more once it is reached: the
+ * add row goes, and the panel's unchosen rows are disabled. The provider would
+ * refuse the extra pick with an error on the group.
  */
 const {
   group,
@@ -105,6 +112,8 @@ const imageColumn = computed(() => hasImageColumn(shown.value.options));
 const chosen = computed(() =>
   group.options.filter((option) => option.selected),
 );
+const limit = computed(() => selectionLimit(group));
+const atLimit = computed(() => isAtSelectionLimit(group));
 
 const sheetOpen = ref(false);
 const query = ref('');
@@ -254,7 +263,7 @@ function onSheetPick(value: unknown) {
         />
 
         <button
-          v-if="chosen.length < shown.options.length"
+          v-if="chosen.length < shown.options.length && !atLimit"
           type="button"
           data-testid="configurator-group-add"
           class="text-primary hover:bg-accent/50 hover:text-primary/80 flex w-full items-center justify-between gap-3 rounded-lg border border-dashed p-3 text-left text-sm font-medium transition-colors"
@@ -265,9 +274,11 @@ function onSheetPick(value: unknown) {
             {{
               nothing
                 ? t('configurator.nothing_to_choose')
-                : chosen.length
-                  ? t('configurator.add_more')
-                  : t('configurator.choose')
+                : !chosen.length
+                  ? t('configurator.choose')
+                  : limit
+                    ? t('configurator.add_bounded', limit)
+                    : t('configurator.add_more')
             }}
           </span>
           <ChevronRight class="size-5 shrink-0" />
@@ -343,6 +354,9 @@ function onSheetPick(value: unknown) {
           <SheetTitle>
             {{ t('configurator.choose_in_group', { name: group.name }) }}
           </SheetTitle>
+          <SheetDescription v-if="limit" data-testid="configurator-group-limit">
+            {{ t('configurator.choose_up_to', limit) }}
+          </SheetDescription>
         </SheetHeader>
 
         <div class="border-b px-6 py-3">
@@ -395,7 +409,7 @@ function onSheetPick(value: unknown) {
               :single="false"
               :quantity-editable="group.quantityEditable"
               :image-column="imageColumn"
-              :disabled="disabled"
+              :disabled="disabled || (atLimit && !option.selected)"
               :unavailable="unavailable"
               @change="onSheetChange"
             />

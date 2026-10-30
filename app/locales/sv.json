@@ -339,6 +339,8 @@
     "choose": "Välj",
     "option_count": "{count} val",
     "add_more": "Lägg till fler",
+    "add_bounded": "Lägg till ({count} av {max} valda)",
+    "choose_up_to": "Välj upp till {max} · {count} vald | Välj upp till {max} · {count} valda",
     "search": "Sök…",
     "no_matches": "Inga träffar.",
     "bounds_narrowed": "gräns justerad av tidigare val",

@@ -13,6 +13,7 @@ import {
   groupSummary,
   hasImageColumn,
   hasNothingToChoose,
+  isAtSelectionLimit,
   isVariableReadOnly,
   matchesOptionQuery,
   messagesBesides,
@@ -25,6 +26,7 @@ import {
   quantityIsFixed,
   refusesOptionIn,
   refusesVariable,
+  selectionLimit,
   shownOptions,
   showsRequiredMark,
   signedOptionPrice,
@@ -1058,5 +1060,72 @@ describe('refusesOptionIn', () => {
       refusesOptionIn({ type: 'variable', variableId: 'oak', value: 1 }, group),
     ).toBe(false);
     expect(refusesOptionIn(null, group)).toBe(false);
+  });
+});
+
+describe('selectionLimit', () => {
+  const picked = (...selected: boolean[]) =>
+    selected.map((value) => ({ selected: value }));
+
+  it('counts the picks of a bounded multi choice against its maximum', () => {
+    expect(
+      selectionLimit({ maxSelections: 2, options: picked(true, false, false) }),
+    ).toEqual({ count: 1, max: 2 });
+  });
+
+  it('counts nothing chosen as zero', () => {
+    expect(
+      selectionLimit({
+        maxSelections: 3,
+        options: picked(false, false, false, false),
+      }),
+    ).toEqual({ count: 0, max: 3 });
+  });
+
+  it('has none when the maximum is as many as the group has, so it cannot be reached', () => {
+    expect(
+      selectionLimit({ maxSelections: 3, options: picked(true, false, false) }),
+    ).toBeUndefined();
+    expect(
+      selectionLimit({ maxSelections: 99, options: picked(true, false) }),
+    ).toBeUndefined();
+  });
+
+  it('has none for an unbounded group', () => {
+    expect(selectionLimit({ options: picked(true, true) })).toBeUndefined();
+  });
+
+  it('has none for a single choice, which replaces rather than adds', () => {
+    expect(
+      selectionLimit({ maxSelections: 1, options: picked(true, false) }),
+    ).toBeUndefined();
+  });
+});
+
+describe('isAtSelectionLimit', () => {
+  const group = (
+    maxSelections: number | undefined,
+    ...selected: boolean[]
+  ) => ({
+    maxSelections,
+    options: selected.map((value) => ({ selected: value })),
+  });
+
+  it('is not reached below the maximum', () => {
+    expect(isAtSelectionLimit(group(2, true, false, false))).toBe(false);
+  });
+
+  it('is reached at the maximum', () => {
+    expect(isAtSelectionLimit(group(2, true, true, false))).toBe(true);
+  });
+
+  it('is reached over it, when the provider holds more than the group allows', () => {
+    expect(isAtSelectionLimit(group(2, true, true, true))).toBe(true);
+  });
+
+  it('is never reached in an unbounded group or a single choice', () => {
+    expect(isAtSelectionLimit(group(undefined, true, true, true))).toBe(false);
+    expect(isAtSelectionLimit(group(3, true, true, true))).toBe(false);
+    expect(isAtSelectionLimit(group(1, true, false))).toBe(false);
   });
 });

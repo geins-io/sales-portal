@@ -339,6 +339,8 @@
     "choose": "Valitse",
     "option_count": "{count} vaihtoehtoa",
     "add_more": "Lisää",
+    "add_bounded": "Lisää ({count}/{max} valittu)",
+    "choose_up_to": "Valitse enintään {max} · {count} valittu",
     "search": "Hae…",
     "no_matches": "Ei osumia.",
     "bounds_narrowed": "raja muuttunut aiemman valinnan vuoksi",

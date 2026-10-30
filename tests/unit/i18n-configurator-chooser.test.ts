@@ -29,5 +29,16 @@ describe('configurator chooser texts', () => {
       expect(texts.add_more).not.toContain('{name}');
       expect(texts.choose_in_group).toContain('{name}');
     });
+
+    it(`${file}: the limit texts carry the count and the maximum, not the name`, () => {
+      const texts = configurator(file);
+
+      for (const key of ['add_bounded', 'choose_up_to']) {
+        expect(texts[key]).toEqual(expect.any(String));
+        expect(texts[key]).toContain('{count}');
+        expect(texts[key]).toContain('{max}');
+        expect(texts[key]).not.toContain('{name}');
+      }
+    });
   }
 });

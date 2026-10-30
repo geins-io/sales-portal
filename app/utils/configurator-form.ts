@@ -86,6 +86,33 @@ export function groupRowCount(
   return group.options.length + (offersNoneRow(group) ? 1 : 0);
 }
 
+/** What a selection limit reads off a group. */
+type SelectionLimited = Pick<ConfigurationOptionGroup, 'maxSelections'> & {
+  options: Pick<ConfigurationOption, 'selected'>[];
+};
+
+/**
+ * How many options a multi choice holds against how many it allows, or
+ * `undefined` when nothing caps it. A single choice has none: a pick there
+ * replaces rather than adds. Nor does a maximum of at least every option the
+ * document holds, such as 99: the buyer cannot reach it.
+ */
+export function selectionLimit(
+  group: SelectionLimited,
+): { count: number; max: number } | undefined {
+  const max = group.maxSelections;
+  if (max === undefined || isSingleSelect(group)) return undefined;
+  if (max >= group.options.length) return undefined;
+  const count = group.options.filter((option) => option.selected).length;
+  return { count, max };
+}
+
+/** Over the maximum counts too: the provider may hold more than it allows. */
+export function isAtSelectionLimit(group: SelectionLimited): boolean {
+  const limit = selectionLimit(group);
+  return !!limit && limit.count >= limit.max;
+}
+
 /**
  * The one message a disabled or read-only row shows as its reason. An error
  * outranks a warning; beyond that the provider's order stands.
