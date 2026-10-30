@@ -1,7 +1,9 @@
 import { test, expect, type Page } from './fixtures';
 import {
   discoverPurchasableProduct,
+  hasE2ECredentials,
   noteOutOfScope,
+  outOfScope,
   signedInState,
   waitForHydration,
 } from './helpers';
@@ -205,6 +207,12 @@ async function paintedText(
  * the variable is the unit tests' job.
  */
 test.describe('Tenant button text colours', () => {
+  outOfScope(
+    !hasE2ECredentials(),
+    'no-credentials',
+    'the purchase button needs an authenticated customer (set E2E_USERNAME / E2E_PASSWORD in .env)',
+  );
+
   // The purchase button renders only for a session with order access.
   test.use({ storageState: signedInState });
 

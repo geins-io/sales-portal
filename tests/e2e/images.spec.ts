@@ -3,6 +3,7 @@ import {
   addToCart,
   discoverCategory,
   discoverPurchasableProduct,
+  hasE2ECredentials,
   isConfigurable,
   outOfScope,
   signedInState,
@@ -716,6 +717,12 @@ test.describe('Images from the asset library', () => {
   }
 
   test.describe('signed in', () => {
+    outOfScope(
+      !hasE2ECredentials(),
+      'no-credentials',
+      'signed-in images need an authenticated customer (set E2E_USERNAME / E2E_PASSWORD in .env)',
+    );
+
     test.use({ storageState: signedInState });
 
     test('the start-page banner is fetched from the library', async ({
