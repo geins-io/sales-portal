@@ -40,16 +40,49 @@ test.use({ storageState: signedInState });
 
 const PAGE_TIMEOUT = 20000;
 
-/** Ids of the account's pending quotations, in the order `/api/quotes` lists them. */
-async function fetchPendingQuoteIds(page: Page): Promise<string[]> {
+/** The account's quotations, in the order `/api/quotes` and the list show them. */
+async function fetchListedQuotes(
+  page: Page,
+): Promise<{ id: string; status: string }[]> {
   const response = await page.request.get('/api/quotes');
   expect(response.ok(), '/api/quotes did not answer 200').toBe(true);
-  const { quotes } = (await response.json()) as {
-    quotes: { id: string; status: string }[];
-  };
-  return quotes
+  return (
+    (await response.json()) as {
+      quotes: { id: string; status: string }[];
+    }
+  ).quotes;
+}
+
+/** Ids of the account's pending quotations, in list order. */
+async function fetchPendingQuoteIds(page: Page): Promise<string[]> {
+  return (await fetchListedQuotes(page))
     .filter((quote) => quote.status === 'pending')
     .map((quote) => quote.id);
+}
+
+/**
+ * The newest quotation a seller has sent. The buyer's own requests sit in the
+ * same list and show no seller data yet, and new ones keep arriving on top,
+ * so a test that reads seller data cannot take the first row.
+ */
+async function fetchSentQuoteId(page: Page): Promise<string> {
+  const sentStatuses = [
+    'pending',
+    'accepted',
+    'confirmed',
+    'finalized',
+    'rejected',
+    'canceled',
+    'expired',
+  ];
+  const sent = (await fetchListedQuotes(page)).find((quote) =>
+    sentStatuses.includes(quote.status),
+  );
+  expect(
+    sent,
+    'the test account has no quotation a seller has sent — the fixture is broken',
+  ).toBeDefined();
+  return sent!.id;
 }
 
 test.describe('Portal Overview', () => {
@@ -659,6 +692,8 @@ test.describe('Portal Quotations', () => {
   test('should navigate from list to populated detail page with all sections', async ({
     page,
   }) => {
+    const sentQuoteId = await fetchSentQuoteId(page);
+
     await page.goto('/se/sv/portal/quotations');
     await page.waitForLoadState('load');
     await waitForHydration(page);
@@ -684,16 +719,19 @@ test.describe('Portal Quotations', () => {
     // clicked something nothing renders.
     const quoteLink = page
       .locator(
-        '[data-testid="quotations-table"] a[href*="/portal/quotations/"]:visible',
+        `[data-testid="quotations-table"] a[href$="/portal/quotations/${sentQuoteId}"]:visible`,
       )
       .first();
-    await expect(quoteLink).toBeVisible({ timeout: PAGE_TIMEOUT });
+    await expect(
+      quoteLink,
+      `the list shows no link to quotation ${sentQuoteId} on its first page`,
+    ).toBeVisible({ timeout: PAGE_TIMEOUT });
     await quoteLink.click();
 
-    // Wait for navigation to the locale-prefixed detail URL (uuid segment)
-    await page.waitForURL(/\/se\/sv\/portal\/quotations\/[\w-]+/, {
-      timeout: PAGE_TIMEOUT,
-    });
+    await page.waitForURL(
+      new RegExp(`/se/sv/portal/quotations/${sentQuoteId}$`),
+      { timeout: PAGE_TIMEOUT },
+    );
 
     // Detail page landed — must NOT be the 404 fallback
     const detail = page.locator('[data-testid="quote-detail"]');
@@ -940,10 +978,19 @@ test.describe('Portal Quotation Values', () => {
       page,
     }) => {
       await setVatDisplay(page, side);
+      const sentQuoteId = await fetchSentQuoteId(page);
       await openQuotationsList(page);
 
-      // Both list shapes are in the DOM at once and CSS decides which one shows.
-      const row = page.locator('[data-testid="quotation-row"]:visible').first();
+      // Both list shapes are in the DOM at once and CSS decides which one
+      // shows; the mobile card is the link, the desktop row holds one.
+      const toSent = `[href$="/portal/quotations/${sentQuoteId}"]`;
+      const row = page
+        .locator(`[data-testid="quotation-row"]${toSent}:visible`)
+        .or(
+          page
+            .locator('[data-testid="quotation-row"]:visible')
+            .filter({ has: page.locator(`a${toSent}`) }),
+        );
       await expect(row).toBeVisible({ timeout: PAGE_TIMEOUT });
 
       // Desktop puts the view link in a cell of the row, mobile makes the card
