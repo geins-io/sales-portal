@@ -10,6 +10,9 @@ const mockGetQuote = vi.fn();
 const mockAcceptQuote = vi.fn();
 const mockRejectQuote = vi.fn();
 const mockFinalizeQuote = vi.fn();
+const mockCreateQuoteRequest = vi.fn();
+const mockUpdateQuoteRequest = vi.fn();
+const mockReleaseQuoteRequest = vi.fn();
 
 vi.mock('../../../server/services/quotes', () => ({
   listQuotes: (...args: unknown[]) => mockListQuotes(...args),
@@ -17,7 +20,26 @@ vi.mock('../../../server/services/quotes', () => ({
   acceptQuote: (...args: unknown[]) => mockAcceptQuote(...args),
   rejectQuote: (...args: unknown[]) => mockRejectQuote(...args),
   finalizeQuote: (...args: unknown[]) => mockFinalizeQuote(...args),
+  createQuoteRequest: (...args: unknown[]) => mockCreateQuoteRequest(...args),
+  updateQuoteRequest: (...args: unknown[]) => mockUpdateQuoteRequest(...args),
+  releaseQuoteRequest: (...args: unknown[]) => mockReleaseQuoteRequest(...args),
 }));
+
+const mockGetCart = vi.fn();
+vi.mock('../../../server/services/cart', () => ({
+  getCart: (...args: unknown[]) => mockGetCart(...args),
+}));
+
+const mockForgetCart = vi.fn();
+vi.mock('../../../server/utils/cart-owner', () => ({
+  forgetCart: (...args: unknown[]) => mockForgetCart(...args),
+}));
+
+const mockGetCartCookie = vi.fn();
+const mockClearCartCookie = vi.fn();
+vi.stubGlobal('getCartCookie', mockGetCartCookie);
+vi.stubGlobal('clearCartCookie', mockClearCartCookie);
+vi.stubGlobal('getSessionToken', vi.fn().mockReturnValue('auth-token-abc'));
 
 // requireAuth — auto-imported from server/utils/auth
 const mockRequireAuth = vi.fn();
@@ -47,7 +69,10 @@ vi.stubGlobal(
           ? 404
           : code === 'RATE_LIMITED'
             ? 429
-            : 400;
+            : code === 'EMPTY_CART'
+              ? 409
+              : 400;
+    (err as Error & { code: string }).code = code;
     return err;
   }),
 );
@@ -56,6 +81,7 @@ vi.stubGlobal('ErrorCode', {
   UNAUTHORIZED: 'UNAUTHORIZED',
   NOT_FOUND: 'NOT_FOUND',
   BAD_REQUEST: 'BAD_REQUEST',
+  EMPTY_CART: 'EMPTY_CART',
 });
 vi.stubGlobal('setHeader', vi.fn());
 const getQueryMock = vi.fn();
@@ -67,7 +93,13 @@ vi.stubGlobal(
     return validator(query);
   }),
 );
-vi.stubGlobal('readValidatedBody', vi.fn());
+const readBodyMock = vi.fn();
+vi.stubGlobal(
+  'readValidatedBody',
+  vi.fn(async (_event: unknown, validator: (raw: unknown) => unknown) =>
+    validator(readBodyMock(_event)),
+  ),
+);
 vi.stubGlobal(
   'getRouterParam',
   vi.fn((_event: unknown, name: string) => {
@@ -380,6 +412,321 @@ describe('Quote API Routes', () => {
         'Authentication required',
       );
       expect(mockFinalizeQuote).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Quote requests: create from the cart, update the details, send
+  // -------------------------------------------------------------------------
+  describe('quote requests', () => {
+    const draft = { ...mockQuote, id: 'draft-001', status: 'request_draft' };
+    const withId = {
+      ...mockEvent,
+      context: { ...mockEvent.context, params: { id: 'draft-001' } },
+    } as unknown as import('h3').H3Event;
+
+    type Handler = (event: import('h3').H3Event) => Promise<unknown>;
+    // Literal paths: a template import resolves outside Stryker's sandbox.
+    const handlers = {
+      create: async () =>
+        (await import('../../../server/api/quotes/requests.post'))
+          .default as Handler,
+      update: async () =>
+        (await import('../../../server/api/quotes/[id]/request.patch'))
+          .default as Handler,
+      release: async () =>
+        (await import('../../../server/api/quotes/[id]/release.post'))
+          .default as Handler,
+    };
+    const load = (name: keyof typeof handlers) => handlers[name]();
+
+    const requestRoutes = [
+      {
+        route: 'POST /api/quotes/requests',
+        path: 'create' as const,
+        service: mockCreateQuoteRequest,
+        body: { name: 'Varukorg 2 nov 2026' },
+      },
+      {
+        route: 'PATCH /api/quotes/[id]/request',
+        path: 'update' as const,
+        service: mockUpdateQuoteRequest,
+        body: { comment: 'Leverans till lager B' },
+      },
+      {
+        route: 'POST /api/quotes/[id]/release',
+        path: 'release' as const,
+        service: mockReleaseQuoteRequest,
+        body: undefined,
+      },
+    ];
+
+    beforeEach(() => {
+      mockGetCartCookie.mockReturnValue('cart-abc');
+      mockGetCart.mockResolvedValue({ id: 'cart-abc', items: [{ id: 'l1' }] });
+    });
+
+    describe.each(requestRoutes)('$route', ({ path, service, body }) => {
+      beforeEach(() => {
+        readBodyMock.mockReturnValue(body);
+        service.mockResolvedValue(draft);
+      });
+
+      it('requires authentication and counts nothing without it', async () => {
+        mockRequireAuth.mockRejectedValue(new Error('Authentication required'));
+
+        await expect((await load(path))(withId)).rejects.toThrow(
+          'Authentication required',
+        );
+        expect(mockRateLimitCheck).not.toHaveBeenCalled();
+        expect(service).not.toHaveBeenCalled();
+      });
+
+      it('answers 429 and never calls Geins when the limit is reached', async () => {
+        mockRateLimitCheck.mockResolvedValue({
+          allowed: false,
+          remaining: 0,
+          resetTime: 0,
+        });
+
+        await expect((await load(path))(withId)).rejects.toMatchObject({
+          statusCode: 429,
+          message: 'Too many quote responses',
+        });
+        expect(service).not.toHaveBeenCalled();
+      });
+
+      it('keys the limit on the client IP and answers the quote', async () => {
+        const result = await (await load(path))(withId);
+
+        expect(mockRateLimitCheck).toHaveBeenCalledWith('203.0.113.7');
+        expect(result).toEqual({ quote: draft });
+      });
+    });
+
+    describe('POST /api/quotes/requests', () => {
+      beforeEach(() => {
+        readBodyMock.mockReturnValue({ name: '  Varukorg 2 nov 2026 ' });
+        mockCreateQuoteRequest.mockResolvedValue(draft);
+      });
+
+      it('creates the draft from the cart in the cookie, never one the client names', async () => {
+        readBodyMock.mockReturnValue({
+          name: 'Varukorg 2 nov 2026',
+          cartId: 'someone-elses-cart',
+        });
+
+        const handler = await load('create');
+        await handler(mockEvent);
+
+        expect(mockGetCart).toHaveBeenCalledWith('cart-abc', mockEvent);
+        expect(mockCreateQuoteRequest).toHaveBeenCalledWith(
+          'cart-abc',
+          'Varukorg 2 nov 2026',
+          mockEvent,
+        );
+      });
+
+      it('trims the name', async () => {
+        const handler = await load('create');
+        await handler(mockEvent);
+
+        expect(mockCreateQuoteRequest.mock.calls[0]![1]).toBe(
+          'Varukorg 2 nov 2026',
+        );
+      });
+
+      it('forgets the cart after Geins created the draft: the next add starts a new cart', async () => {
+        const handler = await load('create');
+        await handler(mockEvent);
+
+        expect(mockForgetCart).toHaveBeenCalledWith(
+          mockEvent,
+          'auth-token-abc',
+          'cart-abc',
+        );
+        expect(mockClearCartCookie).toHaveBeenCalledWith(mockEvent);
+        expect(mockForgetCart.mock.invocationCallOrder[0]).toBeGreaterThan(
+          mockCreateQuoteRequest.mock.invocationCallOrder[0]!,
+        );
+      });
+
+      it('keeps the cart when Geins refuses', async () => {
+        mockCreateQuoteRequest.mockRejectedValue(new Error('Cart not found.'));
+
+        await expect((await load('create'))(mockEvent)).rejects.toThrow(
+          'Cart not found.',
+        );
+        expect(mockForgetCart).not.toHaveBeenCalled();
+        expect(mockClearCartCookie).not.toHaveBeenCalled();
+      });
+
+      it('refuses with EMPTY_CART and never calls Geins when there is no cart', async () => {
+        mockGetCartCookie.mockReturnValue(undefined);
+
+        await expect((await load('create'))(mockEvent)).rejects.toMatchObject({
+          statusCode: 409,
+          code: 'EMPTY_CART',
+          message: 'No cart to request a quote for',
+        });
+        expect(mockGetCart).not.toHaveBeenCalled();
+        expect(mockCreateQuoteRequest).not.toHaveBeenCalled();
+      });
+
+      it('refuses with EMPTY_CART and never calls Geins when the cart has no lines', async () => {
+        mockGetCart.mockResolvedValue({ id: 'cart-abc', items: [] });
+
+        await expect((await load('create'))(mockEvent)).rejects.toMatchObject({
+          statusCode: 409,
+          code: 'EMPTY_CART',
+        });
+        expect(createAppError).toHaveBeenCalledWith(
+          'EMPTY_CART',
+          'Cart has no items',
+          { cartId: 'cart-abc' },
+        );
+        expect(mockCreateQuoteRequest).not.toHaveBeenCalled();
+        expect(mockForgetCart).not.toHaveBeenCalled();
+      });
+
+      it('refuses with EMPTY_CART when the cart comes back without lines', async () => {
+        mockGetCart.mockResolvedValue({ id: 'cart-abc' });
+
+        await expect((await load('create'))(mockEvent)).rejects.toMatchObject({
+          code: 'EMPTY_CART',
+        });
+        expect(mockCreateQuoteRequest).not.toHaveBeenCalled();
+      });
+
+      it('refuses with EMPTY_CART when the cart read answers no cart', async () => {
+        mockGetCart.mockResolvedValue(null);
+
+        await expect((await load('create'))(mockEvent)).rejects.toMatchObject({
+          code: 'EMPTY_CART',
+        });
+        expect(mockCreateQuoteRequest).not.toHaveBeenCalled();
+      });
+
+      it('fails when the cart cannot be read, without calling Geins', async () => {
+        mockGetCart.mockRejectedValue(new Error('cart read failed'));
+
+        await expect((await load('create'))(mockEvent)).rejects.toThrow(
+          'cart read failed',
+        );
+        expect(mockCreateQuoteRequest).not.toHaveBeenCalled();
+      });
+
+      it.each([
+        ['missing', {}],
+        ['blank', { name: '   ' }],
+        ['over 80 characters', { name: 'x'.repeat(81) }],
+      ])('refuses a %s name before reading the cart', async (_label, body) => {
+        readBodyMock.mockReturnValue(body);
+
+        await expect((await load('create'))(mockEvent)).rejects.toThrow();
+        expect(mockGetCart).not.toHaveBeenCalled();
+        expect(mockCreateQuoteRequest).not.toHaveBeenCalled();
+      });
+
+      it('takes a name of exactly 80 characters', async () => {
+        readBodyMock.mockReturnValue({ name: 'x'.repeat(80) });
+
+        const handler = await load('create');
+        await handler(mockEvent);
+
+        expect(mockCreateQuoteRequest.mock.calls[0]![1]).toBe('x'.repeat(80));
+      });
+    });
+
+    describe('PATCH /api/quotes/[id]/request', () => {
+      beforeEach(() => mockUpdateQuoteRequest.mockResolvedValue(draft));
+
+      it('passes only the request details on, for the quotation in the path', async () => {
+        readBodyMock.mockReturnValue({
+          comment: 'Leverans till lager B',
+          desiredDeliveryDate: '2026-12-15',
+          customerReference: ' PO-7781 ',
+          items: [{ skuId: 1, quantity: 1 }],
+          goodsLabel: 'not live yet',
+        });
+
+        const handler = await load('update');
+        await handler(withId);
+
+        expect(mockUpdateQuoteRequest).toHaveBeenCalledWith(
+          'draft-001',
+          {
+            comment: 'Leverans till lager B',
+            desiredDeliveryDate: '2026-12-15',
+            customerReference: 'PO-7781',
+          },
+          withId,
+        );
+      });
+
+      it('takes an empty body as no changes', async () => {
+        readBodyMock.mockReturnValue({});
+
+        const handler = await load('update');
+        await handler(withId);
+
+        expect(mockUpdateQuoteRequest).toHaveBeenCalledWith(
+          'draft-001',
+          {},
+          withId,
+        );
+      });
+
+      it.each([
+        ['a comment over 2000 characters', { comment: 'x'.repeat(2001) }],
+        [
+          'a reference over 50 characters',
+          { customerReference: 'x'.repeat(51) },
+        ],
+        ['a date in another format', { desiredDeliveryDate: '15/12/2026' }],
+        ['a date that does not exist', { desiredDeliveryDate: '2026-02-30' }],
+        ['a date with a time', { desiredDeliveryDate: '2026-12-15T10:00:00Z' }],
+      ])('refuses %s', async (_label, body) => {
+        readBodyMock.mockReturnValue(body);
+
+        await expect((await load('update'))(withId)).rejects.toThrow();
+        expect(mockUpdateQuoteRequest).not.toHaveBeenCalled();
+      });
+
+      it('takes a comment of 2000 and a reference of 50 characters', async () => {
+        const body = {
+          comment: 'x'.repeat(2000),
+          customerReference: 'y'.repeat(50),
+        };
+        readBodyMock.mockReturnValue(body);
+
+        const handler = await load('update');
+        await handler(withId);
+
+        expect(mockUpdateQuoteRequest).toHaveBeenCalledWith(
+          'draft-001',
+          body,
+          withId,
+        );
+      });
+    });
+
+    describe('POST /api/quotes/[id]/release', () => {
+      it('sends the quotation in the path without reading a body', async () => {
+        mockReleaseQuoteRequest.mockResolvedValue({
+          ...draft,
+          status: 'requested',
+        });
+
+        const result = await (await load('release'))(withId);
+
+        expect(mockReleaseQuoteRequest).toHaveBeenCalledWith(
+          'draft-001',
+          withId,
+        );
+        expect(readBodyMock).not.toHaveBeenCalled();
+        expect(result).toEqual({ quote: { ...draft, status: 'requested' } });
+      });
     });
   });
 });

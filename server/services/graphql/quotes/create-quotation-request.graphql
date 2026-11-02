@@ -1,0 +1,24 @@
+mutation createQuotationRequest(
+  $request: CreateQuotationRequestInputType!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  createQuotationRequest(
+    request: $request
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    id
+    items {
+      ...QuotationCartItem
+    }
+    summary {
+      ...QuotationCartSummary
+    }
+    quotation {
+      ...QuotationWithAddresses
+    }
+  }
+}
