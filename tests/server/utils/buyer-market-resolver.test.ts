@@ -34,7 +34,9 @@ function makeEvent() {
     context: {
       tenant: {
         hostname: 'acme.example.test',
-        config: { geinsSettings: { channel: '1', tld: 'se', market: 'se' } },
+        config: {
+          channelSettings: { channelId: '1|se', defaultMarket: 'se' },
+        },
       },
     },
   } as never;

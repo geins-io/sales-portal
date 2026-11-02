@@ -6,7 +6,7 @@ export type {
   ThemeColors,
   ThemeConfig,
   ThemeTypography,
-  GeinsSettings,
+  ChannelSettings,
   BrandingConfig,
   FeatureConfig,
   SeoConfig,
@@ -30,21 +30,19 @@ export type FeatureAccess = 'all' | 'authenticated';
  */
 export interface TenantConfig {
   // Identification
-  tenantId: string;
+  accountName: string;
   hostname: string;
   aliases?: string[];
 
-  // SDK config (server-only, transformed from platform shape)
-  geinsSettings: {
-    apiKey: string;
-    accountName: string;
-    channel: string;
-    tld: string;
-    locale: string;
-    market: string;
-    environment: 'production' | 'staging';
-    availableLocales: string[];
-    availableMarkets: string[];
+  // Geins credentials and channel (server-only)
+  apiKey: string;
+  channelSettings: {
+    /** `"1|se"`: channel and tld. */
+    channelId: string;
+    defaultLocale: string;
+    defaultMarket: string;
+    locales: string[];
+    markets: string[];
   };
 
   // Portal mode
@@ -155,14 +153,15 @@ export interface TenantConfig {
   assetPath: string | null;
 
   // Metadata
-  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
 /**
  * Public tenant config sent to the client via /api/config.
- * Strips geinsSettings, overrides, themeHash. Adds locale fields.
+ * Strips apiKey, channelSettings, overrides, themeHash. Adds locale fields.
+ * Field names here are the public contract and do not follow the internal
+ * ones: `tenantId` is the account name.
  */
 export interface PublicTenantConfig {
   tenantId: string;
@@ -179,9 +178,8 @@ export interface PublicTenantConfig {
   seo?: TenantConfig['seo'];
   contact?: TenantConfig['contact'];
   css: string;
-  isActive: boolean;
 
-  // Derived from geinsSettings before stripping
+  // Derived from channelSettings before stripping
   locale?: string;
   market?: string;
   availableLocales: string[];

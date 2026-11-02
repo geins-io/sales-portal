@@ -314,18 +314,15 @@ describe('Tenant utilities', () => {
       overrides?: Partial<TenantConfig>,
     ): TenantConfig {
       return {
-        tenantId: 'alpha',
+        accountName: 'alpha',
         hostname: 'alpha.example',
-        geinsSettings: {
-          apiKey: '',
-          accountName: '',
-          channel: '1',
-          tld: 'se',
-          locale: 'sv-SE',
-          market: 'se',
-          environment: 'production',
-          availableLocales: ['sv-SE'],
-          availableMarkets: ['se'],
+        apiKey: '',
+        channelSettings: {
+          channelId: '1|se',
+          defaultLocale: 'sv-SE',
+          defaultMarket: 'se',
+          locales: ['sv-SE'],
+          markets: ['se'],
         },
         mode: 'commerce',
         checkoutMode: 'custom',
@@ -334,7 +331,6 @@ describe('Tenant utilities', () => {
         features: {},
         css: '',
         assetPath: null,
-        isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
         ...overrides,
@@ -386,18 +382,15 @@ describe('Tenant utilities', () => {
 
   describe('buildTenantConfig theme.name fallback', () => {
     const baseSettings: StoreSettings = {
-      tenantId: 'delta',
+      accountName: 'delta',
       hostname: 'delta.litium.store',
-      geinsSettings: {
-        apiKey: 'k',
-        accountName: 'delta',
-        channel: '1',
-        tld: 'se',
-        locale: 'sv-SE',
-        market: 'se',
-        environment: 'production',
-        availableLocales: ['sv-SE'],
-        availableMarkets: ['se'],
+      apiKey: 'k',
+      channelSettings: {
+        channelId: '1|se',
+        defaultLocale: 'sv-SE',
+        defaultMarket: 'se',
+        locales: ['sv-SE'],
+        markets: ['se'],
       },
       mode: 'commerce',
       checkoutMode: 'hosted',
@@ -414,12 +407,11 @@ describe('Tenant utilities', () => {
       branding: { name: 'Delta', watermark: 'minimal' },
       features: {},
       assetPath: null,
-      isActive: true,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
 
-    it('uses tenantId when theme.name is missing', () => {
+    it('uses accountName when theme.name is missing', () => {
       const built = buildTenantConfig(baseSettings);
       expect(built.theme.name).toBe('delta');
       expect(built.css).toContain("[data-theme='delta']");
@@ -477,18 +469,15 @@ describe('Tenant utilities', () => {
 
   describe('buildTenantConfig override.features resolution', () => {
     const baseSettings: StoreSettings = {
-      tenantId: 'tenant-x',
+      accountName: 'tenant-x',
       hostname: 'tenant-x.litium.store',
-      geinsSettings: {
-        apiKey: 'k',
-        accountName: 'tenant-x',
-        channel: '1',
-        tld: 'se',
-        locale: 'sv-SE',
-        market: 'se',
-        environment: 'production',
-        availableLocales: ['sv-SE'],
-        availableMarkets: ['se'],
+      apiKey: 'k',
+      channelSettings: {
+        channelId: '1|se',
+        defaultLocale: 'sv-SE',
+        defaultMarket: 'se',
+        locales: ['sv-SE'],
+        markets: ['se'],
       },
       mode: 'commerce',
       checkoutMode: 'custom',
@@ -505,7 +494,6 @@ describe('Tenant utilities', () => {
       branding: { name: 'Tenant X', watermark: 'minimal' },
       features: {},
       assetPath: null,
-      isActive: true,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
@@ -567,18 +555,15 @@ describe('Tenant utilities', () => {
 
   describe('buildTenantConfig retired access rules', () => {
     const retiredSettings: StoreSettings = {
-      tenantId: 'tenant-r',
+      accountName: 'tenant-r',
       hostname: 'tenant-r.litium.store',
-      geinsSettings: {
-        apiKey: 'k',
-        accountName: 'tenant-r',
-        channel: '1',
-        tld: 'se',
-        locale: 'sv-SE',
-        market: 'se',
-        environment: 'production',
-        availableLocales: ['sv-SE'],
-        availableMarkets: ['se'],
+      apiKey: 'k',
+      channelSettings: {
+        channelId: '1|se',
+        defaultLocale: 'sv-SE',
+        defaultMarket: 'se',
+        locales: ['sv-SE'],
+        markets: ['se'],
       },
       mode: 'commerce',
       checkoutMode: 'custom',
@@ -595,7 +580,6 @@ describe('Tenant utilities', () => {
       branding: { name: 'Tenant R', watermark: 'minimal' },
       features: {},
       assetPath: null,
-      isActive: true,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
@@ -735,18 +719,15 @@ describe('Tenant utilities', () => {
   describe('buildTenantConfig storefront-settings defaults integration', () => {
     function minimalSettings(): StoreSettings {
       return {
-        tenantId: 'tenant-defaults',
+        accountName: 'a',
         hostname: 'tenant-defaults.litium.store',
-        geinsSettings: {
-          apiKey: 'k',
-          accountName: 'a',
-          channel: '1',
-          tld: 'se',
-          locale: 'sv-SE',
-          market: 'se',
-          environment: 'production',
-          availableLocales: ['sv-SE'],
-          availableMarkets: ['se'],
+        apiKey: 'k',
+        channelSettings: {
+          channelId: '1|se',
+          defaultLocale: 'sv-SE',
+          defaultMarket: 'se',
+          locales: ['sv-SE'],
+          markets: ['se'],
         },
         mode: 'commerce',
         checkoutMode: 'custom',
@@ -763,7 +744,6 @@ describe('Tenant utilities', () => {
         branding: { name: 'X', watermark: 'full' },
         features: {},
         assetPath: null,
-        isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       };
@@ -867,10 +847,10 @@ describe('Tenant utilities', () => {
       },
     );
 
-    it('fills branding.name from geinsSettings.accountName when name is empty', () => {
+    it('fills branding.name from accountName when name is empty', () => {
       const settings = minimalSettings();
       settings.branding = { name: '', watermark: 'full' };
-      settings.geinsSettings.accountName = 'acme-merchant';
+      settings.accountName = '  acme-merchant ';
       const built = buildTenantConfig(settings);
       expect(built.branding.name).toBe('acme-merchant');
     });
@@ -878,7 +858,7 @@ describe('Tenant utilities', () => {
     it('falls back to hostname when both branding.name and accountName are empty', () => {
       const settings = minimalSettings();
       settings.branding = { name: '   ', watermark: 'full' };
-      settings.geinsSettings.accountName = '';
+      settings.accountName = '';
       settings.hostname = 'fallback.example.com';
       const built = buildTenantConfig(settings);
       expect(built.branding.name).toBe('fallback.example.com');
@@ -887,7 +867,7 @@ describe('Tenant utilities', () => {
     it('preserves an explicit branding.name', () => {
       const settings = minimalSettings();
       settings.branding = { name: 'Alpha Store', watermark: 'full' };
-      settings.geinsSettings.accountName = 'alpha';
+      settings.accountName = 'alpha';
       const built = buildTenantConfig(settings);
       expect(built.branding.name).toBe('Alpha Store');
     });
@@ -915,18 +895,15 @@ describe('Tenant utilities', () => {
 
     function settingsWithCms(cms?: StoreSettings['cms']): StoreSettings {
       return {
-        tenantId: 'tenant-cms',
+        accountName: 'a',
         hostname: 'tenant-cms.litium.store',
-        geinsSettings: {
-          apiKey: 'k',
-          accountName: 'a',
-          channel: '1',
-          tld: 'se',
-          locale: 'sv-SE',
-          market: 'se',
-          environment: 'production',
-          availableLocales: ['sv-SE'],
-          availableMarkets: ['se'],
+        apiKey: 'k',
+        channelSettings: {
+          channelId: '1|se',
+          defaultLocale: 'sv-SE',
+          defaultMarket: 'se',
+          locales: ['sv-SE'],
+          markets: ['se'],
         },
         mode: 'commerce',
         checkoutMode: 'custom',
@@ -944,7 +921,6 @@ describe('Tenant utilities', () => {
         features: {},
         cms,
         assetPath: null,
-        isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       };
@@ -1041,7 +1017,7 @@ describe('Tenant utilities', () => {
       aliases: string[] = [],
     ): TenantConfig {
       return {
-        tenantId,
+        accountName: tenantId,
         hostname,
         aliases,
         mode: 'commerce',
@@ -1050,10 +1026,9 @@ describe('Tenant utilities', () => {
         css: '',
         branding: { name: tenantId, watermark: 'minimal' },
         features: {},
-        isActive: true,
         createdAt: '',
         updatedAt: '',
-        // geinsSettings omitted (not used here)
+        // channelSettings omitted (not used here)
       } as unknown as TenantConfig;
     }
 
@@ -1141,18 +1116,15 @@ describe('Tenant utilities', () => {
   describe('parseStoreSettingsResilient', () => {
     function fullCandidate(): Record<string, unknown> {
       return {
-        tenantId: 'alpha',
+        accountName: 'a',
         hostname: 'alpha.example',
-        geinsSettings: {
-          apiKey: 'k',
-          accountName: 'a',
-          channel: '1',
-          tld: 'se',
-          locale: 'sv-SE',
-          market: 'se',
-          environment: 'production',
-          availableLocales: ['sv-SE'],
-          availableMarkets: ['se'],
+        apiKey: 'k',
+        channelSettings: {
+          channelId: '1|se',
+          defaultLocale: 'sv-SE',
+          defaultMarket: 'se',
+          locales: ['sv-SE'],
+          markets: ['se'],
         },
         mode: 'commerce',
         theme: {
@@ -1167,7 +1139,6 @@ describe('Tenant utilities', () => {
         },
         branding: { name: 'A', watermark: 'full' },
         features: {},
-        isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       };
@@ -1176,7 +1147,7 @@ describe('Tenant utilities', () => {
     it('returns the strict-parsed value on a clean candidate', () => {
       const out = parseStoreSettingsResilient(fullCandidate(), 'h');
       expect(out).not.toBeNull();
-      expect(out?.tenantId).toBe('alpha');
+      expect(out?.accountName).toBe('a');
     });
 
     // Hex, because that is what the admin sends for these two keys.
@@ -1229,7 +1200,7 @@ describe('Tenant utilities', () => {
         expect(out, bad).not.toBeNull();
         expect(out?.timezone, bad).toBeUndefined();
         // The surrounding config has to survive the strip, not just the parse.
-        expect(out?.tenantId, bad).toBe('alpha');
+        expect(out?.accountName, bad).toBe('a');
         expect(out?.branding.name, bad).toBe('A');
         expect(out?.theme.colors.primary, bad).toBe('oklch(0.5 0.1 200)');
       }
@@ -1277,9 +1248,9 @@ describe('Tenant utilities', () => {
       expect(out?.seo?.verification).toBe('test-verify-abc123');
     });
 
-    it('returns null when a fatal field (geinsSettings) is unparseable', () => {
+    it('returns null when a fatal field (channelSettings) is unparseable', () => {
       const candidate = fullCandidate();
-      candidate.geinsSettings = { apiKey: '', accountName: '' };
+      candidate.channelSettings = { channelId: '1|se' };
       const out = parseStoreSettingsResilient(candidate, 'h');
       expect(out).toBeNull();
     });
@@ -1300,7 +1271,7 @@ describe('Tenant utilities', () => {
       expect(out?.theme.colors.primary).toBe('oklch(0.205 0 0)');
     });
 
-    it('salvages a candidate with missing branding by using geinsSettings.accountName', () => {
+    it('salvages a candidate with missing branding by using accountName', () => {
       const candidate = fullCandidate();
       delete candidate.branding;
       const out = parseStoreSettingsResilient(candidate, 'h');
@@ -1308,6 +1279,24 @@ describe('Tenant utilities', () => {
       // accountName in fullCandidate() is 'a'
       expect(out?.branding.name).toBe('a');
       expect(out?.branding.watermark).toBe('full');
+    });
+
+    it('trims the accountName it salvages branding from, and skips an empty one', () => {
+      const padded = fullCandidate();
+      delete padded.branding;
+      padded.accountName = '  acme ';
+      expect(parseStoreSettingsResilient(padded, 'h')?.branding.name).toBe(
+        'acme',
+      );
+
+      for (const blank of ['', '   ']) {
+        const empty = fullCandidate();
+        delete empty.branding;
+        empty.accountName = blank;
+        expect(
+          parseStoreSettingsResilient(empty, 'host.example')?.branding.name,
+        ).toBe('host.example');
+      }
     });
 
     it('salvages branding without leaving a literal "Store" name', () => {
@@ -1343,7 +1332,7 @@ describe('Tenant utilities', () => {
       const candidate = adaptMerchantApiResponse(raw);
       const out = parseStoreSettingsResilient(candidate, 'gamma.litium.store');
       expect(out).not.toBeNull();
-      expect(out?.tenantId).toBe('gamma');
+      expect(out?.accountName).toBe('gamma');
       expect(out?.features).toEqual({});
       const cfg = buildTenantConfig(out as StoreSettings);
       expect(cfg.features.registration?.enabled).toBe(true);
@@ -1909,11 +1898,13 @@ describe('Tenant utilities', () => {
     }
 
     it('takes the account name from the root accountName', () => {
-      expect(adapt(rawApiResponse()).tenantId).toBe('monitor');
+      expect(adapt(rawApiResponse()).accountName).toBe('monitor');
     });
 
-    it('marks every answer active: the merchant API answers 404 for an inactive storefront', () => {
-      expect(adapt(rawApiResponse({ isActive: false })).isActive).toBe(true);
+    it('does not read isActive: the merchant API answers 404 for an inactive storefront', () => {
+      expect(adapt(rawApiResponse({ isActive: false }))).not.toHaveProperty(
+        'isActive',
+      );
     });
 
     it('takes the asset path from the root', () => {
@@ -1932,7 +1923,7 @@ describe('Tenant utilities', () => {
       const raw = rawApiResponse();
       (raw.appSettings as Record<string, unknown>).tenantId =
         'from-app-settings';
-      expect(adapt(raw).tenantId).toBe('monitor');
+      expect(adapt(raw).accountName).toBe('monitor');
     });
 
     it('takes aliases from hostNames, without the default host', () => {
@@ -1993,7 +1984,7 @@ describe('Tenant utilities', () => {
           typeof import('nitropack/runtime').useStorage
         >,
         {
-          tenantId: 'beta',
+          accountName: 'beta',
           hostname: adapted.hostname,
           aliases: adapted.aliases,
         } as unknown as TenantConfig,
@@ -2012,13 +2003,28 @@ describe('Tenant utilities', () => {
       expect(adapt(rawApiResponse()).id).toBeUndefined();
     });
 
-    it('transforms channelId into channel + tld in geinsSettings', () => {
-      const gs = adapt(rawApiResponse()).geinsSettings as Record<
-        string,
-        unknown
-      >;
-      expect(gs.channel).toBe('2');
-      expect(gs.tld).toBe('se');
+    it('keeps channelSettings under the API names, without the routing fields', () => {
+      expect(adapt(rawApiResponse()).channelSettings).toEqual({
+        channelId: '2|se',
+        defaultLocale: 'sv-SE',
+        defaultMarket: 'se',
+        locales: ['sv-SE', 'en-US'],
+        markets: ['se', 'fi'],
+      });
+    });
+
+    it('takes the API key from the root', () => {
+      expect(adapt(rawApiResponse()).apiKey).toBe('k');
+    });
+
+    it('sets channelSettings after appSettings, so appSettings cannot carry it', () => {
+      const raw = rawApiResponse();
+      (raw.appSettings as Record<string, unknown>).channelSettings = {
+        channelId: '9|xx',
+      };
+      expect(
+        (adapt(raw).channelSettings as Record<string, unknown>).channelId,
+      ).toBe('2|se');
     });
 
     it('returns null for an answer without channelSettings', () => {

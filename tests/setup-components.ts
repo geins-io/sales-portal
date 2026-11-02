@@ -177,7 +177,6 @@ vi.mock('../app/composables/useTenant', () => {
   const tenant: Ref<PublicTenantConfig> = ref({
     tenantId: 'test-tenant',
     hostname: 'test.example.com',
-    isActive: true,
     css: '',
     mode: 'commerce',
     checkoutMode: 'custom',

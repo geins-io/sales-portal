@@ -128,7 +128,7 @@ export default defineNitroPlugin((nitroApp) => {
         return;
       }
 
-      const tenantId = tenant.tenantId || hostname;
+      const tenantId = tenant.accountName || hostname;
       event.context.tenant.tenantId = tenantId;
       event.context.tenant.config = tenant;
 
@@ -161,7 +161,7 @@ export default defineNitroPlugin((nitroApp) => {
         isStoreSettingsPreview,
       );
       if (tenant) {
-        event.context.tenant.tenantId = tenant.tenantId || hostname;
+        event.context.tenant.tenantId = tenant.accountName || hostname;
         event.context.tenant.config = tenant;
       } else {
         event.context.tenant.resolution = outcome;

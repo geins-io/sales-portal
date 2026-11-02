@@ -121,7 +121,6 @@ export function createMockTenantConfig(
     id: 'test-tenant',
     name: 'Test Tenant',
     hostname: 'test.example.com',
-    isActive: true,
     settings: {
       language: 'en',
       currency: 'SEK',

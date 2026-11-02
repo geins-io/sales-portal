@@ -77,8 +77,8 @@ export async function isFeatureEnabled(
 
 /**
  * Produces the public config sent to the client.
- * Strips geinsSettings, overrides, themeHash, createdAt, updatedAt.
- * Exposes locale fields derived from geinsSettings.
+ * Strips apiKey, channelSettings, overrides, themeHash, createdAt, updatedAt.
+ * Exposes locale fields derived from channelSettings, under their public names.
  */
 export async function getPublicConfig(
   event: H3Event,
@@ -87,7 +87,7 @@ export async function getPublicConfig(
   if (!config) return null;
 
   return {
-    tenantId: config.tenantId,
+    tenantId: config.accountName,
     hostname: config.hostname,
     aliases: config.aliases,
     mode: config.mode,
@@ -101,13 +101,12 @@ export async function getPublicConfig(
     seo: config.seo,
     contact: config.contact,
     css: config.css,
-    isActive: config.isActive,
-    locale: config.geinsSettings?.locale,
-    market: config.geinsSettings?.market,
-    availableLocales: config.geinsSettings?.availableLocales ?? [],
-    availableMarkets: config.geinsSettings?.availableMarkets ?? [],
-    imageBaseUrl: config.geinsSettings?.accountName
-      ? `https://${config.geinsSettings.accountName}.commerce.services`
+    locale: config.channelSettings?.defaultLocale,
+    market: config.channelSettings?.defaultMarket,
+    availableLocales: config.channelSettings?.locales ?? [],
+    availableMarkets: config.channelSettings?.markets ?? [],
+    imageBaseUrl: config.accountName
+      ? `https://${config.accountName}.commerce.services`
       : '',
     ...(config.assetPath ? { assetBaseUrl: config.assetPath } : {}),
   };

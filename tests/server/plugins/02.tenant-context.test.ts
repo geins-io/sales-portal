@@ -107,26 +107,25 @@ interface MockEvent {
   context: Record<string, unknown>;
 }
 
-function makeGeinsSettings(overrides?: {
-  availableLocales?: string[];
-  availableMarkets?: string[];
+function makeChannelSettings(overrides?: {
+  locales?: string[];
+  markets?: string[];
   defaultLocale?: string;
   defaultMarket?: string;
 }) {
   return {
-    availableLocales: overrides?.availableLocales ?? ['sv-SE', 'en-US'],
-    availableMarkets: overrides?.availableMarkets ?? ['se', 'no', 'dk'],
-    locale: overrides?.defaultLocale ?? 'sv-SE',
-    market: overrides?.defaultMarket ?? 'se',
+    locales: overrides?.locales ?? ['sv-SE', 'en-US'],
+    markets: overrides?.markets ?? ['se', 'no', 'dk'],
+    defaultLocale: overrides?.defaultLocale ?? 'sv-SE',
+    defaultMarket: overrides?.defaultMarket ?? 'se',
   };
 }
 
-function makeTenant(geinsSettings = makeGeinsSettings()) {
+function makeTenant(channelSettings = makeChannelSettings()) {
   return {
-    tenantId: 'test-tenant',
+    accountName: 'test-tenant',
     hostname: 'test.localhost',
-    geinsSettings,
-    isActive: true,
+    channelSettings,
     mode: 'commerce',
   };
 }
@@ -311,12 +310,8 @@ describe('server/plugins/02.tenant-context', () => {
       // `context.tenant.config`; without it they fall back to the hostname.
       const tenant = {
         ...makeTenant(),
-        geinsSettings: {
-          ...makeGeinsSettings(),
-          accountName: 'acct',
-          channel: '2',
-          tld: 'se',
-        },
+        accountName: 'acct',
+        channelSettings: { ...makeChannelSettings(), channelId: '2|se' },
       };
       mockResolveTenant.mockResolvedValue(tenant);
       const event = createEvent('/api/config', {});
@@ -327,7 +322,7 @@ describe('server/plugins/02.tenant-context', () => {
         typeof import('../../../server/utils/tenant')
       >('../../../server/utils/tenant');
       expect(event.context.tenant).toMatchObject({
-        tenantId: 'test-tenant',
+        tenantId: 'acct',
         config: tenant,
       });
       expect(storefrontCacheKey(event as unknown as H3Event)).toBe('acct:2|se');

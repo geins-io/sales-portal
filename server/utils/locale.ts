@@ -43,14 +43,14 @@ export function getRequestLocale(event: H3Event): string | undefined {
   const shortLocale = queryLocale || getCookie(event, COOKIE_NAMES.LOCALE);
   if (!shortLocale) {
     return (event.context.tenant?.config as TenantConfig | undefined)
-      ?.geinsSettings?.locale;
+      ?.channelSettings?.defaultLocale;
   }
 
   // Already in BCP-47 format (contains hyphen) — return as-is
   if (shortLocale.includes('-')) return shortLocale;
 
   const tenantConfig = event.context.tenant?.config as TenantConfig | undefined;
-  const availableLocales = tenantConfig?.geinsSettings?.availableLocales;
+  const availableLocales = tenantConfig?.channelSettings?.locales;
 
   return expandLocale(shortLocale, availableLocales);
 }
@@ -78,6 +78,6 @@ export function getRequestMarket(event: H3Event): string | undefined {
   // No cookie — use tenant's default market as fallback
   const tenantMarket = (
     event.context.tenant?.config as TenantConfig | undefined
-  )?.geinsSettings?.market;
+  )?.channelSettings?.defaultMarket;
   return tenantMarket ?? undefined;
 }

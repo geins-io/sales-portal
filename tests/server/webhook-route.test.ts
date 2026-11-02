@@ -335,7 +335,6 @@ describe('processConfigRefresh', () => {
       tenantId: 'alpha',
       hostname: 'alpha.example',
       aliases: ['alpha.localhost', 'alpha.sales-portal.geins.dev'],
-      isActive: true,
     };
 
     const request = createRequest({
@@ -426,7 +425,6 @@ describe('processConfigRefresh', () => {
             tenantId: 'beta',
             hostname,
             aliases: [],
-            isActive: true,
           };
         return null;
       }),
@@ -498,7 +496,6 @@ describe('negative cache invalidation across aliases', () => {
       tenantId: 't-alias',
       hostname: primary,
       aliases: [alias],
-      isActive: true,
     } as unknown as TenantConfig;
 
     clearNegativeCacheSpy.mockClear();
@@ -539,7 +536,6 @@ describe('negative cache invalidation across aliases', () => {
       tenantId: 't-alias',
       hostname: 'primary.example',
       aliases: [],
-      isActive: true,
     } as unknown as TenantConfig;
 
     clearNegativeCacheSpy.mockClear();

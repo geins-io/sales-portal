@@ -91,7 +91,7 @@ describe('orders service', () => {
   const mockEvent = {
     context: {
       tenant: {
-        config: { geinsSettings: { availableLocales: ['sv-SE'] } },
+        config: { channelSettings: { locales: ['sv-SE'] } },
       },
     },
   } as unknown as H3Event;

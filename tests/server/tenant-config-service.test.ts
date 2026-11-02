@@ -10,18 +10,15 @@ vi.mock('../../server/services/channels', () => ({
 }));
 
 const mockTenantConfig: TenantConfig = {
-  tenantId: 'test-tenant',
+  accountName: 'test-account',
   hostname: 'test.example.com',
-  geinsSettings: {
-    apiKey: 'test-key',
-    accountName: 'test-account',
-    channel: '1',
-    tld: 'se',
-    locale: 'sv-SE',
-    market: 'se',
-    environment: 'production',
-    availableLocales: ['sv-SE'],
-    availableMarkets: ['se'],
+  apiKey: 'test-key',
+  channelSettings: {
+    channelId: '1|se',
+    defaultLocale: 'sv-SE',
+    defaultMarket: 'se',
+    locales: ['sv-SE'],
+    markets: ['se'],
   },
   mode: 'commerce',
   checkoutMode: 'custom',
@@ -64,7 +61,6 @@ const mockTenantConfig: TenantConfig = {
   css: '[data-theme=test] { --primary: oklch(0.5 0.1 200); }',
   themeHash: 'hash123',
   assetPath: null,
-  isActive: true,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-02-01T00:00:00.000Z',
 };
@@ -165,12 +161,18 @@ describe('Tenant Config Service', () => {
   });
 
   describe('getPublicConfig', () => {
-    it('should strip geinsSettings', async () => {
+    it('should strip apiKey and channelSettings', async () => {
       const pub = await service.getPublicConfig(createMockEvent());
       expect(pub).toBeDefined();
-      expect(
-        (pub as unknown as Record<string, unknown>).geinsSettings,
-      ).toBeUndefined();
+      expect(pub).not.toHaveProperty('apiKey');
+      expect(pub).not.toHaveProperty('channelSettings');
+      expect(pub).not.toHaveProperty('accountName');
+    });
+
+    it('serves the account name as the public tenantId, and no isActive', async () => {
+      const pub = await service.getPublicConfig(createMockEvent());
+      expect(pub?.tenantId).toBe('test-account');
+      expect(pub).not.toHaveProperty('isActive');
     });
 
     it('should strip overrides', async () => {
@@ -205,7 +207,7 @@ describe('Tenant Config Service', () => {
       expect(pub?.timezone).toBe('Europe/Stockholm');
     });
 
-    it('should include locale from geinsSettings', async () => {
+    it('should include locale from channelSettings', async () => {
       const pub = await service.getPublicConfig(createMockEvent());
       expect(pub?.locale).toBe('sv-SE');
     });

@@ -38,9 +38,9 @@ const event = {
   context: {
     tenant: {
       config: {
-        geinsSettings: {
-          availableMarkets: ['se'],
-          availableLocales: ['sv-SE', 'fi-FI'],
+        channelSettings: {
+          markets: ['se'],
+          locales: ['sv-SE', 'fi-FI'],
         },
       },
     },

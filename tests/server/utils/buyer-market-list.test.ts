@@ -8,10 +8,7 @@ function makeEvent(channel?: string, tld?: string): H3Event {
     context: {
       tenant: {
         config: {
-          geinsSettings: {
-            ...(channel ? { channel } : {}),
-            ...(tld ? { tld } : {}),
-          },
+          channelSettings: { channelId: `${channel ?? ''}|${tld ?? ''}` },
         },
       },
     },
@@ -28,6 +25,19 @@ function makeUser(
 }
 
 describe('listBuyerMarkets', () => {
+  it.each([
+    ['a tenant', {}],
+    ['a config', { tenant: {} }],
+    ['channelSettings', { tenant: { config: {} } }],
+  ])('returns null on an event without %s', (_, context) => {
+    const user = makeUser([
+      { channelId: '1|se', availableMarkets: [{ alias: 'se' }] },
+    ]);
+    expect(
+      listBuyerMarkets({ context } as unknown as H3Event, user),
+    ).toBeNull();
+  });
+
   it('returns null when user is null', () => {
     expect(listBuyerMarkets(makeEvent('1', 'se'), null)).toBeNull();
   });

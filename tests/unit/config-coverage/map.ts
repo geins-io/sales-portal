@@ -3127,47 +3127,6 @@ export const CONFIG_COVERAGE_MAP = {
       'bare rule. Only the browser-side effect of the injected tag is e2e.',
   },
 
-  isActive: {
-    true: {
-      status: 'has-test',
-      test: {
-        spec: SERVER_TENANT_RESOLUTION,
-        title:
-          'returns the config only because isActive is true, on one otherwise identical config',
-        kind: 'consumer',
-        drives: 'field',
-      },
-      note:
-        'The active path used to be every other test in the suite, none of ' +
-        'which said that being active was the reason a config came back: ' +
-        '`kvConfig` defaults the flag to true, so the getTenantById case ' +
-        'depended on it by implication and its title did not say so. The ' +
-        'reference flips the flag between two otherwise identical configs at ' +
-        'the same key, which is what makes it an assertion about the field.',
-    },
-    false: {
-      status: 'has-test',
-      test: [
-        {
-          spec: TENANT_SEO,
-          title: 'does not call useHead when tenant is inactive',
-          kind: 'consumer',
-          drives: 'field',
-        },
-        {
-          spec: SERVER_TENANT_RESOLUTION,
-          title: 'returns null for an inactive config and leaves it in KV',
-          kind: 'consumer',
-          drives: 'field',
-        },
-      ],
-      note:
-        'The server is where the value decides anything: lookupTenant returns ' +
-        'null, so no config is emitted and the client never sees isActive false. ' +
-        'The bail-outs in the two client plugins are defensive only.',
-    },
-  },
-
   locale: {
     status: 'has-test',
     test: [
@@ -3333,7 +3292,7 @@ export const CONFIG_COVERAGE_MAP = {
       kind: 'consumer',
       drives: 'field',
     },
-    note: 'Derived from geinsSettings.accountName rather than configured directly.',
+    note: 'Derived from accountName rather than configured directly.',
   },
 
   assetBaseUrl: {

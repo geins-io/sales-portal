@@ -19,7 +19,7 @@ export default defineNuxtPlugin({
 
     await suspense();
 
-    if (!tenant.value?.isActive) return;
+    if (!tenant.value) return;
 
     const seo = tenant.value.seo;
     const contact = tenant.value.contact;

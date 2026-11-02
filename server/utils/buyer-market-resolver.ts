@@ -33,8 +33,9 @@ export async function resolveBuyerMarket(
   event: H3Event,
   userToken: string,
 ): Promise<string | null> {
-  const settings = event.context?.tenant?.config?.geinsSettings;
-  const currentMarket = getMarketCookie(event) ?? settings?.market ?? null;
+  const settings = event.context?.tenant?.config?.channelSettings;
+  const currentMarket =
+    getMarketCookie(event) ?? settings?.defaultMarket ?? null;
   const readFailed = (read: 'company' | 'channel') => {
     logger.warn(
       `[buyer-market] ${read} read failed; buyer stays on market ${currentMarket}`,

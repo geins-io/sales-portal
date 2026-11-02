@@ -68,9 +68,8 @@ const mockUseSchemaOrg = vi.fn((input: unknown) => {
 const mockDefineOrganization = vi.fn((schema: unknown) => schema);
 const mockDefineWebSite = vi.fn((schema: unknown) => schema);
 
-// Tenant mock - active with a default locale of 'sv-SE'.
+// Tenant mock - a default locale of 'sv-SE'.
 const tenantRef = ref({
-  isActive: true,
   locale: 'sv-SE',
   // Empty by default so the base cases exercise the i18n `language` fallback;
   // the tenant-variant describe below fills it in.
@@ -215,7 +214,6 @@ describe('tenant-seo plugin / reactive locale', () => {
       { code: 'sv', language: 'sv-SE', name: 'Svenska' },
     ];
     tenantRef.value = {
-      isActive: true,
       locale: 'sv-SE',
       availableLocales: [],
       seo: null,
@@ -461,9 +459,12 @@ describe('tenant-seo plugin / reactive locale', () => {
     });
   });
 
-  describe('inactive tenant', () => {
-    it('does not call useHead when tenant is inactive', async () => {
-      tenantRef.value = { ...tenantRef.value, isActive: false };
+  describe('no tenant', () => {
+    it('does not call useHead when there is no tenant', async () => {
+      mockUseTenant.mockReturnValueOnce({
+        ...mockUseTenant(),
+        tenant: ref(null),
+      } as unknown as ReturnType<typeof mockUseTenant>);
       mockUseHead.mockClear();
       const nuxtApp = { $i18n: { locale: i18nLocale } };
       if (capturedSetup) {
@@ -523,7 +524,6 @@ describe('tenant-seo plugin / seo and contact fields', () => {
     ];
     ogImageUrlRef.value = null;
     tenantRef.value = {
-      isActive: true,
       locale: 'sv-SE',
       availableLocales: [],
       seo: null,

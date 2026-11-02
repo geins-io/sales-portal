@@ -86,7 +86,7 @@ const createMockEvent = (hostname = 'test.example.com'): H3Event =>
     context: { tenant: { tenantId: 't1', hostname } },
   }) as unknown as H3Event;
 
-// Event carrying the tenant geinsSettings the endpoint reads to resolve the
+// Event carrying the tenant channelSettings the endpoint reads to resolve the
 // path's own market/locale. Swedish-default tenant that also serves English.
 const createMockEventWithSettings = (hostname = 'test.example.com'): H3Event =>
   ({
@@ -95,11 +95,11 @@ const createMockEventWithSettings = (hostname = 'test.example.com'): H3Event =>
         tenantId: 't1',
         hostname,
         config: {
-          geinsSettings: {
-            locale: 'sv-SE',
-            market: 'se',
-            availableLocales: ['sv-SE', 'en-US'],
-            availableMarkets: ['se'],
+          channelSettings: {
+            defaultLocale: 'sv-SE',
+            defaultMarket: 'se',
+            locales: ['sv-SE', 'en-US'],
+            markets: ['se'],
           },
         },
       },

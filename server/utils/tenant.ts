@@ -230,18 +230,20 @@ export function tenantConfigKey(storefrontKey: string): string {
 /**
  * Identifies one storefront in every per-tenant cache: Geins account and
  * channel (`monitor:1|se`), which every alias shares and a domain change
- * keeps. Not `tenantId`: the merchant API answers the account name there, so
- * two channels on one account would share one entry and serve each other's
- * config. The schema lets these fields through empty, hence the hostname
- * fallback.
+ * keeps. Not the account name alone: two channels on one account would share
+ * one entry and serve each other's config. The schema lets these fields
+ * through empty, hence the hostname fallback.
  */
 export function storefrontKey(
-  config: Pick<TenantConfig, 'hostname' | 'geinsSettings'> | null | undefined,
+  config:
+    | Pick<TenantConfig, 'hostname' | 'accountName' | 'channelSettings'>
+    | null
+    | undefined,
   requestHostname: string,
 ): string {
-  const geins = config?.geinsSettings;
-  if (geins?.accountName && geins.channel && geins.tld) {
-    return `${geins.accountName}:${geins.channel}|${geins.tld}`;
+  const [channel, tld] = (config?.channelSettings?.channelId ?? '').split('|');
+  if (config?.accountName && channel && tld) {
+    return `${config.accountName}:${channel}|${tld}`;
   }
   return config?.hostname || requestHostname;
 }
@@ -342,25 +344,19 @@ export async function writeHostnameMappings(
 // ---------------------------------------------------------------------------
 
 /**
- * Reads the merchant API's account fields (root) and `channelSettings` into
- * our internal settings shape. `channelId` is `"2|se"`: channel and tld.
+ * The merchant API's `channelSettings` as we keep it: the channel, locale and
+ * market fields under their own names. Routing (`defaultHostName`,
+ * `hostNames`) becomes `hostname` and `aliases` in the adapter instead.
  */
 export function readChannelSettings(
-  raw: Record<string, unknown>,
   channelSettings: Record<string, unknown>,
 ): Record<string, unknown> {
-  const channelId = String(channelSettings.channelId ?? '');
-  const [channel, tld] = channelId.split('|');
-
   return {
-    apiKey: raw.apiKey,
-    accountName: raw.accountName,
-    channel,
-    tld,
-    locale: channelSettings.defaultLocale,
-    market: channelSettings.defaultMarket,
-    availableLocales: channelSettings.locales ?? [],
-    availableMarkets: channelSettings.markets ?? [],
+    channelId: channelSettings.channelId,
+    defaultLocale: channelSettings.defaultLocale,
+    defaultMarket: channelSettings.defaultMarket,
+    locales: channelSettings.locales ?? [],
+    markets: channelSettings.markets ?? [],
   };
 }
 
@@ -462,7 +458,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
       }
     : merged.overrides;
 
-  const themeName = merged.theme.name ?? merged.tenantId;
+  const themeName = merged.theme.name ?? merged.accountName;
 
   const css = generateTenantCss(
     themeName,
@@ -486,7 +482,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
   // consume this value directly.
   const brandingName =
     merged.branding?.name?.trim() ||
-    merged.geinsSettings.accountName?.trim() ||
+    merged.accountName?.trim() ||
     merged.hostname;
   const branding = { ...merged.branding, name: brandingName };
 
@@ -506,10 +502,11 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
   };
 
   return {
-    tenantId: merged.tenantId,
+    accountName: merged.accountName,
     hostname: merged.hostname,
     aliases: merged.aliases,
-    geinsSettings: merged.geinsSettings,
+    apiKey: merged.apiKey,
+    channelSettings: merged.channelSettings,
     mode: merged.mode,
     checkoutMode: merged.checkoutMode,
     timezone: merged.timezone,
@@ -522,7 +519,6 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     cms,
     css,
     themeHash,
-    isActive: merged.isActive,
     assetPath: merged.assetPath,
     createdAt: merged.createdAt,
     updatedAt: merged.updatedAt,
@@ -538,7 +534,8 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
  * `assetPath`), the channel in `channelSettings` (channel id, locales,
  * markets, every hostname), and the per-tenant config (theme, branding,
  * features, cms) in `appSettings`. The older `geinsSettings`, root
- * `tenantId` and `isActive` are never read.
+ * `tenantId` and `isActive` are never read: an inactive storefront answers
+ * 404, so an answer means active.
  *
  * Steps:
  *   1. Pull `appSettings` to root (or fall back to the raw response if a
@@ -548,8 +545,8 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
  *   2. Take `hostname` from `channelSettings.defaultHostName`, and `aliases`
  *      from `channelSettings.hostNames` minus that default — see the routing
  *      note below.
- *   3. Convert the root account fields and `channelSettings` to our internal
- *      settings shape via `readChannelSettings`.
+ *   3. Keep the root account fields, and `channelSettings` via
+ *      `readChannelSettings`.
  *   4. Drop a couple of legacy fields the API still emits but our schema
  *      doesn't care about (`id`, `geinsApiSettings`).
  *
@@ -557,7 +554,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
  * `appSettings.aliases` are legacy fields from before the merchant API had
  * hostname fields of its own; nothing writes them any more and they survive
  * only on older records. Every name in this config becomes a
- * `hostname → tenantId` routing entry (`collectAllHostnames` →
+ * `hostname → storefront` routing entry (`collectAllHostnames` →
  * `writeHostnameMappings`), so reading them routed hostnames the merchant API
  * refuses — including another tenant's registered hostname, which then served
  * the wrong storefront until the next restart. They are no longer read for
@@ -602,11 +599,11 @@ export function adaptMerchantApiResponse(
     // After the spread: the API owns the account and routing, so these win
     // over whatever the tenant saved. `appSettings.hostname` is only the
     // fallback.
-    tenantId: raw.accountName,
-    isActive: true,
+    accountName: raw.accountName,
+    apiKey: raw.apiKey,
     assetPath,
     hostname: defaultHostName ?? appSettings.hostname,
-    geinsSettings: readChannelSettings(raw, channelSettings),
+    channelSettings: readChannelSettings(channelSettings),
     aliases,
   };
   delete candidate.geinsApiSettings;
@@ -722,7 +719,7 @@ export function backfillCoreColors(
 
 /**
  * Pick a sensible default branding name from a candidate StoreSettings.
- * Order: `geinsSettings.accountName` (trimmed, non-empty) → hostname.
+ * Order: `accountName` (trimmed, non-empty) → hostname.
  *
  * Used by the salvage path when the API ships no usable `branding` block,
  * and by `buildTenantConfig` when the merged branding name is empty.
@@ -733,11 +730,8 @@ export function defaultBrandingName(
   candidate: Record<string, unknown>,
   hostname: string,
 ): string {
-  const gs = candidate.geinsSettings;
-  if (gs && typeof gs === 'object') {
-    const name = (gs as Record<string, unknown>).accountName;
-    if (typeof name === 'string' && name.trim()) return name.trim();
-  }
+  const name = candidate.accountName;
+  if (typeof name === 'string' && name.trim()) return name.trim();
   return hostname;
 }
 
@@ -766,7 +760,7 @@ export function defaultBrandingName(
  *      a payload with empty / missing / garbage `theme.colors` still produces
  *      a renderable tenant. Color values are presentation data, never fatal.
  *
- * FATAL_PATHS (e.g. `tenantId`, `geinsSettings.apiKey`) bypass all salvage
+ * FATAL_PATHS (e.g. `accountName`, `apiKey`) bypass all salvage
  * and return null so we never serve a tenant claiming wrong credentials.
  */
 export function parseStoreSettingsResilient(
@@ -793,7 +787,6 @@ export function parseStoreSettingsResilient(
     // skips the leaf-strip branch and returns null — and a null resolution is
     // negative-cached, so one bad date field takes a storefront down.
     timezone: undefined,
-    isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     // `theme` intentionally omitted: it's computed lazily from
@@ -808,11 +801,10 @@ export function parseStoreSettingsResilient(
     features: {},
   };
   const FATAL_PATHS = new Set([
-    'tenantId',
+    'accountName',
+    'apiKey',
     'hostname',
-    'geinsSettings',
-    'geinsSettings.apiKey',
-    'geinsSettings.accountName',
+    'channelSettings',
   ]);
 
   const MAX_SUBSTITUTIONS = 12;
@@ -909,7 +901,7 @@ export function parseStoreSettingsResilient(
     // `theme` is computed lazily from `createDefaultTheme(hostname)` so the
     // salvage palette is always the canonical default for this hostname.
     // `branding.name` is computed lazily from the candidate's
-    // `geinsSettings.accountName` (or hostname) so a tenant never renders a
+    // `accountName` (or hostname) so a tenant never renders a
     // generic literal in the topbar/hero/footer.
     let salvage: unknown;
     if (top === 'theme') {
@@ -1174,7 +1166,7 @@ export async function resolvePreviewTenant(
 
 /**
  * Retrieves a tenant config by its storefront key (no hostname lookup).
- * Returns null for missing or inactive configs without side-effects —
+ * Returns null for a missing config without side-effects —
  * invalidation is handled exclusively by the webhook handler.
  */
 export async function getTenantById(
@@ -1184,8 +1176,7 @@ export async function getTenantById(
   const config = await storage.getItem<TenantConfig>(
     tenantConfigKey(storefrontKey),
   );
-  if (!config || !config.isActive) return null;
-  return config;
+  return config ?? null;
 }
 
 /** A lookup's config (null when none) and how it ended. */
@@ -1266,7 +1257,7 @@ async function resolveTenantTraced(
       if (claimed.has(hostname)) {
         trace.kv = 'hit';
         trace.outcome = 'resolved';
-        trace.tenantId = config.tenantId;
+        trace.tenantId = config.accountName;
         return config;
       }
       trace.kv = 'stale';
@@ -1289,17 +1280,9 @@ async function resolveTenantTraced(
     return null;
   }
 
-  if (newConfig.isActive) {
-    const key = storefrontKey(newConfig, hostname);
-    await storage.setItem(tenantConfigKey(key), newConfig);
-    await writeHostnameMappings(storage, newConfig, key);
-    trace.tenantId = newConfig.tenantId || hostname;
-    return newConfig;
-  }
-
-  // Registered but switched off in the merchant admin: does not resolve.
-  if (trace.api) trace.api.result += ' (inactive)';
-  trace.outcome = 'unknown-tenant';
-  addToNegativeCache(hostname, trace.outcome);
-  return null;
+  const key = storefrontKey(newConfig, hostname);
+  await storage.setItem(tenantConfigKey(key), newConfig);
+  await writeHostnameMappings(storage, newConfig, key);
+  trace.tenantId = newConfig.accountName || hostname;
+  return newConfig;
 }

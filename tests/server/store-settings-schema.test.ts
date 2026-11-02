@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   StoreSettingsSchema,
+  ChannelSettingsSchema,
   BrandingConfigSchema,
   ContactConfigSchema,
   SeoConfigSchema,
@@ -20,19 +21,16 @@ import type { ThemeColors } from '../../server/schemas/store-settings';
 
 // Full tenant mock configs inlined so tests are self-contained
 const ALPHA_MOCK = {
-  tenantId: 'alpha',
+  accountName: 'monitor',
   hostname: 'alpha.example',
   aliases: ['alpha.localhost'],
-  geinsSettings: {
-    apiKey: 'key',
-    accountName: 'monitor',
-    channel: '1',
-    tld: 'se',
-    locale: 'sv-SE',
-    market: 'se',
-    environment: 'production',
-    availableLocales: ['sv-SE'],
-    availableMarkets: ['se'],
+  apiKey: 'key',
+  channelSettings: {
+    channelId: '1|se',
+    defaultLocale: 'sv-SE',
+    defaultMarket: 'se',
+    locales: ['sv-SE'],
+    markets: ['se'],
   },
   mode: 'commerce',
   theme: {
@@ -123,25 +121,21 @@ const ALPHA_MOCK = {
     social: null,
   },
   overrides: null,
-  isActive: true,
   createdAt: '2026-01-15T10:00:00.000Z',
   updatedAt: '2026-02-10T12:00:00.000Z',
 };
 
 const BETA_MOCK = {
-  tenantId: 'beta',
+  accountName: 'monitor',
   hostname: 'beta.example',
   aliases: ['beta.localhost'],
-  geinsSettings: {
-    apiKey: 'key',
-    accountName: 'monitor',
-    channel: '1',
-    tld: 'se',
-    locale: 'sv-SE',
-    market: 'se',
-    environment: 'production',
-    availableLocales: ['sv-SE'],
-    availableMarkets: ['se'],
+  apiKey: 'key',
+  channelSettings: {
+    channelId: '1|se',
+    defaultLocale: 'sv-SE',
+    defaultMarket: 'se',
+    locales: ['sv-SE'],
+    markets: ['se'],
   },
   mode: 'commerce',
   theme: {
@@ -245,7 +239,6 @@ const BETA_MOCK = {
       staffPricing: { enabled: true, access: { group: 'staff' } },
     },
   },
-  isActive: true,
   createdAt: '2026-02-01T08:00:00.000Z',
   updatedAt: '2026-02-11T09:00:00.000Z',
 };
@@ -264,18 +257,15 @@ describe('StoreSettingsSchema', () => {
 
     it('should accept a theme without `name` (merchant API dropped the field)', () => {
       const withoutThemeName = {
-        tenantId: 'gamma',
+        accountName: 'gamma',
         hostname: 'gamma.litium.store',
-        geinsSettings: {
-          apiKey: 'key',
-          accountName: 'gamma',
-          channel: '1',
-          tld: 'se',
-          locale: 'sv-SE',
-          market: 'se',
-          environment: 'production',
-          availableLocales: ['sv-SE'],
-          availableMarkets: ['se'],
+        apiKey: 'key',
+        channelSettings: {
+          channelId: '1|se',
+          defaultLocale: 'sv-SE',
+          defaultMarket: 'se',
+          locales: ['sv-SE'],
+          markets: ['se'],
         },
         mode: 'commerce',
         theme: {
@@ -291,7 +281,6 @@ describe('StoreSettingsSchema', () => {
         },
         branding: { name: 'Gamma', watermark: 'minimal' },
         features: {},
-        isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       };
@@ -301,18 +290,15 @@ describe('StoreSettingsSchema', () => {
 
     it('normalises mode "catalogue" (UK spelling) to "catalog"', () => {
       const config = {
-        tenantId: 'cat',
+        accountName: 'acct',
         hostname: 'cat.example.com',
-        geinsSettings: {
-          apiKey: 'key',
-          accountName: 'acct',
-          channel: '1',
-          tld: 'se',
-          locale: 'sv-SE',
-          market: 'se',
-          environment: 'production',
-          availableLocales: ['sv-SE'],
-          availableMarkets: ['se'],
+        apiKey: 'key',
+        channelSettings: {
+          channelId: '1|se',
+          defaultLocale: 'sv-SE',
+          defaultMarket: 'se',
+          locales: ['sv-SE'],
+          markets: ['se'],
         },
         mode: 'catalogue',
         theme: {
@@ -327,7 +313,6 @@ describe('StoreSettingsSchema', () => {
         },
         branding: { name: 'Cat', watermark: 'full' },
         features: {},
-        isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       };
@@ -338,18 +323,15 @@ describe('StoreSettingsSchema', () => {
 
     it('should validate minimal required config', () => {
       const minimal = {
-        tenantId: 'test',
+        accountName: 'acct',
         hostname: 'test.example.com',
-        geinsSettings: {
-          apiKey: 'key',
-          accountName: 'acct',
-          channel: '1',
-          tld: 'se',
-          locale: 'sv-SE',
-          market: 'se',
-          environment: 'production',
-          availableLocales: ['sv-SE'],
-          availableMarkets: ['se'],
+        apiKey: 'key',
+        channelSettings: {
+          channelId: '1|se',
+          defaultLocale: 'sv-SE',
+          defaultMarket: 'se',
+          locales: ['sv-SE'],
+          markets: ['se'],
         },
         mode: 'commerce',
         theme: {
@@ -368,7 +350,6 @@ describe('StoreSettingsSchema', () => {
           watermark: 'full',
         },
         features: {},
-        isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       };
@@ -380,18 +361,15 @@ describe('StoreSettingsSchema', () => {
   describe('missing required fields', () => {
     it('should reject missing required color fields', () => {
       const incomplete = {
-        tenantId: 'test',
+        accountName: 'acct',
         hostname: 'test.example.com',
-        geinsSettings: {
-          apiKey: 'key',
-          accountName: 'acct',
-          channel: '1',
-          tld: 'se',
-          locale: 'sv-SE',
-          market: 'se',
-          environment: 'production',
-          availableLocales: ['sv-SE'],
-          availableMarkets: ['se'],
+        apiKey: 'key',
+        channelSettings: {
+          channelId: '1|se',
+          defaultLocale: 'sv-SE',
+          defaultMarket: 'se',
+          locales: ['sv-SE'],
+          markets: ['se'],
         },
         mode: 'commerce',
         theme: {
@@ -403,7 +381,6 @@ describe('StoreSettingsSchema', () => {
         },
         branding: { name: 'Test', watermark: 'full' },
         features: {},
-        isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       };
@@ -413,18 +390,15 @@ describe('StoreSettingsSchema', () => {
 
     it('should reject missing mode field', () => {
       const noMode = {
-        tenantId: 'test',
+        accountName: 'acct',
         hostname: 'test.example.com',
-        geinsSettings: {
-          apiKey: 'key',
-          accountName: 'acct',
-          channel: '1',
-          tld: 'se',
-          locale: 'sv-SE',
-          market: 'se',
-          environment: 'production',
-          availableLocales: ['sv-SE'],
-          availableMarkets: ['se'],
+        apiKey: 'key',
+        channelSettings: {
+          channelId: '1|se',
+          defaultLocale: 'sv-SE',
+          defaultMarket: 'se',
+          locales: ['sv-SE'],
+          markets: ['se'],
         },
         theme: {
           name: 'default',
@@ -439,7 +413,6 @@ describe('StoreSettingsSchema', () => {
         },
         branding: { name: 'Test', watermark: 'full' },
         features: {},
-        isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       };
@@ -449,18 +422,15 @@ describe('StoreSettingsSchema', () => {
 
     it('should reject missing branding.watermark', () => {
       const noWatermark = {
-        tenantId: 'test',
+        accountName: 'acct',
         hostname: 'test.example.com',
-        geinsSettings: {
-          apiKey: 'key',
-          accountName: 'acct',
-          channel: '1',
-          tld: 'se',
-          locale: 'sv-SE',
-          market: 'se',
-          environment: 'production',
-          availableLocales: ['sv-SE'],
-          availableMarkets: ['se'],
+        apiKey: 'key',
+        channelSettings: {
+          channelId: '1|se',
+          defaultLocale: 'sv-SE',
+          defaultMarket: 'se',
+          locales: ['sv-SE'],
+          markets: ['se'],
         },
         mode: 'commerce',
         theme: {
@@ -476,7 +446,6 @@ describe('StoreSettingsSchema', () => {
         },
         branding: { name: 'Test' },
         features: {},
-        isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       };
@@ -488,18 +457,15 @@ describe('StoreSettingsSchema', () => {
   describe('color coercion at the schema boundary', () => {
     it('should coerce hex colors to oklch', () => {
       const hexColors = {
-        tenantId: 'test',
+        accountName: 'acct',
         hostname: 'test.example.com',
-        geinsSettings: {
-          apiKey: 'key',
-          accountName: 'acct',
-          channel: '1',
-          tld: 'se',
-          locale: 'sv-SE',
-          market: 'se',
-          environment: 'production',
-          availableLocales: ['sv-SE'],
-          availableMarkets: ['se'],
+        apiKey: 'key',
+        channelSettings: {
+          channelId: '1|se',
+          defaultLocale: 'sv-SE',
+          defaultMarket: 'se',
+          locales: ['sv-SE'],
+          markets: ['se'],
         },
         mode: 'commerce',
         theme: {
@@ -515,7 +481,6 @@ describe('StoreSettingsSchema', () => {
         },
         branding: { name: 'Test', watermark: 'full' },
         features: {},
-        isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       };
@@ -530,18 +495,15 @@ describe('StoreSettingsSchema', () => {
 
     it('should coerce rgb colors to oklch', () => {
       const config = {
-        tenantId: 'test',
+        accountName: 'acct',
         hostname: 'test.example.com',
-        geinsSettings: {
-          apiKey: 'key',
-          accountName: 'acct',
-          channel: '1',
-          tld: 'se',
-          locale: 'sv-SE',
-          market: 'se',
-          environment: 'production',
-          availableLocales: ['sv-SE'],
-          availableMarkets: ['se'],
+        apiKey: 'key',
+        channelSettings: {
+          channelId: '1|se',
+          defaultLocale: 'sv-SE',
+          defaultMarket: 'se',
+          locales: ['sv-SE'],
+          markets: ['se'],
         },
         mode: 'commerce',
         theme: {
@@ -557,7 +519,6 @@ describe('StoreSettingsSchema', () => {
         },
         branding: { name: 'Test', watermark: 'full' },
         features: {},
-        isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       };
@@ -567,18 +528,15 @@ describe('StoreSettingsSchema', () => {
 
     it('still rejects unparseable garbage', () => {
       const config = {
-        tenantId: 'test',
+        accountName: 'acct',
         hostname: 'test.example.com',
-        geinsSettings: {
-          apiKey: 'key',
-          accountName: 'acct',
-          channel: '1',
-          tld: 'se',
-          locale: 'sv-SE',
-          market: 'se',
-          environment: 'production',
-          availableLocales: ['sv-SE'],
-          availableMarkets: ['se'],
+        apiKey: 'key',
+        channelSettings: {
+          channelId: '1|se',
+          defaultLocale: 'sv-SE',
+          defaultMarket: 'se',
+          locales: ['sv-SE'],
+          markets: ['se'],
         },
         mode: 'commerce',
         theme: {
@@ -594,7 +552,6 @@ describe('StoreSettingsSchema', () => {
         },
         branding: { name: 'Test', watermark: 'full' },
         features: {},
-        isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       };
@@ -754,18 +711,15 @@ describe('StoreSettingsSchema seo with real merchant API shape', () => {
   // keywords sent as a comma string, blank description, empty title template.
   function withSeo(seo: unknown) {
     return {
-      tenantId: 'real',
+      accountName: 'acct',
       hostname: 'real.litium.store',
-      geinsSettings: {
-        apiKey: 'key',
-        accountName: 'acct',
-        channel: '1',
-        tld: 'se',
-        locale: 'sv-SE',
-        market: 'se',
-        environment: 'production' as const,
-        availableLocales: ['sv-SE'],
-        availableMarkets: ['se'],
+      apiKey: 'key',
+      channelSettings: {
+        channelId: '1|se',
+        defaultLocale: 'sv-SE',
+        defaultMarket: 'se',
+        locales: ['sv-SE'],
+        markets: ['se'],
       },
       mode: 'commerce' as const,
       theme: {
@@ -781,7 +735,6 @@ describe('StoreSettingsSchema seo with real merchant API shape', () => {
       branding: { name: 'Real', watermark: 'minimal' as const },
       features: {},
       seo,
-      isActive: true,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
@@ -1131,11 +1084,10 @@ describe('parseOklch / formatOklch', () => {
 });
 
 describe('readChannelSettings', () => {
-  const account = { accountName: 'monitor', apiKey: 'key' };
-
-  it('reads the root account and channelSettings into the internal shape', () => {
-    const result = readChannelSettings(account, {
+  it('keeps the channel, locale and market fields under their API names', () => {
+    const result = readChannelSettings({
       channelId: '2|se',
+      channelName: 'monitor.store',
       defaultHostName: 'beta.sales-portal.geins.dev',
       hostNames: ['beta.sales-portal.geins.dev', 'beta.example'],
       defaultLocale: 'sv-SE',
@@ -1145,36 +1097,18 @@ describe('readChannelSettings', () => {
     });
 
     expect(result).toEqual({
-      apiKey: 'key',
-      accountName: 'monitor',
-      channel: '2',
-      tld: 'se',
-      locale: 'sv-SE',
-      market: 'se',
-      availableLocales: ['sv-SE'],
-      availableMarkets: ['se'],
+      channelId: '2|se',
+      defaultLocale: 'sv-SE',
+      defaultMarket: 'se',
+      locales: ['sv-SE'],
+      markets: ['se'],
     });
-  });
-
-  it('should split channelId into channel and tld', () => {
-    const result = readChannelSettings(account, {
-      channelId: '5|dk',
-      defaultLocale: 'da-DK',
-      defaultMarket: 'dk',
-      locales: ['da-DK', 'en-US'],
-      markets: ['dk', 'se'],
-    });
-
-    expect(result.channel).toBe('5');
-    expect(result.tld).toBe('dk');
-    expect(result.availableLocales).toEqual(['da-DK', 'en-US']);
-    expect(result.availableMarkets).toEqual(['dk', 'se']);
   });
 
   it.each([undefined, null])(
     'should read locales/markets sent as %s as empty lists',
     (value) => {
-      const result = readChannelSettings(account, {
+      const result = readChannelSettings({
         channelId: '1|se',
         defaultLocale: 'sv-SE',
         defaultMarket: 'se',
@@ -1182,10 +1116,39 @@ describe('readChannelSettings', () => {
         markets: value,
       });
 
-      expect(result.availableLocales).toEqual([]);
-      expect(result.availableMarkets).toEqual([]);
+      expect(result.locales).toEqual([]);
+      expect(result.markets).toEqual([]);
     },
   );
+});
+
+describe('ChannelSettingsSchema channelId', () => {
+  const channel = {
+    defaultLocale: 'sv-SE',
+    defaultMarket: 'se',
+  };
+
+  it.each(['1|se', '|', '1|se|x'])('accepts %s', (channelId) => {
+    expect(
+      ChannelSettingsSchema.safeParse({ ...channel, channelId }).success,
+    ).toBe(true);
+  });
+
+  it('reads absent locales and markets as empty lists', () => {
+    const parsed = ChannelSettingsSchema.parse({
+      ...channel,
+      channelId: '1|se',
+    });
+    expect(parsed.locales).toEqual([]);
+    expect(parsed.markets).toEqual([]);
+  });
+
+  // Today's channel without a tld did not resolve either: the split left no tld.
+  it.each(['1', ''])('rejects %s, which has no tld', (channelId) => {
+    expect(
+      ChannelSettingsSchema.safeParse({ ...channel, channelId }).success,
+    ).toBe(false);
+  });
 });
 
 describe('generateFontCss', () => {
@@ -1368,18 +1331,15 @@ describe('StoreSettingsSchema timezone', () => {
 
 function createMinimalConfig(overrides: Record<string, unknown> = {}) {
   return {
-    tenantId: 'test',
+    accountName: 'acct',
     hostname: 'test.example.com',
-    geinsSettings: {
-      apiKey: 'key',
-      accountName: 'acct',
-      channel: '1',
-      tld: 'se',
-      locale: 'sv-SE',
-      market: 'se',
-      environment: 'production',
-      availableLocales: ['sv-SE'],
-      availableMarkets: ['se'],
+    apiKey: 'key',
+    channelSettings: {
+      channelId: '1|se',
+      defaultLocale: 'sv-SE',
+      defaultMarket: 'se',
+      locales: ['sv-SE'],
+      markets: ['se'],
     },
     mode: 'commerce',
     theme: {
@@ -1395,7 +1355,6 @@ function createMinimalConfig(overrides: Record<string, unknown> = {}) {
     },
     branding: { name: 'Test', watermark: 'full' },
     features: {},
-    isActive: true,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,

@@ -88,15 +88,15 @@ const cachedResolver = defineCachedEventHandler(
     // never resolves. Prefix-less paths have no market/locale segments, so
     // resolvedLocaleMarket stays unset and default-locale behaviour is kept.
     const prefix = parseLocaleMarketPrefix(path);
-    const geinsSettings = (
+    const channelSettings = (
       event.context.tenant?.config as TenantConfig | undefined
-    )?.geinsSettings;
-    if (prefix && geinsSettings) {
+    )?.channelSettings;
+    if (prefix && channelSettings) {
       const { resolved } = resolveLocaleMarket(prefix, {
-        availableLocales: geinsSettings.availableLocales,
-        availableMarkets: geinsSettings.availableMarkets,
-        defaultLocale: geinsSettings.locale,
-        defaultMarket: geinsSettings.market,
+        availableLocales: channelSettings.locales,
+        availableMarkets: channelSettings.markets,
+        defaultLocale: channelSettings.defaultLocale,
+        defaultMarket: channelSettings.defaultMarket,
       });
       event.context.resolvedLocaleMarket = resolved;
     }
