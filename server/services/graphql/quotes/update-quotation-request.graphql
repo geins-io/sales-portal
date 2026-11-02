@@ -1,0 +1,22 @@
+mutation updateQuotationRequest(
+  $quotationId: Guid!
+  $request: UpdateQuotationRequestInputType!
+  $languageId: String
+) {
+  updateQuotationRequest(
+    quotationId: $quotationId
+    request: $request
+    languageId: $languageId
+  ) {
+    id
+    items {
+      ...QuotationCartItem
+    }
+    summary {
+      ...QuotationCartSummary
+    }
+    quotation {
+      ...QuotationWithAddresses
+    }
+  }
+}

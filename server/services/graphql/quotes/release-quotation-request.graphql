@@ -1,0 +1,14 @@
+mutation releaseQuotationRequest($quotationId: Guid!, $languageId: String) {
+  releaseQuotationRequest(quotationId: $quotationId, languageId: $languageId) {
+    id
+    items {
+      ...QuotationCartItem
+    }
+    summary {
+      ...QuotationCartSummary
+    }
+    quotation {
+      ...QuotationWithAddresses
+    }
+  }
+}

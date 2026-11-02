@@ -809,4 +809,218 @@ describe('quotes service', () => {
       expect(mockGraphqlQuery).not.toHaveBeenCalled();
     });
   });
+
+  // -------------------------------------------------------------------------
+  // createQuoteRequest / updateQuoteRequest / releaseQuoteRequest
+  // -------------------------------------------------------------------------
+  // Geins answers the request mutations with the quotation's cart, so there is
+  // no second read. Shape as measured on a registered tenant: the draft gets
+  // its own id, a number at once, and the cart's lines.
+  describe('quote requests', () => {
+    const draftCart = (status: string) => ({
+      ...makeRawQuotationCart({
+        status,
+        quotationNumber: '2611-2-0001-00',
+        name: 'Varukorg 2 nov 2026',
+      }),
+      id: 'draft-001',
+    });
+
+    describe('createQuoteRequest', () => {
+      it('creates a draft from the cart and returns it mapped', async () => {
+        mockGraphqlMutation.mockResolvedValueOnce({
+          createQuotationRequest: draftCart('REQUEST_DRAFT'),
+        });
+
+        const result = await quotesService.createQuoteRequest(
+          'cart-abc',
+          'Varukorg 2 nov 2026',
+          mockEvent,
+        );
+
+        expect(mockGraphqlMutation).toHaveBeenCalledWith(
+          expect.objectContaining({
+            queryAsString: 'query:quotes/create-quotation-request.graphql',
+            userToken: 'test-user-token',
+            variables: {
+              request: {
+                cartId: 'cart-abc',
+                name: 'Varukorg 2 nov 2026',
+                draft: true,
+              },
+              channelId: '1|se',
+              languageId: 'sv-SE',
+              marketId: 'se',
+            },
+          }),
+        );
+        expect(mockGraphqlQuery).not.toHaveBeenCalled();
+        expect(result).toMatchObject({
+          id: 'draft-001',
+          quoteNumber: '2611-2-0001-00',
+          status: 'request_draft',
+          name: 'Varukorg 2 nov 2026',
+        });
+        expect(result.lineItems).toHaveLength(1);
+      });
+    });
+
+    describe('updateQuoteRequest', () => {
+      it('sends the details and never the lines', async () => {
+        mockGraphqlMutation.mockResolvedValueOnce({
+          updateQuotationRequest: draftCart('REQUEST_DRAFT'),
+        });
+        const details = {
+          comment: 'Leverans till lager B',
+          desiredDeliveryDate: '2026-12-15',
+          customerReference: 'PO-7781',
+        };
+
+        const result = await quotesService.updateQuoteRequest(
+          'draft-001',
+          details,
+          mockEvent,
+        );
+
+        const call = mockGraphqlMutation.mock.calls[0]![0];
+        expect(call).toMatchObject({
+          queryAsString: 'query:quotes/update-quotation-request.graphql',
+          userToken: 'test-user-token',
+          variables: {
+            quotationId: 'draft-001',
+            request: {
+              comment: 'Leverans till lager B',
+              // Geins takes a DateTimeOffset and refuses a bare date as
+              // INVALID_VALUE; the day is sent as its UTC midnight.
+              desiredDeliveryDate: '2026-12-15T00:00:00Z',
+              customerReference: 'PO-7781',
+            },
+            languageId: 'sv-SE',
+          },
+        });
+        expect(call.variables.request).not.toHaveProperty('items');
+        expect(result).toMatchObject({
+          id: 'draft-001',
+          status: 'request_draft',
+        });
+      });
+    });
+
+    it('sends no date when the buyer gave none', async () => {
+      mockGraphqlMutation.mockResolvedValueOnce({
+        updateQuotationRequest: draftCart('REQUEST_DRAFT'),
+      });
+
+      await quotesService.updateQuoteRequest(
+        'draft-001',
+        { comment: 'Bara en kommentar' },
+        mockEvent,
+      );
+
+      expect(mockGraphqlMutation.mock.calls[0]![0].variables.request).toEqual({
+        comment: 'Bara en kommentar',
+      });
+    });
+
+    describe('releaseQuoteRequest', () => {
+      it('sends the draft and returns it requested', async () => {
+        mockGraphqlMutation.mockResolvedValueOnce({
+          releaseQuotationRequest: draftCart('REQUESTED'),
+        });
+
+        const result = await quotesService.releaseQuoteRequest(
+          'draft-001',
+          mockEvent,
+        );
+
+        expect(mockGraphqlMutation).toHaveBeenCalledWith(
+          expect.objectContaining({
+            queryAsString: 'query:quotes/release-quotation-request.graphql',
+            userToken: 'test-user-token',
+            variables: { quotationId: 'draft-001', languageId: 'sv-SE' },
+          }),
+        );
+        expect(result).toMatchObject({ id: 'draft-001', status: 'requested' });
+      });
+    });
+
+    describe.each([
+      {
+        name: 'createQuoteRequest',
+        field: 'createQuotationRequest',
+        run: () =>
+          quotesService.createQuoteRequest('cart-abc', 'Varukorg', mockEvent),
+      },
+      {
+        name: 'updateQuoteRequest',
+        field: 'updateQuotationRequest',
+        run: () =>
+          quotesService.updateQuoteRequest(
+            'draft-001',
+            { comment: 'x' },
+            mockEvent,
+          ),
+      },
+      {
+        name: 'releaseQuoteRequest',
+        field: 'releaseQuotationRequest',
+        run: () => quotesService.releaseQuoteRequest('draft-001', mockEvent),
+      },
+    ])('$name', ({ field, run }) => {
+      it('asks for no timeout: a write may finish upstream after a cut', async () => {
+        mockGraphqlMutation.mockResolvedValueOnce({
+          [field]: draftCart('REQUEST_DRAFT'),
+        });
+
+        await run();
+
+        expect(mockGraphqlMutation.mock.calls[0]![0]).toMatchObject({
+          requestOptions: { context: { timeoutMs: 0 } },
+        });
+      });
+
+      // Geins answers a refusal ("Cart not found.") as an error with null data.
+      it('fails as an external API error when Geins answers no quotation', async () => {
+        mockGraphqlMutation.mockResolvedValueOnce({ [field]: null });
+
+        await expect(run()).rejects.toMatchObject({
+          code: 'EXTERNAL_API_ERROR',
+          message: expect.stringMatching(/quotation-request\.graphql$/),
+        });
+      });
+
+      it('names the quotes service for the error mapping', async () => {
+        mockGraphqlMutation.mockResolvedValueOnce({
+          [field]: draftCart('REQUEST_DRAFT'),
+        });
+
+        await run();
+
+        expect(wrapServiceCall).toHaveBeenCalledWith(
+          expect.any(Function),
+          'quotes',
+        );
+      });
+
+      it('sends no user token when the request carries no context', async () => {
+        const { buildRequestContext } =
+          await import('../../../server/services/_sdk');
+        vi.mocked(buildRequestContext).mockReturnValueOnce(undefined);
+        mockGraphqlMutation.mockResolvedValueOnce({
+          [field]: draftCart('REQUEST_DRAFT'),
+        });
+
+        await run();
+
+        expect(mockGraphqlMutation.mock.calls[0]![0].userToken).toBeUndefined();
+      });
+
+      it('passes a Geins error on', async () => {
+        const geinsError = new Error('Geins refused');
+        mockGraphqlMutation.mockRejectedValueOnce(geinsError);
+
+        await expect(run()).rejects.toBe(geinsError);
+      });
+    });
+  });
 });

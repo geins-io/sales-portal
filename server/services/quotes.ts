@@ -138,6 +138,26 @@ interface RawQuotationCart {
   quotation?: RawQuotation;
 }
 
+// The request mutations' inputs; `@geins/types` does not have them yet.
+
+/** `CreateQuotationRequestInputType` */
+interface RawCreateQuotationRequestInput {
+  cartId: string;
+  name: string;
+  draft: boolean;
+}
+
+/**
+ * `UpdateQuotationRequestInputType`, without `items`: Geins takes them as the
+ * whole new list of lines, and leaving them out keeps the lines.
+ */
+export interface QuoteRequestDetails {
+  comment?: string;
+  /** A calendar day, `YYYY-MM-DD` */
+  desiredDeliveryDate?: string;
+  customerReference?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Status mapping
 // ---------------------------------------------------------------------------
@@ -449,4 +469,94 @@ export function rejectQuote(quoteId: string, event: H3Event): Promise<Quote> {
 /** Place the order for a quotation; Geins builds it from the quotation's cart */
 export function finalizeQuote(quoteId: string, event: H3Event): Promise<Quote> {
   return respondToQuote('quotes/finalize-quotation.graphql', quoteId, event);
+}
+
+type ChannelVariables = ReturnType<typeof getRequestChannelVariables>;
+
+/**
+ * Run a quotation request mutation. Geins answers with the quotation's cart,
+ * so it is mapped as it comes, without a second read.
+ */
+async function requestMutation(
+  queryFile: string,
+  variables: (channel: ChannelVariables) => Record<string, unknown>,
+  event: H3Event,
+): Promise<Quote> {
+  const sdk = await getTenantSDK(event);
+  const requestContext = buildRequestContext(event);
+  const channel = getRequestChannelVariables(sdk, event);
+  const result = await wrapServiceCall(
+    () =>
+      sdk.core.graphql.mutation({
+        queryAsString: loadQuery(queryFile),
+        variables: variables(channel),
+        userToken: requestContext?.userToken,
+        // No timeout: a request Geins makes after a cut would read as failed.
+        requestOptions: { context: { timeoutMs: 0 } },
+      }),
+    'quotes',
+  );
+  const cart = unwrapGraphQL(result) as RawQuotationCart | null;
+  if (!cart) {
+    throw createAppError(
+      ErrorCode.EXTERNAL_API_ERROR,
+      `Geins answered no quotation for ${queryFile}`,
+    );
+  }
+  return mapQuotationCartToQuote(cart);
+}
+
+/** A new `REQUEST_DRAFT` with the cart's lines; Geins leaves the cart as it is */
+export function createQuoteRequest(
+  cartId: string,
+  name: string,
+  event: H3Event,
+): Promise<Quote> {
+  const request: RawCreateQuotationRequestInput = {
+    cartId,
+    name,
+    draft: true,
+  };
+  // The cart belongs to a channel and market, so the request is made in them.
+  return requestMutation(
+    'quotes/create-quotation-request.graphql',
+    ({ channelId, languageId, marketId }) => ({
+      request,
+      channelId,
+      languageId,
+      marketId,
+    }),
+    event,
+  );
+}
+
+/** Write the request's details on a `REQUEST_DRAFT`; its lines are kept */
+export function updateQuoteRequest(
+  quoteId: string,
+  details: QuoteRequestDetails,
+  event: H3Event,
+): Promise<Quote> {
+  const { desiredDeliveryDate, ...rest } = details;
+  // Geins takes a DateTimeOffset and refuses a bare date; the day goes as its
+  // UTC midnight, the instant an order's desired delivery date is sent as.
+  const request = desiredDeliveryDate
+    ? { ...rest, desiredDeliveryDate: `${desiredDeliveryDate}T00:00:00Z` }
+    : rest;
+  return requestMutation(
+    'quotes/update-quotation-request.graphql',
+    ({ languageId }) => ({ quotationId: quoteId, request, languageId }),
+    event,
+  );
+}
+
+/** Send a `REQUEST_DRAFT` to the seller: it becomes `REQUESTED` */
+export function releaseQuoteRequest(
+  quoteId: string,
+  event: H3Event,
+): Promise<Quote> {
+  return requestMutation(
+    'quotes/release-quotation-request.graphql',
+    ({ languageId }) => ({ quotationId: quoteId, languageId }),
+    event,
+  );
 }

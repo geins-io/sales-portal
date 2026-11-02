@@ -335,6 +335,20 @@ export const ListQuotesSchema = z.object({
 });
 export type ListQuotesInput = z.infer<typeof ListQuotesSchema>;
 
+// No cart id: the request is made from the cart in the buyer's cart cookie.
+export const CreateQuoteRequestSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+});
+export type CreateQuoteRequestInput = z.infer<typeof CreateQuoteRequestSchema>;
+
+// Never `items`: Geins takes them as the whole new list of lines.
+export const UpdateQuoteRequestSchema = z.object({
+  comment: z.string().max(2000).optional(),
+  desiredDeliveryDate: z.iso.date().optional(),
+  customerReference: z.string().trim().max(50).optional(),
+});
+export type UpdateQuoteRequestInput = z.infer<typeof UpdateQuoteRequestSchema>;
+
 // Saved-list schemas removed — saved lists are entirely client-side
 // (SDK ListsSession + localStorage). See `docs/patterns/lists.md`.
 
