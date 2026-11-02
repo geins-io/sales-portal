@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { mount } from '@vue/test-utils';
-import { ref, computed, onMounted } from 'vue';
+import { mount, flushPromises } from '@vue/test-utils';
+import { ref, computed, onMounted, defineComponent, h, Suspense } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 
 // ---------------------------------------------------------------------------
@@ -78,19 +78,13 @@ vi.mock('../../../app/composables/useVatDisplay', () => ({
   useVatDisplay: () => ({ showIncVat: computed(() => mockShowIncVat.value) }),
 }));
 
-// Mock callOnce — calls the factory function synchronously (mirrors Nuxt's callOnce)
-vi.stubGlobal(
-  'callOnce',
-  vi.fn((_key: string, fn: () => unknown) => {
-    fn();
-  }),
-);
+// Like Nuxt's callOnce on a first call: resolves once the factory's promise has.
+async function callOnceStub(_key: string, fn: () => unknown) {
+  await fn();
+}
+vi.stubGlobal('callOnce', vi.fn(callOnceStub));
 
-vi.mock('#app/composables/once', () => ({
-  callOnce: (_key: string, fn: () => unknown) => {
-    fn();
-  },
-}));
+vi.mock('#app/composables/once', () => ({ callOnce: callOnceStub }));
 
 // ---------------------------------------------------------------------------
 // Mock useFetch — URL-aware so each endpoint can be controlled independently
@@ -213,6 +207,19 @@ const stubs = {
 // ---------------------------------------------------------------------------
 const PortalOverviewPage = await import('../../../app/pages/portal/index.vue');
 
+// The page awaits its quotes load in setup, so it only renders inside Suspense.
+async function mountPage() {
+  const wrapper = mount(
+    defineComponent({
+      setup: () => () =>
+        h(Suspense, null, { default: () => h(PortalOverviewPage.default) }),
+    }),
+    { global: { stubs } },
+  );
+  await flushPromises();
+  return wrapper;
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -238,22 +245,18 @@ describe('Portal Overview page', () => {
   // -------------------------------------------------------------------------
   // Stat card — pending count
   // -------------------------------------------------------------------------
-  it('shows 0 in stat card when no pending quotes', () => {
+  it('shows 0 in stat card when no pending quotes', async () => {
     mockPendingCount = 0;
-    const wrapper = mount(PortalOverviewPage.default, {
-      global: { stubs },
-    });
+    const wrapper = await mountPage();
 
     const cards = wrapper.findAll('[data-testid="portal-stat-card"]');
     const quotationCard = cards[0];
     expect(quotationCard?.attributes('data-count')).toBe('0');
   });
 
-  it('shows real pending count in stat card', () => {
+  it('shows real pending count in stat card', async () => {
     mockPendingCount = 3;
-    const wrapper = mount(PortalOverviewPage.default, {
-      global: { stubs },
-    });
+    const wrapper = await mountPage();
 
     const cards = wrapper.findAll('[data-testid="portal-stat-card"]');
     const quotationCard = cards[0];
@@ -263,22 +266,18 @@ describe('Portal Overview page', () => {
   // -------------------------------------------------------------------------
   // Stat card — dot indicator
   // -------------------------------------------------------------------------
-  it('hides dot when no pending quotes', () => {
+  it('hides dot when no pending quotes', async () => {
     mockPendingCount = 0;
-    const wrapper = mount(PortalOverviewPage.default, {
-      global: { stubs },
-    });
+    const wrapper = await mountPage();
 
     const cards = wrapper.findAll('[data-testid="portal-stat-card"]');
     const quotationCard = cards[0];
     expect(quotationCard?.attributes('data-show-dot')).toBe('false');
   });
 
-  it('shows dot when there are pending quotes', () => {
+  it('shows dot when there are pending quotes', async () => {
     mockPendingCount = 2;
-    const wrapper = mount(PortalOverviewPage.default, {
-      global: { stubs },
-    });
+    const wrapper = await mountPage();
 
     const cards = wrapper.findAll('[data-testid="portal-stat-card"]');
     const quotationCard = cards[0];
@@ -288,17 +287,15 @@ describe('Portal Overview page', () => {
   // -------------------------------------------------------------------------
   // Pending quotations section — empty state
   // -------------------------------------------------------------------------
-  it('shows empty state when no pending quotes', () => {
+  it('shows empty state when no pending quotes', async () => {
     mockPendingQuotes = [];
-    const wrapper = mount(PortalOverviewPage.default, {
-      global: { stubs },
-    });
+    const wrapper = await mountPage();
 
     const emptyState = wrapper.find('[data-testid="pending-quotations-empty"]');
     expect(emptyState.exists()).toBe(true);
   });
 
-  it('hides empty state when pending quotes exist', () => {
+  it('hides empty state when pending quotes exist', async () => {
     mockPendingQuotes = [
       {
         id: 'q1',
@@ -310,9 +307,7 @@ describe('Portal Overview page', () => {
       },
     ];
     mockPendingCount = 1;
-    const wrapper = mount(PortalOverviewPage.default, {
-      global: { stubs },
-    });
+    const wrapper = await mountPage();
 
     const emptyState = wrapper.find('[data-testid="pending-quotations-empty"]');
     expect(emptyState.exists()).toBe(false);
@@ -321,7 +316,7 @@ describe('Portal Overview page', () => {
   // -------------------------------------------------------------------------
   // Pending quotations section — quote list
   // -------------------------------------------------------------------------
-  it('renders pending quote rows', () => {
+  it('renders pending quote rows', async () => {
     mockPendingQuotes = [
       {
         id: 'q1',
@@ -342,9 +337,7 @@ describe('Portal Overview page', () => {
     ];
     mockPendingCount = 2;
 
-    const wrapper = mount(PortalOverviewPage.default, {
-      global: { stubs },
-    });
+    const wrapper = await mountPage();
 
     const rows = wrapper
       .find('table')
@@ -352,7 +345,7 @@ describe('Portal Overview page', () => {
     expect(rows).toHaveLength(2);
   });
 
-  it('shows quote number, status, and total in each row', () => {
+  it('shows quote number, status, and total in each row', async () => {
     mockPendingQuotes = [
       {
         id: 'q1',
@@ -365,9 +358,7 @@ describe('Portal Overview page', () => {
     ];
     mockPendingCount = 1;
 
-    const wrapper = mount(PortalOverviewPage.default, {
-      global: { stubs },
-    });
+    const wrapper = await mountPage();
 
     const row = wrapper.find('table').find('[data-testid="pending-quote-row"]');
     expect(row.text()).toContain('Q-1001');
@@ -375,7 +366,7 @@ describe('Portal Overview page', () => {
     expect(row.text()).toContain('portal.quotations.status_pending');
   });
 
-  it('caps displayed quotes at 5', () => {
+  it('caps displayed quotes at 5', async () => {
     mockPendingQuotes = [
       {
         id: 'q1',
@@ -428,9 +419,7 @@ describe('Portal Overview page', () => {
     ];
     mockPendingCount = 6;
 
-    const wrapper = mount(PortalOverviewPage.default, {
-      global: { stubs },
-    });
+    const wrapper = await mountPage();
 
     const rows = wrapper
       .find('table')
@@ -441,10 +430,48 @@ describe('Portal Overview page', () => {
   // -------------------------------------------------------------------------
   // fetchQuotes called on mount
   // -------------------------------------------------------------------------
-  it('calls fetchQuotes on mount', () => {
-    mount(PortalOverviewPage.default, {
-      global: { stubs },
-    });
+  it('renders only after the quotes load has finished', async () => {
+    let finishLoad!: () => void;
+    mockFetchQuotes = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishLoad = () => {
+            mockPendingQuotes = [
+              {
+                id: 'q1',
+                quoteNumber: 'Q-1001',
+                contactName: 'Jane Doe',
+                status: 'pending',
+                totalFormatted: 'SEK 1,000',
+                createdAt: '2026-01-15T10:00:00Z',
+              },
+            ];
+            mockPendingCount = 1;
+            resolve();
+          };
+        }),
+    );
+
+    const wrapper = await mountPage();
+    expect(wrapper.find('[data-testid="portal-shell"]').exists()).toBe(false);
+
+    finishLoad();
+    await flushPromises();
+    expect(
+      wrapper.find('[data-testid="pending-quotations-empty"]').exists(),
+    ).toBe(false);
+    expect(
+      wrapper.find('table').findAll('[data-testid="pending-quote-row"]'),
+    ).toHaveLength(1);
+    expect(
+      wrapper
+        .findAll('[data-testid="portal-stat-card"]')[0]
+        ?.attributes('data-count'),
+    ).toBe('1');
+  });
+
+  it('calls fetchQuotes on mount', async () => {
+    await mountPage();
 
     expect(mockFetchQuotes).toHaveBeenCalledTimes(1);
   });
@@ -452,7 +479,7 @@ describe('Portal Overview page', () => {
   // -------------------------------------------------------------------------
   // Purchased products section — Figma-aligned ProductCard usage
   // -------------------------------------------------------------------------
-  it('renders purchased products as ProductCard components', () => {
+  it('renders purchased products as ProductCard components', async () => {
     mockProductsData = {
       products: [
         {
@@ -470,9 +497,7 @@ describe('Portal Overview page', () => {
       total: 1,
     };
 
-    const wrapper = mount(PortalOverviewPage.default, {
-      global: { stubs },
-    });
+    const wrapper = await mountPage();
 
     const cards = wrapper.findAll('[data-testid="purchased-product-card"]');
     expect(cards).toHaveLength(1);
@@ -480,7 +505,7 @@ describe('Portal Overview page', () => {
     expect(cards[0]?.find('[data-testid="product-card"]').exists()).toBe(true);
   });
 
-  it('passes mapped PurchasedProduct data to ProductCard', () => {
+  it('passes mapped PurchasedProduct data to ProductCard', async () => {
     mockShowIncVat.value = false;
     mockProductsData = {
       products: [
@@ -497,15 +522,13 @@ describe('Portal Overview page', () => {
         },
       ],
     };
-    const wrapper = mount(PortalOverviewPage.default, {
-      global: { stubs },
-    });
+    const wrapper = await mountPage();
     const card = wrapper.find('[data-testid="product-card"]');
     expect(card.attributes('data-name')).toBe('Hammer');
     expect(card.attributes('data-price')).toBe('SEK 49.95');
   });
 
-  it("passes a purchased product's configurable flag to ProductCard", () => {
+  it("passes a purchased product's configurable flag to ProductCard", async () => {
     mockProductsData = {
       products: [
         {
@@ -522,18 +545,14 @@ describe('Portal Overview page', () => {
         },
       ],
     };
-    const wrapper = mount(PortalOverviewPage.default, {
-      global: { stubs },
-    });
+    const wrapper = await mountPage();
     const card = wrapper.findComponent({ name: 'ProductCard' });
     expect(card.props('product')).toMatchObject({ configurable: true });
   });
 
-  it('shows purchased products loading state', () => {
+  it('shows purchased products loading state', async () => {
     mockProductsPending = true;
-    const wrapper = mount(PortalOverviewPage.default, {
-      global: { stubs },
-    });
+    const wrapper = await mountPage();
     // Loading state appears as plain "common.loading" text in the products section
     expect(
       wrapper.find('[data-testid="purchased-products-grid"]').exists(),
@@ -543,10 +562,8 @@ describe('Portal Overview page', () => {
     ).toBe(false);
   });
 
-  it('renders purchased products empty state by default', () => {
-    const wrapper = mount(PortalOverviewPage.default, {
-      global: { stubs },
-    });
+  it('renders purchased products empty state by default', async () => {
+    const wrapper = await mountPage();
     const empty = wrapper.find('[data-testid="purchased-products-empty"]');
     expect(empty.exists()).toBe(true);
   });
@@ -558,12 +575,10 @@ describe('Portal Overview page', () => {
         ?.attributes('data-count');
     }
 
-    it('shows the error and retry, not the empty state, when the read fails', () => {
+    it('shows the error and retry, not the empty state, when the read fails', async () => {
       mockProductsData = null;
       mockProductsError = new Error('502');
-      const wrapper = mount(PortalOverviewPage.default, {
-        global: { stubs },
-      });
+      const wrapper = await mountPage();
       expect(
         wrapper.find('[data-testid="purchased-products-error"]').text(),
       ).toContain('portal.purchased_products.error_loading');
@@ -578,24 +593,20 @@ describe('Portal Overview page', () => {
       ).toBe(false);
     });
 
-    it('leaves the stat card without a number when the read fails', () => {
+    it('leaves the stat card without a number when the read fails', async () => {
       mockProductsData = null;
       mockProductsError = new Error('502');
-      const wrapper = mount(PortalOverviewPage.default, {
-        global: { stubs },
-      });
+      const wrapper = await mountPage();
       expect(productsStatCount(wrapper)).toBeUndefined();
     });
 
-    it('shows the error over products kept from an earlier read', () => {
+    it('shows the error over products kept from an earlier read', async () => {
       mockProductsData = {
         products: [{ name: 'Widget', articleNumber: 'W-1' }],
         total: 1,
       };
       mockProductsError = new Error('502');
-      const wrapper = mount(PortalOverviewPage.default, {
-        global: { stubs },
-      });
+      const wrapper = await mountPage();
       expect(
         wrapper.find('[data-testid="purchased-products-error"]').exists(),
       ).toBe(true);
@@ -608,9 +619,7 @@ describe('Portal Overview page', () => {
     it('refetches the purchased products on retry', async () => {
       mockProductsData = null;
       mockProductsError = new Error('502');
-      const wrapper = mount(PortalOverviewPage.default, {
-        global: { stubs },
-      });
+      const wrapper = await mountPage();
       await wrapper
         .find('[data-testid="purchased-products-retry"]')
         .trigger('click');
@@ -618,11 +627,9 @@ describe('Portal Overview page', () => {
       expect(mockOrdersRefresh).not.toHaveBeenCalled();
     });
 
-    it('shows the empty state and a 0 for an empty answer', () => {
+    it('shows the empty state and a 0 for an empty answer', async () => {
       mockProductsData = { products: [], total: 0 };
-      const wrapper = mount(PortalOverviewPage.default, {
-        global: { stubs },
-      });
+      const wrapper = await mountPage();
       expect(
         wrapper.find('[data-testid="purchased-products-empty"]').exists(),
       ).toBe(true);
@@ -632,14 +639,12 @@ describe('Portal Overview page', () => {
       expect(productsStatCount(wrapper)).toBe('0');
     });
 
-    it('shows the grid and the total for a filled answer', () => {
+    it('shows the grid and the total for a filled answer', async () => {
       mockProductsData = {
         products: [{ name: 'Widget', articleNumber: 'W-1' }],
         total: 47,
       };
-      const wrapper = mount(PortalOverviewPage.default, {
-        global: { stubs },
-      });
+      const wrapper = await mountPage();
       expect(
         wrapper.find('[data-testid="purchased-products-grid"]').exists(),
       ).toBe(true);
@@ -657,12 +662,10 @@ describe('Portal Overview page', () => {
         ?.attributes('data-count');
     }
 
-    it('shows the error and retry, not the orders table, when the read fails', () => {
+    it('shows the error and retry, not the orders table, when the read fails', async () => {
       mockOrdersData = null;
       mockOrdersError = new Error('502');
-      const wrapper = mount(PortalOverviewPage.default, {
-        global: { stubs },
-      });
+      const wrapper = await mountPage();
       expect(
         wrapper.find('[data-testid="latest-orders-error"]').text(),
       ).toContain('portal.orders.error_loading');
@@ -674,21 +677,17 @@ describe('Portal Overview page', () => {
       );
     });
 
-    it('leaves the stat card without a number when the read fails', () => {
+    it('leaves the stat card without a number when the read fails', async () => {
       mockOrdersData = null;
       mockOrdersError = new Error('502');
-      const wrapper = mount(PortalOverviewPage.default, {
-        global: { stubs },
-      });
+      const wrapper = await mountPage();
       expect(ordersStatCount(wrapper)).toBeUndefined();
     });
 
     it('refetches the orders on retry', async () => {
       mockOrdersData = null;
       mockOrdersError = new Error('502');
-      const wrapper = mount(PortalOverviewPage.default, {
-        global: { stubs },
-      });
+      const wrapper = await mountPage();
       await wrapper
         .find('[data-testid="latest-orders-retry"]')
         .trigger('click');
@@ -696,10 +695,8 @@ describe('Portal Overview page', () => {
       expect(mockProductsRefresh).not.toHaveBeenCalled();
     });
 
-    it('shows the orders table and a 0 for an empty answer', () => {
-      const wrapper = mount(PortalOverviewPage.default, {
-        global: { stubs },
-      });
+    it('shows the orders table and a 0 for an empty answer', async () => {
+      const wrapper = await mountPage();
       expect(wrapper.find('[data-testid="portal-orders-table"]').exists()).toBe(
         true,
       );
@@ -709,16 +706,14 @@ describe('Portal Overview page', () => {
       expect(ordersStatCount(wrapper)).toBe('0');
     });
 
-    it('counts the orders of a filled answer', () => {
+    it('counts the orders of a filled answer', async () => {
       mockOrdersData = {
         orders: [
           { id: 1, createdAt: '2026-01-01' },
           { id: 2, createdAt: '2026-01-02' },
         ],
       };
-      const wrapper = mount(PortalOverviewPage.default, {
-        global: { stubs },
-      });
+      const wrapper = await mountPage();
       expect(ordersStatCount(wrapper)).toBe('2');
     });
   });
@@ -739,9 +734,7 @@ describe('Portal Overview page', () => {
         },
       ],
     };
-    const wrapper = mount(PortalOverviewPage.default, {
-      global: { stubs },
-    });
+    const wrapper = await mountPage();
     const card = wrapper.findComponent({ name: 'ProductCard' });
     expect(card.exists()).toBe(true);
     // PurchasedProduct lacks skuId so the handler is a deliberate no-op
@@ -752,7 +745,7 @@ describe('Portal Overview page', () => {
   });
 
   describe('prices follow the VAT choice', () => {
-    function withQuoteAndProduct() {
+    async function withQuoteAndProduct() {
       mockPendingQuotes = [
         {
           id: 'q1',
@@ -782,9 +775,7 @@ describe('Portal Overview page', () => {
           },
         ],
       };
-      const wrapper = mount(PortalOverviewPage.default, {
-        global: { stubs },
-      });
+      const wrapper = await mountPage();
       return {
         quoteRows: wrapper
           .findAll('[data-testid="pending-quote-row"]')
@@ -795,17 +786,17 @@ describe('Portal Overview page', () => {
       };
     }
 
-    it('shows the quote total and product price inc VAT when inc is chosen', () => {
+    it('shows the quote total and product price inc VAT when inc is chosen', async () => {
       mockShowIncVat.value = true;
-      const { quoteRows, cardPrice } = withQuoteAndProduct();
+      const { quoteRows, cardPrice } = await withQuoteAndProduct();
       expect(quoteRows.length).toBeGreaterThan(0);
       for (const row of quoteRows) expect(row).toContain('625,00 kr');
       expect(cardPrice).toBe('50,00 kr');
     });
 
-    it('shows the quote total and product price ex VAT when ex is chosen', () => {
+    it('shows the quote total and product price ex VAT when ex is chosen', async () => {
       mockShowIncVat.value = false;
-      const { quoteRows, cardPrice } = withQuoteAndProduct();
+      const { quoteRows, cardPrice } = await withQuoteAndProduct();
       expect(quoteRows.length).toBeGreaterThan(0);
       for (const row of quoteRows) {
         expect(row).toContain('500,00 kr');
@@ -816,7 +807,7 @@ describe('Portal Overview page', () => {
 
     it.each([false, true])(
       'shows "-" for a product without a price (inc VAT: %s)',
-      (showIncVat) => {
+      async (showIncVat) => {
         mockShowIncVat.value = showIncVat;
         mockProductsData = {
           products: [
@@ -831,9 +822,7 @@ describe('Portal Overview page', () => {
             },
           ],
         };
-        const wrapper = mount(PortalOverviewPage.default, {
-          global: { stubs },
-        });
+        const wrapper = await mountPage();
         expect(
           wrapper.find('[data-testid="product-card"]').attributes('data-price'),
         ).toBe('-');
