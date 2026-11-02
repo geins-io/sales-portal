@@ -176,13 +176,13 @@ The storefront recognises the following keys from `appSettings.features` on the 
 | ------------------- | -------------------- | ----------------------------------------------------------------- |
 | `priceVisibility`   | `enabled` + `access` | Price displays across PLP, PDP, cart, checkout, variant selector  |
 | `stockStatus`       | `enabled` + `access` | Stock badges on PLP and PDP, stock chip in variant selector       |
-| `orderPlacement`    | `enabled` + `access` | Add-to-cart buttons on PLP, PDP, saved-list rows                  |
+| `orderPlacement`    | `enabled` + `access` | Add-to-cart on PLP, PDP, saved-list rows; quotation order page    |
 | `cart`              | `enabled` + `access` | Header cart icon, `/cart` route                                   |
 | `checkout`          | `enabled` + `access` | `/checkout` route                                                 |
 | `wishlist`          | `enabled` + `access` | Wishlist star on product cards and PDP, `/portal/favorites` route |
 | `lists`             | `enabled` + `access` | Add-to-list buttons, `/portal/lists`, `/portal/saved-lists/[id]`  |
 | `orderHistory`      | `enabled` + `access` | `/portal/orders`, `/portal/orders/[id]`                           |
-| `quotes`            | `enabled` + `access` | `/portal/quotations`, `/portal/quotations/[id]`                   |
+| `quotes`            | `enabled` + `access` | `/portal/quotations` and every page under it                      |
 | `reorder`           | `enabled` + `access` | Reorder button on order detail                                    |
 | `newsletter`        | `enabled` only       | Footer newsletter signup block                                    |
 | `applyForAccount`   | `enabled` only       | Topbar apply link, `/login` and auth-sheet apply sections         |

@@ -898,8 +898,6 @@
       "payment_terms": "Betalingsbetingelser",
       "sale_contact": "Vår kontaktperson",
       "customer_info": "Kundeinformasjon",
-      "org_number": "Org.nr.",
-      "vat_number": "Mva.-nr.",
       "invoice_address": "Fakturaadresse",
       "delivery_address": "Leveringsadresse",
       "error_loading": "Kunne ikke laste tilbud. Prøv igjen.",
@@ -943,7 +941,21 @@
       "status_info_finalized": "Ordren er lagt inn fra dette tilbudet.",
       "status_info_rejected": "Du takket nei, og det er avsluttet.",
       "status_info_canceled": "Selgeren din har kansellert det.",
-      "status_info_expired": "Tilbudet har utløpt. Kontakt selgeren din hvis du vil ha et nytt."
+      "status_info_expired": "Tilbudet har utløpt. Kontakt selgeren din hvis du vil ha et nytt.",
+      "order": {
+        "heading": "Bestill fra tilbud – {name}",
+        "back": "Tilbake til tilbudet",
+        "banner_title": "Du bestiller fra tilbud {number}",
+        "banner_body": "Priser, antall, frakt og betingelser kommer fra tilbudet og kan ikke endres her.",
+        "card_company": "Firma",
+        "card_addresses": "Adresser",
+        "addresses_locked": "Adressene kommer fra tilbudet. Kontakt selgeren din hvis noe må endres.",
+        "card_payment": "Betaling",
+        "invoice": "Faktura",
+        "terms_required": "Godta betingelsene for å legge inn ordren.",
+        "valid_until": "Tilbudet gjelder til {date}.",
+        "failed": "Ordren kunne ikke legges inn. Prøv igjen."
+      }
     },
     "favorites": {
       "title": "Favoritter",

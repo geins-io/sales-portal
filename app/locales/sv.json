@@ -898,8 +898,6 @@
       "payment_terms": "Betalningsvillkor",
       "sale_contact": "Vår kontakt",
       "customer_info": "Kundinformation",
-      "org_number": "Org.nr",
-      "vat_number": "Momsregnr",
       "invoice_address": "Fakturaadress",
       "delivery_address": "Leveransadress",
       "error_loading": "Det gick inte att ladda offerter. Försök igen.",
@@ -943,7 +941,21 @@
       "status_info_finalized": "Ordern är lagd från den här offerten.",
       "status_info_rejected": "Du avstod, och den är avslutad.",
       "status_info_canceled": "Din säljare har avbrutit den.",
-      "status_info_expired": "Offerten har gått ut. Kontakta din säljare om du vill ha en ny."
+      "status_info_expired": "Offerten har gått ut. Kontakta din säljare om du vill ha en ny.",
+      "order": {
+        "heading": "Beställ från offert – {name}",
+        "back": "Tillbaka till offerten",
+        "banner_title": "Du beställer från offert {number}",
+        "banner_body": "Priser, antal, frakt och villkor kommer från offerten och kan inte ändras här.",
+        "card_company": "Företag",
+        "card_addresses": "Adresser",
+        "addresses_locked": "Adresserna kommer från offerten. Kontakta din säljare om något behöver ändras.",
+        "card_payment": "Betalning",
+        "invoice": "Faktura",
+        "terms_required": "Godkänn villkoren för att lägga ordern.",
+        "valid_until": "Offerten gäller till {date}.",
+        "failed": "Det gick inte att lägga ordern. Försök igen."
+      }
     },
     "favorites": {
       "title": "Favoriter",

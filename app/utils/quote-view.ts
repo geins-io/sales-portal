@@ -138,6 +138,23 @@ export function quoteAcceptKind(
   return quote.requiresConfirmation ? 'confirm' : 'plain';
 }
 
+/**
+ * Whether the buyer may place the order now. Monitor places its own; a
+ * quotation that needs confirmation waits for the seller's.
+ */
+export function quoteCanOrder(
+  quote: Pick<Quote, 'status' | 'externalReference' | 'requiresConfirmation'>,
+): boolean {
+  switch (quoteAcceptKind(quote)) {
+    case 'monitor':
+      return false;
+    case 'confirm':
+      return quote.status === 'confirmed';
+    default:
+      return quote.status === 'pending' || quote.status === 'accepted';
+  }
+}
+
 /** The answers the buyer can give in a status. */
 export interface QuoteResponses {
   withdraw: boolean;

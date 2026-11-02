@@ -236,20 +236,21 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 
 Authenticated user portal at `/portal/`:
 
-| Page                | Route                          | Features                                                                                                                                      |
-| ------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Overview            | `/portal`                      | Stat cards, latest orders, pending quotes, saved lists, purchased products                                                                    |
-| Orders              | `/portal/orders`               | Order history table, search, pagination, status badges                                                                                        |
-| Order Detail        | `/portal/orders/[id]`          | Items table, summary sidebar, addresses, reorder button                                                                                       |
-| Quotations          | `/portal/quotations`           | Quote list (real Geins GraphQL), search, pagination, a status pill per API quotation status                                                   |
-| Quotation Detail    | `/portal/quotations/[id]`      | Items table, shipping/tax summary, customer info, invoice/delivery address blocks, accept/decline with error banner, back link, section icons |
-| Products            | `/portal/products`             | Purchased product history, aggregated from orders                                                                                             |
-| Saved Lists         | `/portal/lists`                | List of named lists. Client-only via SDK ListsSession (localStorage). Create + open detail.                                                   |
-| List Detail         | `/portal/saved-lists/[id]`     | Items as ProductCards. Add-all-to-cart, rename, delete, remove items. Items are product aliases — fresh product data fetched at render time.  |
-| Account             | `/portal/account`              | User profile form                                                                                                                             |
-| Organisation        | `/portal/organisation`         | Company details via `/api/portal/company`                                                                                                     |
-| Organisation People | `/portal/organisation/persons` | People belonging to the company                                                                                                               |
-| Favorites           | `/portal/favorites`            | Wishlist via SDK ListsSession (same store as saved lists, just the built-in `__favorites__` list)                                             |
+| Page                 | Route                           | Features                                                                                                                                                 |
+| -------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Overview             | `/portal`                       | Stat cards, latest orders, pending quotes, saved lists, purchased products                                                                               |
+| Orders               | `/portal/orders`                | Order history table, search, pagination, status badges                                                                                                   |
+| Order Detail         | `/portal/orders/[id]`           | Items table, summary sidebar, addresses, reorder button                                                                                                  |
+| Quotations           | `/portal/quotations`            | Quote list (real Geins GraphQL), search, pagination, a status pill per API quotation status                                                              |
+| Quotation Detail     | `/portal/quotations/[id]`       | Items table, shipping/tax summary, customer info, invoice/delivery address blocks, accept/decline with error banner, back link, section icons            |
+| Order from Quotation | `/portal/quotations/[id]/order` | Checkout layout: the quotation's lines, summary, company, addresses and payment terms read-only; terms box; places the order. Needs `orderPlacement` too |
+| Products             | `/portal/products`              | Purchased product history, aggregated from orders                                                                                                        |
+| Saved Lists          | `/portal/lists`                 | List of named lists. Client-only via SDK ListsSession (localStorage). Create + open detail.                                                              |
+| List Detail          | `/portal/saved-lists/[id]`      | Items as ProductCards. Add-all-to-cart, rename, delete, remove items. Items are product aliases — fresh product data fetched at render time.             |
+| Account              | `/portal/account`               | User profile form                                                                                                                                        |
+| Organisation         | `/portal/organisation`          | Company details via `/api/portal/company`                                                                                                                |
+| Organisation People  | `/portal/organisation/persons`  | People belonging to the company                                                                                                                          |
+| Favorites            | `/portal/favorites`             | Wishlist via SDK ListsSession (same store as saved lists, just the built-in `__favorites__` list)                                                        |
 
 ---
 

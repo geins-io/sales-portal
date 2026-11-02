@@ -64,7 +64,7 @@ Without icon (label + values list):
   </p>
   <p class="text-sm font-medium">{{ quote.company.name }}</p>
   <p class="text-muted-foreground text-sm">
-    {{ t('portal.quotations.org_number') }}: {{ quote.company.companyId }}
+    {{ t('checkout.vat_number') }}: {{ quote.company.vatNumber }}
   </p>
 </div>
 ```
@@ -77,5 +77,5 @@ Without icon (label + values list):
 
 ## Call sites
 
-- `app/pages/portal/quotations/[id].vue` — `expires_at`, `payment_terms`, `sale_contact`, `customer_info`, `invoice_address`, `delivery_address`
+- `app/pages/portal/quotations/[id]/index.vue` — `expires_at`, `payment_terms`, `sale_contact`, `customer_info`, `invoice_address`, `delivery_address`
 - `app/pages/portal/orders/[id].vue` — `billing-address`, `shipping-address`

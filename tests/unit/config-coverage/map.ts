@@ -138,6 +138,7 @@ const PRODUCT_LIST = 'tests/components/pages/ProductList.test.ts';
 const INDEX_PAGE = 'tests/components/pages/IndexPage.test.ts';
 const ORDER_DETAIL = 'tests/components/pages/order-detail.test.ts';
 const SAVED_LIST_DETAIL = 'tests/components/portal/saved-list-detail.test.ts';
+const QUOTATION_ORDER = 'tests/components/pages/PortalQuotationOrder.test.ts';
 const CART_ROUTE = 'tests/components/pages/cart.test.ts';
 const CHECKOUT_PAGE = 'tests/components/pages/checkout.test.ts';
 const HEADER_ACTIONS =
@@ -2036,11 +2037,18 @@ export const CONFIG_COVERAGE_MAP = {
           kind: 'consumer',
           drives: 'reader',
         },
+        {
+          spec: QUOTATION_ORDER,
+          title: 'sends the buyer back when orderPlacement access is denied',
+          kind: 'consumer',
+          drives: 'reader',
+        },
       ],
       note:
-        'Seven call sites ask: CartDrawer.vue:19, ProductCard.vue:59, ' +
+        'Eight call sites ask: CartDrawer.vue:19, ProductCard.vue:59, ' +
         'ProductDetails.vue:175, saved-lists/[id].vue:53, ' +
-        'LayoutHeaderActionButtons.vue:17, and the feature middleware on ' +
+        'LayoutHeaderActionButtons.vue:17, quotations/[id]/order.vue:55, ' +
+        'and the feature middleware on ' +
         'pages/cart.vue:2 and pages/checkout.vue:26. The granted tests in ' +
         'ProductDetails and saved-list-detail run under a blanket ' +
         '`mockReturnValue(true)`, so they are stubs here and consumer proof on ' +

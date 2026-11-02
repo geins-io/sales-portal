@@ -27,12 +27,9 @@ definePageMeta({
 
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
-const route = useRoute();
 const cartStore = useCartStore();
 const checkoutStore = useCheckoutStore();
 const authStore = useAuthStore();
-
-const isQuotationMode = computed(() => !!route.query.quotationId);
 
 const isBillingAddressReadonly = computed(() => {
   return authStore.isAuthenticated && !!checkoutStore.checkout?.billingAddress;
@@ -328,7 +325,7 @@ async function handlePlaceOrder() {
               <!-- Cart Items Summary -->
               <CheckoutCartItems
                 :items="cartStore.cart?.items ?? []"
-                :is-editable="!isQuotationMode"
+                is-editable
               />
 
               <!-- Contact Information: company users see read-only company card -->
