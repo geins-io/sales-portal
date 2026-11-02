@@ -71,11 +71,6 @@ export const useCheckoutStore = defineStore('checkout', () => {
   // a caller can tell EMPTY_CART from any other rejection.
   const errorCode = ref<string | null>(null);
   const orderResult = ref<{ orderId: string; publicId: string } | null>(null);
-  const quoteMessage = ref('');
-  const isRequestingQuote = ref(false);
-  const quoteResult = ref<{ quoteId: string; quoteNumber: string } | null>(
-    null,
-  );
 
   // Computeds
   const paymentOptions = computed<PaymentOptionType[]>(
@@ -121,12 +116,6 @@ export const useCheckoutStore = defineStore('checkout', () => {
     if (!email.value) return false;
     if (!isAddressComplete.value) return false;
     if (!selectedPaymentId.value) return false;
-    return true;
-  });
-  const canRequestQuote = computed(() => {
-    if (isLoading.value || isRequestingQuote.value) return false;
-    if (!email.value) return false;
-    if (!isAddressComplete.value) return false;
     return true;
   });
 
@@ -267,31 +256,6 @@ export const useCheckoutStore = defineStore('checkout', () => {
     }
   }
 
-  async function requestQuote(cartId: string) {
-    isRequestingQuote.value = true;
-    error.value = null;
-    try {
-      const response = await $fetch<{ quoteId: string; quoteNumber: string }>(
-        '/api/quotes',
-        {
-          method: 'POST',
-          body: {
-            cartId,
-            message: quoteMessage.value,
-          },
-        },
-      );
-      quoteResult.value = {
-        quoteId: response.quoteId,
-        quoteNumber: response.quoteNumber,
-      };
-    } catch {
-      error.value = 'checkout.error.quote_failed';
-    } finally {
-      isRequestingQuote.value = false;
-    }
-  }
-
   function resolveBillingAddress(company: Company): CompanyAddress | null {
     const addresses = company.addresses ?? [];
     return (
@@ -375,9 +339,6 @@ export const useCheckoutStore = defineStore('checkout', () => {
     error.value = null;
     errorCode.value = null;
     orderResult.value = null;
-    quoteMessage.value = '';
-    isRequestingQuote.value = false;
-    quoteResult.value = null;
   }
 
   return {
@@ -407,14 +368,9 @@ export const useCheckoutStore = defineStore('checkout', () => {
     isBlacklisted,
     effectiveShippingAddress,
     canPlaceOrder,
-    canRequestQuote,
-    quoteMessage,
-    isRequestingQuote,
-    quoteResult,
     fetchCheckout,
     toggleConsent,
     placeOrder,
-    requestQuote,
     prefillFromCompany,
     reset,
   };
