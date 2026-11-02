@@ -898,8 +898,6 @@
       "payment_terms": "Payment Terms",
       "sale_contact": "Our Contact",
       "customer_info": "Customer information",
-      "org_number": "Org. number",
-      "vat_number": "VAT number",
       "invoice_address": "Invoice Address",
       "delivery_address": "Delivery Address",
       "error_loading": "Failed to load quotations. Please try again.",

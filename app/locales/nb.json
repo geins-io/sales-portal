@@ -898,8 +898,6 @@
       "payment_terms": "Betalingsbetingelser",
       "sale_contact": "Vår kontaktperson",
       "customer_info": "Kundeinformasjon",
-      "org_number": "Org.nr.",
-      "vat_number": "Mva.-nr.",
       "invoice_address": "Fakturaadresse",
       "delivery_address": "Leveringsadresse",
       "error_loading": "Kunne ikke laste tilbud. Prøv igjen.",

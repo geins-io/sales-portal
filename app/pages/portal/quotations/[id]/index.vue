@@ -404,17 +404,11 @@ const customerSummary = computed(() => {
                     {{ quote.company.name }}
                   </p>
                   <p
-                    v-if="quote.company.companyId"
-                    class="text-muted-foreground text-sm"
-                  >
-                    {{ t('portal.quotations.org_number') }}:
-                    {{ quote.company.companyId }}
-                  </p>
-                  <p
                     v-if="quote.company.vatNumber"
+                    data-testid="customer-org-number"
                     class="text-muted-foreground text-sm"
                   >
-                    {{ t('portal.quotations.vat_number') }}:
+                    {{ t('checkout.vat_number') }}:
                     {{ quote.company.vatNumber }}
                   </p>
                 </div>

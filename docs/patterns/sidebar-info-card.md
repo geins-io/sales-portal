@@ -64,7 +64,7 @@ Without icon (label + values list):
   </p>
   <p class="text-sm font-medium">{{ quote.company.name }}</p>
   <p class="text-muted-foreground text-sm">
-    {{ t('portal.quotations.org_number') }}: {{ quote.company.companyId }}
+    {{ t('checkout.vat_number') }}: {{ quote.company.vatNumber }}
   </p>
 </div>
 ```

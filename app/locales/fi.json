@@ -898,8 +898,6 @@
       "payment_terms": "Maksuehdot",
       "sale_contact": "Yhteyshenkilömme",
       "customer_info": "Asiakastiedot",
-      "org_number": "Y-tunnus",
-      "vat_number": "ALV-tunnus",
       "invoice_address": "Laskutusosoite",
       "delivery_address": "Toimitusosoite",
       "error_loading": "Tarjousten lataaminen epäonnistui. Yritä uudelleen.",

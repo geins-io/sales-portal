@@ -898,8 +898,6 @@
       "payment_terms": "Betalningsvillkor",
       "sale_contact": "Vår kontakt",
       "customer_info": "Kundinformation",
-      "org_number": "Org.nr",
-      "vat_number": "Momsregnr",
       "invoice_address": "Fakturaadress",
       "delivery_address": "Leveransadress",
       "error_loading": "Det gick inte att ladda offerter. Försök igen.",

@@ -898,8 +898,6 @@
       "payment_terms": "Betalingsbetingelser",
       "sale_contact": "Vores kontaktperson",
       "customer_info": "Kundeoplysninger",
-      "org_number": "CVR-nr.",
-      "vat_number": "Momsnr.",
       "invoice_address": "Faktureringsadresse",
       "delivery_address": "Leveringsadresse",
       "error_loading": "Tilbuddene kunne ikke indlæses. Prøv igen.",

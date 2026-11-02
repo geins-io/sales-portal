@@ -1097,7 +1097,11 @@ describe('PortalQuotationDetail', () => {
     it('opens to the customer and both addresses', async () => {
       const wrapper = await mountWith(
         makeQuote({
-          company: { name: 'Acme Corp', companyId: '556', vatNumber: 'SE1' },
+          company: {
+            name: 'Acme Corp',
+            companyId: 'internal-7',
+            vatNumber: '556677-8899',
+          },
           billingAddress: { addressLine1: 'Bill 1', city: 'Lund' },
           shippingAddress: { addressLine1: 'Ship 1', city: 'Malmö' },
         }),
@@ -1107,14 +1111,32 @@ describe('PortalQuotationDetail', () => {
 
       const info = wrapper.find('[data-testid="customer-info"]');
       expect(info.text()).toContain('Acme Corp');
-      expect(info.text()).toContain('556');
-      expect(info.text()).toContain('SE1');
+      expect(wrapper.find('[data-testid="customer-org-number"]').text()).toBe(
+        'checkout.vat_number: 556677-8899',
+      );
+      expect(info.text()).not.toContain('internal-7');
+      expect(info.text()).not.toContain('portal.quotations.org_number');
       expect(wrapper.find('[data-testid="invoice-address"]').text()).toContain(
         'Bill 1',
       );
       expect(wrapper.find('[data-testid="delivery-address"]').text()).toContain(
         'Ship 1',
       );
+    });
+
+    it('has no org number row when the company has no org number', async () => {
+      const wrapper = await mountWith(
+        makeQuote({ company: { name: 'Acme Corp', companyId: 'internal-7' } }),
+      );
+
+      await openCustomerCard(wrapper);
+
+      expect(wrapper.find('[data-testid="customer-org-number"]').exists()).toBe(
+        false,
+      );
+      expect(
+        wrapper.find('[data-testid="customer-info"]').text(),
+      ).not.toContain('internal-7');
     });
 
     it('is not there without a company or an address', async () => {
