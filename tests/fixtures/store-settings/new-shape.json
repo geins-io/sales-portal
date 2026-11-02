@@ -1,0 +1,79 @@
+{
+  "accountName": "sonoralab",
+  "apiKey": "00000000-0000-0000-0000-000000000000",
+  "assetPath": "https://cdn.litium.media/sonoralab",
+  "channelSettings": {
+    "channelId": "1|se",
+    "channelName": "sonoralab.sonora-lab",
+    "defaultHostName": "sonoralab.litium.store",
+    "hostNames": [
+      "sonoralab.litium.store",
+      "sonoralab.staging.litium.store",
+      "sonoralab.sales-portal.geins.dev"
+    ],
+    "defaultLocale": "sv-SE",
+    "defaultMarket": "se",
+    "locales": ["sv-SE", "en-GB", "nb-NO", "de-DE", "fi-FI", "da-DK"],
+    "markets": ["se", "de"]
+  },
+  "appSettings": {
+    "mode": "commerce",
+    "features": {
+      "priceVisibility": {
+        "enabled": true,
+        "access": "authenticated"
+      },
+      "orderPlacement": {
+        "enabled": true,
+        "access": "authenticated"
+      },
+      "stockStatus": {
+        "enabled": true,
+        "access": "authenticated"
+      },
+      "newsletterSignup": false
+    },
+    "theme": {
+      "radius": "0",
+      "typography": {
+        "headingFontFamily": "Hanuman",
+        "fontFamily": "Geist"
+      },
+      "colors": {
+        "buttonBackground": " #363636",
+        "buttonText": "#ffffff",
+        "buttonPurchaseBackground": " #363636",
+        "buttonPurchaseText": "#ffffff",
+        "siteBackground": "#FAFAFA",
+        "navBarBackground": "#FFFFFF",
+        "topBarBackground": "#363636",
+        "topBarText": "#ffffff",
+        "newColor": "#ffffff",
+        "footerBackground": "#363636",
+        "footerText": "#ffffff"
+      }
+    },
+    "seo": {
+      "defaultTitle": "",
+      "titleTemplate": "",
+      "defaultDescription": "",
+      "defaultKeywords": "",
+      "robots": "index, follow",
+      "googleAnalyticsId": "",
+      "googleTagManagerId": "",
+      "verification": ""
+    },
+    "contact": {
+      "email": "",
+      "phone": "",
+      "address": {
+        "street": "",
+        "postalCode": "",
+        "city": "",
+        "country": ""
+      }
+    },
+    "id": "store"
+  },
+  "updatedAt": "2026-10-27T08:43:17+00:00"
+}

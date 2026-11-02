@@ -326,6 +326,7 @@ export const StoreSettingsSchema = z.object({
   overrides: OverrideConfigSchema,
   cms: CmsConfigSchema,
   isActive: z.boolean(),
+  assetPath: z.string().nullable().default(null),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

@@ -342,14 +342,14 @@ export async function writeHostnameMappings(
 // ---------------------------------------------------------------------------
 
 /**
- * Transforms platform-injected geinsSettings into our clean internal shape.
- * Platform: { channelId: "2|se", defaultLocale, defaultMarket, locales[], markets[] }
- * Ours: { channel, tld, locale, market, availableLocales[], availableMarkets[] }
+ * Reads the merchant API's account fields (root) and `channelSettings` into
+ * our internal settings shape. `channelId` is `"2|se"`: channel and tld.
  */
-export function transformGeinsSettings(
+export function readChannelSettings(
   raw: Record<string, unknown>,
+  channelSettings: Record<string, unknown>,
 ): Record<string, unknown> {
-  const channelId = String(raw.channelId ?? '');
+  const channelId = String(channelSettings.channelId ?? '');
   const [channel, tld] = channelId.split('|');
 
   return {
@@ -357,10 +357,10 @@ export function transformGeinsSettings(
     accountName: raw.accountName,
     channel,
     tld,
-    locale: raw.defaultLocale,
-    market: raw.defaultMarket,
-    availableLocales: raw.locales ?? [],
-    availableMarkets: raw.markets ?? [],
+    locale: channelSettings.defaultLocale,
+    market: channelSettings.defaultMarket,
+    availableLocales: channelSettings.locales ?? [],
+    availableMarkets: channelSettings.markets ?? [],
   };
 }
 
@@ -523,35 +523,37 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     css,
     themeHash,
     isActive: merged.isActive,
+    assetPath: merged.assetPath,
     createdAt: merged.createdAt,
     updatedAt: merged.updatedAt,
   };
 }
 
 /**
- * Adapt the merchant API response to our internal `StoreSettings` shape.
+ * Adapt the merchant API response to our internal `StoreSettings` shape, or
+ * null when it carries no `channelSettings`: without it there is no channel
+ * and no hostname, so it cannot be a storefront.
  *
- * The API returns `{ geinsSettings, appSettings, ... }` where `appSettings`
- * is the bulk of the per-tenant config (theme, branding, features, cms,
- * aliases) and `geinsSettings` carries Geins API creds + every hostname
- * the tenant is reachable on (`defaultHostName` + `additionalHostNames`).
+ * The API returns the account at the root (`accountName`, `apiKey`,
+ * `assetPath`), the channel in `channelSettings` (channel id, locales,
+ * markets, every hostname), and the per-tenant config (theme, branding,
+ * features, cms) in `appSettings`. The older `geinsSettings`, root
+ * `tenantId` and `isActive` are never read.
  *
  * Steps:
  *   1. Pull `appSettings` to root (or fall back to the raw response if a
- *      future merchant API serves a flat shape — we don't fight it).
- *   2. Pull root-level identity fields (`tenantId`, `isActive`, `createdAt`,
- *      `updatedAt`) as fallbacks — the API sometimes emits these outside
- *      `appSettings` (observed after a Geins admin reset). `appSettings`
- *      wins when both define a field.
- *   3. Take `hostname` from `geinsSettings.defaultHostName`, and `aliases`
- *      from `geinsSettings.additionalHostNames` — see the routing note below.
- *   4. Convert `geinsSettings` from the API's "Geins API" shape (channelId,
- *      defaultLocale, locales) to our internal flat shape via
- *      `transformGeinsSettings`.
- *   5. Drop a couple of legacy fields the API still emits but our schema
+ *      future merchant API serves a flat shape — we don't fight it). The
+ *      account and routing fields are set after it, so it cannot override
+ *      them.
+ *   2. Take `hostname` from `channelSettings.defaultHostName`, and `aliases`
+ *      from `channelSettings.hostNames` minus that default — see the routing
+ *      note below.
+ *   3. Convert the root account fields and `channelSettings` to our internal
+ *      settings shape via `readChannelSettings`.
+ *   4. Drop a couple of legacy fields the API still emits but our schema
  *      doesn't care about (`id`, `geinsApiSettings`).
  *
- * Routing truth is `geinsSettings` alone. `appSettings.hostname` and
+ * Routing truth is `channelSettings` alone. `appSettings.hostname` and
  * `appSettings.aliases` are legacy fields from before the merchant API had
  * hostname fields of its own; nothing writes them any more and they survive
  * only on older records. Every name in this config becomes a
@@ -561,39 +563,50 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
  * the wrong storefront until the next restart. They are no longer read for
  * routing; the schema still accepts them so no stored config becomes invalid.
  *
- * `appSettings.hostname` survives as a last resort only when Geins carries no
- * `defaultHostName`: `hostname` is required and fatal (`FATAL_PATHS`), so
- * without the fallback such a tenant would resolve to nothing at all.
+ * `appSettings.hostname` survives as a last resort only when the channel
+ * carries no `defaultHostName`: `hostname` is required and fatal
+ * (`FATAL_PATHS`), so without the fallback such a tenant would resolve to
+ * nothing at all.
  */
 export function adaptMerchantApiResponse(
   raw: Record<string, unknown>,
-): Record<string, unknown> {
+): Record<string, unknown> | null {
   const appSettings = (raw.appSettings as Record<string, unknown>) ?? raw;
-  const rawGeins = raw.geinsSettings as Record<string, unknown> | undefined;
+  const channelSettings = raw.channelSettings as
+    | Record<string, unknown>
+    | undefined;
+  if (!channelSettings) return null;
 
-  const geinsSettings = rawGeins ? transformGeinsSettings(rawGeins) : undefined;
-
-  const aliases = Array.isArray(rawGeins?.additionalHostNames)
-    ? Array.from(new Set(rawGeins.additionalHostNames as string[]))
+  // `hostNames` lists the default host too; an alias is every other name.
+  const aliases = Array.isArray(channelSettings.hostNames)
+    ? Array.from(new Set(channelSettings.hostNames as string[])).filter(
+        (h) => h !== channelSettings.defaultHostName,
+      )
     : [];
 
   const defaultHostName =
-    typeof rawGeins?.defaultHostName === 'string' && rawGeins.defaultHostName
-      ? rawGeins.defaultHostName
+    typeof channelSettings.defaultHostName === 'string' &&
+    channelSettings.defaultHostName
+      ? channelSettings.defaultHostName
       : undefined;
 
+  const assetPath =
+    typeof raw.assetPath === 'string' && raw.assetPath ? raw.assetPath : null;
+
   const candidate: Record<string, unknown> = {
-    // Root-level identity fields the API sometimes emits outside appSettings.
-    // appSettings spreads on top and wins when both define a field.
-    tenantId: raw.tenantId,
-    isActive: raw.isActive,
+    // Root-level timestamps the API emits outside appSettings.
+    // appSettings spreads on top and wins when both define one.
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
     ...appSettings,
-    // After the spread: Geins owns routing, so its hostname wins over whatever
-    // the tenant saved. `appSettings.hostname` is only the fallback.
+    // After the spread: the API owns the account and routing, so these win
+    // over whatever the tenant saved. `appSettings.hostname` is only the
+    // fallback.
+    tenantId: raw.accountName,
+    isActive: true,
+    assetPath,
     hostname: defaultHostName ?? appSettings.hostname,
-    geinsSettings,
+    geinsSettings: readChannelSettings(raw, channelSettings),
     aliases,
   };
   delete candidate.geinsApiSettings;
@@ -652,9 +665,9 @@ export function deleteAtPath(
     return false;
   }
   // Defense-in-depth: refuse to walk segments that could touch the
-  // prototype chain. The schema is currently `.strict()` so Zod won't emit
-  // such paths, but a future switch to `.passthrough()` / `.catchall()`
-  // could let attacker-controlled keys reach this helper.
+  // prototype chain. The schema is a plain `z.object`, which strips unknown
+  // keys, so Zod won't emit such paths; a future switch to `.passthrough()` /
+  // `.catchall()` could let attacker-controlled keys reach this helper.
   for (const segment of path) {
     if (typeof segment === 'string' && FORBIDDEN_PATH_SEGMENTS.has(segment)) {
       return false;
@@ -1043,6 +1056,15 @@ export async function fetchTenantConfig(
   }
 
   const candidate = adaptMerchantApiResponse(raw);
+  if (!candidate) {
+    logger.error(
+      `[tenant] Store settings for ${hostname} carry no channelSettings; the storefront does not resolve`,
+      undefined,
+      { hostname },
+    );
+    if (trace) trace.outcome = 'invalid-config';
+    return null;
+  }
   // Before the parse, so a refused hostname costs no salvage work. The trace
   // names the other tenant's hostname; it reaches a response only through
   // `reportTenantResolution`, which does nothing in a production build.
@@ -1113,7 +1135,7 @@ export async function resolvePreviewTenant(
       const adapted = adaptMerchantApiResponse(raw);
       // Same check as `fetchTenantConfig`: `?preview=1` is a query flag any
       // client can send, so this path sees every hostname the live one does.
-      return claimsHostname(adapted, hostname) ? adapted : null;
+      return adapted && claimsHostname(adapted, hostname) ? adapted : null;
     } catch {
       return null;
     }

@@ -333,6 +333,7 @@ describe('Tenant utilities', () => {
         branding: { name: 'Alpha', watermark: 'full' },
         features: {},
         css: '',
+        assetPath: null,
         isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
@@ -412,6 +413,7 @@ describe('Tenant utilities', () => {
       },
       branding: { name: 'Delta', watermark: 'minimal' },
       features: {},
+      assetPath: null,
       isActive: true,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
@@ -502,6 +504,7 @@ describe('Tenant utilities', () => {
       },
       branding: { name: 'Tenant X', watermark: 'minimal' },
       features: {},
+      assetPath: null,
       isActive: true,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
@@ -591,6 +594,7 @@ describe('Tenant utilities', () => {
       },
       branding: { name: 'Tenant R', watermark: 'minimal' },
       features: {},
+      assetPath: null,
       isActive: true,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
@@ -758,6 +762,7 @@ describe('Tenant utilities', () => {
         },
         branding: { name: 'X', watermark: 'full' },
         features: {},
+        assetPath: null,
         isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
@@ -938,6 +943,7 @@ describe('Tenant utilities', () => {
         branding: { name: 'X', watermark: 'full' },
         features: {},
         cms,
+        assetPath: null,
         isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
@@ -1313,26 +1319,25 @@ describe('Tenant utilities', () => {
     });
 
     it('salvages a freshly provisioned tenant with empty appSettings end-to-end', () => {
-      // Merchant API shape for a newly set-up customer system: identity
-      // fields at the root, empty appSettings, and the standard
-      // geinsSettings credentials block. Previously 500'd because
-      // `features` was a fatal path. Now the resilient parser salvages
-      // it and buildTenantConfig overlays the PORTAL_FEATURE_DEFAULTS.
+      // Merchant API shape for a newly set-up customer system: the account
+      // at the root, empty appSettings, and the standard channelSettings
+      // block. Previously 500'd because `features` was a fatal path. Now the
+      // resilient parser salvages it and buildTenantConfig overlays the
+      // PORTAL_FEATURE_DEFAULTS.
       const raw = {
-        geinsSettings: {
-          defaultHostName: 'gamma.litium.store',
-          additionalHostNames: [],
-          apiKey: 'k',
-          accountName: 'gamma',
+        accountName: 'gamma',
+        apiKey: 'k',
+        assetPath: null,
+        channelSettings: {
           channelId: '1|se',
+          defaultHostName: 'gamma.litium.store',
+          hostNames: ['gamma.litium.store'],
           defaultLocale: 'sv-SE',
           defaultMarket: 'se',
           locales: ['sv-SE'],
           markets: ['se'],
         },
         appSettings: {},
-        tenantId: 'gamma',
-        isActive: true,
         updatedAt: '0001-01-01T00:00:00+00:00',
       };
       const candidate = adaptMerchantApiResponse(raw);
@@ -1873,12 +1878,14 @@ describe('Tenant utilities', () => {
   describe('adaptMerchantApiResponse', () => {
     function rawApiResponse(overrides: Record<string, unknown> = {}) {
       return {
-        geinsSettings: {
-          defaultHostName: 'beta.sales-portal.geins.dev',
-          additionalHostNames: ['beta.example'],
-          apiKey: 'k',
-          accountName: 'monitor',
+        accountName: 'monitor',
+        apiKey: 'k',
+        assetPath: 'https://cdn.example.test/monitor',
+        channelSettings: {
           channelId: '2|se',
+          channelName: 'monitor.store',
+          defaultHostName: 'beta.sales-portal.geins.dev',
+          hostNames: ['beta.sales-portal.geins.dev', 'beta.example'],
           defaultLocale: 'sv-SE',
           defaultMarket: 'se',
           locales: ['sv-SE', 'en-US'],
@@ -1889,42 +1896,50 @@ describe('Tenant utilities', () => {
           features: { priceVisibility: { enabled: false } },
           id: 'store',
         },
-        tenantId: 'monitor',
-        isActive: true,
         updatedAt: '2026-05-07T08:41:44+00:00',
         ...overrides,
       };
     }
 
-    it('extracts root-level tenantId when absent from appSettings', () => {
-      const result = adaptMerchantApiResponse(rawApiResponse());
-      expect(result.tenantId).toBe('monitor');
+    /** The adapted candidate; these tests only feed answers that carry channelSettings. */
+    function adapt(raw: Record<string, unknown>): Record<string, unknown> {
+      const result = adaptMerchantApiResponse(raw);
+      if (!result) throw new Error('expected an adapted candidate');
+      return result;
+    }
+
+    it('takes the account name from the root accountName', () => {
+      expect(adapt(rawApiResponse()).tenantId).toBe('monitor');
     });
 
-    it('extracts root-level isActive when absent from appSettings', () => {
-      const result = adaptMerchantApiResponse(rawApiResponse());
-      expect(result.isActive).toBe(true);
+    it('marks every answer active: the merchant API answers 404 for an inactive storefront', () => {
+      expect(adapt(rawApiResponse({ isActive: false })).isActive).toBe(true);
     });
 
-    it('derives hostname from geinsSettings.defaultHostName when absent from appSettings', () => {
-      const result = adaptMerchantApiResponse(rawApiResponse());
-      expect(result.hostname).toBe('beta.sales-portal.geins.dev');
+    it('takes the asset path from the root', () => {
+      expect(adapt(rawApiResponse()).assetPath).toBe(
+        'https://cdn.example.test/monitor',
+      );
     });
 
-    it('lets appSettings.tenantId override root-level tenantId', () => {
+    it('derives hostname from channelSettings.defaultHostName', () => {
+      expect(adapt(rawApiResponse()).hostname).toBe(
+        'beta.sales-portal.geins.dev',
+      );
+    });
+
+    it('does not let appSettings.tenantId override the root accountName', () => {
       const raw = rawApiResponse();
       (raw.appSettings as Record<string, unknown>).tenantId =
         'from-app-settings';
-      const result = adaptMerchantApiResponse(raw);
-      expect(result.tenantId).toBe('from-app-settings');
+      expect(adapt(raw).tenantId).toBe('monitor');
     });
 
-    it('takes aliases from additionalHostNames', () => {
-      const result = adaptMerchantApiResponse(rawApiResponse());
-      expect(result.aliases).toEqual(['beta.example']);
+    it('takes aliases from hostNames, without the default host', () => {
+      expect(adapt(rawApiResponse()).aliases).toEqual(['beta.example']);
     });
 
-    // Routing truth is geinsSettings alone: appSettings is free text the
+    // Routing truth is channelSettings alone: appSettings is free text the
     // tenant saved, and every name that reaches the config becomes a routing
     // entry.
     it('ignores appSettings.aliases', () => {
@@ -1932,7 +1947,7 @@ describe('Tenant utilities', () => {
       (raw.appSettings as Record<string, unknown>).aliases = [
         'claimed.example.com',
       ];
-      const result = adaptMerchantApiResponse(raw);
+      const result = adapt(raw);
       expect(result.aliases).toEqual(['beta.example']);
       expect(result.aliases).not.toContain('claimed.example.com');
     });
@@ -1941,19 +1956,17 @@ describe('Tenant utilities', () => {
       const raw = rawApiResponse();
       (raw.appSettings as Record<string, unknown>).hostname =
         'claimed.example.com';
-      const result = adaptMerchantApiResponse(raw);
-      expect(result.hostname).toBe('beta.sales-portal.geins.dev');
+      expect(adapt(raw).hostname).toBe('beta.sales-portal.geins.dev');
     });
 
-    // `hostname` is required and fatal, so a tenant whose Geins record carries
-    // no defaultHostName would resolve to nothing without this fallback.
-    it('falls back to appSettings.hostname when Geins carries no defaultHostName', () => {
+    // `hostname` is required and fatal, so a tenant whose channel carries no
+    // defaultHostName would resolve to nothing without this fallback.
+    it('falls back to appSettings.hostname when the channel carries no defaultHostName', () => {
       const raw = rawApiResponse();
-      delete (raw.geinsSettings as Record<string, unknown>).defaultHostName;
+      delete (raw.channelSettings as Record<string, unknown>).defaultHostName;
       (raw.appSettings as Record<string, unknown>).hostname =
         'only.example.com';
-      const result = adaptMerchantApiResponse(raw);
-      expect(result.hostname).toBe('only.example.com');
+      expect(adapt(raw).hostname).toBe('only.example.com');
     });
 
     // The clause this ticket exists for: a hostname a tenant claims only in
@@ -1963,7 +1976,7 @@ describe('Tenant utilities', () => {
       (raw.appSettings as Record<string, unknown>).aliases = [
         'claimed.example.com',
       ];
-      const adapted = adaptMerchantApiResponse(raw);
+      const adapted = adapt(raw);
 
       const data = new Map<string, unknown>();
       const storage = {
@@ -1996,15 +2009,22 @@ describe('Tenant utilities', () => {
     });
 
     it('strips the id field from appSettings', () => {
-      const result = adaptMerchantApiResponse(rawApiResponse());
-      expect(result.id).toBeUndefined();
+      expect(adapt(rawApiResponse()).id).toBeUndefined();
     });
 
     it('transforms channelId into channel + tld in geinsSettings', () => {
-      const result = adaptMerchantApiResponse(rawApiResponse());
-      const gs = result.geinsSettings as Record<string, unknown>;
+      const gs = adapt(rawApiResponse()).geinsSettings as Record<
+        string,
+        unknown
+      >;
       expect(gs.channel).toBe('2');
       expect(gs.tld).toBe('se');
+    });
+
+    it('returns null for an answer without channelSettings', () => {
+      const raw = rawApiResponse();
+      delete (raw as Record<string, unknown>).channelSettings;
+      expect(adaptMerchantApiResponse(raw)).toBeNull();
     });
   });
 
@@ -2016,15 +2036,14 @@ describe('Tenant utilities', () => {
       } = {},
     ): Record<string, unknown> {
       return {
-        tenantId: 'alpha',
-        isActive: true,
+        accountName: 'alpha',
+        apiKey: 'k',
+        assetPath: null,
         updatedAt: '2026-01-01T00:00:00.000Z',
-        geinsSettings: {
-          defaultHostName: 'alpha.example',
-          additionalHostNames: [],
-          apiKey: 'k',
-          accountName: 'alpha',
+        channelSettings: {
           channelId: '1|se',
+          defaultHostName: 'alpha.example',
+          hostNames: ['alpha.example'],
           defaultLocale: 'sv-SE',
           defaultMarket: 'se',
           locales: ['sv-SE'],
@@ -2230,8 +2249,11 @@ describe('Tenant utilities', () => {
     it('drops a payload that does not register the hostname and keeps the one that does', async () => {
       const live = rawApiPayload({ brandingName: 'Live Brand' });
       const preview = rawApiPayload({ brandingName: 'Other Brand' });
-      (preview.geinsSettings as Record<string, unknown>).defaultHostName =
-        'other.example';
+      preview.channelSettings = {
+        ...(preview.channelSettings as Record<string, unknown>),
+        defaultHostName: 'other.example',
+        hostNames: ['other.example'],
+      };
       const fetchSpy = vi.fn(async (url: string) =>
         url.includes('previewKey=preview')
           ? okResponse(preview)

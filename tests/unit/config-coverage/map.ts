@@ -3156,13 +3156,6 @@ export const CONFIG_COVERAGE_MAP = {
         },
         {
           spec: SERVER_TENANT_RESOLUTION,
-          title:
-            'inactive tenant: unknown-tenant, negative-cached, nothing written to KV',
-          kind: 'consumer',
-          drives: 'field',
-        },
-        {
-          spec: SERVER_TENANT_RESOLUTION,
           title: 'returns null for an inactive config and leaves it in KV',
           kind: 'consumer',
           drives: 'field',
@@ -3351,7 +3344,7 @@ export const CONFIG_COVERAGE_MAP = {
       kind: 'consumer',
       drives: 'field',
     },
-    note: "Derived from the channel's assetHost rather than configured directly.",
+    note: 'Taken from the store settings assetPath rather than configured directly.',
   },
 
   // If this line is where your error points, a field or a sub-key was added to

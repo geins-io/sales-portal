@@ -90,20 +90,19 @@ vi.stubGlobal('useStorage', mockUseStorage);
 const API_URL = 'https://merchant.example/store-settings';
 
 function rawApiPayload(
-  tenantId: string,
+  accountName: string,
   hostname: string,
-  options: { isActive?: boolean; additionalHostNames?: string[] } = {},
+  options: { aliases?: string[] } = {},
 ) {
   return {
-    tenantId,
-    isActive: options.isActive ?? true,
+    accountName,
+    apiKey: 'k',
+    assetPath: null,
     updatedAt: '2026-01-01T00:00:00.000Z',
-    geinsSettings: {
-      defaultHostName: hostname,
-      additionalHostNames: options.additionalHostNames ?? [],
-      apiKey: 'k',
-      accountName: tenantId,
+    channelSettings: {
       channelId: '1|se',
+      defaultHostName: hostname,
+      hostNames: [hostname, ...(options.aliases ?? [])],
       defaultLocale: 'sv-SE',
       defaultMarket: 'se',
       locales: ['sv-SE'],
@@ -472,10 +471,7 @@ describe('resolveTenantOutcome KV paths', () => {
     const aliases = ['alias.example', 'www.primary.example'];
     const storage = memoryStorage();
     stubFetch(async () =>
-      httpResponse(
-        200,
-        rawApiPayload('multi-host', host, { additionalHostNames: aliases }),
-      ),
+      httpResponse(200, rawApiPayload('multi-host', host, { aliases })),
     );
 
     const { config, outcome } = await resolveTenantOutcome(host);
@@ -496,10 +492,7 @@ describe('resolveTenantOutcome KV paths', () => {
     const alias = 'shop.brand.example';
     memoryStorage();
     const fetchSpy = stubFetch(async () =>
-      httpResponse(
-        200,
-        rawApiPayload('brand', host, { additionalHostNames: [alias] }),
-      ),
+      httpResponse(200, rawApiPayload('brand', host, { aliases: [alias] })),
     );
 
     await resolveTenantOutcome(host);
@@ -564,25 +557,19 @@ describe('resolveTenantOutcome KV paths', () => {
     expect(debugLinesFor(host)[0]).toContain('kv=miss api=GET');
   });
 
-  it('inactive tenant: unknown-tenant, negative-cached, nothing written to KV', async () => {
+  // The merchant API answers 404 for an inactive storefront, so an answer
+  // means active; an old root `isActive` is not read.
+  it('an old root isActive: false is not read: the storefront resolves', async () => {
     const host = 'switched-off.example';
-    const storage = memoryStorage();
-    const fetchSpy = stubFetch(async () =>
-      httpResponse(200, rawApiPayload('off', host, { isActive: false })),
+    memoryStorage();
+    stubFetch(async () =>
+      httpResponse(200, { ...rawApiPayload('off', host), isActive: false }),
     );
 
-    const first = await resolveTenantOutcome(host);
-    const second = await resolveTenantOutcome(host);
-    clearNegativeCache(host);
+    const { config, outcome } = await resolveTenantOutcome(host);
 
-    expect(first).toEqual({ config: null, outcome: 'unknown-tenant' });
-    expect(second.outcome).toBe('negative-cache');
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(storage.setItem).not.toHaveBeenCalled();
-    expect(storage.store.size).toBe(0);
-    expect(warnLinesFor(host)[0]).toBe(
-      `[tenant] resolve host=${host} kv=miss api=GET ${API_URL}?hostname=${host} → 200 (inactive) outcome=unknown-tenant`,
-    );
+    expect(outcome).toBe('resolved');
+    expect(config?.tenantId).toBe('off');
   });
 
   it('a hostname the merchant API matched by substring: unknown-tenant, negative-cached, nothing written to KV', async () => {
@@ -903,13 +890,13 @@ describe('fetchTenantConfig', () => {
     });
   });
 
-  it('resolves on a name in additionalHostNames', async () => {
+  it('resolves on a name in hostNames', async () => {
     const host = 'shop.alias.example';
     stubFetch(async () =>
       httpResponse(
         200,
         rawApiPayload('aliased', 'primary.alias.example', {
-          additionalHostNames: ['other.alias.example', host],
+          aliases: ['other.alias.example', host],
         }),
       ),
     );
@@ -921,7 +908,7 @@ describe('fetchTenantConfig', () => {
     expect(t.outcome).toBe('resolved');
   });
 
-  it('resolves on the legacy appSettings.hostname when Geins carries no defaultHostName', async () => {
+  it('resolves on the legacy appSettings.hostname when the channel carries no defaultHostName', async () => {
     const host = 'legacy.example';
     const payload = rawApiPayload('legacy', '');
     payload.appSettings = { ...payload.appSettings, hostname: host } as never;
@@ -947,7 +934,7 @@ describe('fetchTenantConfig', () => {
       httpResponse(
         200,
         rawApiPayload('cased', 'Shop.Example.', {
-          additionalHostNames: ['WWW.SHOP.EXAMPLE'],
+          aliases: ['WWW.SHOP.EXAMPLE'],
         }),
       ),
     );

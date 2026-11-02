@@ -82,15 +82,14 @@ function registryRecord(
   appHostname?: string,
 ) {
   return {
-    tenantId: account,
-    isActive: true,
+    accountName: account,
+    apiKey: 'k',
+    assetPath: null,
     updatedAt: '2026-01-01T00:00:00.000Z',
-    geinsSettings: {
-      defaultHostName: hostname,
-      additionalHostNames: [alias],
-      apiKey: 'k',
-      accountName: account,
+    channelSettings: {
       channelId,
+      defaultHostName: hostname,
+      hostNames: [hostname, alias],
       defaultLocale: 'sv-SE',
       defaultMarket: 'se',
       locales: ['sv-SE'],

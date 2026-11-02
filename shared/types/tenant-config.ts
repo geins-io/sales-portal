@@ -151,6 +151,9 @@ export interface TenantConfig {
   css: string;
   themeHash?: string;
 
+  /** The channel's asset library, `https://{cdnHost}/{account}`; null when it has none. */
+  assetPath: string | null;
+
   // Metadata
   isActive: boolean;
   createdAt: string;
@@ -184,7 +187,7 @@ export interface PublicTenantConfig {
   availableLocales: string[];
   availableMarkets: string[];
   imageBaseUrl: string;
-  /** The channel's asset library host, `https://{cdnHost}/{account}`; unset when the channel has none or cannot be read. */
+  /** The channel's asset library, `https://{cdnHost}/{account}`; unset when it has none. */
   assetBaseUrl?: string;
 }
 

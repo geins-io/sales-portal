@@ -10,7 +10,7 @@ import {
   parseOklch,
   formatOklch,
 } from '../../server/utils/theme';
-import { transformGeinsSettings } from '../../server/utils/tenant';
+import { readChannelSettings } from '../../server/utils/tenant';
 import {
   generateFontCss,
   generateTenantCss,
@@ -1130,21 +1130,19 @@ describe('parseOklch / formatOklch', () => {
   });
 });
 
-describe('transformGeinsSettings', () => {
-  it('should transform platform shape to clean internal shape', () => {
-    const platformShape = {
-      defaultHostName: 'beta.sales-portal.geins.dev',
-      additionalHostNames: ['beta.example'],
-      apiKey: 'key',
-      accountName: 'monitor',
+describe('readChannelSettings', () => {
+  const account = { accountName: 'monitor', apiKey: 'key' };
+
+  it('reads the root account and channelSettings into the internal shape', () => {
+    const result = readChannelSettings(account, {
       channelId: '2|se',
+      defaultHostName: 'beta.sales-portal.geins.dev',
+      hostNames: ['beta.sales-portal.geins.dev', 'beta.example'],
       defaultLocale: 'sv-SE',
       defaultMarket: 'se',
       locales: ['sv-SE'],
       markets: ['se'],
-    };
-
-    const result = transformGeinsSettings(platformShape);
+    });
 
     expect(result).toEqual({
       apiKey: 'key',
@@ -1159,10 +1157,8 @@ describe('transformGeinsSettings', () => {
   });
 
   it('should split channelId into channel and tld', () => {
-    const result = transformGeinsSettings({
+    const result = readChannelSettings(account, {
       channelId: '5|dk',
-      apiKey: 'key',
-      accountName: 'acct',
       defaultLocale: 'da-DK',
       defaultMarket: 'dk',
       locales: ['da-DK', 'en-US'],
@@ -1175,18 +1171,21 @@ describe('transformGeinsSettings', () => {
     expect(result.availableMarkets).toEqual(['dk', 'se']);
   });
 
-  it('should handle missing locales/markets arrays', () => {
-    const result = transformGeinsSettings({
-      channelId: '1|se',
-      apiKey: 'key',
-      accountName: 'acct',
-      defaultLocale: 'sv-SE',
-      defaultMarket: 'se',
-    });
+  it.each([undefined, null])(
+    'should read locales/markets sent as %s as empty lists',
+    (value) => {
+      const result = readChannelSettings(account, {
+        channelId: '1|se',
+        defaultLocale: 'sv-SE',
+        defaultMarket: 'se',
+        locales: value,
+        markets: value,
+      });
 
-    expect(result.availableLocales).toEqual([]);
-    expect(result.availableMarkets).toEqual([]);
-  });
+      expect(result.availableLocales).toEqual([]);
+      expect(result.availableMarkets).toEqual([]);
+    },
+  );
 });
 
 describe('generateFontCss', () => {
