@@ -2,6 +2,7 @@
 import { CheckCircle2, ChevronDown, Info } from 'lucide-vue-next';
 import type { Configuration } from '#shared/types/configurator';
 import {
+  blockedOnlyByHiddenSections,
   collectBlockingItems,
   unnamedBlockingMessages,
   type BlockingItem,
@@ -25,6 +26,7 @@ const { t } = useI18n();
 const items = computed(() => collectBlockingItems(configuration));
 const messages = computed(() => unnamedBlockingMessages(configuration));
 const count = computed(() => items.value.length + messages.value.length);
+const hiddenOnly = computed(() => blockedOnlyByHiddenSections(configuration));
 
 const open = ref(false);
 const listId = useId();
@@ -96,6 +98,9 @@ const listId = useId();
           </ul>
         </div>
       </template>
+      <p v-else-if="hiddenOnly">
+        {{ t('configurator.required_status.cannot_complete') }}
+      </p>
       <p v-else>
         {{ t('configurator.required_status.unspecified') }}
       </p>

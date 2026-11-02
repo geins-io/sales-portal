@@ -325,7 +325,8 @@
     "required_status": {
       "remaining_count": "Jäljellä olevat pakolliset valinnat\u00a0({count})",
       "all_done": "Kaikki pakolliset valinnat on tehty",
-      "unspecified": "Kokoonpano ei ole valmis."
+      "unspecified": "Kokoonpano ei ole valmis.",
+      "cannot_complete": "Kokoonpanoa ei voi viimeistellä. Ota yhteyttä myyjään."
     },
     "read_only": "Määräytyy kokoonpanon mukaan",
     "set_automatically": "Asetetaan automaattisesti",

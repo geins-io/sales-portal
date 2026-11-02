@@ -325,7 +325,8 @@
     "required_status": {
       "remaining_count": "Återstående obligatoriska val\u00a0({count})",
       "all_done": "Alla obligatoriska val är gjorda",
-      "unspecified": "Konfigurationen är inte komplett."
+      "unspecified": "Konfigurationen är inte komplett.",
+      "cannot_complete": "Konfigurationen kan inte slutföras. Kontakta säljaren."
     },
     "read_only": "Sätts av konfigurationen",
     "set_automatically": "Sätts automatiskt",

@@ -325,7 +325,8 @@
     "required_status": {
       "remaining_count": "Verbleibende Pflichtauswahlen\u00a0({count})",
       "all_done": "Alle Pflichtauswahlen sind getroffen",
-      "unspecified": "Die Konfiguration ist nicht vollständig."
+      "unspecified": "Die Konfiguration ist nicht vollständig.",
+      "cannot_complete": "Die Konfiguration kann nicht abgeschlossen werden. Wenden Sie sich an den Verkäufer."
     },
     "read_only": "Wird von der Konfiguration festgelegt",
     "set_automatically": "Wird automatisch gesetzt",
