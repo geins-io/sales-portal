@@ -40,10 +40,59 @@ test.use({ storageState: signedInState });
 
 const PAGE_TIMEOUT = 20000;
 
+/** The account's quotations, in the order `/api/quotes` and the list show them. */
+async function fetchListedQuotes(
+  page: Page,
+): Promise<{ id: string; status: string }[]> {
+  const response = await page.request.get('/api/quotes');
+  expect(response.ok(), '/api/quotes did not answer 200').toBe(true);
+  return (
+    (await response.json()) as {
+      quotes: { id: string; status: string }[];
+    }
+  ).quotes;
+}
+
+/** Ids of the account's pending quotations, in list order. */
+async function fetchPendingQuoteIds(page: Page): Promise<string[]> {
+  return (await fetchListedQuotes(page))
+    .filter((quote) => quote.status === 'pending')
+    .map((quote) => quote.id);
+}
+
+/**
+ * The newest quotation a seller has sent. The buyer's own requests sit in the
+ * same list and show no seller data yet, and new ones keep arriving on top,
+ * so a test that reads seller data cannot take the first row.
+ */
+async function fetchSentQuoteId(page: Page): Promise<string> {
+  const sentStatuses = [
+    'pending',
+    'accepted',
+    'confirmed',
+    'finalized',
+    'rejected',
+    'canceled',
+    'expired',
+  ];
+  const sent = (await fetchListedQuotes(page)).find((quote) =>
+    sentStatuses.includes(quote.status),
+  );
+  expect(
+    sent,
+    'the test account has no quotation a seller has sent — the fixture is broken',
+  ).toBeDefined();
+  return sent!.id;
+}
+
 test.describe('Portal Overview', () => {
   test('should render stat cards and sections on overview page', async ({
     page,
   }) => {
+    // The quotations section can render empty first and swap in the rows
+    // later, so the data decides which state to wait for.
+    const pendingQuoteIds = await fetchPendingQuoteIds(page);
+
     await page.goto('/se/sv/portal');
     await page.waitForLoadState('load');
     await waitForHydration(page);
@@ -57,43 +106,44 @@ test.describe('Portal Overview', () => {
     // guarded by a lookup for the section heading — a branch that never runs,
     // because the heading does render, so the assertion below never executed.
     // PortalOrdersTable's wrapper sits on the non-empty branch and
-    // `orders-empty` on the other, so exactly one of the two is in the DOM.
+    // `orders-empty` on the other, so exactly one of the two is in the DOM;
+    // the strict `or()` fails when both are.
     const ordersTable = page.locator('[data-testid="portal-orders-table"]');
     const ordersEmpty = page.locator('[data-testid="orders-empty"]');
-    const hasTable = await ordersTable.isVisible().catch(() => false);
-    const hasEmpty = await ordersEmpty.isVisible().catch(() => false);
-    expect(hasTable).not.toBe(hasEmpty);
+    await expect(ordersTable.or(ordersEmpty)).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
 
-    // Pending quotations section
+    // Pending quotations section: at most the five newest pending ones.
     const quotationsTable = page.locator(
       '[data-testid="pending-quotations-table"]',
     );
     const quotationsEmpty = page.locator(
       '[data-testid="pending-quotations-empty"]',
     );
-    const hasQuotations = await quotationsTable.isVisible().catch(() => false);
-    const hasQuotationsEmpty = await quotationsEmpty
-      .isVisible()
-      .catch(() => false);
-    expect(hasQuotations || hasQuotationsEmpty).toBe(true);
-    if (hasQuotations) {
-      // The wrapper is on the non-empty branch, so its presence means rows.
-      // Count the visible ones — both responsive shapes render N rows each.
-      const rows = quotationsTable.locator(
-        '[data-testid="pending-quote-row"]:visible',
-      );
-      expect(await rows.count()).toBeGreaterThan(0);
+    if (pendingQuoteIds.length > 0) {
+      await expect(quotationsTable).toBeVisible({ timeout: PAGE_TIMEOUT });
+      await expect(quotationsEmpty).toBeHidden();
+      // Both responsive shapes render N rows each; count the visible ones.
+      await expect(
+        quotationsTable.locator('[data-testid="pending-quote-row"]:visible'),
+      ).toHaveCount(Math.min(pendingQuoteIds.length, 5));
+    } else {
+      await expect(quotationsEmpty).toBeVisible({ timeout: PAGE_TIMEOUT });
+      await expect(quotationsTable).toBeHidden();
     }
 
-    // Your lists section
+    // Your lists section. Lists come from localStorage through a client
+    // plugin that runs before hydration ends, so the state has settled here.
     const listsTable = page.locator('[data-testid="your-lists-table"]');
     const listsEmpty = page.locator('[data-testid="your-lists-empty"]');
-    const hasLists = await listsTable.isVisible().catch(() => false);
-    const hasListsEmpty = await listsEmpty.isVisible().catch(() => false);
-    expect(hasLists || hasListsEmpty).toBe(true);
-    if (hasLists) {
-      const rows = listsTable.locator('[data-testid="your-list-row"]:visible');
-      expect(await rows.count()).toBeGreaterThan(0);
+    await expect(listsTable.or(listsEmpty)).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
+    if (await listsTable.isVisible()) {
+      await expect(
+        listsTable.locator('[data-testid="your-list-row"]:visible').first(),
+      ).toBeVisible();
     }
 
     // Purchased products section. The account has purchased products (measured
@@ -642,6 +692,8 @@ test.describe('Portal Quotations', () => {
   test('should navigate from list to populated detail page with all sections', async ({
     page,
   }) => {
+    const sentQuoteId = await fetchSentQuoteId(page);
+
     await page.goto('/se/sv/portal/quotations');
     await page.waitForLoadState('load');
     await waitForHydration(page);
@@ -667,16 +719,19 @@ test.describe('Portal Quotations', () => {
     // clicked something nothing renders.
     const quoteLink = page
       .locator(
-        '[data-testid="quotations-table"] a[href*="/portal/quotations/"]:visible',
+        `[data-testid="quotations-table"] a[href$="/portal/quotations/${sentQuoteId}"]:visible`,
       )
       .first();
-    await expect(quoteLink).toBeVisible({ timeout: PAGE_TIMEOUT });
+    await expect(
+      quoteLink,
+      `the list shows no link to quotation ${sentQuoteId} on its first page`,
+    ).toBeVisible({ timeout: PAGE_TIMEOUT });
     await quoteLink.click();
 
-    // Wait for navigation to the locale-prefixed detail URL (uuid segment)
-    await page.waitForURL(/\/se\/sv\/portal\/quotations\/[\w-]+/, {
-      timeout: PAGE_TIMEOUT,
-    });
+    await page.waitForURL(
+      new RegExp(`/se/sv/portal/quotations/${sentQuoteId}$`),
+      { timeout: PAGE_TIMEOUT },
+    );
 
     // Detail page landed — must NOT be the 404 fallback
     const detail = page.locator('[data-testid="quote-detail"]');
@@ -743,21 +798,16 @@ test.describe('Portal Quotations', () => {
   test('a pending quotation asks before it is declined, and cancel changes nothing', async ({
     page,
   }) => {
-    await page.goto('/se/sv/portal/quotations');
-    await page.waitForLoadState('load');
-    const response = await page.request.get('/api/quotes');
-    expect(response.ok(), '/api/quotes did not answer 200').toBe(true);
-    const { quotes } = (await response.json()) as {
-      quotes: { id: string; status: string }[];
-    };
-    const pendingQuote = quotes.find((quote) => quote.status === 'pending');
+    // Read before any navigation: leaving a page mid-hydration makes Nuxt
+    // reload it, which cancels the next goto.
+    const [pendingQuoteId] = await fetchPendingQuoteIds(page);
     outOfScope(
-      !pendingQuote,
+      !pendingQuoteId,
       'fixture-missing',
       'the test account has no pending quotation left to open the dialog on',
     );
 
-    await page.goto(`/se/sv/portal/quotations/${pendingQuote!.id}`);
+    await page.goto(`/se/sv/portal/quotations/${pendingQuoteId!}`);
     await page.waitForLoadState('load');
     await waitForHydration(page);
     await expect(page.locator('[data-testid="quote-detail"]')).toBeVisible({
@@ -928,10 +978,19 @@ test.describe('Portal Quotation Values', () => {
       page,
     }) => {
       await setVatDisplay(page, side);
+      const sentQuoteId = await fetchSentQuoteId(page);
       await openQuotationsList(page);
 
-      // Both list shapes are in the DOM at once and CSS decides which one shows.
-      const row = page.locator('[data-testid="quotation-row"]:visible').first();
+      // Both list shapes are in the DOM at once and CSS decides which one
+      // shows; the mobile card is the link, the desktop row holds one.
+      const toSent = `[href$="/portal/quotations/${sentQuoteId}"]`;
+      const row = page
+        .locator(`[data-testid="quotation-row"]${toSent}:visible`)
+        .or(
+          page
+            .locator('[data-testid="quotation-row"]:visible')
+            .filter({ has: page.locator(`a${toSent}`) }),
+        );
       await expect(row).toBeVisible({ timeout: PAGE_TIMEOUT });
 
       // Desktop puts the view link in a cell of the row, mobile makes the card
