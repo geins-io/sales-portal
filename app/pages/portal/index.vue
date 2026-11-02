@@ -64,10 +64,6 @@ const recentPendingQuotes = computed(() =>
   quotesStore.pendingQuotes.slice(0, 5),
 );
 
-// Use callOnce to fetch quotes — runs during SSR and skips on client hydration,
-// avoiding hydration mismatch for pendingCount stat card.
-callOnce('portal-quotes', () => quotesStore.fetchQuotes());
-
 // ---------------------------------------------------------------------------
 // Purchased products data
 // ---------------------------------------------------------------------------
@@ -88,6 +84,10 @@ const recentProducts = computed(() => purchasedProducts.value.slice(0, 4));
 const purchasedProductCount = computed(() =>
   productsError.value ? undefined : (productsData.value?.total ?? 0),
 );
+
+// Awaited so the SSR render and the hydration payload hold the quotes. After
+// both useFetch calls, so the three loads run in parallel.
+await callOnce('portal-quotes', () => quotesStore.fetchQuotes());
 
 // ---------------------------------------------------------------------------
 // Saved lists data — client-side via SDK ListsSession (no server API).
