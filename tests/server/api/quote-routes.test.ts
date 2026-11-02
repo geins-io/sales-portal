@@ -9,12 +9,14 @@ const mockListQuotes = vi.fn();
 const mockGetQuote = vi.fn();
 const mockAcceptQuote = vi.fn();
 const mockRejectQuote = vi.fn();
+const mockFinalizeQuote = vi.fn();
 
 vi.mock('../../../server/services/quotes', () => ({
   listQuotes: (...args: unknown[]) => mockListQuotes(...args),
   getQuote: (...args: unknown[]) => mockGetQuote(...args),
   acceptQuote: (...args: unknown[]) => mockAcceptQuote(...args),
   rejectQuote: (...args: unknown[]) => mockRejectQuote(...args),
+  finalizeQuote: (...args: unknown[]) => mockFinalizeQuote(...args),
 }));
 
 // requireAuth — auto-imported from server/utils/auth
@@ -115,10 +117,11 @@ describe('Quote API Routes', () => {
     });
   });
 
-  // Accept and reject share one limiter: the same checks run on both.
+  // Accept, reject and finalize share one limiter: the same checks run on all.
   describe.each([
     { route: 'accept', service: mockAcceptQuote },
     { route: 'reject', service: mockRejectQuote },
+    { route: 'finalize', service: mockFinalizeQuote },
   ])('POST /api/quotes/[id]/$route rate limit', ({ route, service }) => {
     const eventWithId = {
       ...mockEvent,
@@ -334,6 +337,49 @@ describe('Quote API Routes', () => {
       await expect(handler(eventWithId)).rejects.toThrow(
         'Authentication required',
       );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // POST /api/quotes/[id]/finalize
+  // -------------------------------------------------------------------------
+  describe('POST /api/quotes/[id]/finalize', () => {
+    it('finalizes a quote and returns it with its order', async () => {
+      const eventWithId = {
+        ...mockEvent,
+        context: { ...mockEvent.context, params: { id: 'quote-uuid-001' } },
+      } as unknown as import('h3').H3Event;
+      const finalized = { ...mockQuote, status: 'finalized', orderId: '1712' };
+      mockFinalizeQuote.mockResolvedValue(finalized);
+
+      const handler = (
+        await import('../../../server/api/quotes/[id]/finalize.post')
+      ).default;
+      const result = await handler(eventWithId);
+
+      expect(mockRequireAuth).toHaveBeenCalledWith(eventWithId);
+      expect(mockFinalizeQuote).toHaveBeenCalledWith(
+        'quote-uuid-001',
+        eventWithId,
+      );
+      expect(result).toEqual({ quote: finalized });
+    });
+
+    it('requires authentication', async () => {
+      mockRequireAuth.mockRejectedValue(new Error('Authentication required'));
+      const eventWithId = {
+        ...mockEvent,
+        context: { ...mockEvent.context, params: { id: 'quote-uuid-001' } },
+      } as unknown as import('h3').H3Event;
+
+      const handler = (
+        await import('../../../server/api/quotes/[id]/finalize.post')
+      ).default;
+
+      await expect(handler(eventWithId)).rejects.toThrow(
+        'Authentication required',
+      );
+      expect(mockFinalizeQuote).not.toHaveBeenCalled();
     });
   });
 });
