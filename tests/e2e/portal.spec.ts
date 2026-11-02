@@ -40,10 +40,26 @@ test.use({ storageState: signedInState });
 
 const PAGE_TIMEOUT = 20000;
 
+/** Ids of the account's pending quotations, in the order `/api/quotes` lists them. */
+async function fetchPendingQuoteIds(page: Page): Promise<string[]> {
+  const response = await page.request.get('/api/quotes');
+  expect(response.ok(), '/api/quotes did not answer 200').toBe(true);
+  const { quotes } = (await response.json()) as {
+    quotes: { id: string; status: string }[];
+  };
+  return quotes
+    .filter((quote) => quote.status === 'pending')
+    .map((quote) => quote.id);
+}
+
 test.describe('Portal Overview', () => {
   test('should render stat cards and sections on overview page', async ({
     page,
   }) => {
+    // The quotations section can render empty first and swap in the rows
+    // later, so the data decides which state to wait for.
+    const pendingQuoteIds = await fetchPendingQuoteIds(page);
+
     await page.goto('/se/sv/portal');
     await page.waitForLoadState('load');
     await waitForHydration(page);
@@ -57,43 +73,44 @@ test.describe('Portal Overview', () => {
     // guarded by a lookup for the section heading — a branch that never runs,
     // because the heading does render, so the assertion below never executed.
     // PortalOrdersTable's wrapper sits on the non-empty branch and
-    // `orders-empty` on the other, so exactly one of the two is in the DOM.
+    // `orders-empty` on the other, so exactly one of the two is in the DOM;
+    // the strict `or()` fails when both are.
     const ordersTable = page.locator('[data-testid="portal-orders-table"]');
     const ordersEmpty = page.locator('[data-testid="orders-empty"]');
-    const hasTable = await ordersTable.isVisible().catch(() => false);
-    const hasEmpty = await ordersEmpty.isVisible().catch(() => false);
-    expect(hasTable).not.toBe(hasEmpty);
+    await expect(ordersTable.or(ordersEmpty)).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
 
-    // Pending quotations section
+    // Pending quotations section: at most the five newest pending ones.
     const quotationsTable = page.locator(
       '[data-testid="pending-quotations-table"]',
     );
     const quotationsEmpty = page.locator(
       '[data-testid="pending-quotations-empty"]',
     );
-    const hasQuotations = await quotationsTable.isVisible().catch(() => false);
-    const hasQuotationsEmpty = await quotationsEmpty
-      .isVisible()
-      .catch(() => false);
-    expect(hasQuotations || hasQuotationsEmpty).toBe(true);
-    if (hasQuotations) {
-      // The wrapper is on the non-empty branch, so its presence means rows.
-      // Count the visible ones — both responsive shapes render N rows each.
-      const rows = quotationsTable.locator(
-        '[data-testid="pending-quote-row"]:visible',
-      );
-      expect(await rows.count()).toBeGreaterThan(0);
+    if (pendingQuoteIds.length > 0) {
+      await expect(quotationsTable).toBeVisible({ timeout: PAGE_TIMEOUT });
+      await expect(quotationsEmpty).toBeHidden();
+      // Both responsive shapes render N rows each; count the visible ones.
+      await expect(
+        quotationsTable.locator('[data-testid="pending-quote-row"]:visible'),
+      ).toHaveCount(Math.min(pendingQuoteIds.length, 5));
+    } else {
+      await expect(quotationsEmpty).toBeVisible({ timeout: PAGE_TIMEOUT });
+      await expect(quotationsTable).toBeHidden();
     }
 
-    // Your lists section
+    // Your lists section. Lists come from localStorage through a client
+    // plugin that runs before hydration ends, so the state has settled here.
     const listsTable = page.locator('[data-testid="your-lists-table"]');
     const listsEmpty = page.locator('[data-testid="your-lists-empty"]');
-    const hasLists = await listsTable.isVisible().catch(() => false);
-    const hasListsEmpty = await listsEmpty.isVisible().catch(() => false);
-    expect(hasLists || hasListsEmpty).toBe(true);
-    if (hasLists) {
-      const rows = listsTable.locator('[data-testid="your-list-row"]:visible');
-      expect(await rows.count()).toBeGreaterThan(0);
+    await expect(listsTable.or(listsEmpty)).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
+    if (await listsTable.isVisible()) {
+      await expect(
+        listsTable.locator('[data-testid="your-list-row"]:visible').first(),
+      ).toBeVisible();
     }
 
     // Purchased products section. The account has purchased products (measured
@@ -743,21 +760,16 @@ test.describe('Portal Quotations', () => {
   test('a pending quotation asks before it is declined, and cancel changes nothing', async ({
     page,
   }) => {
-    await page.goto('/se/sv/portal/quotations');
-    await page.waitForLoadState('load');
-    const response = await page.request.get('/api/quotes');
-    expect(response.ok(), '/api/quotes did not answer 200').toBe(true);
-    const { quotes } = (await response.json()) as {
-      quotes: { id: string; status: string }[];
-    };
-    const pendingQuote = quotes.find((quote) => quote.status === 'pending');
+    // Read before any navigation: leaving a page mid-hydration makes Nuxt
+    // reload it, which cancels the next goto.
+    const [pendingQuoteId] = await fetchPendingQuoteIds(page);
     outOfScope(
-      !pendingQuote,
+      !pendingQuoteId,
       'fixture-missing',
       'the test account has no pending quotation left to open the dialog on',
     );
 
-    await page.goto(`/se/sv/portal/quotations/${pendingQuote!.id}`);
+    await page.goto(`/se/sv/portal/quotations/${pendingQuoteId!}`);
     await page.waitForLoadState('load');
     await waitForHydration(page);
     await expect(page.locator('[data-testid="quote-detail"]')).toBeVisible({
