@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   quoteAcceptKind,
   quoteAmounts,
+  quoteCanOrder,
   quoteDiscountLabel,
   quoteKindLabelKey,
   quoteResponses,
@@ -240,6 +241,64 @@ describe('quoteAcceptKind', () => {
         makeQuote({ externalReference, requiresConfirmation: false }),
       ),
     ).toBe('monitor');
+  });
+});
+
+describe('quoteCanOrder', () => {
+  const others: QuoteStatus[] = [
+    'request_draft',
+    'requested',
+    'finalized',
+    'rejected',
+    'canceled',
+    'expired',
+    'unknown',
+  ];
+
+  it.each<QuoteStatus>(['pending', 'accepted'])(
+    'orders a %s quotation that needs no confirmation',
+    (status) => {
+      expect(quoteCanOrder(makeQuote({ status }))).toBe(true);
+    },
+  );
+
+  it('does not order a confirmed one that never needed confirmation', () => {
+    expect(quoteCanOrder(makeQuote({ status: 'confirmed' }))).toBe(false);
+  });
+
+  it('orders a quotation that needs confirmation only once confirmed', () => {
+    const confirm = { requiresConfirmation: true };
+    expect(quoteCanOrder(makeQuote({ status: 'confirmed', ...confirm }))).toBe(
+      true,
+    );
+    expect(quoteCanOrder(makeQuote({ status: 'pending', ...confirm }))).toBe(
+      false,
+    );
+    expect(quoteCanOrder(makeQuote({ status: 'accepted', ...confirm }))).toBe(
+      false,
+    );
+  });
+
+  it.each<QuoteStatus>(['pending', 'accepted', 'confirmed'])(
+    'never orders a Monitor-linked %s quotation',
+    (status) => {
+      const externalReference = { number: 'M-1' };
+      expect(quoteCanOrder(makeQuote({ status, externalReference }))).toBe(
+        false,
+      );
+      expect(
+        quoteCanOrder(
+          makeQuote({ status, externalReference, requiresConfirmation: true }),
+        ),
+      ).toBe(false);
+    },
+  );
+
+  it.each(others)('does not order a %s quotation', (status) => {
+    expect(quoteCanOrder(makeQuote({ status }))).toBe(false);
+    expect(
+      quoteCanOrder(makeQuote({ status, requiresConfirmation: true })),
+    ).toBe(false);
   });
 });
 

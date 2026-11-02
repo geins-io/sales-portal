@@ -943,7 +943,21 @@
       "status_info_finalized": "The order has been placed from this quotation.",
       "status_info_rejected": "You opted out, and it is closed.",
       "status_info_canceled": "Your seller canceled it.",
-      "status_info_expired": "The quotation has expired. Contact your seller if you want a new one."
+      "status_info_expired": "The quotation has expired. Contact your seller if you want a new one.",
+      "order": {
+        "heading": "Order from quotation – {name}",
+        "back": "Back to the quotation",
+        "banner_title": "You are ordering from quotation {number}",
+        "banner_body": "Prices, quantities, shipping and terms come from the quotation and cannot be changed here.",
+        "card_company": "Company",
+        "card_addresses": "Addresses",
+        "addresses_locked": "The addresses come from the quotation. Contact your seller if anything needs to change.",
+        "card_payment": "Payment",
+        "invoice": "Invoice",
+        "terms_required": "Accept the terms to place the order.",
+        "valid_until": "The quotation is valid until {date}.",
+        "failed": "The order could not be placed. Please try again."
+      }
     },
     "favorites": {
       "title": "Favorites",

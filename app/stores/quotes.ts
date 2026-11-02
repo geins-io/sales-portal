@@ -95,6 +95,31 @@ export const useQuotesStore = defineStore('quotes', () => {
     }
   }
 
+  async function finalizeQuote(id: string): Promise<Quote | null> {
+    isActionLoading.value = true;
+    error.value = null;
+    try {
+      const data = await $fetch<{ quote: Quote }>(
+        `/api/quotes/${id}/finalize`,
+        { method: 'POST' },
+      );
+      currentQuote.value = data.quote;
+      const idx = quotes.value.findIndex((q) => q.id === id);
+      if (idx >= 0) {
+        quotes.value[idx] = {
+          ...quotes.value[idx]!,
+          status: data.quote.status,
+        };
+      }
+      return data.quote;
+    } catch {
+      error.value = 'portal.quotations.order.failed';
+      return null;
+    } finally {
+      isActionLoading.value = false;
+    }
+  }
+
   function reset() {
     quotes.value = [];
     totalQuotes.value = 0;
@@ -117,6 +142,7 @@ export const useQuotesStore = defineStore('quotes', () => {
     fetchQuote,
     acceptQuote,
     rejectQuote,
+    finalizeQuote,
     reset,
   };
 });

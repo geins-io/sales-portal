@@ -185,7 +185,7 @@ vi.mock('../../../app/stores/quotes', () => ({
 // component's <script setup> makes it an async component, so it must be
 // rendered inside a <Suspense> boundary.
 const { default: PortalQuotationDetail } =
-  await import('../../../app/pages/portal/quotations/[id].vue');
+  await import('../../../app/pages/portal/quotations/[id]/index.vue');
 
 const defaultStubs = {
   PortalShell: {

@@ -314,6 +314,110 @@ describe('useQuotesStore', () => {
     });
   });
 
+  describe('finalizeQuote', () => {
+    const finalized = {
+      ...mockQuote,
+      status: 'finalized' as const,
+    };
+
+    it('calls POST /api/quotes/:id/finalize', async () => {
+      mockFetchImpl.mockResolvedValueOnce({ quote: finalized });
+
+      const store = useQuotesStore();
+      await store.finalizeQuote('q-001');
+
+      expect(mockFetchImpl).toHaveBeenCalledWith('/api/quotes/q-001/finalize', {
+        method: 'POST',
+      });
+    });
+
+    it('returns the quote the server answered with and keeps it', async () => {
+      mockFetchImpl.mockResolvedValueOnce({ quote: finalized });
+
+      const store = useQuotesStore();
+      store.currentQuote = { ...mockQuote };
+
+      expect(await store.finalizeQuote('q-001')).toEqual(finalized);
+      expect(store.currentQuote?.status).toBe('finalized');
+    });
+
+    it('updates only the finalized quote in the list', async () => {
+      mockFetchImpl.mockResolvedValueOnce({ quote: finalized });
+
+      const store = useQuotesStore();
+      store.quotes = [{ ...mockQuoteListItem3 }, { ...mockQuoteListItem }];
+      await store.finalizeQuote('q-001');
+
+      expect(store.quotes.map((q) => q.status)).toEqual([
+        'pending',
+        'finalized',
+      ]);
+    });
+
+    it('updates the finalized quote when it is first in the list', async () => {
+      mockFetchImpl.mockResolvedValueOnce({ quote: finalized });
+
+      const store = useQuotesStore();
+      store.quotes = [{ ...mockQuoteListItem }, { ...mockQuoteListItem3 }];
+      await store.finalizeQuote('q-001');
+
+      expect(store.quotes.map((q) => q.status)).toEqual([
+        'finalized',
+        'pending',
+      ]);
+    });
+
+    it('leaves the list alone when the quote is not in it', async () => {
+      mockFetchImpl.mockResolvedValueOnce({ quote: finalized });
+
+      const store = useQuotesStore();
+      store.quotes = [{ ...mockQuoteListItem3 }];
+      await store.finalizeQuote('q-001');
+
+      expect(Object.keys(store.quotes)).toEqual(['0']);
+      expect(store.quotes[0]?.status).toBe('pending');
+    });
+
+    it('is loading while the request runs', async () => {
+      let answer!: (value: { quote: typeof finalized }) => void;
+      mockFetchImpl.mockReturnValueOnce(
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+      );
+
+      const store = useQuotesStore();
+      const pending = store.finalizeQuote('q-001');
+
+      expect(store.isActionLoading).toBe(true);
+      answer({ quote: finalized });
+      await pending;
+      expect(store.isActionLoading).toBe(false);
+    });
+
+    it('returns null and sets the order_failed key on failure', async () => {
+      mockFetchImpl.mockRejectedValueOnce(new Error('Server error'));
+
+      const store = useQuotesStore();
+      store.currentQuote = { ...mockQuote };
+
+      expect(await store.finalizeQuote('q-001')).toBeNull();
+      expect(store.error).toBe('portal.quotations.order.failed');
+      expect(store.isActionLoading).toBe(false);
+      expect(store.currentQuote?.status).toBe(mockQuote.status);
+    });
+
+    it('clears a stale error at the start of the call', async () => {
+      mockFetchImpl.mockResolvedValueOnce({ quote: finalized });
+
+      const store = useQuotesStore();
+      store.error = 'portal.quotations.order.failed';
+      await store.finalizeQuote('q-001');
+
+      expect(store.error).toBeNull();
+    });
+  });
+
   describe('rejectQuote', () => {
     it('calls POST /api/quotes/:id/reject without body', async () => {
       const rejectedQuote = { ...mockQuote, status: 'rejected' as const };

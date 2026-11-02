@@ -943,7 +943,21 @@
       "status_info_finalized": "Die Bestellung wurde aus diesem Angebot aufgegeben.",
       "status_info_rejected": "Sie haben verzichtet, und es ist geschlossen.",
       "status_info_canceled": "Ihr Verkäufer hat es storniert.",
-      "status_info_expired": "Das Angebot ist abgelaufen. Wenden Sie sich an Ihren Verkäufer, wenn Sie ein neues möchten."
+      "status_info_expired": "Das Angebot ist abgelaufen. Wenden Sie sich an Ihren Verkäufer, wenn Sie ein neues möchten.",
+      "order": {
+        "heading": "Aus Angebot bestellen – {name}",
+        "back": "Zurück zum Angebot",
+        "banner_title": "Sie bestellen aus Angebot {number}",
+        "banner_body": "Preise, Mengen, Versand und Bedingungen stammen aus dem Angebot und können hier nicht geändert werden.",
+        "card_company": "Unternehmen",
+        "card_addresses": "Adressen",
+        "addresses_locked": "Die Adressen stammen aus dem Angebot. Wenden Sie sich an Ihren Verkäufer, wenn etwas geändert werden muss.",
+        "card_payment": "Zahlung",
+        "invoice": "Rechnung",
+        "terms_required": "Akzeptieren Sie die Bedingungen, um die Bestellung aufzugeben.",
+        "valid_until": "Das Angebot gilt bis {date}.",
+        "failed": "Die Bestellung konnte nicht aufgegeben werden. Bitte versuchen Sie es erneut."
+      }
     },
     "favorites": {
       "title": "Favoriten",
