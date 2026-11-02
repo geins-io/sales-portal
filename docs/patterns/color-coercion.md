@@ -82,11 +82,10 @@ containing any of those segments are rejected before traversal.
 
 Only paths in `FATAL_PATHS` can take a tenant offline:
 
-- `tenantId`
+- `accountName`
+- `apiKey`
 - `hostname`
-- `geinsSettings`
-- `geinsSettings.apiKey`
-- `geinsSettings.accountName`
+- `channelSettings`
 
 Color fields are never fatal. The resilient parser drops, substitutes, or backfills
 them as needed.

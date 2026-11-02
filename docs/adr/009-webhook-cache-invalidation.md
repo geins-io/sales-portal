@@ -20,7 +20,7 @@ When a merchant updates store settings in Geins Studio, stale config can persist
 ### Security constraints
 
 - The sales-portal repo is **open source** — secrets in code are visible.
-- The merchant API (`merchantapi.geins.io/store-settings`) exposes `geinsSettings.apiKey` without authentication — anyone can obtain a tenant's API key.
+- The merchant API (`merchantapi.geins.io/store-settings`) exposes the tenant's `apiKey` without authentication — anyone can obtain a tenant's API key.
 - Using the API key as a webhook signing secret would be **forgeable** (visible in code + obtainable from the API).
 
 ## Decision

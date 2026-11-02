@@ -162,7 +162,8 @@ describe('categoryTreeCacheKey', () => {
     // Two hostnames for one storefront must warm ONE entry, not one each.
     const storefront = {
       hostname: 'a.example.com',
-      geinsSettings: { accountName: 't1', channel: '1', tld: 'se' },
+      accountName: 't1',
+      channelSettings: { channelId: '1|se' },
     };
     expect(
       resolveTenantCacheKey(
@@ -193,7 +194,8 @@ describe('categoryTreeCacheKey', () => {
         tenantId: 't1',
         config: {
           hostname: `${channel}.example.com`,
-          geinsSettings: { accountName: 't1', channel, tld: 'se' },
+          accountName: 't1',
+          channelSettings: { channelId: `${channel}|se` },
         },
       });
     expect(resolveTenantCacheKey(onChannel('1'))).not.toBe(

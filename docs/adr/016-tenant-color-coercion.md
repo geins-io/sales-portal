@@ -88,9 +88,8 @@ salvage:
 ### Layer 3: fatal-path allowlist
 
 A tenant can still fail to load when something genuinely irrecoverable is wrong. The
-`FATAL_PATHS` set is the only set of paths that may take a tenant offline: `tenantId`,
-`hostname`, `geinsSettings`, `geinsSettings.apiKey`, `geinsSettings.accountName`. Color
-fields are never fatal.
+`FATAL_PATHS` set is the only set of paths that may take a tenant offline: `accountName`,
+`apiKey`, `hostname`, `channelSettings`. Color fields are never fatal.
 
 ## Consequences
 

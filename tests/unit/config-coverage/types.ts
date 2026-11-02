@@ -305,9 +305,7 @@ type FieldCoverage<K extends keyof PublicTenantConfig> = K extends 'mode'
                 ? SeoCoverage
                 : K extends 'contact'
                   ? ContactCoverage
-                  : K extends 'isActive'
-                    ? Record<'true' | 'false', Coverage>
-                    : Coverage;
+                  : Coverage;
 
 /**
  * The totality contract. `-?` strips optionality, so the eight optional fields

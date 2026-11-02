@@ -23,10 +23,10 @@ export default defineEventHandler((event) => {
     | undefined;
 
   const config = tenant?.config;
-  const geins = config?.geinsSettings;
+  const channelSettings = config?.channelSettings;
 
-  const availableLocales = geins?.availableLocales ?? [];
-  const availableMarkets = geins?.availableMarkets ?? [];
+  const availableLocales = channelSettings?.locales ?? [];
+  const availableMarkets = channelSettings?.markets ?? [];
 
   // Extract short locale codes for comparison
   const validShortLocales = availableLocales

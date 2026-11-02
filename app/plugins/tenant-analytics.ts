@@ -18,7 +18,7 @@ export default defineNuxtPlugin({
 
     await suspense();
 
-    if (!tenant.value?.isActive) return;
+    if (!tenant.value) return;
 
     // Gate 1: global runtime config kill switch
     const config = useRuntimeConfig();

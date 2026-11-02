@@ -73,7 +73,7 @@ export default defineEventHandler(async (event) => {
     tenant?: {
       id?: string;
       config?: {
-        geinsSettings?: { channel?: string | number; tld?: string };
+        channelSettings?: { channelId?: string };
       };
     };
   };
@@ -84,8 +84,9 @@ export default defineEventHandler(async (event) => {
   const urlLocale = localeMarket.locale;
 
   const tenantId = ctx.tenant?.id ?? 'unknown';
-  const channel = ctx.tenant?.config?.geinsSettings?.channel ?? '';
-  const tld = ctx.tenant?.config?.geinsSettings?.tld ?? '';
+  const [channel = '', tld = ''] = (
+    ctx.tenant?.config?.channelSettings?.channelId ?? ''
+  ).split('|');
   const channelId = `${channel}|${tld}`;
 
   // Bail when we have no tenant + no channel: the cache key would collapse

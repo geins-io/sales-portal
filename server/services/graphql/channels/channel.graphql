@@ -1,6 +1,5 @@
 query channel($channelId: String) {
   channel(channelId: $channelId) {
-    assetHost
     defaultMarketId
     markets {
       id

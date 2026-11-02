@@ -81,7 +81,7 @@ export const ThemeTypographySchema = z.object({
 });
 
 export const ThemeConfigSchema = z.object({
-  // Cosmetic CSS selector label. Synthesized from tenantId in
+  // Cosmetic CSS selector label. Synthesized from accountName in
   // buildTenantConfig when the API omits it — the merchant API has
   // started returning themes without this field and we don't want
   // to hard-fail tenant resolution over a missing label.
@@ -120,16 +120,21 @@ export const TimezoneSchema = z.string().refine(
   },
 );
 
-export const GeinsSettingsSchema = z.object({
-  apiKey: z.string(),
-  accountName: z.string(),
-  channel: z.string(),
-  tld: z.string(),
-  locale: z.string(),
-  market: z.string(),
-  environment: z.enum(['production', 'staging']).default('production'),
-  availableLocales: z.array(z.string()).default([]),
-  availableMarkets: z.array(z.string()).default([]),
+/**
+ * The merchant API's `channelSettings`, with its own field names. Routing
+ * (`defaultHostName`, `hostNames`) is not kept here: the adapter turns it into
+ * `hostname` and `aliases`.
+ */
+export const ChannelSettingsSchema = z.object({
+  // `"1|se"`: channel and tld. Without a `|` there is no tld, which the SDK
+  // cannot be built without.
+  channelId: z.string().refine((id) => id.includes('|'), {
+    message: 'Must be "channel|tld"',
+  }),
+  defaultLocale: z.string(),
+  defaultMarket: z.string(),
+  locales: z.array(z.string()).default([]),
+  markets: z.array(z.string()).default([]),
 });
 
 /**
@@ -311,10 +316,11 @@ export const TenantModeSchema = z.preprocess(
  * Complete Store Settings schema — the contract the sales portal expects from the merchant API.
  */
 export const StoreSettingsSchema = z.object({
-  tenantId: z.string(),
+  accountName: z.string(),
+  apiKey: z.string(),
   hostname: z.string(),
   aliases: z.array(z.string()).optional(),
-  geinsSettings: GeinsSettingsSchema,
+  channelSettings: ChannelSettingsSchema,
   mode: TenantModeSchema,
   checkoutMode: z.enum(['custom', 'hosted']).default('custom'),
   timezone: TimezoneSchema.optional(),
@@ -325,7 +331,7 @@ export const StoreSettingsSchema = z.object({
   contact: ContactConfigSchema.nullable().optional(),
   overrides: OverrideConfigSchema,
   cms: CmsConfigSchema,
-  isActive: z.boolean(),
+  assetPath: z.string().nullable().default(null),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -335,7 +341,7 @@ export type StoreSettings = z.infer<typeof StoreSettingsSchema>;
 export type ThemeColors = z.infer<typeof ThemeColorsSchema>;
 export type ThemeConfig = z.infer<typeof ThemeConfigSchema>;
 export type ThemeTypography = z.infer<typeof ThemeTypographySchema>;
-export type GeinsSettings = z.infer<typeof GeinsSettingsSchema>;
+export type ChannelSettings = z.infer<typeof ChannelSettingsSchema>;
 export type BrandingConfig = z.infer<typeof BrandingConfigSchema>;
 /** Wire shape, wider than the evaluable `FeatureAccess` in shared/types. */
 export type FeatureAccessInput = z.infer<typeof FeatureAccessSchema>;

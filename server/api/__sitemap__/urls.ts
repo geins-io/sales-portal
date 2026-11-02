@@ -31,9 +31,9 @@ export default defineEventHandler(async (event) => {
   const config = (event.context.tenant as { config?: TenantConfig } | undefined)
     ?.config;
 
-  const geinsSettings = config?.geinsSettings;
-  const markets = geinsSettings?.availableMarkets ?? ['se'];
-  const availableLocales = geinsSettings?.availableLocales ?? ['en'];
+  const channelSettings = config?.channelSettings;
+  const markets = channelSettings?.markets ?? ['se'];
+  const availableLocales = channelSettings?.locales ?? ['en'];
   const locales = availableLocales.map((l) => l.split('-')[0]!);
 
   const entries: SitemapEntry[] = [];

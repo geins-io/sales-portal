@@ -94,7 +94,6 @@ function createMockTenantConfig(
       wishlist: { enabled: true },
     },
     css: '',
-    isActive: true,
     availableLocales: [],
     availableMarkets: [],
     imageBaseUrl: 'https://example.com',

@@ -108,7 +108,7 @@ function mockEvent() {
     context: {
       tenant: {
         hostname: 'test.com',
-        config: { geinsSettings: { apiKey: 'test-api-key' } },
+        config: { apiKey: 'test-api-key' },
       },
     },
   } as unknown as import('h3').H3Event;

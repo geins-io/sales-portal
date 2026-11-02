@@ -82,15 +82,14 @@ function registryRecord(
   appHostname?: string,
 ) {
   return {
-    tenantId: account,
-    isActive: true,
+    accountName: account,
+    apiKey: 'k',
+    assetPath: null,
     updatedAt: '2026-01-01T00:00:00.000Z',
-    geinsSettings: {
-      defaultHostName: hostname,
-      additionalHostNames: [alias],
-      apiKey: 'k',
-      accountName: account,
+    channelSettings: {
       channelId,
+      defaultHostName: hostname,
+      hostNames: [hostname, alias],
       defaultLocale: 'sv-SE',
       defaultMarket: 'se',
       locales: ['sv-SE'],
@@ -124,7 +123,7 @@ function memoryStorage() {
 
 function eventFor(hostname: string, config: TenantConfig): H3Event {
   return {
-    context: { tenant: { hostname, tenantId: config.tenantId, config } },
+    context: { tenant: { hostname, tenantId: config.accountName, config } },
   } as unknown as H3Event;
 }
 
@@ -218,11 +217,11 @@ describe('two channels on one account', () => {
     const firstA = await resolved(a.host);
     const secondB = await resolved(b.host);
 
-    expect(firstB.tenantId).toBe(account);
-    expect(firstA.tenantId).toBe(account);
-    expect(firstB.geinsSettings.channel).toBe('2');
-    expect(firstA.geinsSettings.channel).toBe('1');
-    expect(secondB.geinsSettings.channel).toBe('2');
+    expect(firstB.accountName).toBe(account);
+    expect(firstA.accountName).toBe(account);
+    expect(firstB.channelSettings.channelId).toBe('2|se');
+    expect(firstA.channelSettings.channelId).toBe('1|se');
+    expect(secondB.channelSettings.channelId).toBe('2|se');
     // The third lookup is a KV hit: A did not overwrite B's entry.
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(storage.store.get(tenantConfigKey(`${account}:1|se`))).toBe(firstA);
@@ -261,34 +260,37 @@ describe('two channels on one account', () => {
   });
 
   it('falls back to the hostname when account or channel is missing', () => {
-    const geinsSettings = { accountName: 'acct', channel: '1', tld: 'se' };
     const config = (
-      overrides: Partial<typeof geinsSettings>,
+      { accountName = 'acct', channelId = '1|se' } = {},
       hostname = 'shop.example',
     ) =>
       ({
         hostname,
-        geinsSettings: { ...geinsSettings, ...overrides },
+        accountName,
+        channelSettings: { channelId },
       }) as unknown as TenantConfig;
 
-    expect(storefrontKey(config({}), 'req.example')).toBe('acct:1|se');
-    expect(storefrontKey(config({ channel: '' }), 'req.example')).toBe(
+    expect(storefrontKey(config(), 'req.example')).toBe('acct:1|se');
+    expect(storefrontKey(config({ channelId: '|se' }), 'req.example')).toBe(
       'shop.example',
     );
-    expect(storefrontKey(config({ tld: '' }), 'req.example')).toBe(
+    expect(storefrontKey(config({ channelId: '1|' }), 'req.example')).toBe(
+      'shop.example',
+    );
+    expect(storefrontKey(config({ channelId: '' }), 'req.example')).toBe(
       'shop.example',
     );
     expect(storefrontKey(config({ accountName: '' }), 'req.example')).toBe(
       'shop.example',
     );
-    expect(storefrontKey(config({ channel: '' }, ''), 'req.example')).toBe(
+    expect(storefrontKey(config({ channelId: '|se' }, ''), 'req.example')).toBe(
       'req.example',
     );
   });
 
   it('a config with neither channel nor hostname is keyed by the requested hostname', async () => {
     const storage = memoryStorage();
-    // An empty channelId, no Geins defaultHostName and an empty
+    // An empty channel, no defaultHostName and an empty
     // appSettings.hostname: the schema accepts every one of them as "", which
     // would otherwise collapse onto one shared key.
     const hostA = 'empty-a.example';
@@ -308,7 +310,7 @@ describe('two channels on one account', () => {
     const configB = await resolved(hostB);
 
     expect(configA.hostname).toBe('');
-    expect(configA.geinsSettings.channel).toBe('');
+    expect(configA.channelSettings.channelId).toBe('|');
     expect(storage.store.has(tenantConfigKey(''))).toBe(false);
     expect(storage.store.get(tenantConfigKey(hostA))).toBe(configA);
     expect(storage.store.get(tenantConfigKey(hostB))).toBe(configB);

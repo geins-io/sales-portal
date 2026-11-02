@@ -138,7 +138,6 @@ function createMockTenantConfig(
       orderHistory: { enabled: true },
     },
     css: '',
-    isActive: true,
     availableLocales: [],
     availableMarkets: [],
     imageBaseUrl: '',

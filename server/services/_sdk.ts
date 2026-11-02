@@ -16,7 +16,7 @@ import {
   readConfiguratorBackendValue,
   readConfiguratorMerchantApiUrl,
 } from './configurator-config';
-import type { GeinsSettings as TenantGeinsSettings } from '#shared/types/tenant-config';
+import type { TenantConfig } from '#shared/types/tenant-config';
 
 export interface TenantSDK {
   core: GeinsCore;
@@ -27,29 +27,13 @@ export interface TenantSDK {
   apiUrl?: string;
 }
 
-/**
- * Maps our tenant environment values to SDK environment values.
- * Our config uses 'production'/'staging', SDK expects 'prod'/'qa'/'dev'.
- */
-function mapEnvironment(
-  env?: TenantGeinsSettings['environment'],
-): SdkGeinsSettings['environment'] {
-  switch (env) {
-    case 'staging':
-      return 'qa';
-    case 'production':
-    default:
-      return 'prod';
-  }
-}
-
 /** Per-storefront singleton cache, keyed by `storefrontCacheKey`. */
 const tenants = new LRUCache<string, TenantSDK>({ max: 100 });
 
 /**
  * Clears cached SDK instances for a storefront.
  * Called by the webhook handler on config invalidation so the next request
- * creates a fresh SDK with up-to-date geinsSettings.
+ * creates a fresh SDK with up-to-date store settings.
  */
 export function clearSdkCache(storefrontKey: string): void {
   const target = tenants.get(storefrontKey);
@@ -81,30 +65,36 @@ export function resolveSdkApiUrl(event: H3Event): string | undefined {
 }
 
 /**
- * Creates a Geins SDK instance from tenant Geins settings. `apiUrl` is only
+ * Creates a Geins SDK instance from the tenant's store settings. `apiUrl` is only
  * set on the SDK when given, so without it the settings are what they were.
  */
 export function createTenantSDK(
-  geinsSettings: TenantGeinsSettings,
+  config: Pick<TenantConfig, 'accountName' | 'apiKey' | 'channelSettings'>,
   apiUrl?: string,
 ): TenantSDK {
-  // Use the first availableLocale as SDK default. The admin's configured
+  const { accountName, apiKey, channelSettings } = config;
+  // The store settings keep the channel whole (`"1|se"`); the SDK takes it
+  // as channel and tld.
+  const [channel = '', tld = ''] = channelSettings.channelId.split('|');
+  // Use the first locale as SDK default. The admin's configured
   // locale (e.g., en-US) may not match product data (sv-SE). This ensures
   // getRequestChannelVariables falls back to the right locale when no
   // cookies are set. RequestContext handles per-request overrides for
   // cart/checkout/CMS operations separately.
   const effectiveLocale =
-    geinsSettings.availableLocales?.[0] ?? geinsSettings.locale;
+    channelSettings.locales?.[0] ?? channelSettings.defaultLocale;
 
   const sdkSettings: SdkGeinsSettings = {
-    apiKey: geinsSettings.apiKey,
-    accountName: geinsSettings.accountName,
-    channel: geinsSettings.channel,
-    tld: geinsSettings.tld,
+    apiKey,
+    accountName,
+    channel,
+    tld,
     locale: effectiveLocale,
-    market: geinsSettings.market,
-    environment: mapEnvironment(geinsSettings.environment),
-    requestConfig: geinsRequestConfig(geinsSettings),
+    market: channelSettings.defaultMarket,
+    // The store settings carry no environment: every storefront runs on
+    // Geins production.
+    environment: 'prod',
+    requestConfig: geinsRequestConfig({ accountName, channel, tld }),
     ...(apiUrl ? { apiUrl } : {}),
   };
 
@@ -200,14 +190,14 @@ export function getRequestChannelVariables(
   marketId: string;
 } {
   const tenantConfig = event.context.tenant?.config as
-    | { geinsSettings?: { availableLocales?: string[] } }
+    | { channelSettings?: { locales?: string[] } }
     | undefined;
 
   return getChannelVariables(
     sdk,
     getRequestLocale(event),
     getRequestMarket(event),
-    tenantConfig?.geinsSettings?.availableLocales,
+    tenantConfig?.channelSettings?.locales,
   );
 }
 
@@ -241,7 +231,7 @@ export async function getTenantSDK(event: H3Event): Promise<TenantSDK> {
   // Prefer the config already resolved by 02.tenant-context plugin
   const tenant =
     event.context.tenant.config ?? (await resolveTenant(hostname, event));
-  if (!tenant?.geinsSettings) {
+  if (!tenant?.channelSettings) {
     throw createAppError(
       ErrorCode.BAD_REQUEST,
       'Tenant has no Geins SDK configuration',
@@ -258,7 +248,7 @@ export async function getTenantSDK(event: H3Event): Promise<TenantSDK> {
     return existing;
   }
 
-  const sdk = createTenantSDK(tenant.geinsSettings, apiUrl);
+  const sdk = createTenantSDK(tenant, apiUrl);
   // Cache under both the storefront key and the lookup key
   tenants.set(tid, sdk);
   if (cacheKey !== tid) tenants.set(cacheKey, sdk);

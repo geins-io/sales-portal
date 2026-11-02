@@ -28,7 +28,6 @@ vi.mock('../app/composables/useLocaleMarket', () => ({
 const mockTenantConfig: PublicTenantConfig = {
   tenantId: 'test-tenant',
   hostname: 'test.example.com',
-  isActive: true,
   css: '',
   mode: 'commerce',
   branding: {

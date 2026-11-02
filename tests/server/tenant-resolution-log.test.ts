@@ -90,20 +90,19 @@ vi.stubGlobal('useStorage', mockUseStorage);
 const API_URL = 'https://merchant.example/store-settings';
 
 function rawApiPayload(
-  tenantId: string,
+  accountName: string,
   hostname: string,
-  options: { isActive?: boolean; additionalHostNames?: string[] } = {},
+  options: { aliases?: string[] } = {},
 ) {
   return {
-    tenantId,
-    isActive: options.isActive ?? true,
+    accountName,
+    apiKey: 'k',
+    assetPath: null,
     updatedAt: '2026-01-01T00:00:00.000Z',
-    geinsSettings: {
-      defaultHostName: hostname,
-      additionalHostNames: options.additionalHostNames ?? [],
-      apiKey: 'k',
-      accountName: tenantId,
+    channelSettings: {
       channelId: '1|se',
+      defaultHostName: hostname,
+      hostNames: [hostname, ...(options.aliases ?? [])],
       defaultLocale: 'sv-SE',
       defaultMarket: 'se',
       locales: ['sv-SE'],
@@ -196,15 +195,14 @@ function resetStorage() {
 
 /** A config as KV holds it: only the fields the resolution path reads. */
 function kvConfig(
-  tenantId: string,
+  accountName: string,
   hostname: string,
-  options: { isActive?: boolean; aliases?: string[] } = {},
+  options: { aliases?: string[] } = {},
 ): TenantConfig {
   return {
-    tenantId,
+    accountName,
     hostname,
     aliases: options.aliases ?? [],
-    isActive: options.isActive ?? true,
   } as unknown as TenantConfig;
 }
 
@@ -343,7 +341,7 @@ describe('resolveTenant resolution log', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(first).toMatchObject({ config: null, outcome: 'transport-failure' });
     expect(second.outcome).toBe('resolved');
-    expect(second.config?.tenantId).toBe('flaky');
+    expect(second.config?.accountName).toBe('flaky');
   });
 
   it('an unknown hostname is negative-cached and reported as such', async () => {
@@ -365,7 +363,7 @@ describe('resolveTenant resolution log', () => {
 
     const result = await resolveTenant(host);
 
-    expect(result?.tenantId).toBe('registered');
+    expect(result?.accountName).toBe('registered');
     expect(warnLinesFor(host)).toHaveLength(0);
     const lines = debugLinesFor(host);
     expect(lines).toHaveLength(1);
@@ -377,10 +375,8 @@ describe('resolveTenant resolution log', () => {
   it('a KV hit logs kv=hit with the merchant API skipped', async () => {
     const host = 'kv-hit.example';
     const config = {
-      tenantId: 'kv-tenant',
+      accountName: 'kv-tenant',
       hostname: host,
-      isActive: true,
-      geinsSettings: { additionalHostNames: [] },
     };
     // useStorage is called once per KV step; keep the seeded store for all of them.
     mockUseStorage.mockReturnValue({
@@ -472,16 +468,13 @@ describe('resolveTenantOutcome KV paths', () => {
     const aliases = ['alias.example', 'www.primary.example'];
     const storage = memoryStorage();
     stubFetch(async () =>
-      httpResponse(
-        200,
-        rawApiPayload('multi-host', host, { additionalHostNames: aliases }),
-      ),
+      httpResponse(200, rawApiPayload('multi-host', host, { aliases })),
     );
 
     const { config, outcome } = await resolveTenantOutcome(host);
 
     expect(outcome).toBe('resolved');
-    expect(config?.tenantId).toBe('multi-host');
+    expect(config?.accountName).toBe('multi-host');
     expect(storage.store.get(tenantConfigKey('multi-host:1|se'))).toBe(config);
     for (const h of [host, ...aliases]) {
       expect(storage.store.get(tenantIdKey(h))).toBe('multi-host:1|se');
@@ -496,10 +489,7 @@ describe('resolveTenantOutcome KV paths', () => {
     const alias = 'shop.brand.example';
     memoryStorage();
     const fetchSpy = stubFetch(async () =>
-      httpResponse(
-        200,
-        rawApiPayload('brand', host, { additionalHostNames: [alias] }),
-      ),
+      httpResponse(200, rawApiPayload('brand', host, { aliases: [alias] })),
     );
 
     await resolveTenantOutcome(host);
@@ -507,7 +497,7 @@ describe('resolveTenantOutcome KV paths', () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(second.outcome).toBe('resolved');
-    expect(second.config?.tenantId).toBe('brand');
+    expect(second.config?.accountName).toBe('brand');
     expect(debugLinesFor(alias)[0]).toBe(
       `[tenant] resolve host=${alias} kv=hit api=skipped outcome=resolved tenant=brand`,
     );
@@ -527,7 +517,7 @@ describe('resolveTenantOutcome KV paths', () => {
     const { config, outcome } = await resolveTenantOutcome(host);
 
     expect(outcome).toBe('resolved');
-    expect(config?.tenantId).toBe('new-tenant');
+    expect(config?.accountName).toBe('new-tenant');
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(
       `${API_URL}?hostname=${host}`,
@@ -558,31 +548,25 @@ describe('resolveTenantOutcome KV paths', () => {
     const { outcome, config } = await resolveTenantOutcome(host);
 
     expect(outcome).toBe('resolved');
-    expect(config?.tenantId).toBe('vanished');
+    expect(config?.accountName).toBe('vanished');
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(storage.store.get(tenantConfigKey('vanished:1|se'))).toBe(config);
     expect(debugLinesFor(host)[0]).toContain('kv=miss api=GET');
   });
 
-  it('inactive tenant: unknown-tenant, negative-cached, nothing written to KV', async () => {
+  // The merchant API answers 404 for an inactive storefront, so an answer
+  // means active; an old root `isActive` is not read.
+  it('an old root isActive: false is not read: the storefront resolves', async () => {
     const host = 'switched-off.example';
-    const storage = memoryStorage();
-    const fetchSpy = stubFetch(async () =>
-      httpResponse(200, rawApiPayload('off', host, { isActive: false })),
+    memoryStorage();
+    stubFetch(async () =>
+      httpResponse(200, { ...rawApiPayload('off', host), isActive: false }),
     );
 
-    const first = await resolveTenantOutcome(host);
-    const second = await resolveTenantOutcome(host);
-    clearNegativeCache(host);
+    const { config, outcome } = await resolveTenantOutcome(host);
 
-    expect(first).toEqual({ config: null, outcome: 'unknown-tenant' });
-    expect(second.outcome).toBe('negative-cache');
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(storage.setItem).not.toHaveBeenCalled();
-    expect(storage.store.size).toBe(0);
-    expect(warnLinesFor(host)[0]).toBe(
-      `[tenant] resolve host=${host} kv=miss api=GET ${API_URL}?hostname=${host} → 200 (inactive) outcome=unknown-tenant`,
-    );
+    expect(outcome).toBe('resolved');
+    expect(config?.accountName).toBe('off');
   });
 
   it('a hostname the merchant API matched by substring: unknown-tenant, negative-cached, nothing written to KV', async () => {
@@ -639,10 +623,17 @@ describe('resolveTenantOutcome KV paths', () => {
   it('body rejected by the schema: invalid-config, negative-cached, nothing written to KV', async () => {
     const host = 'malformed.example';
     const storage = memoryStorage();
-    // No tenantId anywhere: a fatal path for parseStoreSettingsResilient.
+    // No accountName anywhere: a fatal path for parseStoreSettingsResilient.
     // The hostname is there so the payload gets past the registration check.
     const fetchSpy = stubFetch(async () =>
-      httpResponse(200, { appSettings: { mode: 'commerce', hostname: host } }),
+      httpResponse(200, {
+        channelSettings: {
+          channelId: '1|se',
+          defaultHostName: host,
+          hostNames: [host],
+        },
+        appSettings: { mode: 'commerce' },
+      }),
     );
 
     const first = await resolveTenantOutcome(host);
@@ -682,33 +673,6 @@ describe('getTenantById', () => {
     expect(storage.setItem).not.toHaveBeenCalled();
     expect(storage.removeItem).not.toHaveBeenCalled();
   });
-
-  it('returns null for an inactive config and leaves it in KV', async () => {
-    const config = kvConfig('t-off', 't-off.example', { isActive: false });
-    const storage = memoryStorage({ [tenantConfigKey('t-off')]: config });
-
-    await expect(getTenantById('t-off')).resolves.toBeNull();
-    expect(storage.removeItem).not.toHaveBeenCalled();
-    expect(storage.store.get(tenantConfigKey('t-off'))).toBe(config);
-  });
-
-  it('returns the config only because isActive is true, on one otherwise identical config', async () => {
-    // The cases above each assert one half, and the active half asserts it
-    // only by implication: `kvConfig` defaults `isActive` to true, so the
-    // first test would fail if the flag stopped deciding, and its title would
-    // not say why. Here the flag is the single difference between two
-    // otherwise identical configs at the same key, which is what makes this
-    // an assertion about the field rather than about the lookup.
-    const active = kvConfig('t-flag', 't-flag.example', { isActive: true });
-    memoryStorage({ [tenantConfigKey('t-flag')]: active });
-    await expect(getTenantById('t-flag')).resolves.toBe(active);
-
-    resetStorage();
-
-    const inactive = kvConfig('t-flag', 't-flag.example', { isActive: false });
-    memoryStorage({ [tenantConfigKey('t-flag')]: inactive });
-    await expect(getTenantById('t-flag')).resolves.toBeNull();
-  });
 });
 
 describe('fetchTenantConfig', () => {
@@ -729,9 +693,8 @@ describe('fetchTenantConfig', () => {
 
     const config = await fetchTenantConfig(host, undefined, t);
 
-    expect(config?.tenantId).toBe('fetched');
+    expect(config?.accountName).toBe('fetched');
     expect(config?.hostname).toBe(host);
-    expect(config?.isActive).toBe(true);
     expect(t).toMatchObject({
       outcome: 'resolved',
       api: { url: `${API_URL}?hostname=${host}`, result: '200' },
@@ -881,7 +844,7 @@ describe('fetchTenantConfig', () => {
 
     const config = await fetchTenantConfig(host);
 
-    expect(config?.tenantId).toBe('quiet');
+    expect(config?.accountName).toBe('quiet');
   });
 
   it('a payload for another hostname: null and unknown-tenant, also without a trace', async () => {
@@ -903,13 +866,13 @@ describe('fetchTenantConfig', () => {
     });
   });
 
-  it('resolves on a name in additionalHostNames', async () => {
+  it('resolves on a name in hostNames', async () => {
     const host = 'shop.alias.example';
     stubFetch(async () =>
       httpResponse(
         200,
         rawApiPayload('aliased', 'primary.alias.example', {
-          additionalHostNames: ['other.alias.example', host],
+          aliases: ['other.alias.example', host],
         }),
       ),
     );
@@ -917,11 +880,11 @@ describe('fetchTenantConfig', () => {
 
     const config = await fetchTenantConfig(host, undefined, t);
 
-    expect(config?.tenantId).toBe('aliased');
+    expect(config?.accountName).toBe('aliased');
     expect(t.outcome).toBe('resolved');
   });
 
-  it('resolves on the legacy appSettings.hostname when Geins carries no defaultHostName', async () => {
+  it('resolves on the legacy appSettings.hostname when the channel carries no defaultHostName', async () => {
     const host = 'legacy.example';
     const payload = rawApiPayload('legacy', '');
     payload.appSettings = { ...payload.appSettings, hostname: host } as never;
@@ -929,7 +892,7 @@ describe('fetchTenantConfig', () => {
 
     const config = await fetchTenantConfig(host);
 
-    expect(config?.tenantId).toBe('legacy');
+    expect(config?.accountName).toBe('legacy');
     expect(config?.hostname).toBe(host);
   });
 
@@ -947,7 +910,7 @@ describe('fetchTenantConfig', () => {
       httpResponse(
         200,
         rawApiPayload('cased', 'Shop.Example.', {
-          additionalHostNames: ['WWW.SHOP.EXAMPLE'],
+          aliases: ['WWW.SHOP.EXAMPLE'],
         }),
       ),
     );

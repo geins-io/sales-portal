@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { eventWithGeinsSettings } from '../../mock-event';
+import { eventWithChannelSettings } from '../../mock-event';
 
 type AnyFn = (...args: unknown[]) => unknown;
 
@@ -360,10 +360,9 @@ describe('POST /api/auth/login', () => {
 
   it('switches a Finnish-company buyer off the default SE market to FI', async () => {
     mockGetMarketCookie.mockReturnValue('se');
-    const eventWithTenant = eventWithGeinsSettings({
-      channel: '1',
-      tld: 'se',
-      market: 'se',
+    const eventWithTenant = eventWithChannelSettings({
+      channelId: '1|se',
+      defaultMarket: 'se',
     });
 
     mockAuthLogin.mockResolvedValue({
@@ -405,10 +404,9 @@ describe('POST /api/auth/login', () => {
 
   it('leaves market unchanged when already on the company-country market', async () => {
     mockGetMarketCookie.mockReturnValue('fi');
-    const eventWithTenant = eventWithGeinsSettings({
-      channel: '1',
-      tld: 'se',
-      market: 'se',
+    const eventWithTenant = eventWithChannelSettings({
+      channelId: '1|se',
+      defaultMarket: 'se',
     });
 
     mockAuthLogin.mockResolvedValue({

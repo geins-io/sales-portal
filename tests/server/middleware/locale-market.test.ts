@@ -40,7 +40,18 @@ function makeEvent(
   return {
     path,
     context: config
-      ? { tenant: { config: { geinsSettings: { ...config } } } }
+      ? {
+          tenant: {
+            config: {
+              channelSettings: {
+                defaultLocale: config.locale,
+                defaultMarket: config.market,
+                locales: config.availableLocales,
+                markets: config.availableMarkets,
+              },
+            },
+          },
+        }
       : {},
   } as unknown as H3Event;
 }

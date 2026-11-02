@@ -24,7 +24,6 @@ function makeTenant(cms?: PublicTenantConfig['cms']): PublicTenantConfig {
     features: {},
     cms,
     css: '',
-    isActive: true,
     availableLocales: ['sv'],
     availableMarkets: ['se'],
     imageBaseUrl: '',

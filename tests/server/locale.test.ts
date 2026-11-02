@@ -27,7 +27,7 @@ function createEvent(options?: CreateEventOptions): H3Event {
   return {
     context: {
       tenant: options?.tenantConfig
-        ? { config: { geinsSettings: options.tenantConfig } }
+        ? { config: { channelSettings: options.tenantConfig } }
         : undefined,
       resolvedLocaleMarket: options?.resolvedLocaleMarket,
     },
@@ -64,7 +64,7 @@ describe('server/utils/locale', () => {
 
     it('should fall back to cookie when resolvedLocaleMarket is absent', () => {
       const event = createEvent({
-        tenantConfig: { availableLocales: ['sv-SE', 'en-US'] },
+        tenantConfig: { locales: ['sv-SE', 'en-US'] },
       });
       mockGetCookie.mockReturnValue('sv');
 
@@ -74,7 +74,7 @@ describe('server/utils/locale', () => {
 
     it('should expand short locale to BCP-47 using tenant config', () => {
       const event = createEvent({
-        tenantConfig: { availableLocales: ['sv-SE', 'en-US'] },
+        tenantConfig: { locales: ['sv-SE', 'en-US'] },
       });
       mockGetCookie.mockReturnValue('sv');
 
@@ -100,8 +100,8 @@ describe('server/utils/locale', () => {
     it('should fall back to the tenant config default locale when cookie is not set', () => {
       const event = createEvent({
         tenantConfig: {
-          locale: 'nb-NO',
-          availableLocales: ['nb-NO', 'sv-SE'],
+          defaultLocale: 'nb-NO',
+          locales: ['nb-NO', 'sv-SE'],
         },
       });
       mockGetCookie.mockReturnValue(undefined);
@@ -119,7 +119,7 @@ describe('server/utils/locale', () => {
     it('should return undefined when cookie is empty string and config has no default', () => {
       // A locale list is not a default, so it must not stand in for one.
       const event = createEvent({
-        tenantConfig: { availableLocales: ['nb-NO'] },
+        tenantConfig: { locales: ['nb-NO'] },
       });
       mockGetCookie.mockReturnValue('');
 

@@ -28,7 +28,7 @@ export default defineEventHandler((event) => {
     url: buildSiteUrl(tenant.hostname),
     name: tenant.branding.name,
     description: tenant.seo?.defaultDescription ?? '',
-    defaultLocale: tenant.geinsSettings.locale,
+    defaultLocale: tenant.channelSettings.defaultLocale,
     currentLocale: requestLocale,
     indexable: isIndexable(tenant.seo?.robots),
   });

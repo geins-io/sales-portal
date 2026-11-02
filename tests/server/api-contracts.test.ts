@@ -127,7 +127,6 @@ const TenantConfigSchema = z.object({
   seo: TenantSeoSchema,
   contact: TenantContactSchema,
   css: z.string(),
-  isActive: z.boolean(),
   locale: z.string().optional(),
   availableLocales: z.array(z.string()),
 });
@@ -268,7 +267,6 @@ describe('API Contracts', () => {
           radius: '0.5rem',
         },
         css: '[data-theme="test-theme"] { --primary: #000; }',
-        isActive: true,
         branding: {
           name: 'Test Brand',
           watermark: 'full',
@@ -316,7 +314,6 @@ describe('API Contracts', () => {
         css: '',
         branding: { name: 'Test', watermark: 'full' },
         features: {},
-        isActive: true,
         availableLocales: [],
       };
 
@@ -343,7 +340,6 @@ describe('API Contracts', () => {
         css: '',
         branding: { name: 'Test', watermark: 'full' },
         features: {},
-        isActive: true,
         availableLocales: [],
       };
 

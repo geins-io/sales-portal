@@ -89,9 +89,9 @@ export function listBuyerMarkets(
   event: H3Event,
   source: BuyerMarketSource | null | undefined,
 ): string[] | null {
-  const settings = event.context?.tenant?.config?.geinsSettings;
-  const channel = settings?.channel;
-  const tld = settings?.tld;
+  const [channel, tld] = (
+    event.context?.tenant?.config?.channelSettings?.channelId ?? ''
+  ).split('|');
   if (!source || !channel || !tld) return null;
 
   const channelId = `${channel}|${tld}`;

@@ -51,7 +51,7 @@ const TENANT = {
   hostname: 'alpha.example',
   branding: { name: 'Alpha' },
   seo: { defaultDescription: 'desc', robots: undefined },
-  geinsSettings: { locale: 'nb-NO' },
+  channelSettings: { defaultLocale: 'nb-NO' },
 };
 
 let handler: (event: H3Event) => unknown;
@@ -81,7 +81,7 @@ describe('server/middleware/seo-config', () => {
     mockGetRequestLocale.mockReturnValue(undefined);
     const event = tenantEvent({
       ...TENANT,
-      geinsSettings: { locale: undefined },
+      channelSettings: { defaultLocale: undefined },
     });
 
     await handler(event);
@@ -93,7 +93,7 @@ describe('server/middleware/seo-config', () => {
     mockGetRequestLocale.mockReturnValue(undefined);
     const event = tenantEvent({
       ...TENANT,
-      geinsSettings: { locale: undefined },
+      channelSettings: { defaultLocale: undefined },
     });
 
     await handler(event);

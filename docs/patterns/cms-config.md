@@ -46,19 +46,22 @@ The Geins merchant API (`/store-settings?hostname=...`) returns:
 
 ```jsonc
 {
-  "geinsSettings": {
-    /* api creds, defaultHostName, additionalHostNames */
+  "accountName": "acme",
+  "apiKey": "…",
+  "assetPath": "https://cdn.litium.media/acme",
+  "channelSettings": {
+    /* channelId, defaultLocale, locales, markets, defaultHostName, hostNames */
   },
   "appSettings": {
-    /* tenantId, hostname, theme, branding, features, cms, ... */
+    /* theme, branding, features, cms, ... */
   },
 }
 ```
 
-`fetchTenantConfig` flattens the two halves before validating against
-`StoreSettingsSchema`, and merges `geinsSettings.additionalHostNames` into
-`appSettings.aliases` so all configured hostnames resolve to the right
-tenant.
+`adaptMerchantApiResponse` flattens it before validating against
+`StoreSettingsSchema`: `hostname` is `channelSettings.defaultHostName` and
+`aliases` is `channelSettings.hostNames` without it, so all configured
+hostnames resolve to the right tenant.
 
 ## Current slots (`tenant.cms.slots`)
 

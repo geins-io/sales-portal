@@ -53,18 +53,18 @@ export default defineEventHandler((event) => {
 
   const segments = path.split('/').filter(Boolean);
 
-  const geinsSettings = (
+  const channelSettings = (
     event.context.tenant?.config as TenantConfig | undefined
-  )?.geinsSettings;
-  const knownMarkets = geinsSettings?.availableMarkets ?? [];
-  const knownLocales = geinsSettings?.availableLocales
-    ? resolvableLocaleCodes(geinsSettings.availableLocales)
+  )?.channelSettings;
+  const knownMarkets = channelSettings?.markets ?? [];
+  const knownLocales = channelSettings?.locales
+    ? resolvableLocaleCodes(channelSettings.locales)
     : [];
 
   // Tenant config comes from the external merchant admin, so a tenant missing
   // these lists must degrade rather than loop toward a default that cannot
   // validate either.
-  if (!geinsSettings || !knownMarkets.length || !knownLocales.length) {
+  if (!channelSettings || !knownMarkets.length || !knownLocales.length) {
     return passThroughWithoutTenantLists(event, segments, path, query);
   }
 
@@ -85,10 +85,10 @@ export default defineEventHandler((event) => {
     const { resolved } = resolveLocaleMarket(
       { market, locale },
       {
-        availableLocales: geinsSettings.availableLocales,
-        availableMarkets: geinsSettings.availableMarkets,
-        defaultLocale: geinsSettings.locale,
-        defaultMarket: geinsSettings.market,
+        availableLocales: channelSettings.locales,
+        availableMarkets: channelSettings.markets,
+        defaultLocale: channelSettings.defaultLocale,
+        defaultMarket: channelSettings.defaultMarket,
       },
     );
     writeLocaleMarketCookies(event, resolved.market, resolved.locale);
@@ -178,12 +178,12 @@ function tenantDefaultMarketLocale(event: import('h3').H3Event): {
   market: string;
   locale: string;
 } {
-  const geinsSettings = (
+  const channelSettings = (
     event.context.tenant?.config as TenantConfig | undefined
-  )?.geinsSettings;
+  )?.channelSettings;
   return {
-    market: geinsSettings?.market || 'se',
-    locale: geinsSettings?.locale?.split('-')[0] || 'sv',
+    market: channelSettings?.defaultMarket || 'se',
+    locale: channelSettings?.defaultLocale?.split('-')[0] || 'sv',
   };
 }
 
@@ -213,11 +213,11 @@ function resolveDefaultMarketLocale(event: import('h3').H3Event): {
   const localeCookie = getCookie(event, COOKIE_NAMES.LOCALE);
 
   // Market binds currency (ADR-020), so there is no neutral market to end on.
-  const geinsSettings = (
+  const channelSettings = (
     event.context.tenant?.config as TenantConfig | undefined
-  )?.geinsSettings;
-  const configMarket = geinsSettings?.market;
-  const configLocale = geinsSettings?.locale;
+  )?.channelSettings;
+  const configMarket = channelSettings?.defaultMarket;
+  const configLocale = channelSettings?.defaultLocale;
 
   const market =
     marketCookie && isTwoLetterCode(marketCookie)

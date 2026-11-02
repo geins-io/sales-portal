@@ -44,7 +44,7 @@ const COLOR_DEFAULTS: Record<keyof typeof HEX_DEFAULTS, string> =
 
 /**
  * Canonical defaults. Shape mirrors `StoreSettings` partially; identity
- * fields (tenantId/hostname/geinsSettings/timestamps/isActive) are never
+ * fields (accountName/apiKey/hostname/channelSettings/timestamps) are never
  * defaulted here because they come from the API or the auto-provision path.
  *
  * Feature-flag default policy (read this before adding a new feature):

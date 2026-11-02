@@ -38,7 +38,8 @@ function createEvent(
     hostname?: string;
     config?: {
       hostname: string;
-      geinsSettings?: { accountName: string; channel: string; tld: string };
+      accountName?: string;
+      channelSettings?: { channelId: string };
     };
   } = {
     tenantId: 'acme',
@@ -69,7 +70,8 @@ describe('resolveConfigCacheKey', () => {
 
   const storefront = (channel: string) => ({
     hostname: 'acme.localhost',
-    geinsSettings: { accountName: 'acme', channel, tld: 'se' },
+    accountName: 'acme',
+    channelSettings: { channelId: `${channel}|se` },
   });
 
   it('keys by account and channel, so an alias shares the storefront entry', () => {
@@ -123,7 +125,8 @@ describe('resolveConfigCacheKey', () => {
           hostname: `${accountName}.localhost`,
           config: {
             hostname: `${accountName}.localhost`,
-            geinsSettings: { accountName, channel, tld: 'se' },
+            accountName,
+            channelSettings: { channelId: `${channel}|se` },
           },
         },
       );

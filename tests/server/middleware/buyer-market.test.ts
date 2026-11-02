@@ -63,15 +63,14 @@ function makeEvent(opts: EventOpts = {}): H3Event {
           ? {
               id: 'alpha',
               config: {
-                geinsSettings: { channel: '1', tld: 'se' },
+                channelSettings: { channelId: '1|se' },
               },
             }
           : {
               id: opts.tenantId ?? 'alpha',
               config: {
-                geinsSettings: {
-                  channel: opts.channel ?? '1',
-                  tld: opts.tld ?? 'se',
+                channelSettings: {
+                  channelId: `${opts.channel ?? '1'}|${opts.tld ?? 'se'}`,
                 },
               },
             },

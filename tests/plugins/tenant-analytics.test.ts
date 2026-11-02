@@ -75,11 +75,11 @@ describe('tenant-analytics plugin', () => {
     vi.clearAllMocks();
     analyticsKillSwitch.value = true;
     mockHasFeature.mockImplementation(() => true);
-    tenantRef.value = { isActive: true, seo: null };
+    tenantRef.value = { seo: null };
   });
 
   async function withSeo(seo: Record<string, unknown>) {
-    tenantRef.value = { isActive: true, seo };
+    tenantRef.value = { seo };
     if (capturedSetup) await capturedSetup();
   }
 
@@ -161,11 +161,8 @@ describe('tenant-analytics plugin', () => {
       expect(mockUseScriptGoogleTagManager).not.toHaveBeenCalled();
     });
 
-    it('registers nothing when the tenant is inactive', async () => {
-      tenantRef.value = {
-        isActive: false,
-        seo: { googleAnalyticsId: 'GA-SENTINEL' },
-      };
+    it('registers nothing when there is no tenant', async () => {
+      tenantRef.value = null;
       if (capturedSetup) await capturedSetup();
       expect(mockUseScriptGoogleAnalytics).not.toHaveBeenCalled();
     });

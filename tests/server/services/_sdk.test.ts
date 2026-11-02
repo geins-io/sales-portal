@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { H3Event } from 'h3';
-import type { GeinsSettings } from '#shared/types/tenant-config';
+import type { TenantConfig } from '#shared/types/tenant-config';
 
 // Mock SDK constructors — must be classes so `new` works
 const mockGeinsCore = vi.fn();
@@ -94,16 +94,19 @@ vi.mock('../../../server/services/configurator-config', () => ({
 
 const CPQ_API_URL = 'https://cpq-merchant-api.example.test/graphql';
 
-const MOCK_GEINS_SETTINGS: GeinsSettings = {
-  apiKey: 'test-api-key',
+const MOCK_STORE_SETTINGS: Pick<
+  TenantConfig,
+  'accountName' | 'apiKey' | 'channelSettings'
+> = {
   accountName: 'test-account',
-  channel: '1',
-  tld: 'se',
-  locale: 'sv-SE',
-  market: 'se',
-  environment: 'production',
-  availableLocales: ['sv-SE'],
-  availableMarkets: ['se'],
+  apiKey: 'test-api-key',
+  channelSettings: {
+    channelId: '1|se',
+    defaultLocale: 'sv-SE',
+    defaultMarket: 'se',
+    locales: ['sv-SE'],
+    markets: ['se'],
+  },
 };
 
 function createEvent(tenantHostname?: string): H3Event {
@@ -140,7 +143,7 @@ describe('server/services/_sdk', () => {
 
   describe('createTenantSDK', () => {
     it('should create all four SDK instances', () => {
-      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const sdk = createTenantSDK(MOCK_STORE_SETTINGS);
 
       expect(sdk).toHaveProperty('core');
       expect(sdk).toHaveProperty('crm');
@@ -149,7 +152,7 @@ describe('server/services/_sdk', () => {
     });
 
     it('should pass mapped settings to GeinsCore', () => {
-      createTenantSDK(MOCK_GEINS_SETTINGS);
+      createTenantSDK(MOCK_STORE_SETTINGS);
 
       expect(mockGeinsCore).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -167,7 +170,7 @@ describe('server/services/_sdk', () => {
     it('bounds every Geins call at the portal limit and reports a timeout', async () => {
       const { GEINS_REQUEST_TIMEOUT_MS } =
         await import('../../../server/utils/outbound-timeouts');
-      createTenantSDK(MOCK_GEINS_SETTINGS);
+      createTenantSDK(MOCK_STORE_SETTINGS);
 
       const settings = mockGeinsCore.mock.calls[0]![0] as {
         requestConfig?: {
@@ -181,34 +184,70 @@ describe('server/services/_sdk', () => {
       );
     });
 
-    it('should map production environment to prod', () => {
-      createTenantSDK({ ...MOCK_GEINS_SETTINGS, environment: 'production' });
+    it('names the account and channel when it reports a Geins timeout', async () => {
+      const { logger } = await import('../../../server/utils/logger');
+      const logError = vi.spyOn(logger, 'error').mockImplementation(() => {});
+      createTenantSDK(MOCK_STORE_SETTINGS);
+      const settings = mockGeinsCore.mock.calls[0]![0] as {
+        requestConfig: {
+          interceptors: { onError: (context: unknown) => void };
+        };
+      };
 
-      expect(mockGeinsCore).toHaveBeenCalledWith(
-        expect.objectContaining({ environment: 'prod' }),
+      settings.requestConfig.interceptors.onError({
+        error: Object.assign(new Error('timed out'), {
+          code: 'REQUEST_TIMEOUT',
+        }),
+        operationName: 'getProduct',
+        requestId: 'req-1',
+        durationMs: 1,
+      });
+
+      expect(logError).toHaveBeenCalledWith(
+        expect.stringContaining('getProduct'),
+        expect.any(Error),
+        expect.objectContaining({ tenantId: 'test-account', channel: '1|se' }),
       );
     });
 
-    it('should map staging environment to qa', () => {
-      createTenantSDK({ ...MOCK_GEINS_SETTINGS, environment: 'staging' });
+    it('splits channelId into the channel and tld the SDK takes', () => {
+      createTenantSDK({
+        ...MOCK_STORE_SETTINGS,
+        channelSettings: {
+          ...MOCK_STORE_SETTINGS.channelSettings,
+          channelId: '5|dk',
+        },
+      });
 
       expect(mockGeinsCore).toHaveBeenCalledWith(
-        expect.objectContaining({ environment: 'qa' }),
+        expect.objectContaining({ channel: '5', tld: 'dk' }),
       );
     });
 
-    it('should default to prod when environment is undefined', () => {
-      const settings = { ...MOCK_GEINS_SETTINGS };
-      delete (settings as Partial<GeinsSettings>).environment;
-      createTenantSDK(settings);
+    it('takes the first locale as the SDK locale, else the default locale', () => {
+      const channelSettings = {
+        ...MOCK_STORE_SETTINGS.channelSettings,
+        defaultLocale: 'en-US',
+      };
+      createTenantSDK({
+        ...MOCK_STORE_SETTINGS,
+        channelSettings: { ...channelSettings, locales: ['sv-SE', 'en-US'] },
+      });
+      createTenantSDK({
+        ...MOCK_STORE_SETTINGS,
+        channelSettings: { ...channelSettings, locales: [] },
+      });
 
-      expect(mockGeinsCore).toHaveBeenCalledWith(
-        expect.objectContaining({ environment: 'prod' }),
-      );
+      expect(mockGeinsCore.mock.calls[0]![0]).toMatchObject({
+        locale: 'sv-SE',
+      });
+      expect(mockGeinsCore.mock.calls[1]![0]).toMatchObject({
+        locale: 'en-US',
+      });
     });
 
     it('should initialize CRM with Direct connection mode', () => {
-      createTenantSDK(MOCK_GEINS_SETTINGS);
+      createTenantSDK(MOCK_STORE_SETTINGS);
 
       expect(mockGeinsCRM).toHaveBeenCalledWith(
         expect.anything(),
@@ -217,7 +256,7 @@ describe('server/services/_sdk', () => {
     });
 
     it('should initialize OMS with server context', () => {
-      createTenantSDK(MOCK_GEINS_SETTINGS);
+      createTenantSDK(MOCK_STORE_SETTINGS);
 
       expect(mockGeinsOMS).toHaveBeenCalledWith(
         expect.anything(),
@@ -228,8 +267,8 @@ describe('server/services/_sdk', () => {
     });
 
     it('should return fresh instances on each call', () => {
-      const sdk1 = createTenantSDK(MOCK_GEINS_SETTINGS);
-      const sdk2 = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const sdk1 = createTenantSDK(MOCK_STORE_SETTINGS);
+      const sdk2 = createTenantSDK(MOCK_STORE_SETTINGS);
 
       expect(sdk1).not.toBe(sdk2);
       expect(sdk1.core).not.toBe(sdk2.core);
@@ -245,9 +284,9 @@ describe('server/services/_sdk', () => {
       );
     });
 
-    it('should throw when tenant has no geinsSettings', async () => {
+    it('should throw when tenant has no channelSettings', async () => {
       mockResolveTenant.mockResolvedValue({
-        tenantId: 'test',
+        accountName: 'test',
         hostname: 'test.com',
       });
       const event = createEvent('test.com');
@@ -266,11 +305,10 @@ describe('server/services/_sdk', () => {
       );
     });
 
-    it('should create SDK from tenant geinsSettings', async () => {
+    it('should create SDK from the tenant store settings', async () => {
       mockResolveTenant.mockResolvedValue({
-        tenantId: 'test-tenant',
+        ...MOCK_STORE_SETTINGS,
         hostname: 'test.com',
-        geinsSettings: MOCK_GEINS_SETTINGS,
       });
       const event = createEvent('test.com');
 
@@ -285,9 +323,8 @@ describe('server/services/_sdk', () => {
 
     it('should return cached SDK for the same tenant', async () => {
       mockResolveTenant.mockResolvedValue({
-        tenantId: 'test-tenant',
+        ...MOCK_STORE_SETTINGS,
         hostname: 'test.com',
-        geinsSettings: MOCK_GEINS_SETTINGS,
       });
 
       const sdk1 = await getTenantSDK(createEvent('test.com'));
@@ -300,9 +337,9 @@ describe('server/services/_sdk', () => {
     it('should create separate SDKs for different tenants', async () => {
       mockResolveTenant.mockImplementation((hostname: string) =>
         Promise.resolve({
-          tenantId: hostname.replace('.com', ''),
+          ...MOCK_STORE_SETTINGS,
+          accountName: hostname,
           hostname,
-          geinsSettings: { ...MOCK_GEINS_SETTINGS, accountName: hostname },
         }),
       );
 
@@ -313,11 +350,10 @@ describe('server/services/_sdk', () => {
       expect(mockGeinsCore).toHaveBeenCalledTimes(2);
     });
 
-    it('should share SDK when two hostnames resolve to same tenantId', async () => {
+    it('should share SDK when two hostnames resolve to the same storefront', async () => {
       mockResolveTenant.mockResolvedValue({
-        tenantId: 'shared-tenant',
+        ...MOCK_STORE_SETTINGS,
         hostname: 'alias-a.com',
-        geinsSettings: MOCK_GEINS_SETTINGS,
       });
 
       const sdk1 = await getTenantSDK(createEvent('alias-a.com'));
@@ -330,13 +366,13 @@ describe('server/services/_sdk', () => {
 
   describe('SDK endpoint', () => {
     it('leaves apiUrl out of the SDK settings when none is given', () => {
-      createTenantSDK(MOCK_GEINS_SETTINGS);
+      createTenantSDK(MOCK_STORE_SETTINGS);
 
       expect(mockGeinsCore.mock.calls[0]![0]).not.toHaveProperty('apiUrl');
     });
 
     it('passes apiUrl to GeinsCore when given', () => {
-      createTenantSDK(MOCK_GEINS_SETTINGS, CPQ_API_URL);
+      createTenantSDK(MOCK_STORE_SETTINGS, CPQ_API_URL);
 
       expect(mockGeinsCore).toHaveBeenCalledWith(
         expect.objectContaining({ apiUrl: CPQ_API_URL }),
@@ -371,9 +407,8 @@ describe('server/services/_sdk', () => {
       mockBackendValue.mockReturnValue('merchant-api');
       mockMerchantApiUrl.mockReturnValue(CPQ_API_URL);
       mockResolveTenant.mockResolvedValue({
-        tenantId: 'test-tenant',
+        ...MOCK_STORE_SETTINGS,
         hostname: 'test.com',
-        geinsSettings: MOCK_GEINS_SETTINGS,
       });
 
       await getTenantSDK(createEvent('test.com'));
@@ -387,9 +422,8 @@ describe('server/services/_sdk', () => {
       mockBackendValue.mockReturnValue('fixture');
       mockMerchantApiUrl.mockReturnValue(CPQ_API_URL);
       mockResolveTenant.mockResolvedValue({
-        tenantId: 'test-tenant',
+        ...MOCK_STORE_SETTINGS,
         hostname: 'test.com',
-        geinsSettings: MOCK_GEINS_SETTINGS,
       });
 
       await getTenantSDK(createEvent('test.com'));
@@ -399,9 +433,8 @@ describe('server/services/_sdk', () => {
 
     it('does not reuse a cached SDK built for another endpoint', async () => {
       mockResolveTenant.mockResolvedValue({
-        tenantId: 'test-tenant',
+        ...MOCK_STORE_SETTINGS,
         hostname: 'test.com',
-        geinsSettings: MOCK_GEINS_SETTINGS,
       });
 
       const onDefault = await getTenantSDK(createEvent('test.com'));
@@ -418,7 +451,7 @@ describe('server/services/_sdk', () => {
 
   describe('getChannelVariables', () => {
     it('should extract channel, locale, and market from SDK settings', () => {
-      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const sdk = createTenantSDK(MOCK_STORE_SETTINGS);
       const vars = getChannelVariables(sdk);
 
       expect(vars).toEqual({
@@ -429,7 +462,7 @@ describe('server/services/_sdk', () => {
     });
 
     it('should use BCP-47 localeOverride when provided', () => {
-      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const sdk = createTenantSDK(MOCK_STORE_SETTINGS);
       const vars = getChannelVariables(sdk, 'en-US');
 
       expect(vars).toEqual({
@@ -440,7 +473,7 @@ describe('server/services/_sdk', () => {
     });
 
     it('should expand short locale override matching SDK locale prefix', () => {
-      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const sdk = createTenantSDK(MOCK_STORE_SETTINGS);
       const vars = getChannelVariables(sdk, 'sv');
 
       expect(vars).toEqual({
@@ -451,7 +484,7 @@ describe('server/services/_sdk', () => {
     });
 
     it('should fall back to SDK locale for unknown short locale', () => {
-      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const sdk = createTenantSDK(MOCK_STORE_SETTINGS);
       const vars = getChannelVariables(sdk, 'de');
 
       expect(vars).toEqual({
@@ -462,7 +495,7 @@ describe('server/services/_sdk', () => {
     });
 
     it('should use marketOverride when provided', () => {
-      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const sdk = createTenantSDK(MOCK_STORE_SETTINGS);
       const vars = getChannelVariables(sdk, undefined, 'no');
 
       expect(vars).toEqual({
@@ -473,7 +506,7 @@ describe('server/services/_sdk', () => {
     });
 
     it('should use both overrides when provided', () => {
-      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const sdk = createTenantSDK(MOCK_STORE_SETTINGS);
       const vars = getChannelVariables(sdk, 'en-US', 'no');
 
       expect(vars).toEqual({
@@ -489,7 +522,7 @@ describe('server/services/_sdk', () => {
       mockGetRequestLocale.mockReturnValue('en-US');
       mockGetRequestMarket.mockReturnValue('no');
 
-      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const sdk = createTenantSDK(MOCK_STORE_SETTINGS);
       const event = createEvent('test.com');
       const vars = getRequestChannelVariables(sdk, event);
 
@@ -506,7 +539,7 @@ describe('server/services/_sdk', () => {
       mockGetRequestLocale.mockReturnValue(undefined);
       mockGetRequestMarket.mockReturnValue(undefined);
 
-      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const sdk = createTenantSDK(MOCK_STORE_SETTINGS);
       const event = createEvent('test.com');
       const vars = getRequestChannelVariables(sdk, event);
 
