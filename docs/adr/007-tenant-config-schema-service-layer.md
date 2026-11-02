@@ -40,8 +40,8 @@ The coercion is input-only: the normalized OUTPUT shape stays `{ enabled, access
 
 ### Server vs. client config split
 
-- `TenantConfig` (server) — full config including `geinsSettings` (transformed from platform shape), `overrides`, `themeHash`, timestamps
-- `PublicTenantConfig` (client) — strips secrets, exposes `locale` and `availableLocales` derived from `geinsSettings`
+- `TenantConfig` (server) — full config including `accountName`, `apiKey`, `channelSettings`, `overrides`, `themeHash`, timestamps
+- `PublicTenantConfig` (client) — strips secrets, exposes `locale` and `availableLocales` derived from `channelSettings`. Its field names are the public contract and do not follow the internal ones: `tenantId` is the account name.
 
 ### Service layer
 
@@ -61,17 +61,19 @@ getContact(event); // ContactConfig | undefined
 
 All accessors call `getTenant()` internally (cached via KV storage + SWR).
 
-### GeinsSettings transformation
+### Store settings shape
 
-The Geins platform auto-injects `geinsSettings` into the store-settings API response in its own shape (`channelId: "2|se"`, `defaultLocale`, `locales[]`, etc.). `transformGeinsSettings()` in `server/utils/tenant.ts` normalizes this to our clean internal shape (`channel`, `tld`, `locale`, `availableLocales[]`, `availableMarkets[]`). Service layer consumers always see the internal shape.
+The merchant API sends the Geins account at the root of the store-settings response (`accountName`, `apiKey`, `assetPath`) and the channel in `channelSettings` (`channelId: "2|se"`, `defaultLocale`, `defaultMarket`, `locales[]`, `markets[]`, `defaultHostName`, `hostNames[]`). `adaptMerchantApiResponse()` in `server/utils/tenant.ts` keeps the internal config under the API's own names: root `accountName`, `apiKey` and `assetPath`, and `channelSettings` without its routing fields. `channelId` stays whole; `createTenantSDK()` splits it into the SDK's `channel` and `tld`. An answer without `channelSettings` does not resolve.
+
+**Amended 2026-11-02:** this replaces the earlier `geinsSettings` block, root `tenantId` and root `isActive`, which are no longer read. The internal config was renamed with it (`tenantId` → `accountName`, `geinsSettings` → `channelSettings`), and `isActive` was removed: the merchant API answers 404 for an inactive storefront, so an answer means active. KV is the in-process memory driver, so a deploy starts empty and no config in the old shape survives it. A persistent KV (Redis) would keep old-shape configs across a deploy, and those have no `channelSettings` for `createTenantSDK()` to build from; moving KV there needs a key-prefix change or a flush.
 
 ### Where hostname truth lives
 
-Routing comes from `geinsSettings` alone: `hostname` is `defaultHostName`, `aliases` is `additionalHostNames`. Those are the names the merchant API itself resolves, and `adaptMerchantApiResponse()` reads nothing else for them.
+Routing comes from `channelSettings` alone: `hostname` is `defaultHostName`, `aliases` is `hostNames` without the default. Those are the names the merchant API itself resolves, and `adaptMerchantApiResponse()` reads nothing else for them.
 
-`appSettings.hostname` and `appSettings.aliases` are legacy fields from before the merchant API had hostname fields of its own. Nothing writes them any more and they survive only on older records; the schema still accepts them — a stored config must never become invalid — but they are display data, never routing data. Reading them meant every name on such a record became a `hostname → tenantId` entry in KV (`collectAllHostnames()` → `writeHostnameMappings()`), routing hostnames the merchant API refuses, including another tenant's registered hostname, which then served the wrong storefront until the next restart. Which hostnames worked depended on what the running container had cached rather than on what was registered.
+`appSettings.hostname` and `appSettings.aliases` are legacy fields from before the merchant API had hostname fields of its own. Nothing writes them any more and they survive only on older records; the schema still accepts them — a stored config must never become invalid — but they are display data, never routing data. Reading them meant every name on such a record became a `hostname → storefront` entry in KV (`collectAllHostnames()` → `writeHostnameMappings()`), routing hostnames the merchant API refuses, including another tenant's registered hostname, which then served the wrong storefront until the next restart. Which hostnames worked depended on what the running container had cached rather than on what was registered.
 
-One exception, narrow and deliberate: when a Geins record carries no `defaultHostName`, `appSettings.hostname` is the fallback. `hostname` is required and on the fatal path, so without it such a tenant would resolve to nothing at all.
+One exception, narrow and deliberate: when the channel carries no `defaultHostName`, `appSettings.hostname` is the fallback. `hostname` is required and on the fatal path, so without it such a tenant would resolve to nothing at all.
 
 ### Feature access evaluation
 
@@ -106,7 +108,7 @@ Adding a new rule type = adding one evaluator function + extending `UserContext`
 - **Single source of truth** — Zod schema generates all types; no manual interface sync
 - **Access control** — features support granular access (authenticated)
 - **Decoupled consumers** — components use the service layer, not raw config shape
-- **No secret leaks** — `PublicTenantConfig` physically can't contain `geinsSettings` or `overrides`
+- **No secret leaks** — `PublicTenantConfig` physically can't contain `apiKey`, `channelSettings` or `overrides`
 
 ### Negative
 

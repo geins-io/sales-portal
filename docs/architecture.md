@@ -357,7 +357,7 @@ Tenant data uses a 2-step KV lookup model so a storefront with multiple hostname
 - `tenant:id:{hostname}` → storefront key (string) — one entry per hostname
 - `tenant:config:{storefront key}` → Full tenant configuration (JSON) — stored once
 
-The storefront key is the Geins account and channel, `{accountName}:{channel}|{tld}` (e.g. `acme:1|se`), from `storefrontKey()` in `server/utils/tenant.ts`. Not `tenantId`: the merchant API answers the account name there for every channel of an account, so two channels would share one entry. When account or channel is empty, the key falls back to the config's hostname, then the requested hostname. The `/api/config` response cache, the per-storefront SDK instance and the category tree use the same key.
+The storefront key is the Geins account and channel, `{accountName}:{channel}|{tld}` (e.g. `acme:1|se`), from `storefrontKey()` in `server/utils/tenant.ts`. Not the account name alone: every channel of an account shares it, so two channels would share one entry. When account or channel is empty, the key falls back to the config's hostname, then the requested hostname. The `/api/config` response cache, the per-storefront SDK instance and the category tree use the same key.
 
 Lookup: `hostname` → storefront key → `TenantConfig`. On cache miss, `resolveTenant()` fetches from the API and writes all hostname mappings + config under the storefront key.
 

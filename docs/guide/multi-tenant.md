@@ -41,7 +41,7 @@ negative cache, then KV storage, then the merchant API — the full order is in
 hostname list, so a stale alias mapping heals itself. A hostname the merchant API does not know
 does not resolve, and the tenant plugin answers 404 — see [Local Development](#local-development).
 Neither does a hostname the merchant API answers for with a tenant that does not list it as its
-`defaultHostName` or in `additionalHostNames`: the API matches the query as a substring.
+`defaultHostName` or in `hostNames`: the API matches the query as a substring.
 
 The resolved config is written to `event.context.tenant.config` once per request. Downstream
 plugins, services and routes read it from context instead of resolving again.
@@ -111,7 +111,6 @@ interface PublicTenantConfig {
   seo?: SeoConfig;
   contact?: ContactConfig;
   css: string;
-  isActive: boolean;
   locale: string;
   availableLocales: string[];
 }
@@ -244,7 +243,8 @@ the built-in default instead of falling back to it**, because Nitro resolves eac
 carries a value or does not exist.
 
 Resolving the config is also what supplies the commerce credentials: `store-settings` returns the
-tenant's `geinsSettings` in the same response as its theme and branding, and `createTenantSDK()`
+tenant's `accountName`, `apiKey` and `channelSettings` in the same response as its theme and
+branding, and `createTenantSDK()`
 (`server/services/_sdk.ts`) builds the storefront client from them. Nothing to paste in per
 tenant.
 

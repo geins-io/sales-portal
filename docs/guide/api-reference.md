@@ -19,7 +19,6 @@ GET /api/config
   "tenantId": "example",
   "hostname": "example.litium.test",
   "mode": "commerce",
-  "isActive": true,
   "theme": {
     "name": "example",
     "colors": {
@@ -48,7 +47,7 @@ GET /api/config
 }
 ```
 
-The response excludes server-only fields (`geinsSettings`, `overrides`, `themeHash`, `createdAt`, `updatedAt`).
+The response excludes server-only fields (`apiKey`, `channelSettings`, `overrides`, `themeHash`, `createdAt`, `updatedAt`). `tenantId` is the Geins account name; the locale and market fields are derived from `channelSettings` and keep their public names.
 
 **Caching:**
 

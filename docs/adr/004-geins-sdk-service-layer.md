@@ -101,16 +101,17 @@ export async function getTenantSDK(event: H3Event): Promise<TenantSDK> {
   const existing = tenants.get(hostname);
   if (existing) return existing;
 
-  const { geinsSettings } = event.context.tenant;
+  const { accountName, apiKey, channelSettings } = event.context.tenant.config;
+  const [channel, tld] = channelSettings.channelId.split('|');
 
   const core = new GeinsCore({
-    apiKey: geinsSettings.apiKey,
-    accountName: geinsSettings.accountName,
-    channel: geinsSettings.channel,
-    tld: geinsSettings.tld,
-    locale: geinsSettings.locale,
-    market: geinsSettings.market,
-    environment: geinsSettings.environment,
+    apiKey,
+    accountName,
+    channel,
+    tld,
+    locale: channelSettings.defaultLocale,
+    market: channelSettings.defaultMarket,
+    environment: 'prod',
   });
 
   const crm = new GeinsCRM(core, {
@@ -333,9 +334,9 @@ CMS call site in `server/services/` passes it. The CRM facade (`crm.auth`, `crm.
 ### Missing or empty credentials
 
 `getTenantSDK()` throws `BAD_REQUEST` "Tenant has no Geins SDK configuration" when the resolved
-tenant has no `geinsSettings` at all.
+tenant has no `channelSettings` at all.
 
-A tenant's `geinsSettings` must also carry usable values, which the schema does not assert:
+A tenant's store settings must also carry usable values, which the schema does not assert:
 `apiKey` is `z.string()` with no minimum length, so an empty string validates and produces an SDK
 instance that only fails at API-call time. Treat empty credentials as a configuration error at the
 point the tenant is registered.
