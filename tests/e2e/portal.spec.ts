@@ -158,6 +158,39 @@ test.describe('Portal Overview', () => {
     await expect(productsGrid).toBeVisible({ timeout: PAGE_TIMEOUT });
     await expect(productsEmpty).toBeHidden();
   });
+
+  test('the overview arrives with its pending quotations and does not read them again', async ({
+    page,
+  }) => {
+    const listed = await page.request.get('/api/quotes');
+    expect(listed.ok(), '/api/quotes did not answer 200').toBe(true);
+    const { quotes } = (await listed.json()) as {
+      quotes: { status: string }[];
+    };
+    const pending = quotes.filter((quote) => quote.status === 'pending').length;
+    outOfScope(
+      pending === 0,
+      'fixture-missing',
+      'the test account has no pending quotation to show on the overview',
+    );
+
+    const clientReads: string[] = [];
+    page.on('request', (request) => {
+      if (new URL(request.url()).pathname === '/api/quotes') {
+        clientReads.push(request.url());
+      }
+    });
+
+    const response = await page.goto('/se/sv/portal');
+    const html = (await response?.text()) ?? '';
+    // Each row renders twice, as a mobile card and a desktop table row, and
+    // the overview shows at most five.
+    const rows = html.match(/data-testid="pending-quote-row"/g) ?? [];
+    expect(rows).toHaveLength(2 * Math.min(pending, 5));
+
+    await waitForHydration(page);
+    expect(clientReads).toEqual([]);
+  });
 });
 
 test.describe('Portal Orders', () => {
