@@ -812,4 +812,121 @@ describe('VariantSelector SKU choice', () => {
     expect(wrapper.text()).not.toContain('DefaultProduct');
     expect(wrapper.text()).toContain('product.variant_heading');
   });
+
+  it("shows the product's own image on every SKU row", async () => {
+    const wrapper = mountSkuChoice({
+      productImages: [
+        { fileName: 'glas.jpg', url: 'https://cdn.example.test/glas.jpg' },
+      ],
+    });
+    await wrapper.find('[data-testid="variant-trigger-sku"]').trigger('click');
+
+    const srcs = wrapper
+      .findAll('[data-testid="variant-option"]')
+      .map((row) => row.find('img').attributes('src'));
+    expect(srcs).toHaveLength(3);
+    expect(srcs.every((src) => src?.includes('/glas.jpg'))).toBe(true);
+  });
+});
+
+// Each variant is its own Geins product with its own images. The parent hands
+// each row's image over in `variantProducts`, keyed by alias: the current
+// product's from its own payload, the siblings' once by-ids answers.
+describe('VariantSelector row thumbnails', () => {
+  const siblings: VariantNode[] = [
+    { alias: 'hjalm-gul', dimension: 'Färg', value: 'gul', stock: stock(1) },
+    { alias: 'hjalm-vit', dimension: 'Färg', value: 'vit', stock: stock(1) },
+    { alias: 'hjalm-ora', dimension: 'Färg', value: 'orange', stock: stock(1) },
+    { alias: 'hjalm-bla', dimension: 'Färg', value: 'blå', stock: stock(1) },
+    {
+      alias: 'hjalm-svart',
+      dimension: 'Färg',
+      value: 'svart',
+      stock: stock(1),
+    },
+  ];
+  const variantProducts = {
+    'hjalm-gul': {
+      image: { fileName: 'gul.png', url: 'https://cdn.example.test/gul.png' },
+    },
+    'hjalm-vit': {
+      name: 'Hjälm vit',
+      image: { fileName: 'vit.png', url: 'https://cdn.example.test/vit.png' },
+    },
+    // A legacy account: no asset-library url, only the file name.
+    'hjalm-ora': { name: 'Hjälm orange', image: { fileName: 'ora.png' } },
+    'hjalm-bla': { name: 'Hjälm blå', image: null },
+    // hjalm-svart: by-ids has not answered for it (loading or failed).
+  };
+
+  async function openRows(withTree: boolean) {
+    const wrapper = mountComponent(VariantSelector, {
+      props: {
+        ...(withTree ? { combinations: variantCombinations(siblings) } : {}),
+        variantDimensions: [row('Färg', 'gul')],
+        variants: siblings,
+        modelValue: { Färg: 'gul' },
+        productName: 'Hjälm gul',
+        productImages: [
+          { fileName: 'gul.png', url: 'https://cdn.example.test/gul.png' },
+        ],
+        variantProducts,
+      },
+      global: { stubs: sheetStubs },
+    });
+    await wrapper.find('[data-testid="variant-trigger-Färg"]').trigger('click');
+    const rows = wrapper.findAll('[data-testid="variant-option"]');
+    return Object.fromEntries(
+      rows.map((r) => [r.attributes('data-value'), r]),
+    ) as Record<string, ReturnType<typeof wrapper.find>>;
+  }
+
+  it.each([
+    ['through the tree the page passes', true],
+    ['through the tree-less fallback', false],
+  ])('shows each row its own variant image %s', async (_, withTree) => {
+    const rows = await openRows(withTree);
+
+    expect(rows.gul!.find('img').attributes('src')).toContain(
+      'cdn.example.test/gul.png',
+    );
+    expect(rows.vit!.find('img').attributes('src')).toContain(
+      'cdn.example.test/vit.png',
+    );
+  });
+
+  it('builds the image from the file name when the variant has no url', async () => {
+    const rows = await openRows(true);
+
+    const src = rows.orange!.find('img').attributes('src');
+    expect(src).toContain('/ora.png');
+    expect(src).not.toContain('cdn.example.test');
+  });
+
+  it('shows the no-image icon for a variant without an image', async () => {
+    const rows = await openRows(true);
+
+    expect(rows['blå']!.find('img').exists()).toBe(false);
+    expect(
+      rows['blå']!.find('[data-testid="variant-row-no-image"]').exists(),
+    ).toBe(true);
+  });
+
+  it("leaves the box empty while a variant's image is loading, never the current product's", async () => {
+    const rows = await openRows(true);
+
+    expect(rows.svart!.find('img').exists()).toBe(false);
+    expect(
+      rows.svart!.find('[data-testid="variant-row-no-image"]').exists(),
+    ).toBe(false);
+  });
+
+  it("puts the current product's image on its own row only", async () => {
+    const rows = await openRows(true);
+
+    const withGul = Object.entries(rows)
+      .filter(([, r]) => r.find('img[src*="gul.png"]').exists())
+      .map(([value]) => value);
+    expect(withGul).toEqual(['gul']);
+  });
 });

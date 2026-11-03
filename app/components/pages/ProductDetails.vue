@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import type { DetailProduct, ListProduct } from '#shared/types/commerce';
+import type {
+  DetailProduct,
+  ListProduct,
+  ProductImageType,
+} from '#shared/types/commerce';
 import { filterVisibleCampaigns, getStockStatus } from '#shared/types/commerce';
 import type { ContentAreaType } from '#shared/types/cms';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
@@ -282,6 +286,17 @@ const siblingProductIds = computed<number[]>(() => {
   return [...new Set(ids)];
 });
 
+// The pair the product cards pass to GeinsImage: the asset-library url when
+// the account has one, the legacy file name otherwise.
+type VariantRowImage = Pick<ProductImageType, 'fileName' | 'url'>;
+
+function variantRowImage(
+  images: readonly ProductImageType[] | null | undefined,
+): VariantRowImage | null {
+  const image = primaryProductImage(images ?? []);
+  return image ? { fileName: image.fileName, url: image.url ?? null } : null;
+}
+
 // Slim shape returned by /api/products/by-ids (products-by-ids.graphql): only
 // the fields the sheet renders, keyed back to each variant by alias.
 interface VariantMetaProduct {
@@ -290,6 +305,7 @@ interface VariantMetaProduct {
   canonicalUrl?: string | null;
   name?: string | null;
   articleNumber?: string | null;
+  productImages?: ProductImageType[] | null;
   unitPrice?: {
     sellingPriceIncVatFormatted?: string | null;
     sellingPriceExVatFormatted?: string | null;
@@ -324,10 +340,18 @@ type VariantRowMeta = {
   priceExVatFormatted?: string | null;
   articleNumber?: string | null;
   name?: string | null;
+  image?: VariantRowImage | null;
 };
 
+// by-ids leaves the current product out, so its row's image comes from here.
+// Only the image: its name, price and art-nr fall back to the page's own.
 const variantProductsByAlias = computed<Record<string, VariantRowMeta>>(() => {
   const map: Record<string, VariantRowMeta> = {};
+  if (product.value?.alias) {
+    map[product.value.alias] = {
+      image: variantRowImage(product.value.productImages),
+    };
+  }
   for (const p of siblingProducts.value?.products ?? []) {
     if (!p?.alias) continue;
     map[p.alias] = {
@@ -336,6 +360,7 @@ const variantProductsByAlias = computed<Record<string, VariantRowMeta>>(() => {
       priceExVatFormatted: p.unitPrice?.sellingPriceExVatFormatted ?? null,
       articleNumber: p.articleNumber ?? null,
       name: p.name ?? null,
+      image: variantRowImage(p.productImages),
     };
   }
   return map;

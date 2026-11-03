@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Check } from 'lucide-vue-next';
+import { Check, ImageOff } from 'lucide-vue-next';
 import { THUMBNAIL_WIDTHS } from '#shared/utils/image';
 
 /** One row of the variant sheet. A missing price leaves its column out. */
@@ -8,6 +8,8 @@ defineProps<{
   /** Asset library URL; the legacy file name is the fallback. */
   imageUrl?: string | null;
   imageAlt: string;
+  /** The variant has no image, as opposed to one not loaded yet. */
+  imageMissing?: boolean;
   title: string;
   subtitle: string;
   articleNumber?: string | null;
@@ -30,9 +32,6 @@ defineProps<{
     ]"
     :aria-pressed="selected"
   >
-    <!-- Thumbnail uses the product's primary image. Geins
-         doesn't expose per-variant imagery; this keeps the
-         visual rhythm of the list consistent with Figma. -->
     <div class="bg-muted size-12 shrink-0 overflow-hidden rounded-md">
       <GeinsImage
         v-if="imageFileName"
@@ -45,6 +44,16 @@ defineProps<{
         aspect-ratio="1"
         class="size-full object-contain"
       />
+      <!-- The no-image text product cards show does not fit 48 px. -->
+      <div
+        v-else-if="imageMissing"
+        role="img"
+        :aria-label="$t('product.no_image')"
+        class="text-muted-foreground flex size-full items-center justify-center"
+        data-testid="variant-row-no-image"
+      >
+        <ImageOff class="size-5" aria-hidden="true" />
+      </div>
     </div>
 
     <div class="min-w-0 flex-1">
