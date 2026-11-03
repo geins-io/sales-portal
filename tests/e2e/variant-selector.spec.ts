@@ -237,6 +237,54 @@ test.describe('Variant selector', () => {
       }
     }
   });
+
+  test('every sheet row shows its own variant image', async ({ page }) => {
+    await page.goto('/');
+    await waitForHydration(page);
+    const product = await productOf(page, 'one');
+    const [dimension] = Object.keys(product.variants[0]!.selection) as [string];
+    const imageOf = async (alias: string): Promise<string | null> => {
+      const res = await page.request.get(`/api/products/${alias}`);
+      expect(res.ok()).toBe(true);
+      const body = await res.json();
+      return (body.product ?? body).productImages?.[0]?.fileName ?? null;
+    };
+    const expected = await Promise.all(
+      product.variants.map(async (v) => ({
+        value: v.selection[dimension]!,
+        fileName: await imageOf(v.alias),
+      })),
+    );
+    outOfScope(
+      new Set(expected.map((e) => e.fileName)).size < 2,
+      'fixture-missing',
+      'every variant of the sampled product shares one image',
+    );
+
+    await openProduct(page, product.alias);
+    await page.locator(`[data-testid="variant-trigger-${dimension}"]`).click();
+    for (const { value, fileName } of expected) {
+      const row = page.locator(
+        `[data-testid="variant-option"][data-value="${value}"]`,
+      );
+      if (fileName === null) {
+        await expect(
+          row.locator('[data-testid="variant-row-no-image"]'),
+        ).toBeVisible();
+        continue;
+      }
+      // Sibling images arrive with the by-ids answer, after the sheet opens.
+      await expect
+        .poll(
+          async () =>
+            decodeURIComponent(
+              (await row.locator('img').getAttribute('src')) ?? '',
+            ),
+          { message: `row ${value} shows ${fileName}` },
+        )
+        .toContain(fileName);
+    }
+  });
 });
 
 test.describe('Variant selector and the cart', () => {
