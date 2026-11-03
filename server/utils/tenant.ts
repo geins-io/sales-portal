@@ -257,6 +257,14 @@ export function configResponseCacheKey(storefront: string): string {
   return Buffer.from(tenantConfigKey(storefront)).toString('hex');
 }
 
+/** The `/api/markets` handler-cache name; the config webhook clears it too. */
+export const MARKETS_CACHE_NAME = 'markets';
+
+/** The `/api/markets` response-cache key for a storefront. Hex, as above. */
+export function marketsResponseCacheKey(storefront: string): string {
+  return Buffer.from(storefront).toString('hex');
+}
+
 /** {@link storefrontKey} for the tenant on this request. */
 export function storefrontCacheKey(event: H3Event): string {
   const tenant = event.context.tenant;

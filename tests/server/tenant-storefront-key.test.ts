@@ -11,6 +11,7 @@ import { processConfigRefresh } from '../../server/utils/webhook-handler';
 import { getTenantSDK, type TenantSDK } from '../../server/services/_sdk';
 import { resolveTenantCacheKey } from '../../server/services/categories';
 import { resolveConfigCacheKey } from '../../server/api/config.get';
+import '../../server/api/markets.get';
 import type { TenantConfig } from '#shared/types/tenant-config';
 
 // The registry answers the account name as `tenantId` for every channel of an
@@ -18,20 +19,32 @@ import type { TenantConfig } from '#shared/types/tenant-config';
 // invalidate as two storefronts.
 
 // Hoisted: the modules under test read these Nitro auto-imports at load time.
-const { mockUseStorage, mockUseRuntimeConfig } = vi.hoisted(() => {
-  const mocks = {
-    mockUseStorage: vi.fn(),
-    mockUseRuntimeConfig: vi.fn(() => ({
-      geins: { tenantApiUrl: 'https://merchant.example/store-settings' },
-    })),
-  };
-  vi.stubGlobal('useStorage', mocks.mockUseStorage);
-  vi.stubGlobal('useRuntimeConfig', mocks.mockUseRuntimeConfig);
-  vi.stubGlobal('defineCachedEventHandler', (fn: unknown) => fn);
-  vi.stubGlobal('defineCachedFunction', (fn: unknown) => fn);
-  vi.stubGlobal('getQuery', () => ({}));
-  return mocks;
-});
+const { mockUseStorage, mockUseRuntimeConfig, cachedHandlerOptions } =
+  vi.hoisted(() => {
+    const mocks = {
+      mockUseStorage: vi.fn(),
+      mockUseRuntimeConfig: vi.fn(() => ({
+        geins: { tenantApiUrl: 'https://merchant.example/store-settings' },
+      })),
+      // Each cached handler's options, so a test can read a route's own key.
+      cachedHandlerOptions: [] as Array<{
+        name?: string;
+        getKey?: (event: H3Event) => string;
+      }>,
+    };
+    vi.stubGlobal('useStorage', mocks.mockUseStorage);
+    vi.stubGlobal('useRuntimeConfig', mocks.mockUseRuntimeConfig);
+    vi.stubGlobal(
+      'defineCachedEventHandler',
+      (fn: unknown, options: (typeof mocks.cachedHandlerOptions)[number]) => {
+        mocks.cachedHandlerOptions.push(options ?? {});
+        return fn;
+      },
+    );
+    vi.stubGlobal('defineCachedFunction', (fn: unknown) => fn);
+    vi.stubGlobal('getQuery', () => ({}));
+    return mocks;
+  });
 vi.mock('#imports', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
@@ -385,11 +398,46 @@ describe('two channels on one account', () => {
       storage.store.get(tenantConfigKey(storefrontKey(configB, b.host))),
     ).toBe(configB);
     expect(storage.store.has(tenantIdKey(b.host))).toBe(true);
-    expect(cacheStorage.removeItem).toHaveBeenCalledTimes(1);
+    expect(cacheStorage.removeItem).toHaveBeenCalledTimes(2);
     expect(cacheStorage.removeItem).toHaveBeenCalledWith(
       `nitro/handlers:_:${resolveConfigCacheKey(eventFor(a.host, configA)).replace(/\W/g, '')}.json`,
     );
     expect(await getTenantSDK(eventFor(b.host, configB))).toBe(sdkB);
     expect(await getTenantSDK(eventFor(a.host, configA))).not.toBe(sdkA);
+  });
+
+  // The key is taken from the route's own cache options, so the webhook and
+  // the route are compared, not two copies of the key format.
+  it("a config refresh clears that storefront's /api/markets entry", async () => {
+    const storage = memoryStorage();
+    const { a, b } = storefronts('markets');
+    await resolved(b.host);
+    const configA = await resolved(a.host);
+    const markets = cachedHandlerOptions.find((o) => o.name === 'markets');
+    const marketsEntry = (host: string, config: TenantConfig) =>
+      `nitro/handlers:markets:${markets?.getKey?.(eventFor(host, config))}.json`;
+    const cacheStorage = { removeItem: vi.fn(async () => {}) };
+
+    await processConfigRefresh(
+      {
+        clientIp: '203.0.113.7',
+        secrets: [],
+        // Named by its alias: the handler must still reach the storefront.
+        rawBody: JSON.stringify({ hostname: a.alias }),
+        signatureHeader: undefined,
+        webhookId: undefined,
+        contentLength: 0,
+      },
+      storage,
+      cacheStorage,
+    );
+
+    expect(markets?.getKey).toBeTypeOf('function');
+    expect(cacheStorage.removeItem).toHaveBeenCalledWith(
+      marketsEntry(a.host, configA),
+    );
+    expect(cacheStorage.removeItem).toHaveBeenCalledWith(
+      marketsEntry(a.alias, configA),
+    );
   });
 });

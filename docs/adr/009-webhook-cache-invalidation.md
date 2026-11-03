@@ -71,7 +71,7 @@ On a valid webhook, we invalidate:
 
 1. KV storage: `tenant:id:<hostname>` for every hostname the config claims, plus
    `tenant:config:<storefront key>`
-2. Nitro handler cache for `/api/config`
+2. Nitro handler cache for `/api/config` and `/api/markets`
 3. In-process: Geins SDK instances (`clearSdkCache`) and the negative tenant cache
    (`clearNegativeCache`) — note this clears only the hostname in the payload, not the aliases
    step 1 covers, so a negatively-cached alias survives its 5-minute TTL
@@ -80,8 +80,10 @@ The CMS LRUs and `/api/resolve-url` are left to their own short TTLs.
 
 The Nitro key is derived in `server/utils/webhook-handler.ts` from a Nitro internal
 (`nitro/handlers:_:<configResponseCacheKey>.json`, the hex of the config key, which Nitro's
-non-word stripping leaves unchanged), so a Nitro major upgrade should re-verify it — a mismatch
-fails silently and serves stale settings for up to the one-hour TTL.
+non-word stripping leaves unchanged), and so is the `/api/markets` key
+(`nitro/handlers:markets:<hex storefront key>.json`, from `marketsResponseCacheKey`), so a Nitro
+major upgrade should re-verify both — a mismatch fails silently and serves stale settings for up
+to the one-hour TTL.
 
 **Amended 2026-09-25:** the storefront key replaced `tenantId` in every key above. The merchant
 API answers the Geins account name as `tenantId` for every channel of an account, so two channels

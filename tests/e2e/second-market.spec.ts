@@ -116,4 +116,28 @@ test.describe('Second-market category page', () => {
 
     await expectListedOnMarket(page, market);
   });
+
+  test('the top bar names the market with its currency', async ({
+    page,
+    request,
+  }) => {
+    const { market, categoryPath } = target!;
+    const response = await request.get('/api/markets');
+    expect(response.ok(), 'GET /api/markets must succeed').toBe(true);
+    const currencies: Record<string, string> = await response.json();
+    const currency = currencies[market];
+    expect(currency, `market ${market} must carry a currency`).toBeTruthy();
+
+    await page.goto(categoryPath);
+    await waitForHydration(page);
+
+    const trigger = page.getByTestId('market-switcher-trigger');
+    await expect(trigger).toHaveText(`${market.toUpperCase()} (${currency})`);
+
+    await trigger.click();
+    const option = page.getByRole('menuitem', {
+      name: new RegExp(`\\(${currency}\\)$`),
+    });
+    await expect(option.first()).toBeVisible();
+  });
 });
