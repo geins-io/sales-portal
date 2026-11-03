@@ -4,11 +4,7 @@ import { Card, CardContent } from '~/components/ui/card';
 import CheckoutCardHeader from '~/components/checkout/CheckoutCardHeader.vue';
 import { useAuthStore } from '~/stores/auth';
 import { useQuotesStore } from '~/stores/quotes';
-import {
-  quoteAmounts,
-  quoteCanOrder,
-  quoteLineToCartItem,
-} from '~/utils/quote-view';
+import { quoteAmounts, quoteCanOrder } from '~/utils/quote-view';
 import {
   quoteCheckoutCompany,
   quotePaymentOptions,
@@ -69,7 +65,6 @@ const title = computed(() =>
 useHead({ title });
 
 // The order takes all of this from the quotation, so the page shows it locked.
-const items = computed(() => quote.value.lineItems.map(quoteLineToCartItem));
 const itemCount = computed(() =>
   quote.value.lineItems.reduce((sum, line) => sum + line.quantity, 0),
 );
@@ -162,7 +157,7 @@ function formatDate(iso: string): string {
 
       <div class="flex flex-col gap-8 lg:flex-row lg:items-start">
         <div class="min-w-0 flex-1 space-y-6">
-          <CheckoutCartItems :items="items" />
+          <PortalQuoteArticles :items="quote.lineItems" />
 
           <CheckoutCompanyInfo
             v-if="company"
