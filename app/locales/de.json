@@ -668,11 +668,7 @@
           "reorder": "Erneut bestellen"
         },
         "items": {
-          "title": "Bestellpositionen",
-          "product": "Produkt",
-          "quantity": "Anzahl",
-          "unit_price": "Einzelpreis",
-          "total": "Gesamt"
+          "title": "Bestellpositionen"
         },
         "summary": {
           "title": "Bestellübersicht",

@@ -668,11 +668,7 @@
           "reorder": "Reorder"
         },
         "items": {
-          "title": "Order items",
-          "product": "Product",
-          "quantity": "Amount",
-          "unit_price": "à price",
-          "total": "Total"
+          "title": "Order items"
         },
         "summary": {
           "title": "Order summary",
@@ -879,7 +875,7 @@
       "detail_title": "Quotation Details",
       "items_heading": "Items",
       "summary_heading": "Summary",
-      "quantity": "Amount",
+      "quantity": "Quantity",
       "line_total": "Total",
       "subtotal": "Subtotal",
       "shipping": "Shipping",

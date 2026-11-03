@@ -668,11 +668,7 @@
           "reorder": "Bestill på nytt"
         },
         "items": {
-          "title": "Ordrelinjer",
-          "product": "Produkt",
-          "quantity": "Antall",
-          "unit_price": "Enhetspris",
-          "total": "Totalt"
+          "title": "Ordrelinjer"
         },
         "summary": {
           "title": "Ordresammendrag",

@@ -266,8 +266,8 @@ describe('an order where prices are hidden', () => {
   it('shows the price columns and the totals footer where prices are shown', () => {
     const wrapper = mountTable();
 
-    expect(wrapper.text()).toContain('portal.orders.detail.items.unit_price');
-    expect(wrapper.text()).toContain('portal.orders.detail.items.total');
+    expect(wrapper.text()).toContain('portal.quotations.col_unit_price');
+    expect(wrapper.text()).toContain('portal.quotations.line_total');
     expect(
       wrapper.findAll('[data-testid="order-item-unit-price"]'),
     ).toHaveLength(2);
@@ -287,9 +287,7 @@ describe('an order where prices are hidden', () => {
         .map((c) => c.text()),
     ).toEqual(['2', '1']);
     expect(wrapper.text()).toContain('Widget');
-    expect(wrapper.text()).not.toContain(
-      'portal.orders.detail.items.unit_price',
-    );
+    expect(wrapper.text()).not.toContain('portal.quotations.col_unit_price');
     expect(wrapper.find('[data-testid="order-item-unit-price"]').exists()).toBe(
       false,
     );

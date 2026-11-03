@@ -668,11 +668,7 @@
           "reorder": "Tilaa uudelleen"
         },
         "items": {
-          "title": "Tilausrivit",
-          "product": "Tuote",
-          "quantity": "Määrä",
-          "unit_price": "Yksikköhinta",
-          "total": "Yhteensä"
+          "title": "Tilausrivit"
         },
         "summary": {
           "title": "Tilauksen yhteenveto",

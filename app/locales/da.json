@@ -668,11 +668,7 @@
           "reorder": "Bestil igen"
         },
         "items": {
-          "title": "Ordrelinjer",
-          "product": "Produkt",
-          "quantity": "Antal",
-          "unit_price": "Enhedspris",
-          "total": "I alt"
+          "title": "Ordrelinjer"
         },
         "summary": {
           "title": "Ordreoversigt",
