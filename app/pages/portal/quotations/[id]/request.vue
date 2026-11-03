@@ -121,13 +121,13 @@ async function send() {
       </NuxtLink>
 
       <div
-        class="border-primary/40 bg-primary/10 mb-6 flex flex-wrap items-start gap-3 rounded-lg border p-4"
+        class="border-info/40 bg-info/10 mb-6 flex flex-wrap items-start gap-3 rounded-lg border p-4"
         data-testid="quote-request-banner"
       >
         <div
-          class="bg-primary flex size-9 shrink-0 items-center justify-center rounded-md"
+          class="bg-info flex size-9 shrink-0 items-center justify-center rounded-md"
         >
-          <FileText class="text-primary-foreground size-4" />
+          <FileText class="size-4 text-white" />
         </div>
         <div class="min-w-0 flex-1">
           <p class="text-sm font-semibold">
