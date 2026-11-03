@@ -43,8 +43,8 @@ const props = defineProps<{
   // dimension with attributes: null on these).
   productArticleNumber?: string | null;
   // Sibling-variant products: each variant is a separate Geins product
-  // with its own price and art-nr. Geins's `VariantType` payload omits
-  // both fields, so the parent fetches each sibling by alias and passes
+  // with its own price, art-nr and images. Geins's `VariantType` payload
+  // omits them, so the parent fetches each sibling by alias and passes
   // the resolved values down here. Keyed by variant alias.
   variantProducts?: Record<
     string,
@@ -53,6 +53,7 @@ const props = defineProps<{
         priceExVatFormatted?: string | null;
         articleNumber?: string | null;
         name?: string | null;
+        image?: RowImage | null;
       }
     | undefined
   >;
@@ -62,6 +63,8 @@ const props = defineProps<{
   skuOptions?: SkuType[];
   skuId?: number | null;
 }>();
+
+type RowImage = Pick<ProductImageType, 'fileName' | 'url'>;
 
 interface GroupedDimension {
   dimensionName: string;
@@ -184,6 +187,19 @@ function filteredValues(dimensionName: string, values: string[]): string[] {
   );
 }
 
+function variantMatching(
+  dimensionName: string,
+  value: string,
+): VariantNode | undefined {
+  return props.variants.find(
+    (variant) =>
+      !!variant.dimension &&
+      variant.value != null &&
+      variant.dimension === dimensionName &&
+      variant.value === value,
+  );
+}
+
 // Resolve the first variant matching (dimension, value) and its sku so
 // each sheet row can show real article number / stock pulled from the
 // SDK. Returns null on multi-dim products where the value alone doesn't
@@ -216,13 +232,7 @@ function variantInfoFor(
       name: meta?.name ?? props.productName ?? undefined,
     };
   }
-  const matchingVariant = props.variants.find(
-    (variant) =>
-      !!variant.dimension &&
-      variant.value != null &&
-      variant.dimension === dimensionName &&
-      variant.value === value,
-  );
+  const matchingVariant = variantMatching(dimensionName, value);
   // Sibling-variant products: prefer the per-alias map populated by the
   // parent, then the parent product's own art-nr. Nothing maps a matched
   // variant to a SKU, so only an unmatched value falls back to the first one.
@@ -267,6 +277,26 @@ const primaryImage = computed(() => {
   const images = props.productImages ?? [];
   return images.find((i) => i.isPrimary) ?? images[0] ?? null;
 });
+
+/**
+ * The row's own variant image: undefined while it is not known yet, null when
+ * the variant has none. A row that leads to no variant is the product itself.
+ */
+function rowImage(
+  dimensionName: string,
+  value: string,
+): RowImage | null | undefined {
+  const alias = props.combinations?.length
+    ? resolveCombination(
+        props.combinations,
+        props.modelValue,
+        dimensionName,
+        value,
+      )?.alias
+    : variantMatching(dimensionName, value)?.alias;
+  if (!alias) return primaryImage.value;
+  return props.variantProducts?.[alias]?.image;
+}
 
 const { showIncVat } = useVatDisplay();
 
@@ -508,8 +538,14 @@ const { showPrice } = usePriceVisibility();
               <VariantSheetRow
                 data-testid="variant-option"
                 :data-value="value"
-                :image-file-name="primaryImage?.fileName ?? null"
-                :image-url="primaryImage?.url ?? null"
+                :image-file-name="
+                  rowImage(activeDimension.dimensionName, value)?.fileName ??
+                  null
+                "
+                :image-url="rowImage(activeDimension.dimensionName, value)?.url"
+                :image-missing="
+                  rowImage(activeDimension.dimensionName, value) === null
+                "
                 :image-alt="thumbnailAlt(activeDimension.dimensionName, value)"
                 :title="rowProductName(activeDimension.dimensionName, value)"
                 :subtitle="labelFor(activeDimension.dimensionName, value)"

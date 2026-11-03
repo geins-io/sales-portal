@@ -1027,6 +1027,106 @@ describe('ProductDetails', () => {
     });
   });
 
+  // Each sheet row shows its own variant's image. by-ids leaves the current
+  // product out, so the parent hands the selector that one from the product.
+  describe('variant images handed to the selector', () => {
+    const variantProducts = { value: {} as unknown };
+    const Selector = defineComponent({
+      props: ['modelValue', 'variantDimensions', 'variants', 'variantProducts'],
+      setup(p) {
+        return () => {
+          variantProducts.value = p.variantProducts;
+          return h('div', { 'data-testid': 'variant-selector-stub' });
+        };
+      },
+    });
+
+    const product = makeProduct({
+      alias: 'skyddshjalm-gul',
+      productImages: [
+        { fileName: 'gul.png', url: 'https://cdn.example.test/gul.png' },
+        { fileName: 'gul-2.png', url: 'https://cdn.example.test/gul-2.png' },
+      ],
+      variantDimensions: [{ dimension: 'Färg', value: 'gul' }],
+      variantGroup: {
+        variants: [
+          { alias: 'skyddshjalm-gul', dimension: 'Färg', value: 'gul' },
+          { alias: 'skyddshjalm-vit', dimension: 'Färg', value: 'vit' },
+          { alias: 'skyddshjalm-bla', dimension: 'Färg', value: 'blå' },
+        ],
+      },
+    });
+
+    async function mountWithSiblings(products: unknown[] | null) {
+      mockSiblingProducts.value = products ? { products } : null;
+      await mountProductDetails(
+        { product, alias: product.alias },
+        { global: { stubs: { ...defaultStubs, VariantSelector: Selector } } },
+      );
+      return variantProducts.value;
+    }
+
+    it("passes each sibling's first image as the file name and url pair, and null for a sibling without one", async () => {
+      const map = await mountWithSiblings([
+        {
+          productId: 2,
+          alias: 'skyddshjalm-vit',
+          productImages: [
+            { fileName: 'vit.png', url: 'https://cdn.example.test/vit.png' },
+            {
+              fileName: 'vit-2.png',
+              url: 'https://cdn.example.test/vit-2.png',
+            },
+          ],
+        },
+        { productId: 3, alias: 'skyddshjalm-bla', productImages: [] },
+      ]);
+
+      expect(map).toMatchObject({
+        'skyddshjalm-vit': {
+          image: {
+            fileName: 'vit.png',
+            url: 'https://cdn.example.test/vit.png',
+          },
+        },
+        'skyddshjalm-bla': { image: null },
+      });
+    });
+
+    it('keeps a legacy image without a url as its file name', async () => {
+      const map = await mountWithSiblings([
+        {
+          productId: 2,
+          alias: 'skyddshjalm-vit',
+          productImages: [{ fileName: 'vit.png', url: null }],
+        },
+      ]);
+
+      expect(map).toMatchObject({
+        'skyddshjalm-vit': { image: { fileName: 'vit.png', url: null } },
+      });
+    });
+
+    it("passes the current product's own image under its alias", async () => {
+      const map = await mountWithSiblings([]);
+
+      expect(map).toEqual({
+        'skyddshjalm-gul': {
+          image: {
+            fileName: 'gul.png',
+            url: 'https://cdn.example.test/gul.png',
+          },
+        },
+      });
+    });
+
+    it('passes no sibling entry while the siblings are loading', async () => {
+      const map = await mountWithSiblings(null);
+
+      expect(Object.keys(map as object)).toEqual(['skyddshjalm-gul']);
+    });
+  });
+
   describe('current variant seeding', () => {
     // Capture the modelValue the variant selector receives. Reads it in the
     // render fn so the latest value (after the immediate seed watch) wins.
