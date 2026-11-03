@@ -9,6 +9,11 @@ query getQuotationCart($quotationId: Guid!, $languageId: String) {
     }
     quotation {
       ...QuotationWithAddresses
+      validPaymentMethods {
+        paymentId
+        name
+        paymentFee
+      }
     }
   }
 }

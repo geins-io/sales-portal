@@ -134,5 +134,6 @@ const emit = defineEmits<{
           : t('checkout.place_order')
       }}
     </Button>
+    <slot name="footer" />
   </div>
 </template>

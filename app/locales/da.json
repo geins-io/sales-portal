@@ -947,12 +947,7 @@
         "back": "Tilbage til tilbuddet",
         "banner_title": "Du bestiller fra tilbud {number}",
         "banner_body": "Priser, antal, fragt og betingelser kommer fra tilbuddet og kan ikke ændres her.",
-        "card_company": "Virksomhed",
-        "card_addresses": "Adresser",
         "addresses_locked": "Adresserne kommer fra tilbuddet. Kontakt din sælger, hvis noget skal ændres.",
-        "card_payment": "Betaling",
-        "invoice": "Faktura",
-        "terms_required": "Accepter betingelserne for at afgive ordren.",
         "valid_until": "Tilbuddet gælder til {date}.",
         "failed": "Ordren kunne ikke afgives. Prøv igen."
       }

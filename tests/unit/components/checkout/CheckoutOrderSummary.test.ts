@@ -134,3 +134,36 @@ describe('CheckoutOrderSummary', () => {
     expect(button.find('svg').exists()).toBe(false);
   });
 });
+
+describe('CheckoutOrderSummary footer', () => {
+  it('renders the footer slot after the place-order button', () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps(),
+      slots: { footer: '<p data-testid="summary-footer">note</p>' },
+      global: { stubs },
+    });
+    const html = wrapper.html();
+    expect(wrapper.find('[data-testid="summary-footer"]').exists()).toBe(true);
+    expect(html.indexOf('summary-footer')).toBeGreaterThan(
+      html.indexOf('place-order-button'),
+    );
+    expect(
+      wrapper
+        .find(
+          '[data-testid="checkout-order-summary"] [data-testid="summary-footer"]',
+        )
+        .exists(),
+    ).toBe(true);
+  });
+
+  it('renders nothing after the button without a footer', () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps(),
+      global: { stubs },
+    });
+    const summary = wrapper.find('[data-testid="checkout-order-summary"]');
+    expect(summary.element.lastElementChild?.getAttribute('data-testid')).toBe(
+      'place-order-button',
+    );
+  });
+});

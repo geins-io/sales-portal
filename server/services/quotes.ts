@@ -3,9 +3,11 @@ import type {
   Quote,
   QuoteAddress,
   QuoteCompany,
+  QuoteCustomer,
   QuoteExternalReference,
   QuoteLineItem,
   QuoteListItem,
+  QuotePaymentMethod,
   QuoteStatus,
 } from '#shared/types/quote';
 import {
@@ -105,6 +107,13 @@ interface RawQuotation {
     country?: string;
   } | null;
   orderId?: string | null;
+  validPaymentMethods?:
+    | {
+        paymentId?: string | null;
+        name?: string | null;
+        paymentFee?: number | null;
+      }[]
+    | null;
   /** The seller's discount; the amount it comes to is on the cart summary. */
   discount?: {
     type?: string | null;
@@ -256,6 +265,29 @@ function mapAccepted(
   };
 }
 
+/** The buyer alone: `contactName` falls back to the seller, this must not. */
+function mapCustomer(
+  customer: RawQuotation['customer'],
+): QuoteCustomer | undefined {
+  if (!customer) return undefined;
+  return {
+    id: customer.customerId || undefined,
+    firstName: customer.firstName || undefined,
+    lastName: customer.lastName || undefined,
+  };
+}
+
+function mapPaymentMethods(
+  methods: RawQuotation['validPaymentMethods'],
+): QuotePaymentMethod[] | undefined {
+  if (!methods?.length) return undefined;
+  return methods.map((method) => ({
+    id: method.paymentId ?? '',
+    name: method.name || undefined,
+    fee: method.paymentFee ?? undefined,
+  }));
+}
+
 /** Linked only when the reference carries a value; the API may send empty strings. */
 function mapExternalReference(
   ref: RawQuotation['externalReference'],
@@ -325,6 +357,8 @@ function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
     seller: mapSeller(q.owner),
     ...mapAccepted(q.customer),
     ...(q.orderId ? { orderId: q.orderId } : {}),
+    customer: mapCustomer(q.customer),
+    paymentMethods: mapPaymentMethods(q.validPaymentMethods),
   };
 }
 

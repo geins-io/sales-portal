@@ -947,12 +947,7 @@
         "back": "Takaisin tarjoukseen",
         "banner_title": "Tilaat tarjouksesta {number}",
         "banner_body": "Hinnat, määrät, toimitus ja ehdot tulevat tarjouksesta, eikä niitä voi muuttaa täällä.",
-        "card_company": "Yritys",
-        "card_addresses": "Osoitteet",
         "addresses_locked": "Osoitteet tulevat tarjouksesta. Ota yhteyttä myyjääsi, jos jotain pitää muuttaa.",
-        "card_payment": "Maksu",
-        "invoice": "Lasku",
-        "terms_required": "Hyväksy ehdot lähettääksesi tilauksen.",
         "valid_until": "Tarjous on voimassa {date} asti.",
         "failed": "Tilauksen lähettäminen epäonnistui. Yritä uudelleen."
       }
