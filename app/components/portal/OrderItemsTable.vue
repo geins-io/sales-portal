@@ -28,20 +28,20 @@ const { showPrice } = usePriceVisibility();
         <thead class="bg-muted/50">
           <tr>
             <th class="px-4 py-3 text-left font-medium">
-              {{ t('portal.orders.detail.items.product') }}
+              {{ t('portal.quotations.col_item') }}
             </th>
             <th class="px-4 py-3 text-left font-medium">
-              {{ t('product.article_number_heading') }}
+              {{ t('portal.quotations.col_article') }}
             </th>
             <th class="px-4 py-3 text-right font-medium">
-              {{ t('portal.orders.detail.items.quantity') }}
+              {{ t('portal.quotations.quantity') }}
             </th>
             <template v-if="showPrice">
               <th class="px-4 py-3 text-right font-medium">
-                {{ t('portal.orders.detail.items.unit_price') }}
+                {{ t('portal.quotations.col_unit_price') }}
               </th>
               <th class="px-4 py-3 text-right font-medium">
-                {{ t('portal.orders.detail.items.total') }}
+                {{ t('portal.quotations.line_total') }}
               </th>
             </template>
           </tr>

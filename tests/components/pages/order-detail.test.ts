@@ -918,16 +918,24 @@ describe('OrderDetail', () => {
       expect(sidebar.text()).toContain('699,00 kr');
     });
 
-    it('column header for unit price uses unit_price i18n key (à price)', () => {
+    it("heads the line table with the quote pages' headers", () => {
       mockData.value = makeOrder();
 
       const wrapper = shallowMountComponent(OrderDetail, {
         global: { stubs: defaultStubs },
       });
 
-      const table = wrapper.find('[data-testid="order-items-table"]');
-      // The i18n mock renders the key — verify it's present in headers
-      expect(table.text()).toContain('portal.orders.detail.items.unit_price');
+      expect(
+        wrapper
+          .findAll('[data-testid="order-items-table"] thead th')
+          .map((th) => th.text()),
+      ).toEqual([
+        'portal.quotations.col_item',
+        'portal.quotations.col_article',
+        'portal.quotations.quantity',
+        'portal.quotations.col_unit_price',
+        'portal.quotations.line_total',
+      ]);
     });
   });
 

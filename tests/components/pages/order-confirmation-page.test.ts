@@ -143,7 +143,7 @@ const SheetStub = partStub('PortalItemRowsSheet', [
   'showPrices',
 ]);
 
-function mount() {
+function mount(stubs: Record<string, unknown> = {}) {
   return mountComponent(ConfirmationPage, {
     global: {
       stubs: {
@@ -152,6 +152,7 @@ function mount() {
         OrderSummaryCard: OrderSummaryCardStub,
         OrderAddresses: OrderAddressesStub,
         PortalItemRowsSheet: SheetStub,
+        ...stubs,
       },
     },
   });
@@ -259,6 +260,23 @@ describe('Order confirmation page — placed in the app', () => {
       desiredDeliveryDate: undefined,
       paymentMethod: 'Faktura 30 dagar',
     });
+  });
+
+  it("heads the line table with the quote pages' headers", () => {
+    resultFor(ORDER_URL).data.value = makeOrder();
+    const wrapper = mount({ OrderItemsTable: false });
+
+    expect(
+      wrapper
+        .findAll('[data-testid="order-items-table"] thead th')
+        .map((th) => th.text()),
+    ).toEqual([
+      'portal.quotations.col_item',
+      'portal.quotations.col_article',
+      'portal.quotations.quantity',
+      'portal.quotations.col_unit_price',
+      'portal.quotations.line_total',
+    ]);
   });
 
   it('labels the inc-VAT line "to pay incl. VAT"', () => {

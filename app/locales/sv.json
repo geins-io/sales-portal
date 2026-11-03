@@ -668,11 +668,7 @@
           "reorder": "Beställ igen"
         },
         "items": {
-          "title": "Orderrader",
-          "product": "Produkt",
-          "quantity": "Antal",
-          "unit_price": "À-pris",
-          "total": "Totalt"
+          "title": "Orderrader"
         },
         "summary": {
           "title": "Ordersammanfattning",
