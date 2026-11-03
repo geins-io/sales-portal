@@ -72,39 +72,43 @@ test.describe('Order from a quotation', () => {
     await page.waitForLoadState('load');
     await waitForHydration(page);
 
-    await expect(page.locator('[data-testid="quote-order-page"]')).toBeVisible({
-      timeout: PAGE_TIMEOUT,
-    });
-    // A table from md up, cards below it.
+    const orderPage = page.locator('[data-testid="quote-order-page"]');
+    await expect(orderPage).toBeVisible({ timeout: PAGE_TIMEOUT });
+    // The checkout's parts, with the quotation's lines.
     await expect(
-      page.locator(
-        '[data-testid="line-item-row"]:visible, [data-testid="line-item-card"]:visible',
-      ),
+      orderPage.locator('[data-testid="checkout-cart-item"]'),
     ).toHaveCount(quote!.lineItems.length);
     await expect(
-      page.locator(
-        '[data-testid="quote-order-page"] input:not([type="checkbox"])',
+      orderPage.locator('[data-testid="checkout-remove-item"]'),
+    ).toHaveCount(0);
+    await expect(
+      orderPage.locator('[data-testid="checkout-company-info"]'),
+    ).toBeVisible();
+    await expect(
+      orderPage.locator('[data-testid="checkout-summary-total"]'),
+    ).not.toBeEmpty();
+    await expect(
+      orderPage.locator('[data-testid="checkout-payment-options"]'),
+    ).toBeVisible();
+    // Nothing but the terms box can be changed.
+    await expect(
+      orderPage.locator(
+        'input:enabled:not(#checkout-terms-checkbox), textarea:enabled, select:enabled',
       ),
     ).toHaveCount(0);
     await expect(
-      page.locator('[data-testid="quote-summary-total"]'),
-    ).not.toBeEmpty();
+      orderPage.locator('[data-testid="checkout-quantity-stepper"]'),
+    ).toHaveCount(0);
     await expect(
-      page.locator('[data-testid="quote-order-payment"]'),
-    ).toBeVisible();
-    const addresses = page.locator(
-      '[data-testid="order-delivery-address"], [data-testid="order-invoice-address"]',
-    );
-    expect(await addresses.count()).toBeGreaterThan(0);
+      orderPage.locator('[data-testid="checkout-cart-item-quantity"]'),
+    ).toHaveCount(quote!.lineItems.length);
 
-    const place = page.locator('[data-testid="quote-order-place"]');
-    await place.click();
-    await expect(
-      page.locator('[data-testid="quote-order-terms-required"]'),
-    ).toBeVisible();
+    const place = page.locator('[data-testid="place-order-button"]');
+    await expect(place).toBeDisabled();
     expect(finalizeCalls).toHaveLength(0);
 
     await page.locator('#checkout-terms-checkbox').click();
+    await expect(place).toBeEnabled();
     await place.click();
     await page.waitForURL(new RegExp(`${viewPath}$`), {
       timeout: PAGE_TIMEOUT,
