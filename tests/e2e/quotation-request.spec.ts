@@ -179,6 +179,34 @@ test.describe('Send a quote request', () => {
     });
   });
 
+  test('opens the estimate note on click and keeps it open until dismissed', async ({
+    page,
+  }) => {
+    await answerQuotation(page, 'request_draft');
+
+    await openInApp(page, `${VIEW_PATH}/request`);
+    const badge = page.locator('[data-testid="quote-estimate-badge"]');
+    await expect(badge).toBeVisible({ timeout: PAGE_TIMEOUT });
+    const note = page.locator('[data-testid="quote-estimate-note"]');
+    await expect(note).toHaveCount(0);
+
+    await badge.click();
+    await expect(note).toBeVisible();
+    await expect(note).toContainText('bekräftas av din säljare');
+    // Not a hover tooltip: moving away leaves it open.
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(500);
+    await expect(note).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(note).toHaveCount(0);
+
+    await badge.click();
+    await expect(note).toBeVisible();
+    await page.locator('[data-testid="quote-request-title"]').click();
+    await expect(note).toHaveCount(0);
+  });
+
   test('keeps the request on the page when sending fails', async ({ page }) => {
     await answerQuotation(page, 'request_draft');
     await page.route(`**/api/quotes/${QUOTE_ID}/release`, (route) =>

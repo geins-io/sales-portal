@@ -186,6 +186,10 @@ async function send(wrapper: Wrapper) {
   await flushPromises();
 }
 
+// The popover renders into document.body, outside the wrapper.
+const estimateNote = () =>
+  document.body.querySelector('[data-testid="quote-estimate-note"]');
+
 describe('PortalQuotationRequest', () => {
   beforeEach(() => {
     mockQuoteData.value = null;
@@ -355,7 +359,7 @@ describe('PortalQuotationRequest', () => {
       ).toBe('portal.quotations.request.reference_help');
     });
 
-    it('marks the summary as an estimate, with the note for every reader', async () => {
+    it('marks the summary as an estimate', async () => {
       const wrapper = await mountWith(draft());
 
       const badge = wrapper.find(
@@ -364,9 +368,22 @@ describe('PortalQuotationRequest', () => {
       expect(badge.text()).toContain(
         'portal.quotations.request.estimate_badge',
       );
-      expect(badge.attributes('aria-label')).toContain(
+      expect(badge.attributes('aria-expanded')).toBe('false');
+      expect(estimateNote()).toBeNull();
+    });
+
+    // Staying open and closing are checked in the browser: happy-dom moves
+    // focus so the dismiss layer closes it again on the next flush.
+    it('opens the estimate note on click', async () => {
+      const wrapper = await mountWith(draft());
+      const badge = wrapper.find('[data-testid="quote-estimate-badge"]');
+
+      await badge.trigger('click');
+      expect(badge.attributes('aria-expanded')).toBe('true');
+      expect(estimateNote()?.textContent).toContain(
         'portal.quotations.request.estimate_note',
       );
+      wrapper.unmount();
     });
 
     it('calls the inc-VAT line a total, not a payment', async () => {

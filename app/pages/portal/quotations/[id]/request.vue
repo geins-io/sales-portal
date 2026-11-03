@@ -3,11 +3,10 @@ import { ArrowLeft, FileText, Info, MessageSquare } from 'lucide-vue-next';
 import { Card, CardContent } from '~/components/ui/card';
 import { Label } from '~/components/ui/label';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '~/components/ui/tooltip';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '~/components/ui/popover';
 import CheckoutCardHeader from '~/components/checkout/CheckoutCardHeader.vue';
 import { useQuotesStore } from '~/stores/quotes';
 import { useAuthStore } from '~/stores/auth';
@@ -250,27 +249,25 @@ async function send() {
             @place-order="send"
           >
             <template #title-aside>
-              <TooltipProvider :delay-duration="150">
-                <Tooltip>
-                  <TooltipTrigger as-child>
-                    <button
-                      type="button"
-                      data-testid="quote-estimate-badge"
-                      :aria-label="`${t('portal.quotations.request.estimate_badge')}: ${t('portal.quotations.request.estimate_note')}`"
-                      class="text-muted-foreground hover:text-foreground focus-visible:ring-ring mt-1 inline-flex shrink-0 items-center gap-1 rounded-sm text-xs focus-visible:ring-2 focus-visible:outline-none"
-                    >
-                      ≈ {{ t('portal.quotations.request.estimate_badge') }}
-                      <Info class="size-3.5" aria-hidden="true" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    class="max-w-64"
-                    data-testid="quote-estimate-note"
+              <Popover>
+                <PopoverTrigger as-child>
+                  <button
+                    type="button"
+                    data-testid="quote-estimate-badge"
+                    class="text-muted-foreground hover:text-foreground focus-visible:ring-ring mt-1 inline-flex shrink-0 items-center gap-1 rounded py-0.5 text-xs focus-visible:ring-2 focus-visible:outline-none"
                   >
-                    {{ t('portal.quotations.request.estimate_note') }}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                    ≈ {{ t('portal.quotations.request.estimate_badge') }}
+                    <Info class="size-3.5" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  class="w-64 text-sm"
+                  data-testid="quote-estimate-note"
+                >
+                  {{ t('portal.quotations.request.estimate_note') }}
+                </PopoverContent>
+              </Popover>
             </template>
             <template #footer>
               <p
