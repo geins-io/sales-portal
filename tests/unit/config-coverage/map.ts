@@ -493,6 +493,49 @@ function middlewareCells(key: string): FeatureCells {
 }
 
 /**
+ * The custom checkout routes read `orderPlacement.access` on the server, in
+ * `sessionForFeature`: only an explicit `all` lets a signed-out buyer through. The spec
+ * runs the real helper over `event.context.tenant.config`, so every case
+ * drives the field. Absent is a server-side closed cell, unlike the client's
+ * reading of it (see `ACCESS_ABSENT_NOTE`), which is why it hangs its own test.
+ */
+function withCheckoutRouteCells(cells: FeatureCells): FeatureCells {
+  const ref = (title: string): TestRef => ({
+    spec: SERVER_CHECKOUT,
+    title,
+    kind: 'consumer',
+    drives: 'field',
+  });
+  return {
+    ...cells,
+    accessAll: [
+      ...(cells.accessAll ?? []),
+      ref(
+        'GET /api/checkout serves a signed-out buyer when orderPlacement access is all',
+      ),
+      ref(
+        'POST /api/checkout/validate serves a signed-out buyer when orderPlacement access is all',
+      ),
+      ref(
+        'POST /api/checkout/create-order places a signed-out order when orderPlacement access is all',
+      ),
+    ],
+    accessAuthenticated: [
+      ...(cells.accessAuthenticated ?? []),
+      ref(
+        'every custom checkout route answers 401 to a signed-out buyer when orderPlacement access is authenticated',
+      ),
+    ],
+    accessAbsent: [
+      ...(cells.accessAbsent ?? []),
+      ref(
+        'every custom checkout route answers 401 to a signed-out buyer when the tenant stores no orderPlacement rule',
+      ),
+    ],
+  };
+}
+
+/**
  * The cells of a component spec that un-mocks `useFeatureAccess` and writes
  * the configured value into the tenant fixture, so the real visibility
  * composable and `canAccessFeature` run between the two. Every case therefore
@@ -1978,7 +2021,7 @@ export const CONFIG_COVERAGE_MAP = {
     }),
     orderPlacement: namedFeature({
       consumer: 'app/components/cart/CartDrawer.vue:19',
-      cells: middlewareCells('orderPlacement'),
+      cells: withCheckoutRouteCells(middlewareCells('orderPlacement')),
       granted: [
         {
           spec: CART_DRAWER,

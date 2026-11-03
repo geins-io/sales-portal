@@ -24,14 +24,23 @@ vi.mock('h3', async () => {
 const sessionToken = vi.fn<() => string | undefined>();
 vi.stubGlobal('getSessionToken', () => sessionToken());
 
+const mockRequireAuth = vi.fn();
+const mockOptionalAuth = vi.fn();
+vi.mock('../../server/utils/auth', () => ({
+  requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
+  optionalAuth: (...args: unknown[]) => mockOptionalAuth(...args),
+}));
+
 describe('server feature-access', () => {
   let canConfigureServer: typeof import('../../server/utils/feature-access').canConfigureServer;
   let canAccessFeatureServer: typeof import('../../server/utils/feature-access').canAccessFeatureServer;
   let assertFeatureAccess: typeof import('../../server/utils/feature-access').assertFeatureAccess;
+  let sessionForFeature: typeof import('../../server/utils/feature-access').sessionForFeature;
 
   const mockEvent = {
     context: { tenant: { hostname: 'test.example.com' } },
   } as unknown as H3Event;
+  const TOKENS = { authToken: 'tok', refreshToken: 'ref' };
 
   beforeEach(async () => {
     mockFeatures.mockReset();
@@ -47,6 +56,9 @@ describe('server feature-access', () => {
     canConfigureServer = mod.canConfigureServer;
     sessionToken.mockReset().mockReturnValue(undefined);
     assertFeatureAccess = mod.assertFeatureAccess;
+    sessionForFeature = mod.sessionForFeature;
+    mockRequireAuth.mockReset().mockResolvedValue(TOKENS);
+    mockOptionalAuth.mockReset().mockResolvedValue(null);
   });
 
   describe('canAccessFeatureServer', () => {
@@ -138,5 +150,67 @@ describe('server feature-access', () => {
         expect(await canConfigureServer(mockEvent)).toBe(true);
       },
     );
+  });
+  describe('sessionForFeature', () => {
+    const unauthorized = Object.assign(new Error('Authentication required'), {
+      statusCode: 401,
+    });
+
+    it('answers null for an anonymous request when the feature is open to all', async () => {
+      mockFeatures.mockResolvedValue({
+        orderPlacement: { enabled: true, access: 'all' },
+      });
+      expect(await sessionForFeature(mockEvent, 'orderPlacement')).toBeNull();
+      expect(mockOptionalAuth).toHaveBeenCalledWith(mockEvent);
+      expect(mockRequireAuth).not.toHaveBeenCalled();
+    });
+
+    it('answers the tokens for a signed-in request when the feature is open to all', async () => {
+      mockFeatures.mockResolvedValue({
+        orderPlacement: { enabled: true, access: 'all' },
+      });
+      mockOptionalAuth.mockResolvedValue(TOKENS);
+      expect(await sessionForFeature(mockEvent, 'orderPlacement')).toEqual(
+        TOKENS,
+      );
+      expect(mockRequireAuth).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['access authenticated', { enabled: true, access: 'authenticated' }],
+      ['no access rule', { enabled: true }],
+      ['disabled with access all', { enabled: false, access: 'all' }],
+      ['no feature entry', undefined],
+    ])(
+      'requires the session when the feature has %s',
+      async (_label, orderPlacement) => {
+        mockFeatures.mockResolvedValue(
+          orderPlacement === undefined ? {} : { orderPlacement },
+        );
+        mockRequireAuth.mockRejectedValue(unauthorized);
+        await expect(
+          sessionForFeature(mockEvent, 'orderPlacement'),
+        ).rejects.toMatchObject({ statusCode: 401 });
+        expect(mockRequireAuth).toHaveBeenCalledWith(mockEvent);
+        expect(mockOptionalAuth).not.toHaveBeenCalled();
+      },
+    );
+
+    it('passes the session through when the feature requires one', async () => {
+      mockFeatures.mockResolvedValue({
+        orderPlacement: { enabled: true, access: 'authenticated' },
+      });
+      expect(await sessionForFeature(mockEvent, 'orderPlacement')).toEqual(
+        TOKENS,
+      );
+    });
+
+    it('requires the session when the service has no features', async () => {
+      mockFeatures.mockResolvedValue(null);
+      mockRequireAuth.mockRejectedValue(unauthorized);
+      await expect(
+        sessionForFeature(mockEvent, 'orderPlacement'),
+      ).rejects.toMatchObject({ statusCode: 401 });
+    });
   });
 });
