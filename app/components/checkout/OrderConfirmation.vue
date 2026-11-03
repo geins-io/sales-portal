@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { CircleCheck } from 'lucide-vue-next';
+import { useAuthStore } from '~/stores/auth';
 
 /**
  * The confirmation's own top part. The order itself renders in the default
@@ -20,6 +21,8 @@ const props = defineProps<{
 
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
+// The portal is for signed-in buyers; a guest's order has no page there.
+const authStore = useAuthStore();
 
 /**
  * Where "view order in the portal" goes: the order's own page.
@@ -63,8 +66,9 @@ const viewOrderLink = computed(() => {
         </div>
       </header>
 
-      <!-- Full-width CTA -->
+      <!-- Full-width CTA, signed-in buyers only -->
       <NuxtLink
+        v-if="authStore.isAuthenticated"
         :to="viewOrderLink"
         class="bg-button-background text-button-text hover:bg-button-background/90 mt-8 flex w-full items-center justify-center rounded-md px-6 py-3 text-sm font-semibold transition-colors"
         data-testid="view-order-cta"

@@ -1,9 +1,9 @@
 import * as ordersService from '../../services/orders';
-import { requireAuth } from '../../utils/auth';
+import { sessionForFeature } from '../../utils/feature-access';
 import { OrderIdSchema } from '../../schemas/api-input';
 
 export default defineEventHandler(async (event) => {
-  await requireAuth(event);
+  await sessionForFeature(event, 'orderPlacement');
   const id = getRouterParam(event, 'id');
   const { id: validatedId } = OrderIdSchema.parse({ id });
   return withErrorHandling(

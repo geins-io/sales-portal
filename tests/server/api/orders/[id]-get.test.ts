@@ -3,8 +3,10 @@ import type { H3Event } from 'h3';
 
 // Mock auth
 const mockRequireAuth = vi.fn();
+const mockOptionalAuth = vi.fn();
 vi.mock('../../../../server/utils/auth', () => ({
   requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
+  optionalAuth: (...args: unknown[]) => mockOptionalAuth(...args),
 }));
 
 // Mock orders service
@@ -53,8 +55,17 @@ let handler: (event: H3Event) => Promise<unknown>;
 // Access the mocked getRouterParam
 const mockedGetRouterParam = vi.mocked(getRouterParam);
 
+/** An event on a tenant with the given orderPlacement rule; none stored when absent. */
+function eventWith(access?: 'all' | 'authenticated'): H3Event {
+  const features = access ? { orderPlacement: { enabled: true, access } } : {};
+  return {
+    context: { tenant: { hostname: 'test.com', config: { features } } },
+  } as unknown as H3Event;
+}
+
 describe('GET /api/orders/[id]', () => {
-  const mockEvent = {} as H3Event;
+  // No orderPlacement rule stored: the session is required, as before.
+  const mockEvent = eventWith();
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -70,6 +81,48 @@ describe('GET /api/orders/[id]', () => {
     mockRequireAuth.mockRejectedValueOnce(authError);
 
     await expect(handler(mockEvent)).rejects.toThrow('Authentication required');
+    expect(mockGetOrder).not.toHaveBeenCalled();
+  });
+
+  it('serves a signed-out buyer when orderPlacement access is all', async () => {
+    mockOptionalAuth.mockResolvedValueOnce(null);
+    mockedGetRouterParam.mockReturnValueOnce('abc-123');
+    mockGetOrder.mockResolvedValueOnce({ id: 1, publicId: 'abc-123' });
+    const event = eventWith('all');
+
+    await expect(handler(event)).resolves.toEqual({
+      order: { id: 1, publicId: 'abc-123' },
+    });
+    expect(mockRequireAuth).not.toHaveBeenCalled();
+    expect(mockGetOrder).toHaveBeenCalledWith(
+      { publicOrderId: 'abc-123' },
+      event,
+    );
+  });
+
+  it('answers 401 to a signed-out request when orderPlacement access is authenticated', async () => {
+    const authError = Object.assign(new Error('Authentication required'), {
+      statusCode: 401,
+    });
+    mockRequireAuth.mockRejectedValueOnce(authError);
+
+    await expect(handler(eventWith('authenticated'))).rejects.toMatchObject({
+      statusCode: 401,
+    });
+    expect(mockOptionalAuth).not.toHaveBeenCalled();
+    expect(mockGetOrder).not.toHaveBeenCalled();
+  });
+
+  it('answers 401 to a signed-out request when the tenant stores no orderPlacement rule', async () => {
+    const authError = Object.assign(new Error('Authentication required'), {
+      statusCode: 401,
+    });
+    mockRequireAuth.mockRejectedValueOnce(authError);
+
+    await expect(handler(eventWith())).rejects.toMatchObject({
+      statusCode: 401,
+    });
+    expect(mockOptionalAuth).not.toHaveBeenCalled();
     expect(mockGetOrder).not.toHaveBeenCalled();
   });
 

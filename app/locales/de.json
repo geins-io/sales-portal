@@ -239,7 +239,9 @@
     "continue_shopping": "Weiter einkaufen",
     "view_orders": "Meine Bestellungen anzeigen",
     "order_not_found": "Bestellung nicht gefunden.",
-    "order_slow": "Das Laden der Bestellung dauert länger als üblich. Sie wird in Kürze im Kundenportal angezeigt."
+    "order_slow": "Das Laden der Bestellung dauert länger als üblich. Sie wird in Kürze im Kundenportal angezeigt.",
+    "order_slow_guest": "Das Laden der Bestellung dauert länger als üblich. Versuchen Sie es gleich noch einmal.",
+    "fetch_again": "Erneut laden"
   },
   "product": {
     "details": "Produktdetails",

@@ -239,7 +239,9 @@
     "continue_shopping": "Continue Shopping",
     "view_orders": "View My Orders",
     "order_not_found": "Order not found.",
-    "order_slow": "Fetching the order is taking longer than usual. It will appear in the Customer portal shortly."
+    "order_slow": "Fetching the order is taking longer than usual. It will appear in the Customer portal shortly.",
+    "order_slow_guest": "Fetching the order is taking longer than usual. Try fetching it again in a moment.",
+    "fetch_again": "Fetch again"
   },
   "product": {
     "details": "Product details",

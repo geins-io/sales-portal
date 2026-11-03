@@ -144,6 +144,7 @@ const CHECKOUT_PAGE = 'tests/components/pages/checkout.test.ts';
 const HEADER_ACTIONS =
   'tests/components/layout/LayoutHeaderActionButtons.test.ts';
 const SERVER_CHECKOUT = 'tests/unit/api/checkout.test.ts';
+const SERVER_ORDER_GET = 'tests/server/api/orders/[id]-get.test.ts';
 const SERVER_CART = 'tests/server/api/cart.test.ts';
 const SERVER_REGISTER = 'tests/server/api/auth-register.test.ts';
 const AUTH_CARD = 'tests/components/auth/AuthCard.test.ts';
@@ -493,15 +494,16 @@ function middlewareCells(key: string): FeatureCells {
 }
 
 /**
- * The custom checkout routes read `orderPlacement.access` on the server, in
- * `sessionForFeature`: only an explicit `all` lets a signed-out buyer through. The spec
- * runs the real helper over `event.context.tenant.config`, so every case
- * drives the field. Absent is a server-side closed cell, unlike the client's
- * reading of it (see `ACCESS_ABSENT_NOTE`), which is why it hangs its own test.
+ * The custom checkout routes and the order read route read
+ * `orderPlacement.access` on the server, in `sessionForFeature`: only an
+ * explicit `all` lets a signed-out buyer through. Both specs run the real
+ * helper over `event.context.tenant.config`, so every case drives the field.
+ * Absent is a server-side closed cell, unlike the client's reading of it (see
+ * `ACCESS_ABSENT_NOTE`), which is why it hangs its own tests.
  */
-function withCheckoutRouteCells(cells: FeatureCells): FeatureCells {
-  const ref = (title: string): TestRef => ({
-    spec: SERVER_CHECKOUT,
+function withServerRouteCells(cells: FeatureCells): FeatureCells {
+  const ref = (spec: string, title: string): TestRef => ({
+    spec,
     title,
     kind: 'consumer',
     drives: 'field',
@@ -511,25 +513,42 @@ function withCheckoutRouteCells(cells: FeatureCells): FeatureCells {
     accessAll: [
       ...(cells.accessAll ?? []),
       ref(
+        SERVER_CHECKOUT,
         'GET /api/checkout serves a signed-out buyer when orderPlacement access is all',
       ),
       ref(
+        SERVER_CHECKOUT,
         'POST /api/checkout/validate serves a signed-out buyer when orderPlacement access is all',
       ),
       ref(
+        SERVER_CHECKOUT,
         'POST /api/checkout/create-order places a signed-out order when orderPlacement access is all',
+      ),
+      ref(
+        SERVER_ORDER_GET,
+        'serves a signed-out buyer when orderPlacement access is all',
       ),
     ],
     accessAuthenticated: [
       ...(cells.accessAuthenticated ?? []),
       ref(
+        SERVER_CHECKOUT,
         'every custom checkout route answers 401 to a signed-out buyer when orderPlacement access is authenticated',
+      ),
+      ref(
+        SERVER_ORDER_GET,
+        'answers 401 to a signed-out request when orderPlacement access is authenticated',
       ),
     ],
     accessAbsent: [
       ...(cells.accessAbsent ?? []),
       ref(
+        SERVER_CHECKOUT,
         'every custom checkout route answers 401 to a signed-out buyer when the tenant stores no orderPlacement rule',
+      ),
+      ref(
+        SERVER_ORDER_GET,
+        'answers 401 to a signed-out request when the tenant stores no orderPlacement rule',
       ),
     ],
   };
@@ -2021,7 +2040,7 @@ export const CONFIG_COVERAGE_MAP = {
     }),
     orderPlacement: namedFeature({
       consumer: 'app/components/cart/CartDrawer.vue:19',
-      cells: withCheckoutRouteCells(middlewareCells('orderPlacement')),
+      cells: withServerRouteCells(middlewareCells('orderPlacement')),
       granted: [
         {
           spec: CART_DRAWER,

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { LoaderCircle } from 'lucide-vue-next';
 import type { OrderDetailType } from '#shared/types/commerce';
+import { Button } from '~/components/ui/button';
+import { useAuthStore } from '~/stores/auth';
 import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
 import { productPath } from '#shared/utils/route-helpers';
 import { replayLineHref } from '~/utils/configurator-replay';
@@ -19,6 +21,7 @@ const { localePath } = useLocaleMarket();
 const { formatLocale } = useFormatLocale();
 const { showIncVat } = useVatDisplay();
 const { showPrice } = usePriceVisibility();
+const authStore = useAuthStore();
 
 useHead({
   title: computed(() => t('order_confirmation.title')),
@@ -70,6 +73,23 @@ const awaitingOrder = computed(
   () => !!orderUrl && !order.value && !gaveUp.value,
 );
 
+// A signed-out buyer has no portal to go on to, so at the bound the page
+// offers one more read per click instead of the portal button.
+const fetchingAgain = ref(false);
+async function fetchAgain() {
+  if (!orderUrl || fetchingAgain.value) return;
+  fetchingAgain.value = true;
+  try {
+    orderData.value = await $fetch<{ order: OrderDetailType }>(orderUrl, {
+      cache: 'no-store',
+    });
+  } catch {
+    // Still not readable: the text and the button stay.
+  } finally {
+    fetchingAgain.value = false;
+  }
+}
+
 // The order as the portal order page shows it, with the same parts.
 const itemCount = computed(() => order.value?.cart?.items?.length ?? 0);
 const amounts = computed(() =>
@@ -109,7 +129,7 @@ const totals = computed<PortalItemTotal[]>(() =>
       :public-order-id="publicOrderId"
     >
       <div
-        v-if="awaitingOrder"
+        v-if="awaitingOrder || fetchingAgain"
         role="status"
         data-testid="confirmation-order-loading"
         class="text-muted-foreground mt-8 flex flex-col items-center gap-3 py-8"
@@ -118,13 +138,33 @@ const totals = computed<PortalItemTotal[]>(() =>
         <p class="text-sm">{{ t('common.fetching_order') }}</p>
       </div>
       <p
-        v-else-if="gaveUp && !order"
+        v-else-if="gaveUp && !order && authStore.isAuthenticated"
         role="status"
         data-testid="confirmation-order-slow"
         class="text-muted-foreground mx-auto mt-8 max-w-3xl text-center text-sm"
       >
         {{ t('order_confirmation.order_slow') }}
       </p>
+      <div
+        v-else-if="gaveUp && !order"
+        class="mx-auto mt-8 flex max-w-3xl flex-col items-center gap-4 text-center"
+      >
+        <p
+          role="status"
+          data-testid="confirmation-order-slow-guest"
+          class="text-muted-foreground text-sm"
+        >
+          {{ t('order_confirmation.order_slow_guest') }}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          data-testid="confirmation-fetch-again"
+          @click="fetchAgain"
+        >
+          {{ t('order_confirmation.fetch_again') }}
+        </Button>
+      </div>
       <div
         v-if="order"
         data-testid="confirmation-order"

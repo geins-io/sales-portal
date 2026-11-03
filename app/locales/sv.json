@@ -239,7 +239,9 @@
     "continue_shopping": "Fortsätt handla",
     "view_orders": "Visa mina ordrar",
     "order_not_found": "Order hittades inte.",
-    "order_slow": "Det tar längre än vanligt att hämta ordern. Den visas i kundportalen inom kort."
+    "order_slow": "Det tar längre än vanligt att hämta ordern. Den visas i kundportalen inom kort.",
+    "order_slow_guest": "Det tar längre än vanligt att hämta ordern. Försök hämta den igen om en stund.",
+    "fetch_again": "Hämta igen"
   },
   "product": {
     "details": "Produktdetaljer",
