@@ -323,7 +323,7 @@
   "configurator": {
     "required": "Pflichtfeld",
     "required_status": {
-      "remaining_count": "Verbleibende Pflichtauswahlen\u00a0({count})",
+      "remaining_count": "Verbleibende Pflichtauswahlen ({count})",
       "all_done": "Alle Pflichtauswahlen sind getroffen",
       "unspecified": "Die Konfiguration ist nicht vollständig.",
       "cannot_complete": "Die Konfiguration kann nicht abgeschlossen werden. Wenden Sie sich an den Verkäufer."
@@ -879,9 +879,7 @@
       "detail_title": "Angebotsdetails",
       "items_heading": "Positionen",
       "summary_heading": "Zusammenfassung",
-      "product": "Produkt",
       "quantity": "Anzahl",
-      "unit_price": "Einzelpreis",
       "line_total": "Gesamt",
       "subtotal": "Zwischensumme",
       "shipping": "Versand",
@@ -950,7 +948,33 @@
         "addresses_locked": "Die Adressen stammen aus dem Angebot. Wenden Sie sich an Ihren Verkäufer, wenn etwas geändert werden muss.",
         "valid_until": "Das Angebot gilt bis {date}.",
         "failed": "Die Bestellung konnte nicht aufgegeben werden. Bitte versuchen Sie es erneut."
-      }
+      },
+      "request": {
+        "heading": "Angebotsanfrage – {name}",
+        "back": "Zurück zum Entwurf",
+        "banner_title": "Sie senden eine Angebotsanfrage",
+        "banner_body": "Es wird keine Bestellung aufgegeben. Dies ist eine Anfrage zu Preis und Konditionen, die Ihr Verkäufer prüft.",
+        "empty": "Der Entwurf ist leer. Fügen Sie vor dem Senden Produkte hinzu.",
+        "card_message": "Nachricht",
+        "comment": "Nachricht an den Verkäufer (optional)",
+        "comment_placeholder": "Beschreiben Sie Bedarf, Mengen über die Zeit, akzeptable Alternativen …",
+        "date_past": "Wählen Sie heute oder ein späteres Datum.",
+        "send": "Angebotsanfrage senden",
+        "sending": "Wird gesendet…",
+        "send_hint": "Es wird keine Bestellung aufgegeben. Die Anfrage wird nach dem Senden gesperrt.",
+        "summary_title": "Angebotsübersicht",
+        "send_failed": "Die Anfrage konnte nicht gesendet werden. Bitte versuchen Sie es erneut.",
+        "shipping_note": "Wird im Angebot angegeben",
+        "desired_date": "Gewünschtes Lieferdatum (optional)",
+        "desired_date_help": "Der Verkäufer bestätigt das Lieferdatum im Angebot.",
+        "lines_count": "{count} Artikel | {count} Artikel",
+        "reference_help": "Wird in der Anfrage und im Angebot angezeigt.",
+        "estimate_badge": "Geschätzt",
+        "estimate_note": "Geschätzte Summe – wird von Ihrem Verkäufer bestätigt."
+      },
+      "col_item": "Artikel",
+      "col_article": "Art.-Nr.",
+      "col_unit_price": "Stückpreis"
     },
     "favorites": {
       "title": "Favoriten",

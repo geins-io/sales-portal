@@ -323,7 +323,7 @@
   "configurator": {
     "required": "Obligatoriskt",
     "required_status": {
-      "remaining_count": "Återstående obligatoriska val\u00a0({count})",
+      "remaining_count": "Återstående obligatoriska val ({count})",
       "all_done": "Alla obligatoriska val är gjorda",
       "unspecified": "Konfigurationen är inte komplett.",
       "cannot_complete": "Konfigurationen kan inte slutföras. Kontakta säljaren."
@@ -879,9 +879,7 @@
       "detail_title": "Offertdetaljer",
       "items_heading": "Artiklar",
       "summary_heading": "Sammanfattning",
-      "product": "Produkt",
       "quantity": "Antal",
-      "unit_price": "Styckpris",
       "line_total": "Totalt",
       "subtotal": "Delsumma",
       "shipping": "Frakt",
@@ -950,7 +948,33 @@
         "addresses_locked": "Adresserna kommer från offerten. Kontakta din säljare om något behöver ändras.",
         "valid_until": "Offerten gäller till {date}.",
         "failed": "Det gick inte att lägga ordern. Försök igen."
-      }
+      },
+      "request": {
+        "heading": "Offertförfrågan – {name}",
+        "back": "Tillbaka till utkastet",
+        "banner_title": "Du skickar en offertförfrågan",
+        "banner_body": "Ingen order läggs. Det här är en förfrågan om pris och villkor, som din säljare går igenom.",
+        "empty": "Utkastet är tomt. Lägg till produkter innan du skickar.",
+        "card_message": "Meddelande",
+        "comment": "Meddelande till säljaren (valfritt)",
+        "comment_placeholder": "Beskriv behov, mängder över tid, alternativ som går bra …",
+        "date_past": "Välj dagens datum eller ett senare.",
+        "send": "Skicka offertförfrågan",
+        "sending": "Skickar…",
+        "send_hint": "Ingen order läggs. Förfrågan låses när den skickas.",
+        "summary_title": "Offertsammanfattning",
+        "send_failed": "Det gick inte att skicka förfrågan. Försök igen.",
+        "shipping_note": "Anges i offerten",
+        "desired_date": "Önskat leveransdatum (valfritt)",
+        "desired_date_help": "Säljaren bekräftar leveransdatum i offerten.",
+        "lines_count": "{count} artikel | {count} artiklar",
+        "reference_help": "Visas på förfrågan och på offerten.",
+        "estimate_badge": "Uppskattad",
+        "estimate_note": "Uppskattad summa – bekräftas av din säljare."
+      },
+      "col_item": "Artikel",
+      "col_article": "Art nr",
+      "col_unit_price": "à-pris"
     },
     "favorites": {
       "title": "Favoriter",

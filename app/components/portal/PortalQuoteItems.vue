@@ -28,19 +28,19 @@ function totalPriceOf(item: QuoteLineItem): string {
       <table data-testid="line-items-table" class="w-full text-sm">
         <thead class="bg-muted/50">
           <tr>
-            <th class="px-3 py-3 text-left font-medium">
-              {{ t('portal.quotations.product') }}
+            <th class="px-3 py-3 text-left font-medium whitespace-nowrap">
+              {{ t('portal.quotations.col_item') }}
             </th>
-            <th class="px-3 py-3 text-left font-medium">
-              {{ t('product.article_number_heading') }}
+            <th class="px-3 py-3 text-left font-medium whitespace-nowrap">
+              {{ t('portal.quotations.col_article') }}
             </th>
-            <th class="px-3 py-3 text-right font-medium">
+            <th class="px-3 py-3 text-right font-medium whitespace-nowrap">
               {{ t('portal.quotations.quantity') }}
             </th>
-            <th class="px-3 py-3 text-right font-medium">
-              {{ t('portal.quotations.unit_price') }}
+            <th class="px-3 py-3 text-right font-medium whitespace-nowrap">
+              {{ t('portal.quotations.col_unit_price') }}
             </th>
-            <th class="px-3 py-3 text-right font-medium">
+            <th class="px-3 py-3 text-right font-medium whitespace-nowrap">
               {{ t('portal.quotations.line_total') }}
             </th>
           </tr>
@@ -72,7 +72,7 @@ function totalPriceOf(item: QuoteLineItem): string {
             </td>
             <td
               data-testid="line-item-quantity"
-              class="px-3 py-3 text-right tabular-nums"
+              class="px-3 py-3 text-right whitespace-nowrap tabular-nums"
             >
               {{ item.quantity }}
             </td>

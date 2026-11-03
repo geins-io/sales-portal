@@ -8,15 +8,21 @@ import CheckoutCardHeader from './CheckoutCardHeader.vue';
 
 const { t } = useI18n();
 
-const props = defineProps<{
-  company: Company;
-  desiredDeliveryDate: string;
-  goodsLabel: string;
-  disabled?: boolean;
-  todayIso: string;
-  /** Read-only display: an empty field is hidden, a filled one disabled. */
-  locked?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    company: Company;
+    desiredDeliveryDate: string;
+    goodsLabel: string;
+    disabled?: boolean;
+    todayIso: string;
+    /** Read-only display: an empty field is hidden, a filled one disabled. */
+    locked?: boolean;
+    showGoodsLabel?: boolean;
+    dateLabel?: string;
+    dateHelp?: string;
+  }>(),
+  { showGoodsLabel: true },
+);
 
 const emit = defineEmits<{
   'update:desiredDeliveryDate': [value: string];
@@ -85,7 +91,7 @@ const deliveryAddress = computed<CompanyAddress | null>(() => {
           class="space-y-2"
         >
           <Label for="checkout-desired-delivery-date">{{
-            t('checkout.desired_delivery_date')
+            props.dateLabel ?? t('checkout.desired_delivery_date')
           }}</Label>
           <Input
             id="checkout-desired-delivery-date"
@@ -99,12 +105,15 @@ const deliveryAddress = computed<CompanyAddress | null>(() => {
             "
           />
           <p v-if="!props.locked" class="text-muted-foreground text-xs">
-            {{ t('checkout.desired_delivery_date_helper') }}
+            {{ props.dateHelp ?? t('checkout.desired_delivery_date_helper') }}
           </p>
         </div>
 
         <!-- Goods label (optional) -->
-        <div v-if="!props.locked || props.goodsLabel" class="space-y-2">
+        <div
+          v-if="props.showGoodsLabel && (!props.locked || props.goodsLabel)"
+          class="space-y-2"
+        >
           <Label for="checkout-goods-label">{{
             t('checkout.goods_label')
           }}</Label>

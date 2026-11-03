@@ -12,14 +12,20 @@ import CheckoutCardHeader from './CheckoutCardHeader.vue';
 
 const { t } = useI18n();
 
-const props = defineProps<{
-  company: Company;
-  buyerEmail?: string;
-  customerOrderNumber: string;
-  disabled?: boolean;
-  /** Read-only display: an empty reference is hidden, a filled one disabled. */
-  locked?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    company: Company;
+    buyerEmail?: string;
+    customerOrderNumber: string;
+    disabled?: boolean;
+    /** Read-only display: an empty reference is hidden, a filled one disabled. */
+    locked?: boolean;
+    referenceMaxLength?: number;
+    /** Under the reference field; none by default. */
+    referenceHelp?: string;
+  }>(),
+  { referenceMaxLength: 200 },
+);
 
 const emit = defineEmits<{
   'update:customerOrderNumber': [value: string];
@@ -138,12 +144,19 @@ const buyerName = computed(() =>
           type="text"
           :placeholder="t('checkout.po_number_placeholder')"
           :disabled="props.disabled || props.locked"
-          maxlength="200"
+          :maxlength="props.referenceMaxLength"
           data-testid="checkout-customer-order-number"
           @update:model-value="
             emit('update:customerOrderNumber', $event as string)
           "
         />
+        <p
+          v-if="props.referenceHelp"
+          class="text-muted-foreground text-xs"
+          data-testid="checkout-customer-order-number-help"
+        >
+          {{ props.referenceHelp }}
+        </p>
       </div>
     </CardContent>
   </Card>

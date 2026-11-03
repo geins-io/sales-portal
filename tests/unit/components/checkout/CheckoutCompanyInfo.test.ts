@@ -24,7 +24,7 @@ const stubs = {
   Building2: { template: '<svg />' },
   Input: {
     template:
-      '<input :value="modelValue" :disabled="disabled" data-testid="input-stub" @input="$emit(\'update:modelValue\', $event.target.value)" @blur="$emit(\'blur\')" />',
+      '<input :value="modelValue" :disabled="disabled" :maxlength="maxlength" data-testid="input-stub" @input="$emit(\'update:modelValue\', $event.target.value)" @blur="$emit(\'blur\')" />',
     props: ['modelValue', 'disabled', 'type', 'maxlength', 'placeholder'],
     emits: ['update:modelValue', 'blur'],
   },
@@ -331,6 +331,30 @@ describe('CheckoutCompanyInfo', () => {
       'checkout.customer_order_number_helper',
     );
   });
+
+  it('caps the reference at 200 characters by default', () => {
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: makeProps(),
+      global: { stubs },
+    });
+    expect(
+      wrapper
+        .find('[data-testid="checkout-customer-order-number"]')
+        .attributes('maxlength'),
+    ).toBe('200');
+  });
+
+  it('caps the reference at referenceMaxLength', () => {
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: makeProps({ referenceMaxLength: 50 }),
+      global: { stubs },
+    });
+    expect(
+      wrapper
+        .find('[data-testid="checkout-customer-order-number"]')
+        .attributes('maxlength'),
+    ).toBe('50');
+  });
 });
 
 describe('CheckoutCompanyInfo locked', () => {
@@ -363,5 +387,29 @@ describe('CheckoutCompanyInfo locked', () => {
     const input = wrapper.find(reference);
     expect(input.exists()).toBe(true);
     expect(input.attributes('disabled')).toBeUndefined();
+  });
+
+  it('shows the given help under the reference', () => {
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: makeProps({ referenceHelp: 'Shown on the request' }),
+      global: { stubs },
+    });
+    expect(
+      wrapper
+        .find('[data-testid="checkout-customer-order-number-help"]')
+        .text(),
+    ).toBe('Shown on the request');
+  });
+
+  it('shows no help under the reference by default', () => {
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: makeProps(),
+      global: { stubs },
+    });
+    expect(
+      wrapper
+        .find('[data-testid="checkout-customer-order-number-help"]')
+        .exists(),
+    ).toBe(false);
   });
 });
