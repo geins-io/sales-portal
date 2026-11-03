@@ -319,16 +319,33 @@ describe('CheckoutCartItems', () => {
     expect(wrapper.text()).toContain('Size M');
   });
 
-  // C2: isEditable=false shows disabled stepper, no trash button, no "x qty" text
-  it('(isEditable=false) shows disabled QuantityStepper and no remove button', () => {
+  // C2: isEditable=false shows the quantity as text, since a disabled stepper
+  // still looks changeable; no trash button
+  it('(isEditable=false) shows the quantity as text, with no stepper and no remove button', () => {
     const wrapper = mountItems([createItem({ quantity: 3 })], {
       isEditable: false,
     });
-    const stepper = wrapper.find('[data-testid="checkout-quantity-stepper"]');
-    expect(stepper.exists()).toBe(true);
+    expect(
+      wrapper.find('[data-testid="checkout-quantity-stepper"]').exists(),
+    ).toBe(false);
+    expect(
+      wrapper.find('[data-testid="checkout-cart-item-quantity"]').text(),
+    ).toBe('cart.quantity: 3');
     expect(wrapper.find('[data-testid="checkout-remove-item"]').exists()).toBe(
       false,
     );
+  });
+
+  it('(isEditable=true) shows the stepper and no quantity text', () => {
+    const wrapper = mountItems([createItem({ quantity: 3 })], {
+      isEditable: true,
+    });
+    expect(
+      wrapper.find('[data-testid="checkout-quantity-stepper"]').exists(),
+    ).toBe(true);
+    expect(
+      wrapper.find('[data-testid="checkout-cart-item-quantity"]').exists(),
+    ).toBe(false);
   });
 
   // C2: isEditable=true shows QuantityStepper and remove button

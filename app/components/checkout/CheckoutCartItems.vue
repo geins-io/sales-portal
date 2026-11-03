@@ -131,14 +131,22 @@ function handleRemove(item: CartItemType) {
                 {{ getSkuName(item) }}
               </template>
             </p>
-            <div class="mt-4 flex items-center gap-2">
+            <!-- Read-only: a disabled stepper still looks changeable. -->
+            <p
+              v-if="!props.isEditable"
+              class="text-muted-foreground mt-2 text-sm"
+              data-testid="checkout-cart-item-quantity"
+            >
+              {{ t('cart.quantity') }}: {{ item.quantity ?? 1 }}
+            </p>
+            <div v-else class="mt-4 flex items-center gap-2">
               <div
                 class="bg-muted inline-flex rounded-md [&_button]:size-7 [&_span]:min-w-7"
               >
                 <QuantityStepper
                   :model-value="shownQuantity(item)"
                   :min="1"
-                  :disabled="!props.isEditable || isUpdating(item)"
+                  :disabled="isUpdating(item)"
                   data-testid="checkout-quantity-stepper"
                   @update:model-value="handleQuantityUpdate(item, $event)"
                 />

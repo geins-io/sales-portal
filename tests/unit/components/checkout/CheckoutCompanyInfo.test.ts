@@ -332,3 +332,36 @@ describe('CheckoutCompanyInfo', () => {
     );
   });
 });
+
+describe('CheckoutCompanyInfo locked', () => {
+  const reference = '[data-testid="checkout-customer-order-number"]';
+
+  it('shows a filled reference disabled', () => {
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: makeProps({ customerOrderNumber: 'PO-77', locked: true }),
+      global: { stubs },
+    });
+    const input = wrapper.find<HTMLInputElement>(reference);
+    expect(input.element.value).toBe('PO-77');
+    expect(input.attributes('disabled')).toBeDefined();
+  });
+
+  it('hides an empty reference with its label', () => {
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: makeProps({ customerOrderNumber: '', locked: true }),
+      global: { stubs },
+    });
+    expect(wrapper.find(reference).exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('checkout.customer_order_number');
+  });
+
+  it('keeps an empty reference editable by default', () => {
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: makeProps({ customerOrderNumber: '' }),
+      global: { stubs },
+    });
+    const input = wrapper.find(reference);
+    expect(input.exists()).toBe(true);
+    expect(input.attributes('disabled')).toBeUndefined();
+  });
+});

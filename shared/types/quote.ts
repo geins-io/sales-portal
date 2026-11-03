@@ -63,6 +63,36 @@ export interface QuoteCompany {
 }
 
 // ---------------------------------------------------------------------------
+// Quote Payment Method (a method the order from this quotation may use)
+// ---------------------------------------------------------------------------
+export interface QuotePaymentMethod {
+  id: string;
+  name?: string;
+  /** Unformatted, and the API does not say on which side of VAT. */
+  fee?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Quote Customer (the buyer the quotation is for)
+// ---------------------------------------------------------------------------
+export interface QuoteCustomer {
+  /** The buyer's email. */
+  id?: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Quote Request (what the buyer gave when asking for the quotation)
+// ---------------------------------------------------------------------------
+export interface QuoteRequest {
+  customerReference?: string;
+  /** A calendar day, `YYYY-MM-DD` */
+  desiredDeliveryDate?: string;
+  goodsLabel?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Quote External Reference (a quotation linked to an ERP, e.g. Monitor)
 // ---------------------------------------------------------------------------
 export interface QuoteExternalReference {
@@ -122,6 +152,11 @@ export interface Quote {
   acceptedBy?: string;
   /** Set once the quotation is finalized into an order. */
   orderId?: string;
+  /** Read from the quotation's customer alone, never the seller. */
+  customer?: QuoteCustomer;
+  paymentMethods?: QuotePaymentMethod[];
+  /** Not read yet: the merchant API does not return it on prod. */
+  request?: QuoteRequest;
 }
 
 // ---------------------------------------------------------------------------

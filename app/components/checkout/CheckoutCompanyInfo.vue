@@ -17,6 +17,8 @@ const props = defineProps<{
   buyerEmail?: string;
   customerOrderNumber: string;
   disabled?: boolean;
+  /** Read-only display: an empty reference is hidden, a filled one disabled. */
+  locked?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -126,7 +128,7 @@ const buyerName = computed(() =>
       </div>
 
       <!-- PO number / reference (optional) -->
-      <div class="space-y-2">
+      <div v-if="!props.locked || props.customerOrderNumber" class="space-y-2">
         <Label for="checkout-customer-order-number">
           {{ t('checkout.customer_order_number') }}
         </Label>
@@ -135,7 +137,7 @@ const buyerName = computed(() =>
           :model-value="props.customerOrderNumber"
           type="text"
           :placeholder="t('checkout.po_number_placeholder')"
-          :disabled="props.disabled"
+          :disabled="props.disabled || props.locked"
           maxlength="200"
           data-testid="checkout-customer-order-number"
           @update:model-value="

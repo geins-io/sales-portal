@@ -582,6 +582,89 @@ describe('quotes service', () => {
       ).toBeUndefined();
     });
 
+    describe('what the order page reads', () => {
+      async function getMapped(overrides: Record<string, unknown> = {}) {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          getQuotationCart: makeRawQuotationCart(overrides),
+        });
+        return quotesService.getQuote('cart-001', mockEvent);
+      }
+
+      it('maps the valid payment methods in their order', async () => {
+        const quote = await getMapped({
+          validPaymentMethods: [
+            { paymentId: '18', name: 'ManualInvoice', paymentFee: 0 },
+            { paymentId: '23', name: 'Card', paymentFee: 12.5 },
+          ],
+        });
+        expect(quote.paymentMethods).toEqual([
+          { id: '18', name: 'ManualInvoice', fee: 0 },
+          { id: '23', name: 'Card', fee: 12.5 },
+        ]);
+      });
+
+      it('reads an empty or missing name and fee as undefined, a missing id as empty', async () => {
+        const quote = await getMapped({
+          validPaymentMethods: [
+            { paymentId: '18', name: '', paymentFee: null },
+            { paymentId: '19' },
+            { paymentId: null, name: 'Card' },
+          ],
+        });
+        expect(quote.paymentMethods).toEqual([
+          { id: '18', name: undefined, fee: undefined },
+          { id: '19', name: undefined, fee: undefined },
+          { id: '', name: 'Card', fee: undefined },
+        ]);
+      });
+
+      it.each([null, undefined, []])(
+        'gives %j as no payment methods',
+        async (validPaymentMethods) => {
+          const quote = await getMapped({ validPaymentMethods });
+          expect(quote.paymentMethods).toBeUndefined();
+        },
+      );
+
+      it('reads the buyer from the customer alone', async () => {
+        const quote = await getMapped({
+          customer: {
+            customerId: 'buyer@acme.test',
+            firstName: 'Anna',
+            lastName: 'Berg',
+          },
+        });
+        expect(quote.customer).toEqual({
+          id: 'buyer@acme.test',
+          firstName: 'Anna',
+          lastName: 'Berg',
+        });
+      });
+
+      it('never names the seller as the buyer', async () => {
+        const quote = await getMapped({
+          customer: {
+            customerId: 'buyer@acme.test',
+            firstName: '',
+            lastName: null,
+          },
+        });
+        expect(quote.customer).toEqual({
+          id: 'buyer@acme.test',
+          firstName: undefined,
+          lastName: undefined,
+        });
+      });
+
+      it.each([null, undefined])(
+        'gives a %s customer no buyer',
+        async (customer) => {
+          const quote = await getMapped({ customer });
+          expect(quote.customer).toBeUndefined();
+        },
+      );
+    });
+
     describe('what the buyer may do and who answers for the seller', () => {
       async function getMapped(overrides: Record<string, unknown> = {}) {
         mockGraphqlQuery.mockResolvedValueOnce({

@@ -947,12 +947,7 @@
         "back": "Tillbaka till offerten",
         "banner_title": "Du beställer från offert {number}",
         "banner_body": "Priser, antal, frakt och villkor kommer från offerten och kan inte ändras här.",
-        "card_company": "Företag",
-        "card_addresses": "Adresser",
         "addresses_locked": "Adresserna kommer från offerten. Kontakta din säljare om något behöver ändras.",
-        "card_payment": "Betalning",
-        "invoice": "Faktura",
-        "terms_required": "Godkänn villkoren för att lägga ordern.",
         "valid_until": "Offerten gäller till {date}.",
         "failed": "Det gick inte att lägga ordern. Försök igen."
       }

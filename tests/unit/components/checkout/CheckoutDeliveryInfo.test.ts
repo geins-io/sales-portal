@@ -266,3 +266,96 @@ describe('CheckoutDeliveryInfo', () => {
     expect(goodsInput.attributes('disabled')).toBeDefined();
   });
 });
+
+describe('CheckoutDeliveryInfo locked', () => {
+  const date = '[data-testid="checkout-desired-delivery-date"]';
+  const label = '[data-testid="checkout-goods-label"]';
+
+  it('shows a filled date and goods label disabled', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps({
+        desiredDeliveryDate: '2026-12-01',
+        goodsLabel: 'Dock B',
+        locked: true,
+      }),
+      global: { stubs },
+    });
+    const dateInput = wrapper.find<HTMLInputElement>(date);
+    const labelInput = wrapper.find<HTMLInputElement>(label);
+    expect(dateInput.element.value).toBe('2026-12-01');
+    expect(labelInput.element.value).toBe('Dock B');
+    expect(dateInput.attributes('disabled')).toBeDefined();
+    expect(labelInput.attributes('disabled')).toBeDefined();
+  });
+
+  it('drops the date helper text, which asks the buyer to pick', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps({ desiredDeliveryDate: '2026-12-01', locked: true }),
+      global: { stubs },
+    });
+    expect(wrapper.text()).not.toContain(
+      'checkout.desired_delivery_date_helper',
+    );
+  });
+
+  it('hides an empty date and goods label with their labels', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps({ locked: true }),
+      global: { stubs },
+    });
+    expect(wrapper.find(date).exists()).toBe(false);
+    expect(wrapper.find(label).exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('checkout.desired_delivery_date');
+    expect(wrapper.text()).not.toContain('checkout.goods_label');
+    expect(wrapper.find('[data-testid="delivery-address"]').exists()).toBe(
+      true,
+    );
+  });
+
+  it('hides each field on its own', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps({ goodsLabel: 'Dock B', locked: true }),
+      global: { stubs },
+    });
+    expect(wrapper.find(date).exists()).toBe(false);
+    expect(wrapper.find(label).exists()).toBe(true);
+  });
+
+  it('keeps both fields editable with the helper by default', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps(),
+      global: { stubs },
+    });
+    expect(wrapper.find(date).attributes('disabled')).toBeUndefined();
+    expect(wrapper.find(label).attributes('disabled')).toBeUndefined();
+    expect(wrapper.text()).toContain('checkout.desired_delivery_date_helper');
+  });
+});
+
+describe('CheckoutDeliveryInfo footer', () => {
+  it('renders the footer slot last in the card', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps({ locked: true }),
+      slots: { footer: '<p data-testid="delivery-footer">note</p>' },
+      global: { stubs },
+    });
+    const html = wrapper.html();
+    expect(wrapper.find('[data-testid="delivery-footer"]').exists()).toBe(true);
+    expect(html.indexOf('delivery-footer')).toBeGreaterThan(
+      html.indexOf('delivery-address'),
+    );
+  });
+
+  it('renders the fields last without a footer', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps(),
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="delivery-footer"]').exists()).toBe(
+      false,
+    );
+    expect(wrapper.find('[data-testid="checkout-goods-label"]').exists()).toBe(
+      true,
+    );
+  });
+});

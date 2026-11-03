@@ -1,19 +1,18 @@
 <script setup lang="ts">
-import {
-  ArrowLeft,
-  Building2,
-  CreditCard,
-  FileText,
-  Loader2,
-  MapPin,
-  Package,
-  ShoppingBag,
-} from 'lucide-vue-next';
-import { Button } from '~/components/ui/button';
+import { ArrowLeft, CreditCard, FileText } from 'lucide-vue-next';
 import { Card, CardContent } from '~/components/ui/card';
 import CheckoutCardHeader from '~/components/checkout/CheckoutCardHeader.vue';
+import { useAuthStore } from '~/stores/auth';
 import { useQuotesStore } from '~/stores/quotes';
-import { quoteCanOrder } from '~/utils/quote-view';
+import {
+  quoteAmounts,
+  quoteCanOrder,
+  quoteLineToCartItem,
+} from '~/utils/quote-view';
+import {
+  quoteCheckoutCompany,
+  quotePaymentOptions,
+} from '~/utils/quote-checkout';
 import type { Quote } from '#shared/types/quote';
 
 definePageMeta({
@@ -25,8 +24,10 @@ definePageMeta({
 const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
 const { timezone } = useTenant();
+const { showIncVat } = useVatDisplay();
 const route = useRoute();
 const store = useQuotesStore();
+const authStore = useAuthStore();
 const { localePath } = useLocaleMarket();
 const { canAccess } = useFeatureAccess();
 
@@ -67,12 +68,34 @@ const title = computed(() =>
 );
 useHead({ title });
 
+// The order takes all of this from the quotation, so the page shows it locked.
+const items = computed(() => quote.value.lineItems.map(quoteLineToCartItem));
+const itemCount = computed(() =>
+  quote.value.lineItems.reduce((sum, line) => sum + line.quantity, 0),
+);
+const company = computed(() => quoteCheckoutCompany(quote.value));
+const request = computed(() => quote.value.request ?? {});
+const showDelivery = computed(
+  () =>
+    !!company.value &&
+    (!!company.value.addresses?.length ||
+      !!request.value.desiredDeliveryDate ||
+      !!request.value.goodsLabel),
+);
+const paymentOptions = computed(() => quotePaymentOptions(quote.value));
+// With several methods, which one the order gets is not known.
+const selectedPaymentId = computed(() =>
+  paymentOptions.value.length === 1 ? paymentOptions.value[0]!.id : null,
+);
+const amounts = computed(() =>
+  quoteAmounts(quote.value, showIncVat.value, formatLocale.value),
+);
+const todayIso = new Date().toLocaleDateString('en-CA');
+
 const acceptedTerms = ref(false);
-const submitted = ref(false);
 const placing = ref(false);
 
 async function placeOrder() {
-  submitted.value = true;
   if (!acceptedTerms.value || placing.value) return;
   placing.value = true;
   const ordered = await store.finalizeQuote(quote.value.id);
@@ -139,83 +162,54 @@ function formatDate(iso: string): string {
 
       <div class="flex flex-col gap-8 lg:flex-row lg:items-start">
         <div class="min-w-0 flex-1 space-y-6">
-          <Card class="gap-0">
-            <CheckoutCardHeader
-              :icon="Package"
-              :title="t('portal.quotations.items_heading')"
-            />
-            <CardContent class="px-6 pt-4">
-              <PortalQuoteItems :items="quote.lineItems" />
-            </CardContent>
-          </Card>
+          <CheckoutCartItems :items="items" />
 
-          <Card v-if="quote.company" data-testid="quote-order-company">
-            <CheckoutCardHeader
-              :icon="Building2"
-              :title="t('portal.quotations.order.card_company')"
-            />
-            <CardContent class="px-6 text-sm">
-              <p
-                class="text-foreground mb-1 text-xs font-medium tracking-wide uppercase"
-              >
-                {{ t('portal.quotations.order.card_company') }}
-              </p>
-              <p v-if="quote.company.name" class="text-muted-foreground">
-                {{ quote.company.name }}
-              </p>
-              <p
-                v-if="quote.company.vatNumber"
-                data-testid="quote-order-org-number"
-                class="text-muted-foreground"
-              >
-                {{ t('checkout.vat_number') }}:
-                {{ quote.company.vatNumber }}
-              </p>
-            </CardContent>
-          </Card>
+          <CheckoutCompanyInfo
+            v-if="company"
+            :company="company"
+            :buyer-email="authStore.user?.username ?? undefined"
+            :customer-order-number="request.customerReference ?? ''"
+            locked
+          />
 
-          <Card v-if="quote.shippingAddress || quote.billingAddress">
-            <CheckoutCardHeader
-              :icon="MapPin"
-              :title="t('portal.quotations.order.card_addresses')"
-            />
-            <CardContent class="space-y-4 px-6">
-              <div class="grid gap-6 sm:grid-cols-2">
-                <AddressBlock
-                  v-if="quote.shippingAddress"
-                  bare
-                  label-style="header"
-                  company-muted
-                  data-testid="order-delivery-address"
-                  :label="t('portal.quotations.delivery_address')"
-                  :address="quote.shippingAddress"
-                />
-                <AddressBlock
-                  v-if="quote.billingAddress"
-                  bare
-                  label-style="header"
-                  company-muted
-                  data-testid="order-invoice-address"
-                  :label="t('portal.quotations.invoice_address')"
-                  :address="quote.billingAddress"
-                />
-              </div>
-              <p class="text-muted-foreground text-xs">
+          <CheckoutDeliveryInfo
+            v-if="company && showDelivery"
+            :company="company"
+            :desired-delivery-date="request.desiredDeliveryDate ?? ''"
+            :goods-label="request.goodsLabel ?? ''"
+            :today-iso="todayIso"
+            locked
+          >
+            <template #footer>
+              <p
+                data-testid="quote-order-addresses-locked"
+                class="text-muted-foreground text-xs"
+              >
                 {{ t('portal.quotations.order.addresses_locked') }}
               </p>
-            </CardContent>
-          </Card>
+            </template>
+          </CheckoutDeliveryInfo>
 
-          <Card data-testid="quote-order-payment">
+          <Card
+            v-if="paymentOptions.length || quote.paymentTerms"
+            data-testid="quote-order-payment"
+          >
             <CheckoutCardHeader
               :icon="CreditCard"
-              :title="t('portal.quotations.order.card_payment')"
+              :title="t('checkout.payment_method')"
             />
-            <CardContent class="px-6 text-sm">
-              <p class="font-medium">
-                {{ t('portal.quotations.order.invoice') }}
-              </p>
-              <p v-if="quote.paymentTerms" class="text-muted-foreground">
+            <CardContent class="space-y-3 px-6">
+              <CheckoutPaymentOptions
+                v-if="paymentOptions.length"
+                :options="paymentOptions"
+                :model-value="selectedPaymentId"
+                disabled
+              />
+              <p
+                v-if="quote.paymentTerms"
+                data-testid="quote-order-payment-terms"
+                class="text-muted-foreground text-sm"
+              >
                 {{ t('portal.quotations.payment_terms') }}:
                 {{ quote.paymentTerms }}
               </p>
@@ -225,54 +219,42 @@ function formatDate(iso: string): string {
 
         <!-- self-stretch gives the sticky summary room, as on the checkout. -->
         <div class="w-full lg:w-80 lg:shrink-0 lg:self-stretch">
-          <div
-            class="bg-muted border-border space-y-4 rounded-lg border p-6 lg:sticky lg:top-24"
-            data-testid="quote-summary-card"
+          <CheckoutOrderSummary
+            :item-count="itemCount"
+            :subtotal="amounts.subtotal ?? ''"
+            :shipping-fee="amounts.shipping ?? null"
+            :tax="amounts.tax || null"
+            :total="amounts.total ?? ''"
+            :discount="amounts.discount"
+            :to-pay-inc-vat="amounts.totalIncVat"
+            :can-place-order="true"
+            :terms-accepted="acceptedTerms"
+            :is-placing-order="placing"
+            @place-order="placeOrder"
+            @update:terms-accepted="acceptedTerms = $event"
           >
-            <PortalQuoteSummary :quote="quote" />
-            <CheckoutTermsAgreement
-              v-model="acceptedTerms"
-              :disabled="placing"
-            />
-            <p
-              v-if="submitted && !acceptedTerms"
-              role="alert"
-              data-testid="quote-order-terms-required"
-              class="text-danger -mt-2 text-sm"
-            >
-              {{ t('portal.quotations.order.terms_required') }}
-            </p>
-            <Button
-              size="lg"
-              class="w-full"
-              data-testid="quote-order-place"
-              :disabled="placing"
-              @click="placeOrder"
-            >
-              <Loader2 v-if="placing" class="size-4 animate-spin" />
-              <ShoppingBag v-else class="size-4" />
-              {{ t('checkout.place_order') }}
-            </Button>
-            <p
-              v-if="store.error"
-              role="alert"
-              data-testid="quote-order-error"
-              class="bg-danger/10 text-danger border-danger/20 rounded-md border px-3 py-2 text-sm"
-            >
-              {{ t(store.error) }}
-            </p>
-            <p
-              v-if="quote.expiresAt"
-              data-testid="quote-order-valid-until"
-              class="text-muted-foreground text-xs"
-            >
-              {{
-                t('portal.quotations.order.valid_until', {
-                  date: formatDate(quote.expiresAt),
-                })
-              }}
-            </p>
-          </div>
+            <template #footer>
+              <p
+                v-if="store.error"
+                role="alert"
+                data-testid="quote-order-error"
+                class="bg-danger/10 text-danger border-danger/20 rounded-md border px-3 py-2 text-sm"
+              >
+                {{ t(store.error) }}
+              </p>
+              <p
+                v-if="quote.expiresAt"
+                data-testid="quote-order-valid-until"
+                class="text-muted-foreground text-xs"
+              >
+                {{
+                  t('portal.quotations.order.valid_until', {
+                    date: formatDate(quote.expiresAt),
+                  })
+                }}
+              </p>
+            </template>
+          </CheckoutOrderSummary>
         </div>
       </div>
     </div>

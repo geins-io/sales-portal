@@ -947,12 +947,7 @@
         "back": "Tilbake til tilbudet",
         "banner_title": "Du bestiller fra tilbud {number}",
         "banner_body": "Priser, antall, frakt og betingelser kommer fra tilbudet og kan ikke endres her.",
-        "card_company": "Firma",
-        "card_addresses": "Adresser",
         "addresses_locked": "Adressene kommer fra tilbudet. Kontakt selgeren din hvis noe må endres.",
-        "card_payment": "Betaling",
-        "invoice": "Faktura",
-        "terms_required": "Godta betingelsene for å legge inn ordren.",
         "valid_until": "Tilbudet gjelder til {date}.",
         "failed": "Ordren kunne ikke legges inn. Prøv igjen."
       }

@@ -1,5 +1,6 @@
 import { formatPrice } from '#shared/types/commerce';
-import type { Quote, QuoteStatus } from '#shared/types/quote';
+import type { CartItemType, PriceType } from '#shared/types/commerce';
+import type { Quote, QuoteLineItem, QuoteStatus } from '#shared/types/quote';
 
 /** A quotation's summary amounts, formatted, on one side of the VAT choice. */
 export interface QuoteAmounts {
@@ -197,4 +198,61 @@ export function quoteKindLabelKey(status: QuoteStatus): string {
   return status === 'request_draft' || status === 'requested'
     ? 'portal.quotations.kind_request'
     : 'portal.quotations.kind_quotation';
+}
+
+function sellingPrice(
+  incVat: number,
+  incVatFormatted: string,
+  exVat: number,
+  exVatFormatted: string,
+): PriceType {
+  return {
+    sellingPriceIncVat: incVat,
+    sellingPriceIncVatFormatted: incVatFormatted,
+    sellingPriceExVat: exVat,
+    sellingPriceExVatFormatted: exVatFormatted,
+  };
+}
+
+/**
+ * A quotation line in the cart line's shape, so the checkout's line list can
+ * show it. The id never matches a cart line: the cart store's pending and
+ * updating state must not reach a quotation's lines.
+ */
+export function quoteLineToCartItem(
+  line: QuoteLineItem,
+  index: number,
+): CartItemType {
+  const unitPrice = sellingPrice(
+    line.unitPrice,
+    line.unitPriceFormatted,
+    line.unitPriceExVat,
+    line.unitPriceExVatFormatted,
+  );
+  return {
+    id: `quote-line-${index}`,
+    title: line.name,
+    quantity: line.quantity,
+    unitPrice,
+    totalPrice: sellingPrice(
+      line.totalPrice,
+      line.totalPriceFormatted,
+      line.totalPriceExVat,
+      line.totalPriceExVatFormatted,
+    ),
+    product: {
+      productId: String(line.productId),
+      articleNumber: line.articleNumber,
+      brand: { name: '' },
+      name: line.name,
+      productImages: line.imageFileName
+        ? [{ fileName: line.imageFileName, url: line.imageUrl ?? null }]
+        : [],
+      alias: line.alias ?? '',
+      canonicalUrl: '',
+      primaryCategory: { name: '' },
+      skus: [],
+      unitPrice,
+    },
+  };
 }

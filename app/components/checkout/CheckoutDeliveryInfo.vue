@@ -14,6 +14,8 @@ const props = defineProps<{
   goodsLabel: string;
   disabled?: boolean;
   todayIso: string;
+  /** Read-only display: an empty field is hidden, a filled one disabled. */
+  locked?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -73,9 +75,15 @@ const deliveryAddress = computed<CompanyAddress | null>(() => {
            the native date input in a future iteration; the hard requirement
            is past disabled and all future dates selectable, which :min
            satisfies with a native input. -->
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div
+        v-if="!props.locked || props.desiredDeliveryDate || props.goodsLabel"
+        class="grid grid-cols-1 gap-4 sm:grid-cols-2"
+      >
         <!-- Desired delivery date (optional) -->
-        <div class="space-y-2">
+        <div
+          v-if="!props.locked || props.desiredDeliveryDate"
+          class="space-y-2"
+        >
           <Label for="checkout-desired-delivery-date">{{
             t('checkout.desired_delivery_date')
           }}</Label>
@@ -84,19 +92,19 @@ const deliveryAddress = computed<CompanyAddress | null>(() => {
             type="date"
             :model-value="props.desiredDeliveryDate"
             :min="props.todayIso"
-            :disabled="props.disabled"
+            :disabled="props.disabled || props.locked"
             data-testid="checkout-desired-delivery-date"
             @update:model-value="
               emit('update:desiredDeliveryDate', $event as string)
             "
           />
-          <p class="text-muted-foreground text-xs">
+          <p v-if="!props.locked" class="text-muted-foreground text-xs">
             {{ t('checkout.desired_delivery_date_helper') }}
           </p>
         </div>
 
         <!-- Goods label (optional) -->
-        <div class="space-y-2">
+        <div v-if="!props.locked || props.goodsLabel" class="space-y-2">
           <Label for="checkout-goods-label">{{
             t('checkout.goods_label')
           }}</Label>
@@ -105,13 +113,14 @@ const deliveryAddress = computed<CompanyAddress | null>(() => {
             :model-value="props.goodsLabel"
             type="text"
             :placeholder="t('checkout.goods_label_placeholder')"
-            :disabled="props.disabled"
+            :disabled="props.disabled || props.locked"
             maxlength="500"
             data-testid="checkout-goods-label"
             @update:model-value="emit('update:goodsLabel', $event as string)"
           />
         </div>
       </div>
+      <slot name="footer" />
     </CardContent>
   </Card>
 </template>

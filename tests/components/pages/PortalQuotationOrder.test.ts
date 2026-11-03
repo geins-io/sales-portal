@@ -5,6 +5,10 @@ import { defaultMountOptions } from '../../utils/component';
 import type { Quote, QuoteStatus } from '../../../shared/types/quote';
 import { makeQuote } from '../../fixtures/quote';
 import { mockShowIncVat } from '../../setup-components';
+import type { AuthUser } from '@geins/types';
+import { useAuthStore } from '../../../app/stores/auth';
+
+const BUYER: AuthUser = { userId: '1', username: 'buyer@acme.test' };
 
 // The shared mock fills `{name}` placeholders, and keys carry none; this one
 // appends the values so the banner and title can be checked.
@@ -153,15 +157,27 @@ const orderable = (overrides: Partial<Quote> = {}) =>
     },
     billingAddress: { company: 'Acme AB', addressLine1: 'Billing 1' },
     shippingAddress: { company: 'Acme AB', addressLine1: 'Dock 2' },
+    customer: { id: 'buyer@acme.test', firstName: 'Anna', lastName: 'Berg' },
+    paymentMethods: [{ id: '18', name: 'ManualInvoice', fee: 0 }],
     ...overrides,
   });
+
+const REQUEST: NonNullable<Quote['request']> = {
+  customerReference: 'PO-4411',
+  desiredDeliveryDate: '2026-12-01',
+  goodsLabel: 'Dock B',
+};
+const REFERENCE = '[data-testid="checkout-customer-order-number"]';
+const DATE = '[data-testid="checkout-desired-delivery-date"]';
+const GOODS_LABEL = '[data-testid="checkout-goods-label"]';
+const PLACE = '[data-testid="place-order-button"]';
 
 async function tickTerms(wrapper: Wrapper) {
   await wrapper.find('[data-testid="terms-box"]').setValue(true);
 }
 
 async function place(wrapper: Wrapper) {
-  await wrapper.find('[data-testid="quote-order-place"]').trigger('click');
+  await wrapper.find(PLACE).trigger('click');
   await flushPromises();
 }
 
@@ -178,6 +194,7 @@ describe('PortalQuotationOrder', () => {
     mockCanAccess.mockReset();
     mockCanAccess.mockReturnValue(true);
     mockShowIncVat.value = true;
+    useAuthStore().user = BUYER;
   });
 
   it('reads the quotation by id with dedupe: defer', async () => {
@@ -238,9 +255,7 @@ describe('PortalQuotationOrder', () => {
 
       expect(mockCanAccess).toHaveBeenCalledWith('orderPlacement');
       expect(mockNavigateTo).toHaveBeenCalledWith(VIEW_PATH, { replace: true });
-      expect(wrapper.find('[data-testid="quote-order-place"]').exists()).toBe(
-        false,
-      );
+      expect(wrapper.find(PLACE).exists()).toBe(false);
     });
   });
 
@@ -256,112 +271,234 @@ describe('PortalQuotationOrder', () => {
       ).toContain('Spring order');
     });
 
-    it('lists the lines read-only', async () => {
+    it("lists the quotation's lines in the checkout's line list", async () => {
       const wrapper = await mountWith(orderable());
 
-      const row = wrapper.find('[data-testid="line-item-row"]');
-      expect(row.text()).toContain('Widget Pro');
-      expect(row.find('[data-testid="line-item-quantity"]').text()).toBe('2');
-      expect(row.find('[data-testid="line-item-total-price"]').text()).toBe(
-        '200,00 kr',
-      );
+      const lines = wrapper.findAll('[data-testid="checkout-cart-item"]');
+      expect(lines).toHaveLength(1);
+      expect(lines[0]!.text()).toContain('Widget Pro');
+      expect(lines[0]!.text()).toContain('ART-001');
       expect(
-        wrapper
-          .find('[data-testid="quote-order-page"] input[type="number"]')
-          .exists(),
+        lines[0]!.find('[data-testid="checkout-line-total"]').text(),
+      ).toContain('200,00 kr');
+      expect(
+        lines[0]!.find('[data-testid="checkout-cart-item-quantity"]').text(),
+      ).toBe('cart.quantity: 2');
+      expect(
+        lines[0]!.find('[data-testid="checkout-quantity-stepper"]').exists(),
       ).toBe(false);
     });
 
-    it('shows the summary from the quotation', async () => {
+    it("shows the company, org number, billing address and buyer in the checkout's card", async () => {
       const wrapper = await mountWith(orderable());
 
+      const card = wrapper.find('[data-testid="checkout-company-info"]');
+      expect(card.find('[data-testid="company-name"]').text()).toContain(
+        'Acme AB',
+      );
+      expect(card.find('[data-testid="company-vat"]').text()).toContain(
+        '556677-8899',
+      );
       expect(
-        wrapper.find('[data-testid="quote-summary-subtotal"]').text(),
-      ).toBe('200,00 kr');
-      expect(wrapper.find('[data-testid="quote-summary-total"]').text()).toBe(
-        '250,00 kr',
+        card.find('[data-testid="company-billing-address"]').text(),
+      ).toContain('Billing 1');
+      const buyer = card.find('[data-testid="company-buyer"]').text();
+      expect(buyer).toContain('Anna Berg');
+      expect(buyer).toContain('buyer@acme.test');
+      expect(card.text()).not.toContain('internal-7');
+    });
+
+    it('shows the email alone when the quotation names no buyer', async () => {
+      const wrapper = await mountWith(orderable({ customer: undefined }));
+
+      const buyer = wrapper.find('[data-testid="company-buyer"]').text();
+      expect(buyer).toContain('buyer@acme.test');
+      expect(buyer).not.toContain('Anna');
+    });
+
+    it("shows the quotation's shipping address as the delivery address", async () => {
+      const wrapper = await mountWith(orderable());
+
+      expect(wrapper.find('[data-testid="delivery-address"]').text()).toContain(
+        'Dock 2',
       );
     });
 
-    it('shows company, both addresses and the payment terms', async () => {
+    it('says under the delivery address that the addresses come from the quotation', async () => {
       const wrapper = await mountWith(orderable());
 
       expect(
-        wrapper.find('[data-testid="quote-order-company"]').text(),
-      ).toContain('Acme AB');
+        wrapper
+          .find(
+            '[data-testid="checkout-delivery-info"] [data-testid="quote-order-addresses-locked"]',
+          )
+          .text(),
+      ).toBe('portal.quotations.order.addresses_locked');
+    });
+
+    it('leaves out the company and delivery cards without a company', async () => {
+      const wrapper = await mountWith(orderable({ company: undefined }));
+
       expect(
-        wrapper.find('[data-testid="order-delivery-address"]').text(),
-      ).toContain('Dock 2');
+        wrapper.find('[data-testid="checkout-company-info"]').exists(),
+      ).toBe(false);
       expect(
-        wrapper.find('[data-testid="order-invoice-address"]').text(),
-      ).toContain('Billing 1');
+        wrapper.find('[data-testid="checkout-delivery-info"]').exists(),
+      ).toBe(false);
+    });
+
+    it("shows the request's reference, date and goods label", async () => {
+      const wrapper = await mountWith(orderable({ request: REQUEST }));
+
+      expect(wrapper.find<HTMLInputElement>(REFERENCE).element.value).toBe(
+        'PO-4411',
+      );
+      expect(wrapper.find<HTMLInputElement>(DATE).element.value).toBe(
+        '2026-12-01',
+      );
+      expect(wrapper.find<HTMLInputElement>(GOODS_LABEL).element.value).toBe(
+        'Dock B',
+      );
+    });
+
+    it('hides the reference, date and goods label until the quotation carries them', async () => {
+      const wrapper = await mountWith(orderable());
+
+      expect(wrapper.find(REFERENCE).exists()).toBe(false);
+      expect(wrapper.find(DATE).exists()).toBe(false);
+      expect(wrapper.find(GOODS_LABEL).exists()).toBe(false);
+    });
+
+    it("preselects the only payment method under the checkout's invoice label, and shows the terms", async () => {
+      const wrapper = await mountWith(orderable());
+
+      const radios = wrapper.findAll<HTMLInputElement>(
+        '[data-testid="checkout-payment-options"] input[type="radio"]',
+      );
+      expect(radios).toHaveLength(1);
+      expect(radios[0]!.element.checked).toBe(true);
       expect(
-        wrapper.find('[data-testid="quote-order-payment"]').text(),
+        wrapper.find('[data-testid="checkout-payment-options"]').text(),
+      ).toContain('checkout.payment_types.invoice');
+      expect(
+        wrapper.find('[data-testid="checkout-payment-options"]').text(),
+      ).not.toContain('ManualInvoice');
+      expect(
+        wrapper.find('[data-testid="quote-order-payment-terms"]').text(),
       ).toContain('Net 30');
     });
 
-    it("shows the company's org number, never its internal id", async () => {
-      const wrapper = await mountWith(orderable());
-
-      expect(
-        wrapper.find('[data-testid="quote-order-org-number"]').text(),
-      ).toBe('checkout.vat_number: 556677-8899');
-      expect(
-        wrapper.find('[data-testid="quote-order-company"]').text(),
-      ).not.toContain('internal-7');
-    });
-
-    it('has no org number row when the company has no org number', async () => {
-      const wrapper = await mountWith(
-        orderable({ company: { name: 'Acme AB', companyId: 'internal-7' } }),
-      );
-
-      expect(
-        wrapper.find('[data-testid="quote-order-org-number"]').exists(),
-      ).toBe(false);
-      expect(
-        wrapper.find('[data-testid="quote-order-company"]').text(),
-      ).not.toContain('internal-7');
-    });
-
-    it('leaves out a card or block the quotation has no data for', async () => {
+    it('selects nothing when the quotation allows more than one method', async () => {
       const wrapper = await mountWith(
         orderable({
-          company: undefined,
-          billingAddress: undefined,
-          paymentTerms: undefined,
-          expiresAt: undefined,
+          paymentMethods: [
+            { id: '18', name: 'ManualInvoice', fee: 0 },
+            { id: '23', name: 'Card', fee: 0 },
+          ],
         }),
       );
 
-      expect(wrapper.find('[data-testid="quote-order-company"]').exists()).toBe(
-        false,
+      const radios = wrapper.findAll<HTMLInputElement>(
+        '[data-testid="checkout-payment-options"] input[type="radio"]',
+      );
+      expect(radios).toHaveLength(2);
+      expect(radios.some((radio) => radio.element.checked)).toBe(false);
+    });
+
+    it('has no terms line without terms', async () => {
+      const wrapper = await mountWith(orderable({ paymentTerms: undefined }));
+
+      expect(
+        wrapper.find('[data-testid="quote-order-payment-terms"]').exists(),
+      ).toBe(false);
+    });
+
+    it("shows the quotation's summary in the checkout's summary", async () => {
+      const wrapper = await mountWith(orderable({ discount: 20 }));
+
+      const summary = wrapper.find('[data-testid="checkout-order-summary"]');
+      expect(
+        summary.find('[data-testid="checkout-summary-subtotal"]').text(),
+      ).toBe('200,00 kr');
+      expect(
+        summary.find('[data-testid="checkout-summary-total"]').text(),
+      ).toBe('250,00 kr');
+      expect(summary.find('[data-testid="checkout-summary-tax"]').text()).toBe(
+        '50,00 kr',
       );
       expect(
-        wrapper.find('[data-testid="order-invoice-address"]').exists(),
-      ).toBe(false);
+        summary.find('[data-testid="checkout-summary-discount"]').exists(),
+      ).toBe(true);
+      // The count is of items, as on the checkout: 2 of one line.
+      expect(summary.text()).toContain('checkout.items_count 2');
+    });
+
+    it('shows the ex-VAT amounts when the buyer reads ex VAT', async () => {
+      mockShowIncVat.value = false;
+      const wrapper = await mountWith(orderable());
+
       expect(
-        wrapper.find('[data-testid="quote-order-payment"]').text(),
-      ).not.toContain('portal.quotations.payment_terms');
+        wrapper.find('[data-testid="checkout-summary-subtotal"]').text(),
+      ).toBe('160,00 kr');
+      expect(
+        wrapper.find('[data-testid="checkout-summary-to-pay"]').text(),
+      ).toContain('250,00 kr');
+    });
+
+    it('shows the validity in the summary', async () => {
+      const wrapper = await mountWith(orderable());
+
+      expect(
+        wrapper
+          .find(
+            '[data-testid="checkout-order-summary"] [data-testid="quote-order-valid-until"]',
+          )
+          .exists(),
+      ).toBe(true);
+    });
+
+    it('has no validity line without an end date', async () => {
+      const wrapper = await mountWith(orderable({ expiresAt: undefined }));
+
       expect(
         wrapper.find('[data-testid="quote-order-valid-until"]').exists(),
       ).toBe(false);
     });
   });
 
+  describe('nothing on the page changes the order', () => {
+    it('disables every control except the terms box, with every value shown', async () => {
+      const wrapper = await mountWith(orderable({ request: REQUEST }));
+
+      const controls = wrapper
+        .find('[data-testid="quote-order-page"]')
+        .findAll('input, textarea, select, button');
+      const enabled = controls.filter(
+        (control) =>
+          !(control.element as HTMLInputElement).disabled &&
+          control.attributes('data-testid') !== 'terms-box',
+      );
+      expect(controls.length).toBeGreaterThan(5);
+      expect(enabled.map((control) => control.html())).toEqual([]);
+    });
+
+    it('has no remove button and no message field', async () => {
+      const wrapper = await mountWith(orderable({ request: REQUEST }));
+
+      expect(
+        wrapper.find('[data-testid="checkout-remove-item"]').exists(),
+      ).toBe(false);
+      expect(wrapper.find('textarea').exists()).toBe(false);
+    });
+  });
+
   describe('placing the order', () => {
-    it('asks for the terms and does not call finalize without the box', async () => {
+    it('keeps the button disabled until the terms are accepted', async () => {
       const wrapper = await mountWith(orderable());
 
-      expect(
-        wrapper.find('[data-testid="quote-order-terms-required"]').exists(),
-      ).toBe(false);
-      await place(wrapper);
-
-      expect(mockFinalizeQuote).not.toHaveBeenCalled();
-      expect(
-        wrapper.find('[data-testid="quote-order-terms-required"]').exists(),
-      ).toBe(true);
+      expect(wrapper.find(PLACE).attributes('disabled')).toBeDefined();
+      await tickTerms(wrapper);
+      expect(wrapper.find(PLACE).attributes('disabled')).toBeUndefined();
     });
 
     it('finalizes once with the box ticked, then opens the quotation view', async () => {
@@ -386,7 +523,7 @@ describe('PortalQuotationOrder', () => {
       const wrapper = await mountWith(orderable());
 
       await tickTerms(wrapper);
-      const button = wrapper.find('[data-testid="quote-order-place"]');
+      const button = wrapper.find(PLACE);
       await button.trigger('click');
       await button.trigger('click');
       expect(button.attributes('disabled')).toBeDefined();
@@ -396,7 +533,7 @@ describe('PortalQuotationOrder', () => {
       expect(mockFinalizeQuote).toHaveBeenCalledTimes(1);
     });
 
-    it('stays with the error when the order fails', async () => {
+    it('stays with the error in the summary when the order fails', async () => {
       mockFinalizeQuote.mockImplementation(() => {
         mockStoreError.value = 'portal.quotations.order.failed';
         return Promise.resolve(null);
@@ -407,14 +544,14 @@ describe('PortalQuotationOrder', () => {
       await place(wrapper);
 
       expect(mockNavigateTo).not.toHaveBeenCalled();
-      expect(wrapper.find('[data-testid="quote-order-error"]').text()).toBe(
-        'portal.quotations.order.failed',
-      );
       expect(
         wrapper
-          .find('[data-testid="quote-order-place"]')
-          .attributes('disabled'),
-      ).toBeUndefined();
+          .find(
+            '[data-testid="checkout-order-summary"] [data-testid="quote-order-error"]',
+          )
+          .text(),
+      ).toBe('portal.quotations.order.failed');
+      expect(wrapper.find(PLACE).attributes('disabled')).toBeUndefined();
     });
 
     it('clears an error left by another page', async () => {
