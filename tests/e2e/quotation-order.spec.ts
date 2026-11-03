@@ -50,8 +50,6 @@ test.describe('Order from a quotation', () => {
   test('shows the quotation read-only and places the order with the terms accepted', async ({
     page,
   }) => {
-    await page.goto('/se/sv/portal/quotations');
-    await page.waitForLoadState('load');
     const quote = await findOrderable(page);
     outOfScope(
       !quote,
@@ -120,8 +118,6 @@ test.describe('Order from a quotation', () => {
   test('sends a quotation that cannot be ordered back to the quotation view', async ({
     page,
   }) => {
-    await page.goto('/se/sv/portal/quotations');
-    await page.waitForLoadState('load');
     const closed = (await listQuotes(page)).find((quote) =>
       ['finalized', 'rejected', 'canceled', 'expired'].includes(quote.status),
     );
