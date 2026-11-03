@@ -323,7 +323,7 @@
   "configurator": {
     "required": "Required",
     "required_status": {
-      "remaining_count": "Required choices remaining\u00a0({count})",
+      "remaining_count": "Required choices remaining ({count})",
       "all_done": "All required choices are made",
       "unspecified": "The configuration is not complete.",
       "cannot_complete": "The configuration cannot be completed. Contact the seller."
@@ -879,9 +879,7 @@
       "detail_title": "Quotation Details",
       "items_heading": "Items",
       "summary_heading": "Summary",
-      "product": "Product",
       "quantity": "Amount",
-      "unit_price": "Unit Price",
       "line_total": "Total",
       "subtotal": "Subtotal",
       "shipping": "Shipping",
@@ -950,7 +948,33 @@
         "addresses_locked": "The addresses come from the quotation. Contact your seller if anything needs to change.",
         "valid_until": "The quotation is valid until {date}.",
         "failed": "The order could not be placed. Please try again."
-      }
+      },
+      "request": {
+        "heading": "Quote request – {name}",
+        "back": "Back to the draft",
+        "banner_title": "You are sending a quote request",
+        "banner_body": "No order is placed. This is a request for price and terms, which your seller reviews.",
+        "empty": "The draft is empty. Add products before sending.",
+        "card_message": "Message",
+        "comment": "Message to your seller (optional)",
+        "comment_placeholder": "Describe needs, quantities over time, acceptable alternatives …",
+        "date_past": "Choose today or a later date.",
+        "send": "Send quote request",
+        "sending": "Sending…",
+        "send_hint": "No order is placed. The request is locked once sent.",
+        "summary_title": "Quote summary",
+        "send_failed": "The request could not be sent. Please try again.",
+        "shipping_note": "Set in the quotation",
+        "desired_date": "Desired delivery date (optional)",
+        "desired_date_help": "Your seller confirms the date in the quotation.",
+        "lines_count": "{count} item | {count} items",
+        "reference_help": "Shown on the request and on the quotation.",
+        "estimate_badge": "Estimated",
+        "estimate_note": "Estimated sum – confirmed by your seller."
+      },
+      "col_item": "Item",
+      "col_article": "Article no.",
+      "col_unit_price": "Unit price"
     },
     "favorites": {
       "title": "Favorites",

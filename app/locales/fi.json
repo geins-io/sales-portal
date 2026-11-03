@@ -323,7 +323,7 @@
   "configurator": {
     "required": "Pakollinen",
     "required_status": {
-      "remaining_count": "Jäljellä olevat pakolliset valinnat\u00a0({count})",
+      "remaining_count": "Jäljellä olevat pakolliset valinnat ({count})",
       "all_done": "Kaikki pakolliset valinnat on tehty",
       "unspecified": "Kokoonpano ei ole valmis.",
       "cannot_complete": "Kokoonpanoa ei voi viimeistellä. Ota yhteyttä myyjään."
@@ -879,9 +879,7 @@
       "detail_title": "Tarjouksen tiedot",
       "items_heading": "Tuotteet",
       "summary_heading": "Yhteenveto",
-      "product": "Tuote",
       "quantity": "Määrä",
-      "unit_price": "Yksikköhinta",
       "line_total": "Yhteensä",
       "subtotal": "Välisumma",
       "shipping": "Toimitus",
@@ -950,7 +948,33 @@
         "addresses_locked": "Osoitteet tulevat tarjouksesta. Ota yhteyttä myyjääsi, jos jotain pitää muuttaa.",
         "valid_until": "Tarjous on voimassa {date} asti.",
         "failed": "Tilauksen lähettäminen epäonnistui. Yritä uudelleen."
-      }
+      },
+      "request": {
+        "heading": "Tarjouspyyntö – {name}",
+        "back": "Takaisin luonnokseen",
+        "banner_title": "Olet lähettämässä tarjouspyyntöä",
+        "banner_body": "Tilausta ei tehdä. Tämä on hinta- ja ehtopyyntö, jonka myyjäsi käy läpi.",
+        "empty": "Luonnos on tyhjä. Lisää tuotteita ennen lähettämistä.",
+        "card_message": "Viesti",
+        "comment": "Viesti myyjälle (valinnainen)",
+        "comment_placeholder": "Kuvaa tarpeet, määrät ajan mittaan, hyväksyttävät vaihtoehdot …",
+        "date_past": "Valitse tämä päivä tai myöhempi päivä.",
+        "send": "Lähetä tarjouspyyntö",
+        "sending": "Lähetetään…",
+        "send_hint": "Tilausta ei tehdä. Pyyntö lukitaan, kun se on lähetetty.",
+        "summary_title": "Tarjouksen yhteenveto",
+        "send_failed": "Pyyntöä ei voitu lähettää. Yritä uudelleen.",
+        "shipping_note": "Ilmoitetaan tarjouksessa",
+        "desired_date": "Toivottu toimituspäivä (valinnainen)",
+        "desired_date_help": "Myyjä vahvistaa toimituspäivän tarjouksessa.",
+        "lines_count": "{count} tuote | {count} tuotetta",
+        "reference_help": "Näkyy pyynnössä ja tarjouksessa.",
+        "estimate_badge": "Arvio",
+        "estimate_note": "Arvioitu summa – myyjäsi vahvistaa sen."
+      },
+      "col_item": "Tuote",
+      "col_article": "Tuotenro",
+      "col_unit_price": "À-hinta"
     },
     "favorites": {
       "title": "Suosikit",

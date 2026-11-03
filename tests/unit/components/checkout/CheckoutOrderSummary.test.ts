@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { ref } from 'vue';
+import { FileText } from 'lucide-vue-next';
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -13,6 +14,15 @@ vi.mock('vue-i18n', () => ({
 vi.stubGlobal('useI18n', () => ({
   t: (key: string) => key,
   locale: ref('en'),
+}));
+
+const { mockShowIncVatLocal } = vi.hoisted(() => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { ref } = require('vue') as typeof import('vue');
+  return { mockShowIncVatLocal: ref(true) };
+});
+vi.mock('~/composables/useVatDisplay', () => ({
+  useVatDisplay: () => ({ showIncVat: mockShowIncVatLocal }),
 }));
 
 vi.mock('~/composables/usePriceVisibility', () => ({
@@ -55,6 +65,10 @@ const CheckoutOrderSummary =
   await import('../../../../app/components/checkout/CheckoutOrderSummary.vue');
 
 describe('CheckoutOrderSummary', () => {
+  beforeEach(() => {
+    mockShowIncVatLocal.value = true;
+  });
+
   it('renders the order summary container', () => {
     const wrapper = mount(CheckoutOrderSummary.default, {
       props: makeProps(),
@@ -132,6 +146,176 @@ describe('CheckoutOrderSummary', () => {
     });
     const button = wrapper.find('[data-testid="place-order-button"]');
     expect(button.find('svg').exists()).toBe(false);
+  });
+
+  it('shows the terms and the default labels by default', () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps(),
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="checkout-terms"]').exists()).toBe(true);
+    expect(wrapper.find('h2').text()).toBe('checkout.order_summary');
+    expect(wrapper.find('[data-testid="place-order-button"]').text()).toContain(
+      'checkout.place_order',
+    );
+  });
+
+  it('leaves the terms out with requireTerms false', () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps({ requireTerms: false }),
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="checkout-terms"]').exists()).toBe(false);
+  });
+
+  it('enables the button without accepted terms when requireTerms is false', () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps({ requireTerms: false, termsAccepted: false }),
+      global: { stubs },
+    });
+    expect(
+      wrapper.find('[data-testid="place-order-button"]').attributes('disabled'),
+    ).toBeUndefined();
+  });
+
+  it('still disables the button without terms when it cannot place', () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps({ requireTerms: false, canPlaceOrder: false }),
+      global: { stubs },
+    });
+    expect(
+      wrapper.find('[data-testid="place-order-button"]').attributes('disabled'),
+    ).toBeDefined();
+  });
+
+  it('uses the given title and action labels', async () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps({
+        title: 'Summary',
+        actionLabel: 'Send request',
+        actionPendingLabel: 'Sending',
+      }),
+      global: { stubs },
+    });
+    expect(wrapper.find('h2').text()).toBe('Summary');
+    const button = wrapper.find('[data-testid="place-order-button"]');
+    expect(button.text()).toBe('Send request');
+    await wrapper.setProps({ isPlacingOrder: true });
+    expect(button.text()).toBe('Sending');
+  });
+
+  it('shows the default pending label while placing', () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps({ isPlacingOrder: true }),
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="place-order-button"]').text()).toContain(
+      'checkout.placing_order',
+    );
+  });
+
+  it('says shipping may apply when there is no fee, by default', () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps({ shippingFee: null }),
+      global: { stubs },
+    });
+    expect(
+      wrapper.find('[data-testid="checkout-summary-shipping"]').text(),
+    ).toBe('common.shipping_may_apply');
+  });
+
+  it('shows the given shipping note when there is no fee', () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps({ shippingFee: null, shippingNote: 'Set in the quote' }),
+      global: { stubs },
+    });
+    expect(
+      wrapper.find('[data-testid="checkout-summary-shipping"]').text(),
+    ).toBe('Set in the quote');
+  });
+
+  it('shows the fee over the shipping note', () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps({ shippingNote: 'Set in the quote' }),
+      global: { stubs },
+    });
+    expect(
+      wrapper.find('[data-testid="checkout-summary-shipping"]').text(),
+    ).toBe('20.00 SEK');
+  });
+  it("counts with the checkout's items key by default", () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps(),
+      global: { stubs },
+    });
+    expect(wrapper.text()).toContain('(checkout.items_count)');
+  });
+
+  it('counts with the given key', () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps({ itemCountKey: 'portal.lines_count' }),
+      global: { stubs },
+    });
+    expect(wrapper.text()).toContain('(portal.lines_count)');
+    expect(wrapper.text()).not.toContain('checkout.items_count');
+  });
+
+  it('shows no icon on the button by default', () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps(),
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="place-order-icon"]').exists()).toBe(
+      false,
+    );
+  });
+
+  it('shows the given icon on the button, and the spinner in its place while placing', async () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps({ actionIcon: FileText }),
+      global: { stubs },
+    });
+    const button = wrapper.find('[data-testid="place-order-button"]');
+    expect(button.find('[data-testid="place-order-icon"]').exists()).toBe(true);
+    await wrapper.setProps({ isPlacingOrder: true });
+    expect(button.find('[data-testid="place-order-icon"]').exists()).toBe(
+      false,
+    );
+    expect(button.findAll('svg')).toHaveLength(1);
+  });
+  it('renders the title-aside slot in the heading row', () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps(),
+      slots: { 'title-aside': '<span data-testid="aside">≈</span>' },
+      global: { stubs },
+    });
+    const row = wrapper.find('[data-testid="checkout-summary-heading"]');
+    expect(row.find('h2').exists()).toBe(true);
+    expect(row.find('[data-testid="aside"]').exists()).toBe(true);
+  });
+  it('labels the inc-VAT line "to pay" by default', () => {
+    mockShowIncVatLocal.value = false;
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps({ toPayIncVat: '150.00 SEK' }),
+      global: { stubs },
+    });
+    expect(
+      wrapper.find('[data-testid="checkout-summary-to-pay"]').text(),
+    ).toContain('common.to_pay_inc_vat');
+  });
+
+  it('labels the inc-VAT line with the given text', () => {
+    mockShowIncVatLocal.value = false;
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps({
+        toPayIncVat: '150.00 SEK',
+        toPayLabel: 'Total incl. VAT',
+      }),
+      global: { stubs },
+    });
+    const line = wrapper.find('[data-testid="checkout-summary-to-pay"]');
+    expect(line.text()).toContain('Total incl. VAT');
+    expect(line.text()).not.toContain('common.to_pay_inc_vat');
   });
 });
 

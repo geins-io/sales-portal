@@ -191,3 +191,14 @@ export interface CreateQuoteInput {
 export interface AcceptQuoteInput {
   quoteId: string;
 }
+
+/**
+ * `UpdateQuotationRequestInputType`, without `items`: Geins takes them as the
+ * whole new list of lines, and leaving them out keeps the lines.
+ */
+export interface QuoteRequestDetails {
+  comment?: string;
+  /** A calendar day, `YYYY-MM-DD` */
+  desiredDeliveryDate?: string;
+  customerReference?: string;
+}

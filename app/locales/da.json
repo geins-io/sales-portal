@@ -323,7 +323,7 @@
   "configurator": {
     "required": "Påkrævet",
     "required_status": {
-      "remaining_count": "Resterende obligatoriske valg\u00a0({count})",
+      "remaining_count": "Resterende obligatoriske valg ({count})",
       "all_done": "Alle obligatoriske valg er truffet",
       "unspecified": "Konfigurationen er ikke komplet.",
       "cannot_complete": "Konfigurationen kan ikke færdiggøres. Kontakt sælgeren."
@@ -879,9 +879,7 @@
       "detail_title": "Tilbudsdetaljer",
       "items_heading": "Varer",
       "summary_heading": "Oversigt",
-      "product": "Produkt",
       "quantity": "Antal",
-      "unit_price": "Enhedspris",
       "line_total": "I alt",
       "subtotal": "Delsum",
       "shipping": "Fragt",
@@ -950,7 +948,33 @@
         "addresses_locked": "Adresserne kommer fra tilbuddet. Kontakt din sælger, hvis noget skal ændres.",
         "valid_until": "Tilbuddet gælder til {date}.",
         "failed": "Ordren kunne ikke afgives. Prøv igen."
-      }
+      },
+      "request": {
+        "heading": "Tilbudsforespørgsel – {name}",
+        "back": "Tilbage til udkastet",
+        "banner_title": "Du sender en tilbudsforespørgsel",
+        "banner_body": "Der afgives ingen ordre. Det er en forespørgsel om pris og vilkår, som din sælger gennemgår.",
+        "empty": "Udkastet er tomt. Tilføj produkter, før du sender.",
+        "card_message": "Besked",
+        "comment": "Besked til sælgeren (valgfri)",
+        "comment_placeholder": "Beskriv behov, mængder over tid, alternativer der er i orden …",
+        "date_past": "Vælg dags dato eller en senere dato.",
+        "send": "Send tilbudsforespørgsel",
+        "sending": "Sender…",
+        "send_hint": "Der afgives ingen ordre. Forespørgslen låses, når den er sendt.",
+        "summary_title": "Tilbudsoversigt",
+        "send_failed": "Forespørgslen kunne ikke sendes. Prøv igen.",
+        "shipping_note": "Angives i tilbuddet",
+        "desired_date": "Ønsket leveringsdato (valgfri)",
+        "desired_date_help": "Sælgeren bekræfter leveringsdatoen i tilbuddet.",
+        "lines_count": "{count} vare | {count} varer",
+        "reference_help": "Vises på forespørgslen og på tilbuddet.",
+        "estimate_badge": "Anslået",
+        "estimate_note": "Anslået beløb – bekræftes af din sælger."
+      },
+      "col_item": "Vare",
+      "col_article": "Varenr.",
+      "col_unit_price": "Stykpris"
     },
     "favorites": {
       "title": "Favoritter",

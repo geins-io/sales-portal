@@ -1,5 +1,9 @@
 import { defineStore } from 'pinia';
-import type { Quote, QuoteListItem } from '#shared/types/quote';
+import type {
+  Quote,
+  QuoteListItem,
+  QuoteRequestDetails,
+} from '#shared/types/quote';
 import { internalFetch } from '~/utils/internal-fetch';
 
 export const useQuotesStore = defineStore('quotes', () => {
@@ -120,6 +124,40 @@ export const useQuotesStore = defineStore('quotes', () => {
     }
   }
 
+  /** Writes the request's details, if any, then sends it to the seller. */
+  async function sendQuoteRequest(
+    id: string,
+    details: QuoteRequestDetails,
+  ): Promise<Quote | null> {
+    isActionLoading.value = true;
+    error.value = null;
+    try {
+      const body = Object.fromEntries(
+        Object.entries(details).filter(([, value]) => value),
+      );
+      if (Object.keys(body).length) {
+        await $fetch(`/api/quotes/${id}/request`, { method: 'PATCH', body });
+      }
+      const data = await $fetch<{ quote: Quote }>(`/api/quotes/${id}/release`, {
+        method: 'POST',
+      });
+      currentQuote.value = data.quote;
+      const idx = quotes.value.findIndex((q) => q.id === id);
+      if (idx >= 0) {
+        quotes.value[idx] = {
+          ...quotes.value[idx]!,
+          status: data.quote.status,
+        };
+      }
+      return data.quote;
+    } catch {
+      error.value = 'portal.quotations.request.send_failed';
+      return null;
+    } finally {
+      isActionLoading.value = false;
+    }
+  }
+
   function reset() {
     quotes.value = [];
     totalQuotes.value = 0;
@@ -143,6 +181,7 @@ export const useQuotesStore = defineStore('quotes', () => {
     acceptQuote,
     rejectQuote,
     finalizeQuote,
+    sendQuoteRequest,
     reset,
   };
 });

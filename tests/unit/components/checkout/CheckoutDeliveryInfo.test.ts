@@ -265,6 +265,69 @@ describe('CheckoutDeliveryInfo', () => {
     expect(dateInput.attributes('disabled')).toBeDefined();
     expect(goodsInput.attributes('disabled')).toBeDefined();
   });
+
+  it('shows the goods label by default', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps(),
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="checkout-goods-label"]').exists()).toBe(
+      true,
+    );
+  });
+
+  it('leaves the goods label out with showGoodsLabel false, keeping the date', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps({ showGoodsLabel: false, goodsLabel: 'Dock 4' }),
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="checkout-goods-label"]').exists()).toBe(
+      false,
+    );
+    expect(
+      wrapper.find('[data-testid="checkout-desired-delivery-date"]').exists(),
+    ).toBe(true);
+  });
+
+  it('keeps a filled goods label out with showGoodsLabel false, even when locked', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps({
+        showGoodsLabel: false,
+        locked: true,
+        goodsLabel: 'Dock 4',
+        desiredDeliveryDate: '2026-12-15',
+      }),
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="checkout-goods-label"]').exists()).toBe(
+      false,
+    );
+    expect(
+      wrapper.find('[data-testid="checkout-desired-delivery-date"]').exists(),
+    ).toBe(true);
+  });
+
+  it('labels the date and its help with the checkout text by default', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps(),
+      global: { stubs },
+    });
+    expect(wrapper.text()).toContain('checkout.desired_delivery_date');
+    expect(wrapper.text()).toContain('checkout.desired_delivery_date_helper');
+  });
+
+  it('uses the given date label and help', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps({
+        dateLabel: 'Desired date (optional)',
+        dateHelp: 'The seller confirms the date',
+      }),
+      global: { stubs },
+    });
+    expect(wrapper.text()).toContain('Desired date (optional)');
+    expect(wrapper.text()).toContain('The seller confirms the date');
+    expect(wrapper.text()).not.toContain('checkout.desired_delivery_date');
+  });
 });
 
 describe('CheckoutDeliveryInfo locked', () => {

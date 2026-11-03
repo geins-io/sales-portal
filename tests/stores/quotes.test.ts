@@ -418,6 +418,180 @@ describe('useQuotesStore', () => {
     });
   });
 
+  describe('sendQuoteRequest', () => {
+    const draft = { ...mockQuote, status: 'request_draft' as const };
+    const requested = { ...mockQuote, status: 'requested' as const };
+    const details = {
+      desiredDeliveryDate: '2026-12-01',
+      customerReference: 'PO-77',
+      comment: 'Leverans till lager 2',
+    };
+
+    it('writes the details, then releases the request', async () => {
+      mockFetchImpl
+        .mockResolvedValueOnce({ quote: draft })
+        .mockResolvedValueOnce({ quote: requested });
+
+      const store = useQuotesStore();
+      await store.sendQuoteRequest('q-001', details);
+
+      expect(mockFetchImpl.mock.calls).toEqual([
+        ['/api/quotes/q-001/request', { method: 'PATCH', body: details }],
+        ['/api/quotes/q-001/release', { method: 'POST' }],
+      ]);
+    });
+
+    it('releases without writing when there are no details', async () => {
+      mockFetchImpl.mockResolvedValueOnce({ quote: requested });
+
+      const store = useQuotesStore();
+      await store.sendQuoteRequest('q-001', {});
+
+      expect(mockFetchImpl.mock.calls).toEqual([
+        ['/api/quotes/q-001/release', { method: 'POST' }],
+      ]);
+    });
+
+    it('drops empty details, and releases without writing when none are left', async () => {
+      mockFetchImpl.mockResolvedValueOnce({ quote: requested });
+
+      const store = useQuotesStore();
+      await store.sendQuoteRequest('q-001', {
+        comment: undefined,
+        customerReference: '',
+        desiredDeliveryDate: undefined,
+      });
+
+      expect(mockFetchImpl.mock.calls).toEqual([
+        ['/api/quotes/q-001/release', { method: 'POST' }],
+      ]);
+    });
+
+    it('writes a single detail on its own', async () => {
+      mockFetchImpl
+        .mockResolvedValueOnce({ quote: draft })
+        .mockResolvedValueOnce({ quote: requested });
+
+      const store = useQuotesStore();
+      await store.sendQuoteRequest('q-001', {
+        comment: 'Hej',
+        customerReference: undefined,
+      });
+
+      expect(mockFetchImpl.mock.calls[0]).toEqual([
+        '/api/quotes/q-001/request',
+        { method: 'PATCH', body: { comment: 'Hej' } },
+      ]);
+    });
+
+    it('returns the released quote and keeps it', async () => {
+      mockFetchImpl
+        .mockResolvedValueOnce({ quote: draft })
+        .mockResolvedValueOnce({ quote: requested });
+
+      const store = useQuotesStore();
+      store.currentQuote = { ...draft };
+
+      expect(await store.sendQuoteRequest('q-001', details)).toEqual(requested);
+      expect(store.currentQuote?.status).toBe('requested');
+    });
+
+    it('updates the sent quote in the list', async () => {
+      mockFetchImpl.mockResolvedValueOnce({ quote: requested });
+
+      const store = useQuotesStore();
+      store.quotes = [
+        { ...mockQuoteListItem3 },
+        { ...mockQuoteListItem, status: 'request_draft' },
+      ];
+      await store.sendQuoteRequest('q-001', {});
+
+      expect(store.quotes.map((q) => q.status)).toEqual([
+        'pending',
+        'requested',
+      ]);
+    });
+
+    it('updates the sent quote when it is first in the list', async () => {
+      mockFetchImpl.mockResolvedValueOnce({ quote: requested });
+
+      const store = useQuotesStore();
+      store.quotes = [
+        { ...mockQuoteListItem, status: 'request_draft' },
+        { ...mockQuoteListItem3 },
+      ];
+      await store.sendQuoteRequest('q-001', {});
+
+      expect(store.quotes.map((q) => q.status)).toEqual([
+        'requested',
+        'pending',
+      ]);
+    });
+
+    it('leaves the list alone when the sent quote is not in it', async () => {
+      mockFetchImpl.mockResolvedValueOnce({ quote: requested });
+
+      const store = useQuotesStore();
+      store.quotes = [{ ...mockQuoteListItem3 }];
+      await store.sendQuoteRequest('q-001', {});
+
+      expect(Object.keys(store.quotes)).toEqual(['0']);
+      expect(store.quotes[0]?.status).toBe('pending');
+    });
+
+    it('does not release when writing the details fails', async () => {
+      mockFetchImpl.mockRejectedValueOnce(new Error('400'));
+
+      const store = useQuotesStore();
+      expect(await store.sendQuoteRequest('q-001', details)).toBeNull();
+
+      expect(mockFetchImpl).toHaveBeenCalledTimes(1);
+      expect(store.error).toBe('portal.quotations.request.send_failed');
+      expect(store.isActionLoading).toBe(false);
+    });
+
+    it('returns null and keeps the quote when the release fails', async () => {
+      mockFetchImpl
+        .mockResolvedValueOnce({ quote: draft })
+        .mockRejectedValueOnce(new Error('500'));
+
+      const store = useQuotesStore();
+      store.currentQuote = { ...draft };
+
+      expect(await store.sendQuoteRequest('q-001', details)).toBeNull();
+      expect(store.error).toBe('portal.quotations.request.send_failed');
+      expect(store.currentQuote?.status).toBe('request_draft');
+      expect(store.isActionLoading).toBe(false);
+    });
+
+    it('is loading while the request runs', async () => {
+      let answer!: (value: { quote: typeof requested }) => void;
+      mockFetchImpl.mockReturnValueOnce(
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+      );
+
+      const store = useQuotesStore();
+      const pending = store.sendQuoteRequest('q-001', {});
+
+      expect(store.isActionLoading).toBe(true);
+      answer({ quote: requested });
+      await pending;
+      expect(store.isActionLoading).toBe(false);
+    });
+
+    it('clears a stale error at the start of the call', async () => {
+      mockFetchImpl.mockResolvedValueOnce({ quote: requested });
+
+      const store = useQuotesStore();
+      store.error = 'portal.quotations.request.send_failed';
+      await store.sendQuoteRequest('q-001', {});
+
+      expect(store.error).toBeNull();
+    });
+  });
+
   describe('rejectQuote', () => {
     it('calls POST /api/quotes/:id/reject without body', async () => {
       const rejectedQuote = { ...mockQuote, status: 'rejected' as const };
