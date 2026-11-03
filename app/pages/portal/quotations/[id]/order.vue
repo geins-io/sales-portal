@@ -4,11 +4,7 @@ import { Card, CardContent } from '~/components/ui/card';
 import CheckoutCardHeader from '~/components/checkout/CheckoutCardHeader.vue';
 import { useAuthStore } from '~/stores/auth';
 import { useQuotesStore } from '~/stores/quotes';
-import {
-  quoteAmounts,
-  quoteCanOrder,
-  quoteLineToCartItem,
-} from '~/utils/quote-view';
+import { quoteAmounts, quoteCanOrder } from '~/utils/quote-view';
 import {
   quoteCheckoutCompany,
   quotePaymentOptions,
@@ -69,7 +65,6 @@ const title = computed(() =>
 useHead({ title });
 
 // The order takes all of this from the quotation, so the page shows it locked.
-const items = computed(() => quote.value.lineItems.map(quoteLineToCartItem));
 const itemCount = computed(() =>
   quote.value.lineItems.reduce((sum, line) => sum + line.quantity, 0),
 );
@@ -131,13 +126,13 @@ function formatDate(iso: string): string {
       </NuxtLink>
 
       <div
-        class="border-primary/40 bg-primary/10 mb-6 flex flex-wrap items-start gap-3 rounded-lg border p-4"
+        class="border-info/40 bg-info/10 mb-6 flex flex-wrap items-start gap-3 rounded-lg border p-4"
         data-testid="quote-order-banner"
       >
         <div
-          class="bg-primary flex size-9 shrink-0 items-center justify-center rounded-md"
+          class="bg-info flex size-9 shrink-0 items-center justify-center rounded-md"
         >
-          <FileText class="text-primary-foreground size-4" />
+          <FileText class="size-4 text-white" />
         </div>
         <div class="min-w-0 flex-1">
           <p class="text-sm font-semibold">
@@ -162,7 +157,7 @@ function formatDate(iso: string): string {
 
       <div class="flex flex-col gap-8 lg:flex-row lg:items-start">
         <div class="min-w-0 flex-1 space-y-6">
-          <CheckoutCartItems :items="items" />
+          <PortalQuoteArticles :items="quote.lineItems" />
 
           <CheckoutCompanyInfo
             v-if="company"

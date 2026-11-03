@@ -5,12 +5,11 @@ import {
   quoteCanOrder,
   quoteDiscountLabel,
   quoteKindLabelKey,
-  quoteLineToCartItem,
   quoteResponses,
   quoteStatusInfoKey,
   quoteSummaryRows,
 } from '../../app/utils/quote-view';
-import type { QuoteLineItem, QuoteStatus } from '../../shared/types/quote';
+import type { QuoteStatus } from '../../shared/types/quote';
 import { makeQuote } from '../fixtures/quote';
 
 // The two sonoralab quotations the ticket measured, as the API gives them.
@@ -383,93 +382,5 @@ describe('quoteKindLabelKey', () => {
     ['unknown', 'portal.quotations.kind_quotation'],
   ])('calls a %s one %s', (status, key) => {
     expect(quoteKindLabelKey(status)).toBe(key);
-  });
-});
-
-describe('quoteLineToCartItem', () => {
-  const line = (overrides: Partial<QuoteLineItem> = {}): QuoteLineItem => ({
-    productId: 1025,
-    alias: 'widget-pro',
-    sku: '1025-1',
-    name: 'Widget Pro',
-    articleNumber: 'ART-1025',
-    quantity: 10,
-    unitPrice: 43.75,
-    unitPriceFormatted: '43,75 kr',
-    totalPrice: 437.5,
-    totalPriceFormatted: '437,50 kr',
-    unitPriceExVat: 35,
-    unitPriceExVatFormatted: '35,00 kr',
-    totalPriceExVat: 350,
-    totalPriceExVatFormatted: '350,00 kr',
-    imageFileName: 'widget.jpg',
-    imageUrl: 'https://assets.example/widget.jpg',
-    ...overrides,
-  });
-
-  it('carries both sides of the unit and line price', () => {
-    const item = quoteLineToCartItem(line(), 0);
-    expect(item.unitPrice).toEqual({
-      sellingPriceIncVat: 43.75,
-      sellingPriceIncVatFormatted: '43,75 kr',
-      sellingPriceExVat: 35,
-      sellingPriceExVatFormatted: '35,00 kr',
-    });
-    expect(item.totalPrice).toEqual({
-      sellingPriceIncVat: 437.5,
-      sellingPriceIncVatFormatted: '437,50 kr',
-      sellingPriceExVat: 350,
-      sellingPriceExVatFormatted: '350,00 kr',
-    });
-    expect(item.product?.unitPrice).toEqual(item.unitPrice);
-  });
-
-  it('carries the quantity, name, article number and alias', () => {
-    const item = quoteLineToCartItem(line(), 0);
-    expect(item.quantity).toBe(10);
-    expect(item.title).toBe('Widget Pro');
-    expect(item.product).toMatchObject({
-      productId: '1025',
-      name: 'Widget Pro',
-      articleNumber: 'ART-1025',
-      alias: 'widget-pro',
-    });
-  });
-
-  it('keys the line by its position, outside the cart ids', () => {
-    expect(quoteLineToCartItem(line(), 0).id).toBe('quote-line-0');
-    expect(quoteLineToCartItem(line(), 3).id).toBe('quote-line-3');
-  });
-
-  it('gives no SKU, so no variant name is looked up', () => {
-    const item = quoteLineToCartItem(line(), 0);
-    expect(item.skuId).toBeUndefined();
-    expect(item.product?.skus).toEqual([]);
-  });
-
-  it('carries the image with its library url', () => {
-    expect(quoteLineToCartItem(line(), 0).product?.productImages).toEqual([
-      { fileName: 'widget.jpg', url: 'https://assets.example/widget.jpg' },
-    ]);
-  });
-
-  it('keeps an image outside the library without a url', () => {
-    expect(
-      quoteLineToCartItem(line({ imageUrl: undefined }), 0).product
-        ?.productImages,
-    ).toEqual([{ fileName: 'widget.jpg', url: null }]);
-  });
-
-  it('has no image without a file name', () => {
-    expect(
-      quoteLineToCartItem(line({ imageFileName: undefined }), 0).product
-        ?.productImages,
-    ).toEqual([]);
-  });
-
-  it('has an empty alias without one', () => {
-    expect(quoteLineToCartItem(line({ alias: null }), 0).product?.alias).toBe(
-      '',
-    );
   });
 });

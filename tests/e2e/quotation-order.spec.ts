@@ -72,12 +72,27 @@ test.describe('Order from a quotation', () => {
 
     const orderPage = page.locator('[data-testid="quote-order-page"]');
     await expect(orderPage).toBeVisible({ timeout: PAGE_TIMEOUT });
-    // The checkout's parts, with the quotation's lines.
+    // The quotation's lines in the "Artiklar" card: a table from md (768 px)
+    // up, cards below it. Only the shape for this viewport is visible.
+    const articles = orderPage.locator('[data-testid="quote-articles"]');
+    await expect(articles).toBeVisible();
+    const wide = (page.viewportSize()?.width ?? 0) >= 768;
     await expect(
-      orderPage.locator('[data-testid="checkout-cart-item"]'),
+      articles.locator(
+        wide
+          ? '[data-testid="line-item-row"]:visible'
+          : '[data-testid="line-item-card"]:visible',
+      ),
     ).toHaveCount(quote!.lineItems.length);
     await expect(
-      orderPage.locator('[data-testid="checkout-remove-item"]'),
+      articles.locator(
+        wide
+          ? '[data-testid="line-item-card"]:visible'
+          : '[data-testid="line-item-row"]:visible',
+      ),
+    ).toHaveCount(0);
+    await expect(
+      orderPage.locator('[data-testid="checkout-cart-items"]'),
     ).toHaveCount(0);
     await expect(
       orderPage.locator('[data-testid="checkout-company-info"]'),
@@ -97,9 +112,6 @@ test.describe('Order from a quotation', () => {
     await expect(
       orderPage.locator('[data-testid="checkout-quantity-stepper"]'),
     ).toHaveCount(0);
-    await expect(
-      orderPage.locator('[data-testid="checkout-cart-item-quantity"]'),
-    ).toHaveCount(quote!.lineItems.length);
 
     const place = page.locator('[data-testid="place-order-button"]');
     await expect(place).toBeDisabled();

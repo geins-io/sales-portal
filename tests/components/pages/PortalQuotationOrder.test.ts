@@ -271,22 +271,38 @@ describe('PortalQuotationOrder', () => {
       ).toContain('Spring order');
     });
 
-    it("lists the quotation's lines in the checkout's line list", async () => {
+    it('lists the quotation\'s lines in the "Artiklar" card', async () => {
       const wrapper = await mountWith(orderable());
 
-      const lines = wrapper.findAll('[data-testid="checkout-cart-item"]');
-      expect(lines).toHaveLength(1);
-      expect(lines[0]!.text()).toContain('Widget Pro');
-      expect(lines[0]!.text()).toContain('ART-001');
+      const card = wrapper.find('[data-testid="quote-articles"]');
+      expect(card.text()).toContain('portal.quotations.items_heading');
+      const rows = card.findAll('[data-testid="line-item-row"]');
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.text()).toContain('Widget Pro');
+      expect(rows[0]!.text()).toContain('ART-001');
+      expect(rows[0]!.find('[data-testid="line-item-quantity"]').text()).toBe(
+        '2',
+      );
       expect(
-        lines[0]!.find('[data-testid="checkout-line-total"]').text(),
-      ).toContain('200,00 kr');
+        rows[0]!.find('[data-testid="line-item-total-price"]').text(),
+      ).toBe('200,00 kr');
+      expect(card.findAll('[data-testid="line-item-card"]')).toHaveLength(1);
+      expect(wrapper.find('[data-testid="checkout-cart-items"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('shows the lines ex VAT when the buyer reads ex VAT', async () => {
+      mockShowIncVat.value = false;
+      const wrapper = await mountWith(orderable());
+
       expect(
-        lines[0]!.find('[data-testid="checkout-cart-item-quantity"]').text(),
-      ).toBe('cart.quantity: 2');
-      expect(
-        lines[0]!.find('[data-testid="checkout-quantity-stepper"]').exists(),
-      ).toBe(false);
+        wrapper
+          .find(
+            '[data-testid="line-item-row"] [data-testid="line-item-total-price"]',
+          )
+          .text(),
+      ).toBe('160,00 kr');
     });
 
     it("shows the company, org number, billing address and buyer in the checkout's card", async () => {
