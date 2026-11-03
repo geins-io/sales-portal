@@ -2,6 +2,7 @@
 import type { OrderListItem, PurchasedProduct } from '#shared/types/commerce';
 import type { QuoteListItem } from '#shared/types/quote';
 import {
+  ArrowRight,
   ChevronRight,
   FileText,
   Package,
@@ -210,6 +211,7 @@ function handleProductAddToCart(
         <Button v-if="orders.length" as-child variant="secondary" size="sm">
           <NuxtLink :to="localePath('/portal/orders')">
             {{ t('portal.overview.view_all') }}
+            <ArrowRight class="size-4" aria-hidden="true" />
           </NuxtLink>
         </Button>
       </div>
@@ -255,6 +257,7 @@ function handleProductAddToCart(
           >
             <NuxtLink :to="localePath('/portal/quotations')">
               {{ t('portal.overview.view_all') }}
+              <ArrowRight class="size-4" aria-hidden="true" />
             </NuxtLink>
           </Button>
         </div>
@@ -361,6 +364,7 @@ function handleProductAddToCart(
           >
             <NuxtLink :to="localePath('/portal/lists')">
               {{ t('portal.overview.view_all') }}
+              <ArrowRight class="size-4" aria-hidden="true" />
             </NuxtLink>
           </Button>
         </div>
@@ -453,6 +457,7 @@ function handleProductAddToCart(
         >
           <NuxtLink :to="localePath('/portal/products')">
             {{ t('portal.overview.view_all') }}
+            <ArrowRight class="size-4" aria-hidden="true" />
           </NuxtLink>
         </Button>
       </div>

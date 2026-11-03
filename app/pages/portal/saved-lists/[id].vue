@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog';
 import {
+  ArrowLeft,
   ListPlus,
   Search,
   ShoppingCart,
@@ -260,10 +261,12 @@ function addToCart(product: ListProduct) {
           {{ t('portal.saved_list_detail.not_found') }}
         </p>
         <div class="flex justify-center">
-          <NuxtLink :to="localePath('/portal/lists')">
-            <Button variant="outline">
-              {{ t('portal.saved_list_detail.back_to_lists') }}
-            </Button>
+          <NuxtLink
+            :to="localePath('/portal/lists')"
+            class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+          >
+            <ArrowLeft class="size-4" />
+            {{ t('portal.saved_list_detail.back_to_lists') }}
           </NuxtLink>
         </div>
       </div>
@@ -276,9 +279,10 @@ function addToCart(product: ListProduct) {
             <NuxtLink
               :to="localePath('/portal/lists')"
               data-testid="back-link"
-              class="text-muted-foreground hover:text-foreground text-sm"
+              class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
             >
-              &lt; {{ t('portal.saved_list_detail.back_to_lists') }}
+              <ArrowLeft class="size-4" />
+              {{ t('portal.saved_list_detail.back_to_lists') }}
             </NuxtLink>
             <div
               data-testid="saved-list-action-toolbar"

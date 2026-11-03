@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronRight } from 'lucide-vue-next';
+import { ArrowRight } from 'lucide-vue-next';
 
 defineProps<{
   to: string;
@@ -12,11 +12,11 @@ defineProps<{
 <template>
   <NuxtLink
     :to="to"
-    class="border-border bg-muted hover:bg-muted/80 inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors"
+    class="focus-visible:ring-ring/50 text-muted-foreground hover:text-foreground inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm underline-offset-4 transition-colors outline-none hover:underline focus-visible:ring-[3px]"
     :aria-label="ariaLabel ?? label"
     :data-testid="testid"
   >
     {{ label }}
-    <ChevronRight class="size-4" />
+    <ArrowRight class="size-4" aria-hidden="true" />
   </NuxtLink>
 </template>
