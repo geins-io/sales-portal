@@ -10,6 +10,8 @@ import {
   tenantIdKey,
   tenantConfigKey,
   configResponseCacheKey,
+  MARKETS_CACHE_NAME,
+  marketsResponseCacheKey,
   collectAllHostnames,
   clearNegativeCache,
 } from './tenant';
@@ -200,6 +202,10 @@ export async function processConfigRefresh(
   // (hex, so escapeKey leaves it unchanged).
   const nitroCacheKey = `nitro/handlers:_:${configResponseCacheKey(tid)}.json`;
   await cacheStorage.removeItem(nitroCacheKey);
+  // The same storefront's /api/markets entry, under its own handler name.
+  await cacheStorage.removeItem(
+    `nitro/handlers:${MARKETS_CACHE_NAME}:${marketsResponseCacheKey(tid)}.json`,
+  );
 
   // 12. Store webhook ID for deduplication (only when one was supplied)
   if (webhookId) {

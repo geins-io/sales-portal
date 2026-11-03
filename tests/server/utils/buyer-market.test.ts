@@ -4,6 +4,7 @@ import {
   extractChannelMarkets,
   findMarketForCountry,
   getCompanyDeliveryCountry,
+  marketCurrencies,
   selectBuyerMarket,
   type BuyerMarket,
   type ChannelMarketSource,
@@ -146,5 +147,32 @@ describe('selectBuyerMarket', () => {
   it('returns null when there are no markets', () => {
     expect(selectBuyerMarket(null, 'FI', 'se')).toBeNull();
     expect(selectBuyerMarket([], 'FI', 'se')).toBeNull();
+  });
+});
+
+describe('marketCurrencies', () => {
+  function market(alias: string, currencyCode: string | null): BuyerMarket {
+    return { alias, countryCode: null, countryName: null, currencyCode };
+  }
+
+  it('maps each market alias to its currency code', () => {
+    expect(
+      marketCurrencies([market('se', 'SEK'), market('fi', 'EUR')]),
+    ).toEqual({ se: 'SEK', fi: 'EUR' });
+  });
+
+  // The storefront routes and the switcher use lowercase aliases.
+  it('keys by the lowercase alias', () => {
+    expect(marketCurrencies([market('SE', 'SEK')])).toEqual({ se: 'SEK' });
+  });
+
+  it('leaves out a market without a currency code', () => {
+    expect(marketCurrencies([market('se', 'SEK'), market('xx', null)])).toEqual(
+      { se: 'SEK' },
+    );
+  });
+
+  it('leaves out a market whose currency code is empty', () => {
+    expect(marketCurrencies([market('se', '')])).toEqual({});
   });
 });

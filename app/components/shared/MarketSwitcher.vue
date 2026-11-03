@@ -17,10 +17,11 @@ async function switchMarket(m: string) {
   await switchMarketNav(m);
 }
 
-// Markets arrive as bare 2-letter region codes (e.g. "se"). The trigger keeps
-// the short code, while the option list shows the localized country name with
-// the code, e.g. "Sweden (SE)". Falls back to the bare uppercase code when the
-// runtime can't resolve the region (custom market codes, missing ICU data).
+// Markets arrive as bare 2-letter region codes (e.g. "se"). The trigger shows
+// the short code with the market's currency, "SE (SEK)"; the option list the
+// localized country name with it, "Sverige (SEK)". Without a known currency
+// the code takes its place, and without a resolvable region (custom market
+// codes, missing ICU data) the bare uppercase code is shown.
 const regionNames = computed(() => {
   try {
     return new Intl.DisplayNames([currentLocale.value], { type: 'region' });
@@ -29,11 +30,27 @@ const regionNames = computed(() => {
   }
 });
 
+// A failed request leaves `data` null: every label falls back to the code.
+const { data: currencies } = useFetch<Record<string, string>>('/api/markets', {
+  dedupe: 'defer',
+});
+
+function currencyOf(code: string): string | undefined {
+  return currencies.value?.[code.toLowerCase()];
+}
+
+/** The trigger: "SE (SEK)", or "SE" when the currency is unknown. */
+function marketShortLabel(code: string): string {
+  const upper = code.toUpperCase();
+  const currency = currencyOf(code);
+  return currency ? `${upper} (${currency})` : upper;
+}
+
 function marketLabel(code: string): string {
   const upper = code.toUpperCase();
   try {
     const name = regionNames.value?.of(upper);
-    if (name && name !== upper) return `${name} (${upper})`;
+    if (name && name !== upper) return `${name} (${currencyOf(code) ?? upper})`;
   } catch {
     // Malformed region code: fall through to the bare code below.
   }
@@ -66,9 +83,10 @@ const showSwitcher = computed(() => availableMarkets.value.length > 1);
         size="sm"
         class="h-auto py-2"
         :aria-label="t('common.change_market')"
+        data-testid="market-switcher-trigger"
       >
         <MapPin class="mr-2 h-4 w-4" />
-        {{ currentMarket.toUpperCase() }}
+        {{ marketShortLabel(currentMarket) }}
       </Button>
       <Button
         v-else

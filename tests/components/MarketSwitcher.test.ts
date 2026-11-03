@@ -1,4 +1,100 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { computed, ref } from 'vue';
+import { mountComponent } from '../utils/component';
+import MarketSwitcher from '../../app/components/shared/MarketSwitcher.vue';
+
+const mockMarkets = ref<string[]>(['se', 'de']);
+vi.mock('../../app/composables/useTenant', () => ({
+  useTenant: () => ({ availableMarkets: computed(() => mockMarkets.value) }),
+}));
+
+// null = the route failed (useFetch leaves data null on an error).
+const mockCurrencies = ref<Record<string, string> | null>(null);
+const mockUseFetch = vi.fn(() => ({
+  data: mockCurrencies,
+  error: ref(null),
+}));
+vi.mock('#app/composables/fetch', () => ({
+  useFetch: (...args: unknown[]) => mockUseFetch(...(args as [])),
+}));
+vi.stubGlobal('useFetch', mockUseFetch);
+
+const slot = { template: '<div><slot /></div>' };
+const stubs = {
+  DropdownMenu: slot,
+  DropdownMenuTrigger: slot,
+  DropdownMenuContent: slot,
+  DropdownMenuLabel: slot,
+  DropdownMenuSeparator: slot,
+  DropdownMenuItem: {
+    template: '<div data-testid="market-option"><slot /></div>',
+  },
+  Button: { template: '<button><slot /></button>' },
+};
+
+function mountText() {
+  return mountComponent(MarketSwitcher, {
+    props: { variant: 'text' },
+    global: { stubs },
+  });
+}
+
+function optionTexts(wrapper: ReturnType<typeof mountText>): string[] {
+  return wrapper.findAll('[data-testid="market-option"]').map((o) => o.text());
+}
+
+describe('MarketSwitcher render', () => {
+  beforeEach(() => {
+    mockMarkets.value = ['se', 'de'];
+    mockCurrencies.value = { se: 'SEK', de: 'EUR' };
+  });
+
+  it('reads the currencies from /api/markets', () => {
+    mountText();
+
+    // Nuxt's key transform appends a generated key argument; check the first two.
+    const [url, opts] = mockUseFetch.mock.calls[0] as unknown[];
+    expect(url).toBe('/api/markets');
+    expect(opts).toMatchObject({ dedupe: 'defer' });
+  });
+
+  it('shows the current market code with its currency on the trigger', () => {
+    expect(mountText().find('button').text()).toBe('SE (SEK)');
+  });
+
+  it('shows each market as country name with its currency', () => {
+    expect(optionTexts(mountText())).toEqual(['Sweden (SEK)', 'Germany (EUR)']);
+  });
+
+  it("shows today's labels when the route failed", () => {
+    mockCurrencies.value = null;
+    const wrapper = mountText();
+
+    expect(wrapper.find('button').text()).toBe('SE');
+    expect(optionTexts(wrapper)).toEqual(['Sweden (SE)', 'Germany (DE)']);
+  });
+
+  it('shows the code for a market the route has no currency for', () => {
+    mockCurrencies.value = { de: 'EUR' };
+    const wrapper = mountText();
+
+    expect(wrapper.find('button').text()).toBe('SE');
+    expect(optionTexts(wrapper)).toEqual(['Sweden (SE)', 'Germany (EUR)']);
+  });
+
+  it('shows the bare code when the region cannot be named', () => {
+    mockMarkets.value = ['se', 'x1'];
+    mockCurrencies.value = { se: 'SEK', x1: 'EUR' };
+
+    expect(optionTexts(mountText())).toEqual(['Sweden (SEK)', 'X1']);
+  });
+
+  it('renders nothing with a single market', () => {
+    mockMarkets.value = ['se'];
+
+    expect(mountText().find('button').exists()).toBe(false);
+  });
+});
 
 // Same approach as LocaleSwitcher tests — test the component's core logic
 // (showSwitcher computed and market display) rather than mounting the SFC.
@@ -56,9 +152,23 @@ describe('MarketSwitcher logic', () => {
       expect('dk'.toUpperCase()).toBe('DK');
     });
 
-    it('should uppercase current market for text variant trigger', () => {
-      const current = 'se';
-      expect(current.toUpperCase()).toBe('SE');
+    // Mirrors marketShortLabel: the text variant trigger.
+    function triggerLabel(
+      current: string,
+      currencies: Record<string, string> | null,
+    ): string {
+      const upper = current.toUpperCase();
+      const currency = currencies?.[current.toLowerCase()];
+      return currency ? `${upper} (${currency})` : upper;
+    }
+
+    it('should show the current market code with its currency on the text variant trigger', () => {
+      expect(triggerLabel('se', { se: 'SEK' })).toBe('SE (SEK)');
+    });
+
+    it('should show the bare current market code when its currency is missing', () => {
+      expect(triggerLabel('se', { de: 'EUR' })).toBe('SE');
+      expect(triggerLabel('se', null)).toBe('SE');
     });
   });
 

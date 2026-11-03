@@ -79,6 +79,20 @@ export function extractChannelMarkets(
 }
 
 /**
+ * Each market's currency code by lowercase alias (`{ se: 'SEK' }`). A market
+ * without a currency is left out.
+ */
+export function marketCurrencies(
+  markets: BuyerMarket[],
+): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const { alias, currencyCode } of markets) {
+    if (currencyCode) result[alias.toLowerCase()] = currencyCode;
+  }
+  return result;
+}
+
+/**
  * Alias-only list of the markets the buyer is allowed on for the current
  * tenant channel, read from `getUser.availableChannels`. Used only by the
  * deep-link redirect middleware for membership checks. Returns null when the
