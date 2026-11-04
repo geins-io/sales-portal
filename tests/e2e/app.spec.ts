@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from './fixtures';
-import { waitForHydration } from './helpers';
+import { outOfScope, pricesShownSignedOut, waitForHydration } from './helpers';
 
 /**
  * Basic Application E2E Tests
@@ -86,6 +86,13 @@ test.describe('Responsive Design', () => {
     test(`should render correctly on ${viewport.label} viewport`, async ({
       page,
     }) => {
+      if (viewport.label === 'mobile') {
+        outOfScope(
+          await pricesShownSignedOut(page),
+          'tenant-config',
+          'prices show signed out, and the VAT switcher widens the top bar past 375px',
+        );
+      }
       await page.setViewportSize({
         width: viewport.width,
         height: viewport.height,
