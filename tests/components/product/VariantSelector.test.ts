@@ -10,8 +10,18 @@ import type {
   VariantNode,
 } from '#shared/types/commerce';
 import type { SkuType } from '@geins/types';
-import { variantCombinations } from '../../../app/utils/variant-tree';
-import { twoDimensionTree } from '../../fixtures/variant-trees';
+import {
+  variantCombinations,
+  type VariantCombination,
+} from '../../../app/utils/variant-tree';
+import {
+  oneDimensionTree,
+  partialGridTree,
+  pumpCombinations,
+  sharedValueTree,
+  switchCombinations,
+  twoDimensionTree,
+} from '../../fixtures/variant-trees';
 
 const stock = (totalStock: number): StockType => ({
   inStock: totalStock,
@@ -559,39 +569,52 @@ describe('VariantSelector on a two-dimension variant tree', () => {
     );
   });
 
-  it('lists the second dimension across every top node', async () => {
+  it('lists the second dimension across every top node, direct rows first', async () => {
     const wrapper = mountTree({ Gänga: 'm12', Längd: '60 mm' });
     await wrapper
       .find('[data-testid="variant-trigger-Längd"]')
       .trigger('click');
 
-    const rows = wrapper
-      .find('[data-testid="variant-sheet-options"]')
-      .findAll('li');
-    expect(
-      rows.map((li) => li.find('.text-sm.text-muted-foreground').text()),
-    ).toEqual(['50 mm', '60 mm', '40 mm']);
-    expect(rows.map((li) => li.find('.font-medium').text())).toEqual([
-      'Sexkantskruv M10x50',
+    const direct = wrapper.findAll(
+      '[data-testid="variant-group-matching"] [data-testid="variant-option"]',
+    );
+    expect(direct.map((r) => r.find('.font-medium').text())).toEqual([
       'Sexkantskruv M12x60',
-      'Sexkantskruv M8x40',
     ]);
+    expect(direct.map((r) => r.find('.text-muted-foreground').text())).toEqual([
+      '60 mm',
+    ]);
+    const others = wrapper.findAll('[data-testid="variant-change-option"]');
+    expect(others.map((r) => r.find('.font-medium').text())).toEqual([
+      '50 mm',
+      '40 mm',
+    ]);
+    expect(
+      others.map((r) => r.find('[data-testid="variant-row-hint"]').text()),
+    ).toEqual(['Gänga: M10', 'Gänga: M8']);
+    expect(others.map((r) => r.text()).join(' ')).not.toContain('Sexkantskruv');
   });
 
-  it('shows labels in the sheet and emits the value', async () => {
+  it('shows labels in the sheet and emits a direct value', async () => {
     const wrapper = mountTree({ Gänga: 'm12', Längd: '60 mm' });
     await wrapper
       .find('[data-testid="variant-trigger-Gänga"]')
       .trigger('click');
 
-    const rows = wrapper
-      .find('[data-testid="variant-sheet-options"]')
-      .findAll('li');
-    expect(rows[0]!.text()).toContain('M10');
-    await rows[0]!.find('button').trigger('click');
+    const direct = wrapper.find(
+      '[data-testid="variant-group-matching"] [data-testid="variant-option"]',
+    );
+    expect(direct.text()).toContain('M12');
+    expect(
+      wrapper
+        .findAll('[data-testid="variant-change-option"]')
+        .map((r) => r.find('.font-medium').text()),
+    ).toEqual(['M10', 'M8']);
+
+    await direct.trigger('click');
 
     expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([
-      { Gänga: 'm10', Längd: '60 mm' },
+      { Gänga: 'm12', Längd: '60 mm' },
     ]);
   });
 
@@ -602,11 +625,395 @@ describe('VariantSelector on a two-dimension variant tree', () => {
       .trigger('click');
     await wrapper.find('[data-testid="variant-sheet-search"]').setValue('M8');
 
-    const rows = wrapper
-      .find('[data-testid="variant-sheet-options"]')
-      .findAll('li');
+    expect(
+      wrapper.find('[data-testid="variant-group-matching"]').exists(),
+    ).toBe(false);
+    const rows = wrapper.findAll('[data-testid="variant-change-option"]');
     expect(rows).toHaveLength(1);
-    expect(rows[0]!.find('.font-medium').text()).toBe('Sexkantskruv M8x40');
+    expect(rows[0]!.find('.font-medium').text()).toBe('M8');
+    expect(rows[0]!.find('[data-testid="variant-row-hint"]').text()).toBe(
+      'Längd: 40 mm',
+    );
+  });
+});
+
+describe('VariantSelector groups values that change another choice, picked in a step', () => {
+  // Echo the params so a heading shows which value or dimensions it names.
+  const echoT = (key: string, params?: Record<string, unknown>) =>
+    params && Object.keys(params).length
+      ? `${key} ${Object.values(params).join(' ')}`
+      : key;
+
+  const pumpProducts = {
+    'pump-0-37-kw-400-v': {
+      name: 'Pump 0,37 kW 400 V',
+      articleNumber: 'P-037-400',
+      priceIncVatFormatted: '200 kr',
+    },
+  };
+
+  const combo = (
+    alias: string,
+    selection: Record<string, string>,
+  ): VariantCombination => ({
+    alias,
+    productId: null,
+    selection,
+    labels: selection,
+    stock: null,
+  });
+
+  function mount(
+    combinations: VariantCombination[],
+    modelValue: Record<string, string>,
+    variantProducts: Record<string, object> = pumpProducts,
+  ) {
+    return mountComponent(VariantSelector, {
+      props: {
+        variantDimensions: [],
+        variants: [],
+        combinations,
+        modelValue,
+        productName: 'Product',
+        variantProducts,
+      },
+      global: { stubs: sheetStubs, mocks: { $t: echoT } },
+    });
+  }
+
+  const hints = (wrapper: ReturnType<typeof mount>) =>
+    wrapper
+      .findAll('[data-testid^="variant-group-change-"]')
+      .map((g) =>
+        g
+          .findAll('[data-testid="variant-change-option"]')
+          .map((o) => o.find('[data-testid="variant-row-hint"]').text()),
+      );
+
+  async function openSheet(wrapper: ReturnType<typeof mount>, dim: string) {
+    await wrapper
+      .find(`[data-testid="variant-trigger-${dim}"]`)
+      .trigger('click');
+  }
+
+  const headings = (wrapper: ReturnType<typeof mount>) =>
+    wrapper.findAll('[data-testid^="variant-group-"] h3').map((h) => h.text());
+  const matchingValues = (wrapper: ReturnType<typeof mount>) =>
+    wrapper
+      .findAll(
+        '[data-testid="variant-group-matching"] [data-testid="variant-option"]',
+      )
+      .map((o) => o.attributes('data-value'));
+  const changeValues = (wrapper: ReturnType<typeof mount>) =>
+    wrapper
+      .findAll('[data-testid^="variant-group-change-"]')
+      .map((g) =>
+        g
+          .findAll('[data-testid="variant-change-option"]')
+          .map((o) => o.attributes('data-value')),
+      );
+  const changeRow = (
+    wrapper: ReturnType<typeof mount>,
+    group: number,
+    value: string,
+  ) => {
+    const groups = wrapper.findAll('[data-testid^="variant-group-change-"]');
+    return groups[group]!.find(
+      `[data-testid="variant-change-option"][data-value="${value}"]`,
+    );
+  };
+  const pickRows = (wrapper: ReturnType<typeof mount>) =>
+    wrapper.findAll('[data-testid="variant-pick-option"]');
+  const sheets = (wrapper: ReturnType<typeof mount>) =>
+    wrapper.findAllComponents(sheetStubs.Sheet);
+  const stepOpen = (wrapper: ReturnType<typeof mount>) =>
+    sheets(wrapper)[1]!.props('open');
+
+  it('lists each value that changes the other dimension once, with no number or price', async () => {
+    const wrapper = mount(variantCombinations(partialGridTree), {
+      Effekt: '0,66 kw',
+      Spänning: '150 v',
+    });
+    await openSheet(wrapper, 'Spänning');
+
+    expect(headings(wrapper)).toEqual([
+      'product.variant_group_matching_named Effekt 0,66 kW',
+      'product.variant_group_other_named Effekt',
+    ]);
+    expect(matchingValues(wrapper)).toEqual(['150 v']);
+    expect(changeValues(wrapper)).toEqual([['400 v']]);
+    const row = changeRow(wrapper, 0, '400 v');
+    expect(row.find('.font-medium').text()).toBe('400 V');
+    expect(hints(wrapper)).toEqual([['Effekt: 0,37 kW']]);
+    expect(row.text()).not.toContain('P-037-400');
+    expect(row.text()).not.toContain('200 kr');
+    expect(row.find('[data-testid="variant-row-price"]').exists()).toBe(false);
+  });
+
+  it('lists a value once per group it has variants in', async () => {
+    const wrapper = mount(switchCombinations, {
+      Poler: '3P',
+      Kapsling: 'IP65',
+      Märkström: '25 A',
+    });
+    await openSheet(wrapper, 'Märkström');
+
+    expect(headings(wrapper)).toEqual([
+      'product.variant_group_matching_with Poler: 3P and Kapsling: IP65',
+      'product.variant_group_other_named Poler',
+      'product.variant_group_other_named Kapsling',
+      'product.variant_group_other_named Poler and Kapsling',
+    ]);
+    expect(matchingValues(wrapper)).toEqual(['16 A', '25 A']);
+    expect(changeValues(wrapper)).toEqual([
+      ['40 A'],
+      ['40 A'],
+      ['40 A', '63 A'],
+    ]);
+    expect(hints(wrapper)).toEqual([
+      ['Poler: 4P'],
+      ['Kapsling: IP66'],
+      ['Poler: 4P · Kapsling: IP66', 'Poler: 4P · Kapsling: IP66'],
+    ]);
+  });
+
+  it('never lists a value again that the buyer can reach directly', async () => {
+    const wrapper = mount(pumpCombinations, {
+      Effekt: '0,37 kW',
+      Spänning: '230 V',
+    });
+    await openSheet(wrapper, 'Effekt');
+
+    expect(matchingValues(wrapper)).toEqual(['0,37 kW', '1,5 kW']);
+    expect(changeValues(wrapper)).toEqual([['0,75 kW']]);
+  });
+
+  it('lists a value shared by two variants once on two dimensions', async () => {
+    const wrapper = mount(variantCombinations(sharedValueTree), {
+      Gänga: 'm10',
+      Längd: '40 mm',
+    });
+    await openSheet(wrapper, 'Längd');
+
+    expect(changeValues(wrapper)).toEqual([['30 mm']]);
+    expect(hints(wrapper)).toEqual([['Gänga: M6 · M8']]);
+  });
+
+  it('shows a chevron and no image on a row that opens the step', async () => {
+    const wrapper = mount(
+      variantCombinations(sharedValueTree),
+      { Gänga: 'm10', Längd: '40 mm' },
+      {
+        'sexkantskruv-m10x40-din-933-elforzinkad': {
+          image: { fileName: 'm10-040.jpg', url: null },
+        },
+        'sexkantskruv-m6x30-din-933-elforzinkad': {
+          image: { fileName: 'm6-030.jpg', url: null },
+        },
+        'sexkantskruv-m8x30-din-933-elforzinkad': {
+          image: { fileName: 'm8-030.jpg', url: null },
+        },
+      },
+    );
+    await openSheet(wrapper, 'Längd');
+
+    const row = changeRow(wrapper, 0, '30 mm');
+    expect(row.find('img').exists()).toBe(false);
+    expect(row.find('[data-testid="variant-row-chevron"]').exists()).toBe(true);
+    expect(
+      wrapper
+        .find('[data-testid="variant-group-matching"] img')
+        .attributes('src'),
+    ).toContain('m10-040.jpg');
+
+    await row.trigger('click');
+    expect(
+      pickRows(wrapper).map((r) => r.find('img').attributes('src')),
+    ).toEqual([
+      expect.stringContaining('m6-030.jpg'),
+      expect.stringContaining('m8-030.jpg'),
+    ]);
+  });
+
+  it('opens a narrower step on top instead of switching on its own', async () => {
+    const wrapper = mount(variantCombinations(partialGridTree), {
+      Effekt: '0,66 kw',
+      Spänning: '150 v',
+    });
+    await openSheet(wrapper, 'Spänning');
+
+    await changeRow(wrapper, 0, '400 v').trigger('click');
+
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+    expect(stepOpen(wrapper)).toBe(true);
+    expect(sheets(wrapper)[0]!.props('open')).toBe(true);
+    const contents = wrapper.findAllComponents(sheetStubs.SheetContent);
+    expect(contents.map((c) => c.props('side'))).toEqual(['right', 'right']);
+    expect(contents[1]!.props('class')).toContain('sm:max-w-[600px]');
+    expect(contents[1]!.props('class')).toContain('w-[calc(100%-1.5rem)]');
+    expect(wrapper.text()).toContain('product.variant_pick_heading 400 V');
+  });
+
+  it('shows the one variant with its own name, number and price to confirm', async () => {
+    const wrapper = mount(variantCombinations(partialGridTree), {
+      Effekt: '0,66 kw',
+      Spänning: '150 v',
+    });
+    await openSheet(wrapper, 'Spänning');
+    await changeRow(wrapper, 0, '400 v').trigger('click');
+
+    expect(pickRows(wrapper).map((r) => r.attributes('data-value'))).toEqual([
+      'pump-0-37-kw-400-v',
+    ]);
+    const row = pickRows(wrapper)[0]!;
+    expect(row.text()).toContain('Pump 0,37 kW 400 V');
+    expect(row.text()).toContain('400 V · 0,37 kW');
+    expect(row.text()).toContain('P-037-400');
+    expect(row.text()).toContain('200 kr');
+  });
+
+  it("lists only the variants of the value in the clicked row's group", async () => {
+    const wrapper = mount(switchCombinations, {
+      Poler: '3P',
+      Kapsling: 'IP65',
+      Märkström: '25 A',
+    });
+    await openSheet(wrapper, 'Märkström');
+
+    await changeRow(wrapper, 2, '40 A').trigger('click');
+
+    expect(pickRows(wrapper).map((r) => r.attributes('data-value'))).toEqual([
+      '40 A-4P-IP66',
+    ]);
+  });
+
+  it('lets the buyer choose between several variants and switches to the one picked', async () => {
+    const wrapper = mount(variantCombinations(sharedValueTree), {
+      Gänga: 'm10',
+      Längd: '40 mm',
+    });
+    await openSheet(wrapper, 'Längd');
+    await changeRow(wrapper, 0, '30 mm').trigger('click');
+
+    expect(
+      pickRows(wrapper).map((r) => r.find('.text-muted-foreground').text()),
+    ).toEqual(['30 mm · M6', '30 mm · M8']);
+
+    await pickRows(wrapper)[1]!.trigger('click');
+
+    expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([
+      { Gänga: 'm8', Längd: '30 mm' },
+    ]);
+  });
+
+  it('closes only the step on back or dismiss, keeping the current variant', async () => {
+    const wrapper = mount(variantCombinations(partialGridTree), {
+      Effekt: '0,66 kw',
+      Spänning: '150 v',
+    });
+    await openSheet(wrapper, 'Spänning');
+    await changeRow(wrapper, 0, '400 v').trigger('click');
+
+    await wrapper.find('[data-testid="variant-pick-back"]').trigger('click');
+    expect(stepOpen(wrapper)).toBe(false);
+
+    await changeRow(wrapper, 0, '400 v').trigger('click');
+    sheets(wrapper)[1]!.vm.$emit('update:open', false);
+    await nextTick();
+
+    expect(stepOpen(wrapper)).toBe(false);
+    expect(sheets(wrapper)[0]!.props('open')).toBe(true);
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+  });
+
+  it('starts without the step when the sheet is opened again', async () => {
+    const wrapper = mount(variantCombinations(partialGridTree), {
+      Effekt: '0,66 kw',
+      Spänning: '150 v',
+    });
+    await openSheet(wrapper, 'Spänning');
+    await changeRow(wrapper, 0, '400 v').trigger('click');
+
+    await openSheet(wrapper, 'Effekt');
+
+    expect(stepOpen(wrapper)).toBe(false);
+  });
+
+  it('falls back to the neutral heading when a changed dimension has no name', async () => {
+    const wrapper = mount(
+      [
+        combo('a', { Effekt: '0,37 kW', ' ': '150 V' }),
+        combo('b', { Effekt: '0,99 kW', ' ': '400 V' }),
+      ],
+      { Effekt: '0,37 kW', ' ': '150 V' },
+    );
+    await openSheet(wrapper, 'Effekt');
+
+    expect(headings(wrapper)).toEqual([
+      'product.variant_group_matching_with 150 V',
+      'product.variant_group_more',
+    ]);
+    expect(changeValues(wrapper)).toEqual([['0,99 kW']]);
+    expect(hints(wrapper)).toEqual([['400 V']]);
+  });
+
+  it('falls back to the neutral matching heading when another dimension has no name', async () => {
+    const wrapper = mount(
+      [
+        combo('a', { A: '25 A', ' ': '3P', IP: 'IP65' }),
+        combo('b', { A: '40 A', ' ': '3P', IP: 'IP65' }),
+      ],
+      { A: '25 A', ' ': '3P', IP: 'IP65' },
+    );
+    await openSheet(wrapper, 'A');
+
+    expect(headings(wrapper)).toEqual(['product.variant_group_matching']);
+  });
+
+  it('falls back to the neutral matching heading while another dimension is unset', async () => {
+    const wrapper = mount(switchCombinations, {
+      Poler: '3P',
+      Märkström: '25 A',
+    });
+    await openSheet(wrapper, 'Märkström');
+
+    expect(headings(wrapper)[0]).toBe('product.variant_group_matching');
+  });
+
+  it('shows no heading for a group with no rows', async () => {
+    const wrapper = mount(variantCombinations(partialGridTree), {
+      Effekt: '0,37 kw',
+      Spänning: '150 v',
+    });
+    await openSheet(wrapper, 'Spänning');
+
+    expect(headings(wrapper)).toEqual([
+      'product.variant_group_matching_named Effekt 0,37 kW',
+    ]);
+    expect(changeValues(wrapper)).toEqual([]);
+  });
+
+  it('searches the values in every group', async () => {
+    const wrapper = mount(variantCombinations(twoDimensionTree), {
+      Gänga: 'm12',
+      Längd: '60 mm',
+    });
+    await openSheet(wrapper, 'Längd');
+    await wrapper.find('[data-testid="variant-sheet-search"]').setValue('50');
+
+    expect(matchingValues(wrapper)).toEqual([]);
+    expect(changeValues(wrapper)).toEqual([['50 mm']]);
+  });
+
+  it('adds no headings or change rows on one dimension', async () => {
+    const wrapper = mount(variantCombinations(oneDimensionTree), {
+      Dimension: '20 mm',
+    });
+    await openSheet(wrapper, 'Dimension');
+
+    expect(headings(wrapper)).toEqual([]);
+    expect(changeValues(wrapper)).toEqual([]);
+    expect(matchingValues(wrapper)).toEqual(['20 mm', '25 mm']);
   });
 });
 

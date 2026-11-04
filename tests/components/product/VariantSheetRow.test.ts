@@ -53,4 +53,52 @@ describe('VariantSheetRow', () => {
       false,
     );
   });
+
+  it('shows a hint in place of the stock line', () => {
+    const wrapper = mountComponent(VariantSheetRow, {
+      props: { ...textProps, showStock: true, hint: 'Gänga: M6 · M8' },
+    });
+
+    expect(wrapper.find('[data-testid="variant-row-hint"]').text()).toBe(
+      'Gänga: M6 · M8',
+    );
+    expect(wrapper.text()).not.toContain('product.in_stock');
+  });
+
+  it('leaves out an empty subtitle', () => {
+    const wrapper = mountComponent(VariantSheetRow, {
+      props: { ...textProps, subtitle: '' },
+    });
+
+    expect(wrapper.findAll('.text-muted-foreground.text-sm')).toHaveLength(0);
+  });
+
+  it('drops the thumbnail for a chevron at the right edge on a row that opens a sheet', () => {
+    const wrapper = mountComponent(VariantSheetRow, {
+      props: { ...textProps, imageFileName: 'widget.jpg', opensSheet: true },
+    });
+
+    expect(wrapper.find('img').exists()).toBe(false);
+    expect(wrapper.find('.bg-muted.size-12').exists()).toBe(false);
+    const chevron = wrapper.find('[data-testid="variant-row-chevron"]');
+    expect(chevron.exists()).toBe(true);
+    expect(chevron.classes()).toEqual(
+      expect.arrayContaining(['text-muted-foreground', 'size-5', 'shrink-0']),
+    );
+  });
+
+  it('leaves aria-pressed off a row that opens a sheet and hides its chevron', () => {
+    const opens = mountComponent(VariantSheetRow, {
+      props: { ...textProps, opensSheet: true },
+    });
+    const plain = mountComponent(VariantSheetRow, { props: textProps });
+
+    expect(opens.find('button').attributes('aria-pressed')).toBeUndefined();
+    expect(
+      opens
+        .find('[data-testid="variant-row-chevron"]')
+        .attributes('aria-hidden'),
+    ).toBe('true');
+    expect(plain.find('button').attributes('aria-pressed')).toBe('false');
+  });
 });

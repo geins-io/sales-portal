@@ -81,6 +81,70 @@ export function resolveCombination(
   return best;
 }
 
+/** Whether some variant has `value` on `dimension` and every other value in `current`. */
+export function combinationExists(
+  combinations: readonly VariantCombination[],
+  current: Record<string, string>,
+  dimension: string,
+  value: string,
+): boolean {
+  return combinations.some(
+    (combo) =>
+      combo.selection[dimension] === value &&
+      Object.entries(current).every(
+        ([dim, val]) => dim === dimension || combo.selection[dim] === val,
+      ),
+  );
+}
+
+export interface ChangeGroup {
+  /** The other dimensions these variants change, in dimension order. */
+  dimensions: string[];
+  combinations: VariantCombination[];
+}
+
+/**
+ * The variants whose value on `dimension` cannot be picked without changing
+ * other current choices, grouped by which ones they change: fewest first,
+ * then by dimension order, payload order inside a group.
+ */
+export function changeGroups(
+  combinations: readonly VariantCombination[],
+  current: Record<string, string>,
+  dimension: string,
+): ChangeGroup[] {
+  const order = dimensionsOf(combinations).map((d) => d.dimensionName);
+  const groups = new Map<string, ChangeGroup>();
+  for (const combo of combinations) {
+    const value = combo.selection[dimension];
+    if (value === undefined || value === current[dimension]) continue;
+    if (combinationExists(combinations, current, dimension, value)) continue;
+    const changed = order.filter(
+      (dim) =>
+        dim !== dimension &&
+        current[dim] !== undefined &&
+        combo.selection[dim] !== current[dim],
+    );
+    const key = JSON.stringify(changed);
+    if (!groups.has(key))
+      groups.set(key, { dimensions: changed, combinations: [] });
+    groups.get(key)!.combinations.push(combo);
+  }
+  const rank = (group: ChangeGroup) =>
+    group.dimensions.map((d) => order.indexOf(d));
+  // Two groups never change the same dimensions, so same-size groups differ
+  // at some position.
+  return Array.from(groups.values()).sort((a, b) => {
+    if (a.dimensions.length !== b.dimensions.length) {
+      return a.dimensions.length - b.dimensions.length;
+    }
+    const ra = rank(a);
+    const rb = rank(b);
+    const i = ra.findIndex((v, idx) => v !== rb[idx]);
+    return ra[i]! - rb[i]!;
+  });
+}
+
 export function dimensionsOf(
   combinations: readonly VariantCombination[],
 ): VariantDimension[] {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, Search } from 'lucide-vue-next';
+import { ArrowLeft, ChevronDown, Search } from 'lucide-vue-next';
 import type {
   VariantDimensionRow,
   VariantNode,
@@ -7,6 +7,8 @@ import type {
 } from '#shared/types/commerce';
 import type { SkuType } from '@geins/types';
 import {
+  changeGroups,
+  combinationExists,
   dimensionsOf,
   isInternalDimension,
   resolveCombination,
@@ -123,7 +125,7 @@ const visibleDimensions = computed(() =>
   ),
 );
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 function dimensionHeading(dimensionName: string): string {
   return isInternalDimension(dimensionName)
@@ -140,15 +142,27 @@ const openDimension = ref<string | null>(null);
 const skuSheetOpen = ref(false);
 const searchQuery = ref('');
 
+// A value that cannot be picked without changing other choices, waiting for
+// the buyer to confirm or choose one of its variants in a second sheet. The
+// pick outlives the sheet's close so its rows stay while it slides out.
+const pendingPick = ref<{
+  dimension: string;
+  value: string;
+  combinations: VariantCombination[];
+} | null>(null);
+const stepOpen = ref(false);
+
 function openSheet(dimensionName: string) {
   openDimension.value = dimensionName;
   skuSheetOpen.value = false;
+  stepOpen.value = false;
   searchQuery.value = '';
 }
 
 function openSkuSheet() {
   openDimension.value = null;
   skuSheetOpen.value = true;
+  stepOpen.value = false;
   searchQuery.value = '';
 }
 
@@ -157,6 +171,11 @@ defineExpose({ openSkuSheet });
 function closeSheet() {
   openDimension.value = null;
   skuSheetOpen.value = false;
+  stepOpen.value = false;
+}
+
+function closeStep() {
+  stepOpen.value = false;
 }
 
 const showSkuGroup = computed(() => (props.skuOptions?.length ?? 0) > 1);
@@ -298,6 +317,10 @@ function rowImage(
   return props.variantProducts?.[alias]?.image;
 }
 
+function comboImage(combo: VariantCombination): RowImage | null | undefined {
+  return props.variantProducts?.[combo.alias]?.image;
+}
+
 const { showIncVat } = useVatDisplay();
 
 /**
@@ -329,12 +352,108 @@ function thumbnailAlt(dimensionName: string, value: string): string {
   });
 }
 
+/** Whether picking the value keeps every other current choice. */
+function isDirectValue(dimensionName: string, value: string): boolean {
+  if (!props.combinations?.length) return true;
+  return combinationExists(
+    props.combinations,
+    props.modelValue,
+    dimensionName,
+    value,
+  );
+}
+
+function isNamedDimension(name: string): boolean {
+  return !!name.trim() && !isInternalDimension(name);
+}
+
 function selectValue(dimensionName: string, value: string) {
   emit('update:modelValue', {
     ...props.modelValue,
     [dimensionName]: value,
   });
   closeSheet();
+}
+
+function openPick(
+  dimension: string,
+  value: string,
+  combinations: VariantCombination[],
+) {
+  pendingPick.value = {
+    dimension,
+    value,
+    combinations: combinations.filter((c) => c.selection[dimension] === value),
+  };
+  stepOpen.value = true;
+}
+
+function selectCombination(combo: VariantCombination) {
+  emit('update:modelValue', { ...combo.selection });
+  closeSheet();
+}
+
+function comboName(combo: VariantCombination): string {
+  return props.variantProducts?.[combo.alias]?.name || props.productName || '';
+}
+
+/**
+ * What picking the value in a change group changes: "Poler: 4P · Kapsling:
+ * IP66", the target values dotted; a nameless dimension leaves its values.
+ */
+function changeHint(
+  dimensionName: string,
+  value: string,
+  group: { dimensions: string[]; combinations: VariantCombination[] },
+): string {
+  const targets = group.combinations.filter(
+    (c) => c.selection[dimensionName] === value,
+  );
+  return group.dimensions
+    .map((dim) => {
+      const values = Array.from(
+        new Set(targets.map((c) => c.labels[dim] ?? c.selection[dim]!)),
+      ).join(' · ');
+      return isNamedDimension(dim) ? `${dim}: ${values}` : values;
+    })
+    .join(' · ');
+}
+
+/** The other dimensions on which the variant differs from the current choice. */
+function changedDimensions(
+  combo: VariantCombination,
+  dimensionName: string,
+): string[] {
+  return visibleDimensions.value
+    .map((d) => d.dimensionName)
+    .filter(
+      (dim) =>
+        dim !== dimensionName &&
+        props.modelValue[dim] !== undefined &&
+        combo.selection[dim] !== props.modelValue[dim],
+    );
+}
+
+/** The sheet's own value, then the values that change: "40 A · 4P · IP66". */
+function changeSubtitle(
+  combo: VariantCombination,
+  dimensionName: string,
+  changed: string[],
+): string {
+  return [dimensionName, ...changed]
+    .map((dim) => combo.labels[dim] ?? combo.selection[dim])
+    .join(' · ');
+}
+
+function comboPrice(combo: VariantCombination): string | null {
+  const meta = props.variantProducts?.[combo.alias];
+  const own = showIncVat.value
+    ? meta?.priceIncVatFormatted
+    : meta?.priceExVatFormatted;
+  const parent = showIncVat.value
+    ? props.priceIncVatFormatted
+    : props.priceExVatFormatted;
+  return own || parent || null;
 }
 
 // Whether a (dimension, value) pair maps to a real variant given the other
@@ -379,6 +498,110 @@ const activeDimension = computed(
     groupedDimensions.value.find(
       (d) => d.dimensionName === openDimension.value,
     ) ?? null,
+);
+
+interface GroupHeading {
+  key: string;
+  params?: Record<string, string>;
+}
+
+/**
+ * "Passar med Effekt: 0,66 kW" names the one other dimension and its value; a
+ * nameless one leaves the value. Several others are listed, "Passar med Poler:
+ * 3P och Kapsling: IP65", unless one has no name. While any other dimension
+ * has no value, the heading stays neutral.
+ */
+function matchingHeading(dimensionName: string): GroupHeading {
+  const neutral = { key: 'product.variant_group_matching' };
+  const others = visibleDimensions.value.filter(
+    (d) => d.dimensionName !== dimensionName,
+  );
+  if (others.length > 1) {
+    const choices = others.map(({ dimensionName: dim }) => {
+      const current = props.modelValue[dim];
+      return current && isNamedDimension(dim)
+        ? `${dim}: ${labelFor(dim, current)}`
+        : null;
+    });
+    if (choices.includes(null)) return neutral;
+    const value = new Intl.ListFormat(locale.value, {
+      type: 'conjunction',
+    }).format(choices as string[]);
+    return { key: 'product.variant_group_matching_with', params: { value } };
+  }
+  if (others.length !== 1) return neutral;
+  const other = others[0]!.dimensionName;
+  const current = props.modelValue[other];
+  if (!current) return neutral;
+  const value = labelFor(other, current);
+  return isNamedDimension(other)
+    ? {
+        key: 'product.variant_group_matching_named',
+        params: { dimension: other, value },
+      }
+    : { key: 'product.variant_group_matching_with', params: { value } };
+}
+
+/** "Fler alternativ (med annan Poler och Kapslingsklass)". */
+function changeHeading(dimensions: string[]): GroupHeading {
+  if (!dimensions.every(isNamedDimension)) {
+    return { key: 'product.variant_group_more' };
+  }
+  return {
+    key: 'product.variant_group_other_named',
+    params: {
+      dimension: new Intl.ListFormat(locale.value, {
+        type: 'conjunction',
+      }).format(dimensions),
+    },
+  };
+}
+
+// The values that keep the other choices, then one group per set of other
+// dimensions a variant changes. Headings only where another dimension exists.
+const valueGroups = computed(() => {
+  const dim = activeDimension.value;
+  if (!dim) return { matching: null, changes: [] };
+  const withHeadings =
+    !!props.combinations?.length && visibleDimensions.value.length > 1;
+  const query = searchQuery.value.trim().toLowerCase();
+  const values = filteredValues(dim.dimensionName, dim.values).filter((v) =>
+    isDirectValue(dim.dimensionName, v),
+  );
+  const changes = withHeadings
+    ? changeGroups(props.combinations!, props.modelValue, dim.dimensionName)
+        .map((group) => ({
+          key: group.dimensions.join('-'),
+          dimensions: group.dimensions,
+          heading: changeHeading(group.dimensions),
+          combinations: group.combinations,
+          values: Array.from(
+            new Set(
+              group.combinations.map((c) => c.selection[dim.dimensionName]!),
+            ),
+          ).filter(
+            (value) =>
+              !query ||
+              labelFor(dim.dimensionName, value).toLowerCase().includes(query),
+          ),
+        }))
+        .filter((group) => group.values.length)
+    : [];
+  return {
+    matching: values.length
+      ? {
+          heading: withHeadings ? matchingHeading(dim.dimensionName) : null,
+          values,
+        }
+      : null,
+    changes,
+  };
+});
+
+const pickValueLabel = computed(() =>
+  pendingPick.value
+    ? labelFor(pendingPick.value.dimension, pendingPick.value.value)
+    : '',
 );
 
 const sheetHeading = computed(() => {
@@ -527,48 +750,172 @@ const { showPrice } = usePriceVisibility();
           class="flex-1 overflow-y-auto px-6 py-4"
           data-testid="variant-sheet-options"
         >
-          <ul class="flex flex-col gap-2">
-            <li
-              v-for="value in filteredValues(
-                activeDimension.dimensionName,
-                activeDimension.values,
-              )"
-              :key="value"
+          <section
+            v-if="valueGroups.matching"
+            class="mb-4 last:mb-0"
+            data-testid="variant-group-matching"
+          >
+            <h3
+              v-if="valueGroups.matching.heading"
+              class="text-muted-foreground mb-2 text-sm font-medium"
             >
-              <VariantSheetRow
-                data-testid="variant-option"
-                :data-value="value"
-                :image-file-name="
-                  rowImage(activeDimension.dimensionName, value)?.fileName ??
-                  null
-                "
-                :image-url="rowImage(activeDimension.dimensionName, value)?.url"
-                :image-missing="
-                  rowImage(activeDimension.dimensionName, value) === null
-                "
-                :image-alt="thumbnailAlt(activeDimension.dimensionName, value)"
-                :title="rowProductName(activeDimension.dimensionName, value)"
-                :subtitle="labelFor(activeDimension.dimensionName, value)"
-                :article-number="
-                  variantInfoFor(activeDimension.dimensionName, value)
-                    ?.articleNumber
-                "
-                :show-stock="showStock"
-                :in-stock="isValueInStock(activeDimension.dimensionName, value)"
-                :price="
-                  showPrice
-                    ? rowPriceFormatted(activeDimension.dimensionName, value)
-                    : null
-                "
-                :selected="modelValue[activeDimension.dimensionName] === value"
-                :disabled="
-                  !isValueSelectable(activeDimension.dimensionName, value)
-                "
-                @click="selectValue(activeDimension.dimensionName, value)"
-              />
-            </li>
-          </ul>
+              {{
+                $t(
+                  valueGroups.matching.heading.key,
+                  valueGroups.matching.heading.params ?? {},
+                )
+              }}
+            </h3>
+            <ul class="flex flex-col gap-2">
+              <li v-for="value in valueGroups.matching.values" :key="value">
+                <VariantSheetRow
+                  data-testid="variant-option"
+                  :data-value="value"
+                  :image-file-name="
+                    rowImage(activeDimension.dimensionName, value)?.fileName ??
+                    null
+                  "
+                  :image-url="
+                    rowImage(activeDimension.dimensionName, value)?.url
+                  "
+                  :image-missing="
+                    rowImage(activeDimension.dimensionName, value) === null
+                  "
+                  :image-alt="
+                    thumbnailAlt(activeDimension.dimensionName, value)
+                  "
+                  :title="rowProductName(activeDimension.dimensionName, value)"
+                  :subtitle="labelFor(activeDimension.dimensionName, value)"
+                  :article-number="
+                    variantInfoFor(activeDimension.dimensionName, value)
+                      ?.articleNumber
+                  "
+                  :show-stock="showStock"
+                  :in-stock="
+                    isValueInStock(activeDimension.dimensionName, value)
+                  "
+                  :price="
+                    showPrice
+                      ? rowPriceFormatted(activeDimension.dimensionName, value)
+                      : null
+                  "
+                  :selected="
+                    modelValue[activeDimension.dimensionName] === value
+                  "
+                  :disabled="
+                    !isValueSelectable(activeDimension.dimensionName, value)
+                  "
+                  @click="selectValue(activeDimension.dimensionName, value)"
+                />
+              </li>
+            </ul>
+          </section>
+          <section
+            v-for="group in valueGroups.changes"
+            :key="group.key"
+            class="mb-4 last:mb-0"
+            :data-testid="`variant-group-change-${group.key}`"
+          >
+            <h3 class="text-muted-foreground mb-2 text-sm font-medium">
+              {{ $t(group.heading.key, group.heading.params ?? {}) }}
+            </h3>
+            <ul class="flex flex-col gap-2">
+              <li v-for="value in group.values" :key="value">
+                <VariantSheetRow
+                  data-testid="variant-change-option"
+                  :data-value="value"
+                  :image-file-name="null"
+                  image-alt=""
+                  opens-sheet
+                  :title="labelFor(activeDimension.dimensionName, value)"
+                  subtitle=""
+                  :show-stock="false"
+                  :in-stock="false"
+                  :selected="false"
+                  :hint="
+                    changeHint(activeDimension.dimensionName, value, group)
+                  "
+                  @click="
+                    openPick(
+                      activeDimension.dimensionName,
+                      value,
+                      group.combinations,
+                    )
+                  "
+                />
+              </li>
+            </ul>
+          </section>
         </div>
+
+        <!-- The step lies on top of the list as a narrower sheet, so a strip
+             of the list stays in view; on a phone the strip is 1.5rem. -->
+        <Sheet :open="stepOpen" @update:open="(v) => !v && closeStep()">
+          <SheetContent
+            side="right"
+            class="flex h-screen w-[calc(100%-1.5rem)] flex-col p-0 sm:max-w-[600px]"
+            data-testid="variant-pick-sheet"
+          >
+            <SheetHeader class="border-b px-6 py-4">
+              <SheetTitle class="text-lg">{{
+                $t('product.variant_pick_heading', { value: pickValueLabel })
+              }}</SheetTitle>
+            </SheetHeader>
+            <div
+              class="flex-1 overflow-y-auto px-6 py-4"
+              data-testid="variant-pick"
+            >
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                class="mb-3 -ml-2"
+                data-testid="variant-pick-back"
+                @click="closeStep"
+              >
+                <ArrowLeft class="size-4" />
+                {{ $t('product.variant_pick_back') }}
+              </Button>
+              <ul v-if="pendingPick" class="flex flex-col gap-2">
+                <li
+                  v-for="combo in pendingPick.combinations"
+                  :key="combo.alias"
+                >
+                  <VariantSheetRow
+                    data-testid="variant-pick-option"
+                    :data-value="combo.alias"
+                    :image-file-name="comboImage(combo)?.fileName ?? null"
+                    :image-url="comboImage(combo)?.url"
+                    :image-missing="comboImage(combo) === null"
+                    :image-alt="
+                      buildProductImageAlt({
+                        name: comboName(combo),
+                        manualAlt: primaryImage?.altText,
+                      })
+                    "
+                    :title="comboName(combo)"
+                    :subtitle="
+                      changeSubtitle(
+                        combo,
+                        pendingPick.dimension,
+                        changedDimensions(combo, pendingPick.dimension),
+                      )
+                    "
+                    :article-number="
+                      variantProducts?.[combo.alias]?.articleNumber ||
+                      productArticleNumber
+                    "
+                    :show-stock="showStock"
+                    :in-stock="(combo.stock?.totalStock ?? 0) > 0"
+                    :price="showPrice ? comboPrice(combo) : null"
+                    :selected="false"
+                    @click="selectCombination(combo)"
+                  />
+                </li>
+              </ul>
+            </div>
+          </SheetContent>
+        </Sheet>
       </SheetContent>
     </Sheet>
   </div>
