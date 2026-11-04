@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Check, ImageOff } from 'lucide-vue-next';
+import { Check, ChevronRight, ImageOff } from 'lucide-vue-next';
 import { THUMBNAIL_WIDTHS } from '#shared/utils/image';
 
 /** One row of the variant sheet. A missing price leaves its column out. */
@@ -18,6 +18,10 @@ defineProps<{
   price?: string | null;
   selected: boolean;
   disabled?: boolean;
+  /** Shown in place of the stock line. */
+  hint?: string | null;
+  /** The row opens another sheet: a chevron instead of the thumbnail. */
+  opensSheet?: boolean;
 }>();
 </script>
 
@@ -30,9 +34,12 @@ defineProps<{
       selected ? 'border-foreground' : '',
       disabled ? 'pointer-events-none opacity-40' : '',
     ]"
-    :aria-pressed="selected"
+    :aria-pressed="opensSheet ? undefined : selected"
   >
-    <div class="bg-muted size-12 shrink-0 overflow-hidden rounded-md">
+    <div
+      v-if="!opensSheet"
+      class="bg-muted size-12 shrink-0 overflow-hidden rounded-md"
+    >
       <GeinsImage
         v-if="imageFileName"
         :file-name="imageFileName"
@@ -60,7 +67,7 @@ defineProps<{
       <div class="truncate text-sm font-medium">
         {{ title }}
       </div>
-      <div class="text-muted-foreground truncate text-sm">
+      <div v-if="subtitle" class="text-muted-foreground truncate text-sm">
         {{ subtitle }}
       </div>
       <div
@@ -70,7 +77,14 @@ defineProps<{
         {{ $t('product.article_number', { number: articleNumber }) }}
       </div>
       <div
-        v-if="showStock"
+        v-if="hint"
+        class="text-muted-foreground mt-1 text-xs"
+        data-testid="variant-row-hint"
+      >
+        {{ hint }}
+      </div>
+      <div
+        v-else-if="showStock"
         class="mt-1 flex items-center gap-1 text-xs"
         :class="inStock ? 'text-success' : 'text-muted-foreground'"
       >
@@ -91,5 +105,11 @@ defineProps<{
     </span>
 
     <Check v-if="selected" class="size-4 shrink-0" />
+    <ChevronRight
+      v-if="opensSheet"
+      class="text-muted-foreground size-5 shrink-0"
+      aria-hidden="true"
+      data-testid="variant-row-chevron"
+    />
   </button>
 </template>

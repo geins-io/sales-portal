@@ -1317,6 +1317,17 @@ describe('ProductDetails', () => {
       );
     });
 
+    it('navigates to exactly the variant when two choices change at once', async () => {
+      const { wrapper } = await mountPicking({ Gänga: 'm8', Längd: '40 mm' });
+
+      await wrapper.find('[data-testid="pick-variant"]').trigger('click');
+      await flushPromises();
+
+      expect(navigateToMock).toHaveBeenCalledWith(
+        '/se/sv/p/testkategori-l3/testkategori-l6/sexkantskruv-m8x40-din-933-rostfri-a2',
+      );
+    });
+
     it('asks for every sibling below the top level, not the top nodes', async () => {
       await mountPicking({});
 
