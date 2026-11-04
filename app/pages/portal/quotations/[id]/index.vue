@@ -26,10 +26,14 @@ import {
 } from '~/utils/quote-status';
 import {
   quoteAcceptKind,
+  quoteAmounts,
+  quoteDiscountLabel,
   quoteKindLabelKey,
   quoteResponses,
+  quoteRows,
   quoteStatusInfoKey,
 } from '~/utils/quote-view';
+import { summaryRows } from '~/utils/summary-rows';
 import type { Quote } from '#shared/types/quote';
 
 definePageMeta({ middleware: ['auth', 'feature'], feature: 'quotes' });
@@ -83,6 +87,10 @@ const acceptKind = computed(() =>
   quote.value ? quoteAcceptKind(quote.value) : 'plain',
 );
 
+const hasResponses = computed(
+  () => !!store.error || responses.value.withdraw || responses.value.accept,
+);
+
 type QuoteAction = 'withdraw' | 'decline' | 'accept';
 const pendingAction = ref<QuoteAction | null>(null);
 const actionOpen = computed({
@@ -117,6 +125,26 @@ async function runAction() {
 }
 
 // ------------------------------------------------------------------ view
+// The order page's parts, fed the quotation: every amount on the buyer's VAT
+// side, the prices shown whatever the tenant's price visibility.
+const { showIncVat } = useVatDisplay();
+const amounts = computed(() =>
+  quoteAmounts(quote.value, showIncVat.value, formatLocale.value),
+);
+const lineRows = computed(() => quoteRows(quote.value, showIncVat.value));
+const totals = computed(() =>
+  summaryRows(
+    amounts.value,
+    quote.value?.lineItems.length ?? 0,
+    showIncVat.value,
+    t,
+    {
+      totalIncVatLabel: t('common.total_inc_vat'),
+      discountLabel: quoteDiscountLabel(amounts.value, t),
+    },
+  ),
+);
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(formatLocale.value, {
     ...(timezone.value ? { timeZone: timezone.value } : {}),
@@ -255,17 +283,18 @@ const customerSummary = computed(() => {
       </div>
 
       <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <!-- Left: the lines, a table on desktop and cards below md -->
-        <div class="order-2 min-w-0 space-y-4 lg:order-1 lg:col-span-2">
-          <h3 class="text-base font-semibold">
-            {{ t('portal.quotations.items_heading') }}
-          </h3>
-
-          <PortalQuoteItems :items="quote.lineItems" />
+        <!-- Left: the lines (desktop only; below lg they are in the sheet) -->
+        <div class="hidden min-w-0 lg:col-span-2 lg:block">
+          <OrderItemsTable
+            :items="lineRows"
+            :rows="totals"
+            show-prices
+            :title="t('portal.quotations.items_heading')"
+          />
         </div>
 
         <!-- Right: header, summary with the responses, details, customer -->
-        <aside class="order-1 space-y-6 lg:order-2">
+        <aside class="space-y-6">
           <header data-testid="quote-header">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div class="min-w-0 flex-1">
@@ -297,59 +326,70 @@ const customerSummary = computed(() => {
             </div>
           </header>
 
-          <div
-            data-testid="quote-summary-card"
-            class="bg-muted space-y-4 rounded-lg p-6"
+          <OrderSummaryCard
+            :rows="totals"
+            show-prices
+            :title="t('portal.quotations.request.summary_title')"
           >
-            <PortalQuoteSummary :quote="quote" />
-
-            <div
-              v-if="store.error"
-              data-testid="action-error"
-              role="alert"
-              class="bg-danger/10 text-danger border-danger/20 rounded-md border px-3 py-2 text-sm"
-            >
-              {{ t(store.error) }}
-            </div>
-
-            <Button
-              v-if="responses.withdraw"
-              data-testid="quote-withdraw"
-              variant="outline"
-              class="w-full shadow-none"
-              @click="pendingAction = 'withdraw'"
-            >
-              {{ t('portal.quotations.withdraw') }}
-            </Button>
-
-            <template v-if="responses.accept">
-              <div class="flex gap-2">
-                <Button
-                  data-testid="decline-btn"
-                  variant="outline"
-                  class="flex-1 shadow-none"
-                  @click="pendingAction = 'decline'"
-                >
-                  {{ t('portal.quotations.decline') }}
-                </Button>
-                <Button
-                  data-testid="accept-btn"
-                  class="h-auto flex-1 py-2 whitespace-normal"
-                  @click="pendingAction = 'accept'"
-                >
-                  {{ t(`portal.quotations.accept_${acceptKind}`) }}
-                </Button>
-              </div>
-              <!-- No note without confirmation: nothing follows the accept until ordering exists. -->
-              <p
-                v-if="acceptKind !== 'plain'"
-                data-testid="quote-accept-note"
-                class="text-muted-foreground text-xs"
+            <!-- Only with something to show, or the card keeps an empty gap. -->
+            <template v-if="hasResponses" #default>
+              <div
+                v-if="store.error"
+                data-testid="action-error"
+                role="alert"
+                class="bg-danger/10 text-danger border-danger/20 rounded-md border px-3 py-2 text-sm"
               >
-                {{ t(`portal.quotations.note_${acceptKind}`) }}
-              </p>
+                {{ t(store.error) }}
+              </div>
+
+              <Button
+                v-if="responses.withdraw"
+                data-testid="quote-withdraw"
+                variant="outline"
+                class="w-full shadow-none"
+                @click="pendingAction = 'withdraw'"
+              >
+                {{ t('portal.quotations.withdraw') }}
+              </Button>
+
+              <template v-if="responses.accept">
+                <div class="flex gap-2">
+                  <Button
+                    data-testid="decline-btn"
+                    variant="outline"
+                    class="flex-1 shadow-none"
+                    @click="pendingAction = 'decline'"
+                  >
+                    {{ t('portal.quotations.decline') }}
+                  </Button>
+                  <Button
+                    data-testid="accept-btn"
+                    class="h-auto flex-1 py-2 whitespace-normal"
+                    @click="pendingAction = 'accept'"
+                  >
+                    {{ t(`portal.quotations.accept_${acceptKind}`) }}
+                  </Button>
+                </div>
+                <!-- No note without confirmation: nothing follows the accept until ordering exists. -->
+                <p
+                  v-if="acceptKind !== 'plain'"
+                  data-testid="quote-accept-note"
+                  class="text-muted-foreground text-xs"
+                >
+                  {{ t(`portal.quotations.note_${acceptKind}`) }}
+                </p>
+              </template>
             </template>
-          </div>
+          </OrderSummaryCard>
+
+          <PortalItemRowsSheet
+            class="lg:hidden"
+            :items="lineRows"
+            :totals="totals"
+            :trigger-label="t('portal.quotations.view_items')"
+            :title="t('portal.quotations.items_heading')"
+            show-prices
+          />
 
           <div
             v-if="metaRows.length"

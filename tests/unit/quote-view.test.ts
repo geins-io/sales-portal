@@ -7,7 +7,7 @@ import {
   quoteKindLabelKey,
   quoteResponses,
   quoteStatusInfoKey,
-  quoteSummaryRows,
+  quoteRows,
 } from '../../app/utils/quote-view';
 import type { QuoteStatus } from '../../shared/types/quote';
 import { makeQuote } from '../fixtures/quote';
@@ -157,92 +157,76 @@ describe('quoteDiscountLabel', () => {
   });
 });
 
-describe('quoteSummaryRows', () => {
-  const t = (key: string, named?: Record<string, unknown>) =>
-    named ? `${key}:${JSON.stringify(named)}` : key;
-
-  it('lists every row under the lead amount, the discount right after the count', () => {
-    const rows = quoteSummaryRows(
-      {
-        subtotal: 's',
-        discount: 'd',
-        discountPercent: '5 %',
-        shipping: 'sh',
-        tax: 'v',
-        total: 'tot',
-        totalIncVat: 'inc',
-      },
-      3,
-      false,
-      t,
-    );
-
-    expect(rows).toEqual([
-      { key: 'count', label: 'portal.quotations.items_count', value: '3' },
-      {
-        key: 'discount',
-        label: 'portal.quotations.discount_percent:{"percent":"5 %"}',
-        value: '-d',
-      },
-      { key: 'shipping', label: 'portal.quotations.shipping', value: 'sh' },
-      { key: 'tax', label: 'common.vat', value: 'v' },
-      {
-        key: 'total',
-        label: 'portal.quotations.grand_total',
-        value: 'tot',
-        emphasis: true,
-      },
-      { key: 'total-inc-vat', label: 'common.total_inc_vat', value: 'inc' },
-    ]);
-  });
-
-  it('says where the shipping comes from when there is no shipping amount yet', () => {
-    const rows = quoteSummaryRows(
-      { subtotal: 's', tax: 'v', total: 't' },
-      1,
-      true,
-      t,
-      'Anges i offerten',
-    );
-
-    expect(rows.map((row) => row.key)).toEqual([
-      'count',
-      'shipping',
-      'tax',
-      'total',
-    ]);
-    expect(rows[1]).toEqual({
-      key: 'shipping',
-      label: 'portal.quotations.shipping',
-      value: 'Anges i offerten',
+describe('quoteRows', () => {
+  const quote = () =>
+    makeQuote({
+      lineItems: [
+        makeQuote().lineItems[0]!,
+        {
+          ...makeQuote().lineItems[0]!,
+          productId: 2,
+          name: 'Gadget',
+          articleNumber: 'ART-002',
+          alias: 'gadget',
+          imageFileName: undefined,
+          imageUrl: 'https://cdn.example.test/g.jpg',
+          quantity: 1,
+          unitPriceFormatted: '50,00 kr',
+          totalPriceFormatted: '50,00 kr',
+          unitPriceExVatFormatted: '40,00 kr',
+          totalPriceExVatFormatted: '40,00 kr',
+        },
+      ],
     });
-  });
 
-  it('shows the shipping amount over the note once there is one', () => {
-    const rows = quoteSummaryRows(
-      { subtotal: 's', shipping: 'sh', tax: 'v', total: 't' },
-      1,
-      true,
-      t,
-      'Anges i offerten',
-    );
-
-    expect(rows.find((row) => row.key === 'shipping')?.value).toBe('sh');
-  });
-
-  it('leaves out what the amounts lack, and labels VAT as included on the inc side', () => {
-    const rows = quoteSummaryRows(
-      { subtotal: 's', tax: 'v', total: 't' },
-      1,
-      true,
-      t,
-    );
-
-    expect(rows.map((row) => row.label)).toEqual([
-      'portal.quotations.items_count',
-      'common.vat_included',
-      'portal.quotations.grand_total',
+  it('gives each line as a row, keyed by position, on the inc side', () => {
+    expect(quoteRows(quote(), true)).toEqual([
+      {
+        key: 'row-0',
+        name: 'Widget Pro',
+        articleNumber: 'ART-001',
+        quantity: 2,
+        unitPriceFormatted: '100,00 kr',
+        totalPriceFormatted: '200,00 kr',
+        imageFileName: '/img/widget.jpg',
+        imageUrl: null,
+        alias: null,
+      },
+      {
+        key: 'row-1',
+        name: 'Gadget',
+        articleNumber: 'ART-002',
+        quantity: 1,
+        unitPriceFormatted: '50,00 kr',
+        totalPriceFormatted: '50,00 kr',
+        imageFileName: null,
+        imageUrl: 'https://cdn.example.test/g.jpg',
+        alias: 'gadget',
+      },
     ]);
+  });
+
+  it('prices every row on the ex side when the buyer shows ex VAT', () => {
+    expect(
+      quoteRows(quote(), false).map((row) => [
+        row.unitPriceFormatted,
+        row.totalPriceFormatted,
+      ]),
+    ).toEqual([
+      ['80,00 kr', '160,00 kr'],
+      ['40,00 kr', '40,00 kr'],
+    ]);
+  });
+
+  it('keys two lines of one SKU apart', () => {
+    const one = makeQuote().lineItems[0]!;
+    const rows = quoteRows(makeQuote({ lineItems: [one, one] }), true);
+
+    expect(rows.map((row) => row.key)).toEqual(['row-0', 'row-1']);
+  });
+
+  it('has no rows without a quotation', () => {
+    expect(quoteRows(null, true)).toEqual([]);
   });
 });
 

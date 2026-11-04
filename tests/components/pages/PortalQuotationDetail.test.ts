@@ -34,6 +34,13 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: tSpy, locale: ref('en') }),
 }));
 
+// The tenant hides prices for the whole file: a quotation shows its prices
+// whatever the tenant's price visibility, so every amount below must still show.
+vi.mock('../../../app/composables/usePriceVisibility', async () => {
+  const { ref } = await import('vue');
+  return { usePriceVisibility: () => ({ showPrice: ref(false) }) };
+});
+
 const { mockCanAccess } = vi.hoisted(() => ({
   mockCanAccess: vi.fn((_name: string) => true),
 }));
@@ -382,66 +389,85 @@ describe('PortalQuotationDetail', () => {
         ],
       });
 
+    const sheetOf = (wrapper: Wrapper) =>
+      wrapper.findComponent({ name: 'PortalItemRowsSheet' });
+
     it('renders every line in the desktop table', async () => {
       const wrapper = await mountWith(twoLines());
 
-      const table = wrapper.find('[data-testid="line-items-table"]');
-      const rows = table.findAll('[data-testid="line-item-row"]');
+      const table = wrapper.find('[data-testid="order-items-table"]');
+      const rows = table.findAll('[data-testid="order-item-row"]');
       expect(rows.map((row) => row.text())).toEqual([
         expect.stringContaining('Widget Pro'),
         expect.stringContaining('Gadget Plus'),
       ]);
       expect(rows[0]!.text()).toContain('ART-001');
-      expect(rows[0]!.find('[data-testid="line-item-quantity"]').text()).toBe(
+      expect(rows[0]!.find('[data-testid="order-item-quantity"]').text()).toBe(
         '2',
       );
     });
 
-    it('renders every line as a card for small screens, with the same numbers', async () => {
+    it('heads the table "items", as the quotation names its lines', async () => {
+      const wrapper = await mountWith(makeQuote());
+
+      const table = wrapper.find('[data-testid="order-items-table"]').element;
+      expect(
+        table.closest('div.hidden')?.querySelector('h3')?.textContent,
+      ).toBe('portal.quotations.items_heading');
+    });
+
+    it('hands the same lines to the sheet for small screens, with the same numbers', async () => {
       const wrapper = await mountWith(twoLines());
 
-      const cards = wrapper.findAll('[data-testid="line-item-card"]');
+      const sheet = sheetOf(wrapper);
       expect(
-        cards.map((card) => [
-          card.find('[data-testid="line-item-card-quantity"]').text(),
-          card.find('[data-testid="line-item-card-unit-price"]').text(),
-          card.find('[data-testid="line-item-card-total-price"]').text(),
+        (
+          sheet.props('items') as {
+            quantity: number;
+            unitPriceFormatted: string;
+            totalPriceFormatted: string;
+          }[]
+        ).map((row) => [
+          row.quantity,
+          row.unitPriceFormatted,
+          row.totalPriceFormatted,
         ]),
       ).toEqual([
-        ['2', '100,00 kr', '200,00 kr'],
-        ['1', '50,00 kr', '50,00 kr'],
+        [2, '100,00 kr', '200,00 kr'],
+        [1, '50,00 kr', '50,00 kr'],
       ]);
-      expect(cards[1]!.text()).toContain('ART-002');
+      expect(sheet.props('triggerLabel')).toBe('portal.quotations.view_items');
+      expect(sheet.props('title')).toBe('portal.quotations.items_heading');
+      expect(sheet.props('showPrices')).toBe(true);
     });
 
-    it('splits the two at md, as the prototype does', async () => {
+    it('splits the table and the sheet at lg, as the order page does', async () => {
+      const wrapper = await mountWith(makeQuote());
+
+      const table = wrapper.find('[data-testid="order-items-table"]').element;
+      expect([...(table.closest('div.hidden')?.classList ?? [])]).toEqual(
+        expect.arrayContaining(['hidden', 'lg:block']),
+      );
+      expect(sheetOf(wrapper).classes()).toContain('lg:hidden');
+    });
+
+    it('opens the sheet from right under the summary card', async () => {
       const wrapper = await mountWith(makeQuote());
 
       expect(
-        wrapper.find('[data-testid="line-items-desktop"]').classes(),
-      ).toEqual(expect.arrayContaining(['hidden', 'md:block']));
-      expect(
-        wrapper.find('[data-testid="line-item-cards"]').classes(),
-      ).toContain('md:hidden');
-    });
-
-    it('no longer opens the lines in a sheet', async () => {
-      const wrapper = await mountWith(makeQuote());
-
-      expect(
-        wrapper.findComponent({ name: 'PortalItemRowsSheet' }).exists(),
-      ).toBe(false);
+        wrapper.find('[data-testid="order-summary"]').element
+          .nextElementSibling,
+      ).toBe(sheetOf(wrapper).element);
     });
 
     it('links a line with an alias to its product and leaves the others plain', async () => {
       const wrapper = await mountWith(twoLines());
 
-      const links = wrapper.findAll('[data-testid="line-item-name-link"]');
-      expect(links.every((link) => link.text() === 'Gadget Plus')).toBe(true);
-      expect(links.length).toBeGreaterThan(0);
-      expect(wrapper.findAll('[data-testid="line-item-name"]')[0]!.text()).toBe(
-        'Widget Pro',
-      );
+      const links = wrapper.findAll('[data-testid="order-item-name-link"]');
+      expect(links.map((link) => link.text())).toEqual(['Gadget Plus']);
+      expect(
+        wrapper.findAll('[data-testid="order-item-name"]')[0]!.text(),
+      ).toBe('Widget Pro');
     });
 
     it('shows the thumbnail through GeinsImage, never a raw img', async () => {
@@ -463,12 +489,16 @@ describe('PortalQuotationDetail', () => {
       async (incVat, [unit, line]) => {
         mockShowIncVat.value = incVat;
         const wrapper = await mountWith(makeQuote());
+        const [row] = sheetOf(wrapper).props('items') as {
+          unitPriceFormatted: string;
+          totalPriceFormatted: string;
+        }[];
 
         expect([
-          wrapper.find('[data-testid="line-item-unit-price"]').text(),
-          wrapper.find('[data-testid="line-item-total-price"]').text(),
-          wrapper.find('[data-testid="line-item-card-unit-price"]').text(),
-          wrapper.find('[data-testid="line-item-card-total-price"]').text(),
+          wrapper.find('[data-testid="order-item-unit-price"]').text(),
+          wrapper.find('[data-testid="order-item-total-price"]').text(),
+          row!.unitPriceFormatted,
+          row!.totalPriceFormatted,
         ]).toEqual([unit, line, unit, line]);
       },
     );
@@ -520,7 +550,7 @@ describe('PortalQuotationDetail', () => {
       const wrapper = await mountWith(makeQuote());
 
       const header = wrapper.find('[data-testid="quote-header"]').element;
-      const card = wrapper.find('[data-testid="quote-summary-card"]').element;
+      const card = wrapper.find('[data-testid="order-summary"]').element;
       expect(card.contains(header)).toBe(false);
       expect(
         header.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -554,53 +584,66 @@ describe('PortalQuotationDetail', () => {
         ...overrides,
       });
 
+    /** The card's rows as [label, value], top to bottom. */
     function read(wrapper: Wrapper) {
-      const card = wrapper.find('[data-testid="quote-summary-card"]');
+      const card = wrapper.find('[data-testid="order-summary"]');
+      const list = card.find('div.space-y-3\\.5').element;
       return {
-        lead: [
-          card.find('[data-testid="quote-summary-lead-label"]').text(),
-          card.find('[data-testid="quote-summary-subtotal"]').text(),
-        ],
-        rows: card
-          .findAll('[data-summary-row]')
-          .map((row) => [
-            row.attributes('data-summary-row'),
-            row.find('dt').text(),
-            row.find('dd').text(),
-          ]),
+        title: card.find('h3').text(),
+        rows: [...list.children].map((row) =>
+          [...row.children].map((cell) => cell.textContent?.trim()),
+        ),
       };
     }
 
-    it('leads with the subtotal inc VAT, then the rows, when inc is chosen', async () => {
+    it('lists the rows like the order summary, total in bold at the bottom, when inc is chosen', async () => {
       mockShowIncVat.value = true;
-      expect(read(await mountWith(shipped()))).toEqual({
-        lead: ['portal.quotations.sum_inc_vat', '200,00 kr'],
+      tSpy.mockClear();
+      const wrapper = await mountWith(shipped());
+
+      expect(read(wrapper)).toEqual({
+        title: 'portal.quotations.request.summary_title',
         rows: [
-          ['count', 'portal.quotations.items_count', '1'],
-          ['shipping', 'portal.quotations.shipping', '100,00 kr'],
-          ['tax', 'common.vat_included', '50,00 kr'],
-          ['total', 'portal.quotations.grand_total', '250,00 kr'],
+          ['portal.orders.detail.summary.subtotal_with_count', '200,00 kr'],
+          ['portal.orders.detail.summary.shipping', '100,00 kr'],
+          ['common.vat_included', '50,00 kr'],
+          ['portal.orders.detail.summary.total', '250,00 kr'],
         ],
       });
+      expect(tSpy).toHaveBeenCalledWith(
+        'portal.orders.detail.summary.subtotal_with_count',
+        { count: 1 },
+      );
+      expect(
+        wrapper
+          .find('[data-testid="order-summary-total"]')
+          .element.parentElement?.classList.contains('font-semibold'),
+      ).toBe(true);
     });
 
-    it('leads with the subtotal ex VAT and ends on the inc total, when ex is chosen', async () => {
+    it('ends on the inc total under the ex total, when ex is chosen', async () => {
       mockShowIncVat.value = false;
-      expect(read(await mountWith(shipped()))).toEqual({
-        lead: ['portal.quotations.sum_ex_vat', '160,00 kr'],
-        rows: [
-          ['count', 'portal.quotations.items_count', '1'],
-          ['shipping', 'portal.quotations.shipping', '80,00 kr'],
-          ['tax', 'common.vat', '50,00 kr'],
-          ['total', 'portal.quotations.grand_total', '200,00 kr'],
-          ['total-inc-vat', 'common.total_inc_vat', '250,00 kr'],
-        ],
-      });
+      expect(read(await mountWith(shipped())).rows).toEqual([
+        ['portal.orders.detail.summary.subtotal_with_count', '160,00 kr'],
+        ['portal.orders.detail.summary.shipping', '80,00 kr'],
+        ['common.vat', '50,00 kr'],
+        ['portal.orders.detail.summary.total', '200,00 kr'],
+        ['common.total_inc_vat', '250,00 kr'],
+      ]);
+    });
+
+    it('has no large lead sum above the rows', async () => {
+      const wrapper = await mountWith(shipped());
+
+      expect(wrapper.find('.text-3xl').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="quote-summary"]').exists()).toBe(
+        false,
+      );
     });
 
     it.each([
-      [true, 'SEK 62.50'],
-      [false, 'SEK 50.00'],
+      [true, 'SEK\u00a062.50'],
+      [false, 'SEK\u00a050.00'],
     ])(
       "shows the seller's percent discount with its rate (incl. VAT: %s)",
       async (incVat, amount) => {
@@ -611,7 +654,6 @@ describe('PortalQuotationDetail', () => {
         );
 
         expect(read(wrapper).rows[1]).toEqual([
-          'discount',
           'portal.quotations.discount_percent',
           `-${amount}`,
         ]);
@@ -624,20 +666,54 @@ describe('PortalQuotationDetail', () => {
       },
     );
 
-    it('keeps the shipping-row testid on the shipping row, and drops the row without a fee', async () => {
+    it('repeats the same rows under the table, discount included', async () => {
+      mockShowIncVat.value = false;
+      const wrapper = await mountWith(
+        shipped({ discount: 62.5, discountExVat: 50, discountPercent: 5 }),
+      );
+
+      expect(
+        wrapper
+          .find('[data-testid="order-items-footer-discount"]')
+          .element.previousElementSibling?.textContent?.trim(),
+      ).toBe('portal.quotations.discount_percent');
+      expect(
+        [
+          'order-items-footer-discount',
+          'order-items-footer-shipping',
+          'order-items-footer-total',
+          'order-items-footer-total-inc-vat',
+        ].map((id) => wrapper.find(`[data-testid="${id}"]`).text()),
+      ).toEqual(['-SEK\u00a050.00', '80,00 kr', '200,00 kr', '250,00 kr']);
+    });
+
+    it('gives the sheet the same rows', async () => {
+      mockShowIncVat.value = true;
+      const wrapper = await mountWith(shipped());
+
+      expect(
+        (
+          wrapper
+            .findComponent({ name: 'PortalItemRowsSheet' })
+            .props('totals') as { label: string; value: string }[]
+        ).map((row) => [row.label, row.value]),
+      ).toEqual(read(wrapper).rows);
+    });
+
+    it('drops the shipping row without a fee', async () => {
       expect(
         (await mountWith(shipped()))
-          .find('[data-testid="shipping-row"]')
+          .find('[data-testid="order-summary-shipping"]')
           .exists(),
       ).toBe(true);
       expect(
         (await mountWith(makeQuote()))
-          .find('[data-testid="shipping-row"]')
+          .find('[data-testid="order-summary-shipping"]')
           .exists(),
       ).toBe(false);
     });
 
-    it('keeps the value testids the e2e reads', async () => {
+    it('carries the value testids the e2e reads', async () => {
       mockShowIncVat.value = false;
       const wrapper = await mountWith(
         shipped({ discount: 62.5, discountExVat: 50 }),
@@ -645,16 +721,16 @@ describe('PortalQuotationDetail', () => {
 
       expect(
         [
-          'quote-summary-subtotal',
-          'quote-summary-discount',
-          'quote-summary-shipping',
-          'quote-summary-tax',
-          'quote-summary-total',
-          'quote-summary-total-inc-vat',
+          'order-summary-subtotal',
+          'order-summary-discount',
+          'order-summary-shipping',
+          'order-summary-tax',
+          'order-summary-total',
+          'order-summary-total-inc-vat',
         ].map((id) => wrapper.find(`[data-testid="${id}"]`).text()),
       ).toEqual([
         '160,00 kr',
-        '-SEK 50.00',
+        'discount.discount-SEK\u00a050.00',
         '80,00 kr',
         '50,00 kr',
         '200,00 kr',
@@ -664,6 +740,48 @@ describe('PortalQuotationDetail', () => {
   });
 
   describe('responses', () => {
+    it('sit inside the summary card, under the rows', async () => {
+      const wrapper = await mountWith(pending({ requiresConfirmation: true }));
+      const card = wrapper.find('[data-testid="order-summary"]');
+
+      for (const id of ['decline-btn', 'accept-btn', 'quote-accept-note']) {
+        expect(card.find(`[data-testid="${id}"]`).exists(), id).toBe(true);
+      }
+      expect(
+        card
+          .find('[data-testid="order-summary-total"]')
+          .element.compareDocumentPosition(
+            card.find('[data-testid="accept-btn"]').element,
+          ) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it('leaves no empty gap in the card when there is nothing to answer', async () => {
+      // The card wraps its default slot in a spaced block; without responses
+      // or an error the page passes no slot, so the block is not there.
+      const actions = (wrapper: Wrapper) =>
+        wrapper.find('[data-testid="order-summary"] > div.mt-4.space-y-4');
+
+      expect(actions(await mountWith(pending())).exists()).toBe(true);
+      for (const status of ['accepted', 'confirmed', 'finalized'] as const) {
+        expect(
+          actions(await mountWith(makeQuote({ status }))).exists(),
+          status,
+        ).toBe(false);
+      }
+    });
+
+    it('puts the withdraw button inside the summary card', async () => {
+      const wrapper = await mountWith(makeQuote({ status: 'requested' }));
+
+      expect(
+        wrapper
+          .find('[data-testid="order-summary"]')
+          .find('[data-testid="quote-withdraw"]')
+          .exists(),
+      ).toBe(true);
+    });
+
     it('offers only "withdraw" on a sent request', async () => {
       const wrapper = await mountWith(makeQuote({ status: 'requested' }));
 
@@ -895,6 +1013,11 @@ describe('PortalQuotationDetail', () => {
         expect(wrapper.find('[data-testid="accept-btn"]').exists()).toBe(true);
         const banner = wrapper.find('[data-testid="action-error"]');
         expect(banner.text()).toBe(key);
+        expect(
+          wrapper
+            .find('[data-testid="order-summary"]')
+            .element.contains(banner.element),
+        ).toBe(true);
         expect(banner.attributes('role')).toBe('alert');
       },
     );
