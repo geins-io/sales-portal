@@ -127,6 +127,43 @@ async function canonicalPath(page: Page, alias: string): Promise<string> {
   return (body.product ?? body).canonicalUrl as string;
 }
 
+/** Whether `value` on `dimension` forms a variant with `own`'s other values. */
+function isDirect(
+  product: VariantProduct,
+  own: Variant,
+  dimension: string,
+  value: string,
+): boolean {
+  return product.variants.some(
+    (v) =>
+      v.selection[dimension] === value &&
+      Object.keys(own.selection).every(
+        (d) => d === dimension || v.selection[d] === own.selection[d],
+      ),
+  );
+}
+
+/**
+ * A variant with another value on `dimension` that the sheet can reach: one
+ * that keeps every other value (a direct row), else one whose value is not
+ * reachable directly (a row that opens the step).
+ */
+function targetOn(product: VariantProduct, own: Variant, dimension: string) {
+  const others = product.variants.filter(
+    (v) => v.selection[dimension] !== own.selection[dimension],
+  );
+  return (
+    others.find((v) =>
+      Object.keys(own.selection).every(
+        (d) => d === dimension || v.selection[d] === own.selection[d],
+      ),
+    ) ??
+    others.find(
+      (v) => !isDirect(product, own, dimension, v.selection[dimension]!),
+    )!
+  );
+}
+
 async function openProduct(page: Page, alias: string) {
   await page.goto(`/p/${alias}`);
   await page.waitForLoadState('load');
@@ -134,14 +171,40 @@ async function openProduct(page: Page, alias: string) {
 }
 
 /**
- * Pick `value` on `dimension` and return every URL the frame went through on
- * the way, so a detour over a rebuilt path shows up as an extra entry.
+ * Pick `target` through the `dimension` sheet, directly or through the step a
+ * value that changes another choice opens, and return every URL the frame went
+ * through on the way, so a detour over a rebuilt path shows up as an extra
+ * entry.
  */
-async function pick(page: Page, dimension: string, value: string) {
+async function pick(
+  page: Page,
+  product: VariantProduct,
+  own: Variant,
+  dimension: string,
+  target: Variant,
+) {
+  const value = target.selection[dimension]!;
   await page.locator(`[data-testid="variant-trigger-${dimension}"]`).click();
-  const option = page.locator(
+  let option = page.locator(
     `[data-testid="variant-option"][data-value="${value}"]`,
   );
+  if (!isDirect(product, own, dimension, value)) {
+    // The value can sit in several change groups; the target is in one.
+    const rows = page.locator(
+      `[data-testid="variant-change-option"][data-value="${value}"]`,
+    );
+    await expect(rows.first()).toBeVisible();
+    option = page.locator(
+      `[data-testid="variant-pick-option"][data-value="${target.alias}"]`,
+    );
+    for (let i = 0; i < (await rows.count()); i++) {
+      await rows.nth(i).click();
+      await expect(page.getByTestId('variant-pick-sheet')).toBeVisible();
+      if (await option.isVisible()) break;
+      await page.getByTestId('variant-pick-back').click();
+      await expect(page.getByTestId('variant-pick-sheet')).toBeHidden();
+    }
+  }
   await expect(option).toBeVisible();
   const visited: string[] = [];
   const onNav = (frame: { url(): string; parentFrame(): unknown }) => {
@@ -174,7 +237,7 @@ test.describe('Variant selector', () => {
       page.locator(`[data-testid="variant-trigger-${dimension}"]`),
     ).toHaveText(own.labels[dimension]!);
 
-    const nav = await pick(page, dimension, target.selection[dimension]!);
+    const nav = await pick(page, product, own, dimension, target);
     await expect(page).toHaveURL((url) => url.pathname === expected);
     await waitForHydration(page);
     nav.stop();
@@ -205,23 +268,29 @@ test.describe('Variant selector', () => {
     }
 
     // Every dimension offers every value in the group, not only the ones
-    // under the current product's own top node.
+    // under the current product's own top node: directly, or in a group of
+    // values that change another choice.
     const last = dimensions[dimensions.length - 1]!;
     const lastValues = new Set(product.variants.map((v) => v.selection[last]));
     await page.locator(`[data-testid="variant-trigger-${last}"]`).click();
-    await expect(page.locator('[data-testid="variant-option"]')).toHaveCount(
-      lastValues.size,
-    );
+    const sheet = page.getByTestId('variant-sheet');
+    await expect(
+      sheet.locator('[data-testid="variant-option"]').first(),
+    ).toBeVisible();
+    const offered = await sheet
+      .locator(
+        '[data-testid="variant-option"], [data-testid="variant-change-option"]',
+      )
+      .evaluateAll((rows) => rows.map((r) => r.getAttribute('data-value')));
+    expect(new Set(offered)).toEqual(lastValues);
     await page.keyboard.press('Escape');
 
     for (const dimension of [dimensions[0]!, last]) {
-      const target = product.variants.find(
-        (v) => v.selection[dimension] !== own.selection[dimension],
-      )!;
+      const target = targetOn(product, own, dimension);
       const expected = await canonicalPath(page, target.alias);
 
       await openProduct(page, product.alias);
-      const nav = await pick(page, dimension, target.selection[dimension]!);
+      const nav = await pick(page, product, own, dimension, target);
       await expect(page).toHaveURL((url) => url.pathname === expected);
       await waitForHydration(page);
       nav.stop();
@@ -236,6 +305,56 @@ test.describe('Variant selector', () => {
         ).toHaveText(target.labels[d]!);
       }
     }
+  });
+
+  test('a value that changes another choice opens a step on top; closing it keeps the page', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await waitForHydration(page);
+    const product = await productOf(page, 'several');
+    const own = product.variants.find((v) => v.alias === product.alias)!;
+    const choice = Object.keys(own.selection)
+      .flatMap((dimension) =>
+        product.variants
+          .filter(
+            (v) => !isDirect(product, own, dimension, v.selection[dimension]!),
+          )
+          .map((v) => ({ dimension, value: v.selection[dimension]! })),
+      )
+      .at(0);
+    outOfScope(
+      !choice,
+      'fixture-missing',
+      'every value of the sampled product is reachable without changing another choice',
+    );
+    const { dimension, value } = choice!;
+
+    await openProduct(page, product.alias);
+    const start = new URL(page.url()).pathname;
+    await page.locator(`[data-testid="variant-trigger-${dimension}"]`).click();
+    const list = page.getByTestId('variant-sheet');
+    const step = page.getByTestId('variant-pick-sheet');
+    const row = list
+      .locator(`[data-testid="variant-change-option"][data-value="${value}"]`)
+      .first();
+    await expect(row.locator('img')).toHaveCount(0);
+    await expect(row.getByTestId('variant-row-chevron')).toBeVisible();
+
+    await row.click();
+    await expect(step).toBeVisible();
+    await expect(list).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(step).toBeHidden();
+    await expect(list).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe(start);
+
+    await row.click();
+    const first = step.getByTestId('variant-pick-option').first();
+    const alias = (await first.getAttribute('data-value'))!;
+    const expected = await canonicalPath(page, alias);
+    await first.click();
+    await expect(page).toHaveURL((url) => url.pathname === expected);
   });
 
   test('every sheet row shows its own variant image', async ({ page }) => {
@@ -302,25 +421,23 @@ test.describe('Variant selector and the cart', () => {
     const product = await productOf(page, 'several');
     const own = product.variants.find((v) => v.alias === product.alias)!;
     const [dimension] = Object.keys(own.selection) as [string];
-    const target = product.variants.find(
-      (v) => v.selection[dimension] !== own.selection[dimension],
-    )!;
+    const target = targetOn(product, own, dimension);
     const expected = await canonicalPath(page, target.alias);
     const targetRes = await page.request.get(`/api/products/${target.alias}`);
     const targetBody = await targetRes.json();
     const articleNumber = (targetBody.product ?? targetBody).skus[0]
       .articleNumber as string;
-    return { product, dimension, target, expected, articleNumber };
+    return { product, own, dimension, target, expected, articleNumber };
   }
 
   test('the cart receives the picked variant, not the page it was picked on', async ({
     page,
   }) => {
-    const { product, dimension, target, expected, articleNumber } =
+    const { product, own, dimension, target, expected, articleNumber } =
       await cartTarget(page);
 
     await openProduct(page, product.alias);
-    const nav = await pick(page, dimension, target.selection[dimension]!);
+    const nav = await pick(page, product, own, dimension, target);
     await expect(page).toHaveURL((url) => url.pathname === expected);
     await waitForHydration(page);
     nav.stop();
@@ -356,7 +473,7 @@ test.describe('Variant selector and the cart', () => {
   test('add-to-cart waits while the picked variant is still loading', async ({
     page,
   }) => {
-    const { product, dimension, target, expected, articleNumber } =
+    const { product, own, dimension, target, expected, articleNumber } =
       await cartTarget(page);
 
     await openProduct(page, product.alias);
@@ -369,7 +486,7 @@ test.describe('Variant selector and the cart', () => {
       await route.continue();
     });
 
-    const nav = await pick(page, dimension, target.selection[dimension]!);
+    const nav = await pick(page, product, own, dimension, target);
     await expect(page).toHaveURL((url) => url.pathname === expected);
     nav.stop();
     await expect
