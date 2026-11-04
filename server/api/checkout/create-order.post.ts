@@ -4,7 +4,7 @@ import { checkoutAddressFields } from '#shared/utils/checkout-address';
 import { PlaceOrderSchema } from '../../schemas/api-input';
 import { getCart } from '../../services/cart';
 import { createOrder } from '../../services/checkout';
-import { requireAuth } from '../../utils/auth';
+import { sessionForFeature } from '../../utils/feature-access';
 import { createOrderRateLimiter, getClientIp } from '../../utils/rate-limiter';
 import { assertCommerceMode } from '../../utils/catalog-mode';
 import { orderRefusalCode } from '../../utils/order-refusal';
@@ -38,7 +38,7 @@ async function rejectEmptyCart(cartId: string, event: H3Event): Promise<void> {
 export default defineEventHandler(async (event) => {
   assertCommerceMode(event);
 
-  await requireAuth(event);
+  await sessionForFeature(event, 'orderPlacement');
 
   const ip = getClientIp(event);
   const { allowed } = await createOrderRateLimiter.check(ip);

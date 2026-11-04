@@ -239,7 +239,9 @@
     "continue_shopping": "Jatka ostoksia",
     "view_orders": "Näytä tilaukseni",
     "order_not_found": "Tilausta ei löytynyt.",
-    "order_slow": "Tilauksen hakeminen kestää tavallista kauemmin. Se näkyy pian asiakasportaalissa."
+    "order_slow": "Tilauksen hakeminen kestää tavallista kauemmin. Se näkyy pian asiakasportaalissa.",
+    "order_slow_guest": "Tilauksen hakeminen kestää tavallista kauemmin. Yritä hakea se uudelleen hetken kuluttua.",
+    "fetch_again": "Hae uudelleen"
   },
   "product": {
     "details": "Tuotetiedot",

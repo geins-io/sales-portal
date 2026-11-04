@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ref, type Ref } from 'vue';
+import type { AuthUser } from '@geins/types';
 import { mountComponent } from '../../utils/component';
 import { mockShowIncVat } from '../../setup-components';
 
@@ -60,9 +61,13 @@ vi.stubGlobal('$fetch', (...args: unknown[]) => mockPollFetch(...args));
 
 const { default: ConfirmationPage } =
   await import('../../../app/pages/order-confirmation/index.vue');
+// After the stubs above, like the page: a static import would be hoisted
+// above them and give the page's polling a `$fetch` that is not the mock.
+const { useAuthStore } = await import('../../../app/stores/auth');
 
 const PUBLIC_ID = '8dd16643-aaaa-bbbb-cccc-000000000000';
 const ORDER_URL = `/api/orders/${PUBLIC_ID}`;
+const SIGNED_IN: AuthUser = { userId: '1', username: 'buyer@example.com' };
 const SUMMARY_URL = '/api/checkout/summary';
 
 function makeOrder() {
@@ -197,7 +202,10 @@ beforeEach(() => {
   mockPollFetch.mockReset();
   mockQuery.value = {};
   mockShowIncVat.value = true;
+  // Signed in unless a test says otherwise: the page as it was before guests
+  // could order, so the existing cases pin that nothing changed for buyers.
   vi.useFakeTimers();
+  useAuthStore().user = SIGNED_IN;
 });
 
 afterEach(() => {
@@ -437,6 +445,10 @@ describe('Order confirmation page — while the order is awaited', () => {
     wrapper.find('[data-testid="confirmation-order-loading"]');
   const slow = (wrapper: ReturnType<typeof mount>) =>
     wrapper.find('[data-testid="confirmation-order-slow"]');
+  const slowGuest = (wrapper: ReturnType<typeof mount>) =>
+    wrapper.find('[data-testid="confirmation-order-slow-guest"]');
+  const fetchAgain = (wrapper: ReturnType<typeof mount>) =>
+    wrapper.find('[data-testid="confirmation-fetch-again"]');
 
   it('says it is fetching the order, as a status', () => {
     resultFor(ORDER_URL).error.value = notFound();
@@ -480,9 +492,90 @@ describe('Order confirmation page — while the order is awaited', () => {
     expect(slow(wrapper).attributes('role')).toBe('status');
     expect(slow(wrapper).text()).toBe('order_confirmation.order_slow');
     expect(slow(wrapper).find('a').exists()).toBe(false);
-    // The button to the order itself stays.
+    // The button to the order itself stays, and a signed-in buyer gets no
+    // fetch-again button.
     expect(wrapper.findComponent(OrderConfirmationStub).props()).toMatchObject({
       publicOrderId: PUBLIC_ID,
+    });
+    expect(fetchAgain(wrapper).exists()).toBe(false);
+    expect(slowGuest(wrapper).exists()).toBe(false);
+  });
+
+  describe('for a signed-out buyer', () => {
+    beforeEach(() => {
+      useAuthStore().user = null;
+    });
+
+    it('waits and polls exactly as a signed-in buyer, up to the same bound', async () => {
+      resultFor(ORDER_URL).error.value = notFound();
+      mockPollFetch.mockRejectedValue(notFound());
+      const wrapper = mount();
+
+      await vi.advanceTimersByTimeAsync(115000);
+      expect(loading(wrapper).exists()).toBe(true);
+      expect(slowGuest(wrapper).exists()).toBe(false);
+      const calls = mockPollFetch.mock.calls.length;
+      expect(calls).toBeGreaterThan(40);
+
+      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(30000);
+      expect(mockPollFetch.mock.calls.length).toBeLessThanOrEqual(calls + 2);
+    });
+
+    it('at the bound, gets a text without the portal and a fetch-again button', async () => {
+      resultFor(ORDER_URL).error.value = notFound();
+      mockPollFetch.mockRejectedValue(notFound());
+      const wrapper = mount();
+
+      await vi.advanceTimersByTimeAsync(125000);
+
+      expect(loading(wrapper).exists()).toBe(false);
+      expect(slow(wrapper).exists()).toBe(false);
+      expect(slowGuest(wrapper).attributes('role')).toBe('status');
+      expect(slowGuest(wrapper).text()).toBe(
+        'order_confirmation.order_slow_guest',
+      );
+      expect(fetchAgain(wrapper).text()).toBe('order_confirmation.fetch_again');
+    });
+
+    it('fetch again reads the order once more, with the cache bypassed, and shows it', async () => {
+      resultFor(ORDER_URL).error.value = notFound();
+      mockPollFetch.mockRejectedValue(notFound());
+      const wrapper = mount();
+      await vi.advanceTimersByTimeAsync(125000);
+      const polled = mockPollFetch.mock.calls.length;
+      mockPollFetch.mockResolvedValue(makeOrder());
+
+      await fetchAgain(wrapper).trigger('click');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(mockPollFetch).toHaveBeenCalledTimes(polled + 1);
+      expect(mockPollFetch.mock.calls[polled]).toEqual([
+        ORDER_URL,
+        { cache: 'no-store' },
+      ]);
+      expect(hasOrderParts(wrapper)).toEqual([true, true, true, true]);
+      expect(slowGuest(wrapper).exists()).toBe(false);
+      expect(fetchAgain(wrapper).exists()).toBe(false);
+    });
+
+    it('fetch again that finds no order yet keeps the text and the button', async () => {
+      resultFor(ORDER_URL).error.value = notFound();
+      mockPollFetch.mockRejectedValue(notFound());
+      const wrapper = mount();
+      await vi.advanceTimersByTimeAsync(125000);
+      const polled = mockPollFetch.mock.calls.length;
+
+      await fetchAgain(wrapper).trigger('click');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(mockPollFetch).toHaveBeenCalledTimes(polled + 1);
+      expect(hasOrderParts(wrapper)).toEqual([false, false, false, false]);
+      expect(slowGuest(wrapper).exists()).toBe(true);
+      expect(fetchAgain(wrapper).exists()).toBe(true);
+      // One read per click, no new polling.
+      await vi.advanceTimersByTimeAsync(30000);
+      expect(mockPollFetch).toHaveBeenCalledTimes(polled + 1);
     });
   });
 

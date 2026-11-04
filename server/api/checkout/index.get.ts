@@ -1,9 +1,9 @@
 import { GetCheckoutSchema } from '../../schemas/api-input';
 import { getCheckout } from '../../services/checkout';
-import { requireAuth } from '../../utils/auth';
+import { sessionForFeature } from '../../utils/feature-access';
 
 export default defineEventHandler(async (event) => {
-  await requireAuth(event);
+  await sessionForFeature(event, 'orderPlacement');
 
   const { cartId } = await getValidatedQuery(event, GetCheckoutSchema.parse);
 

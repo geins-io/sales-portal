@@ -2,6 +2,8 @@ import type { H3Event } from 'h3';
 import { canAccessFeature, canConfigure } from '#shared/utils/feature-access';
 import type { UserContext } from '#shared/utils/feature-access';
 import { getFeatures } from '../services/tenant-config';
+import { optionalAuth, requireAuth } from './auth';
+import type { AuthTokens } from './session';
 
 /**
  * Check if a user can access a feature, evaluating both `.enabled` and `.access` rules.
@@ -45,4 +47,18 @@ export async function assertFeatureAccess(
       message: `Access denied: feature "${featureName}" is not available`,
     });
   }
+}
+
+/**
+ * The session for a route behind a feature: optional when the feature is
+ * enabled with `access: 'all'`, required otherwise. Only that explicit rule
+ * opens the route; a stored feature without a rule keeps requiring sign-in.
+ */
+export async function sessionForFeature(
+  event: H3Event,
+  featureName: string,
+): Promise<AuthTokens | null> {
+  const feature = (await getFeatures(event))?.[featureName];
+  const open = feature?.enabled === true && feature.access === 'all';
+  return open ? optionalAuth(event) : requireAuth(event);
 }

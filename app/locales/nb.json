@@ -239,7 +239,9 @@
     "continue_shopping": "Fortsett å handle",
     "view_orders": "Vis mine ordrer",
     "order_not_found": "Ordren ble ikke funnet.",
-    "order_slow": "Det tar lengre tid enn vanlig å hente ordren. Den vises i kundeportalen om kort tid."
+    "order_slow": "Det tar lengre tid enn vanlig å hente ordren. Den vises i kundeportalen om kort tid.",
+    "order_slow_guest": "Det tar lengre tid enn vanlig å hente ordren. Prøv å hente den igjen om litt.",
+    "fetch_again": "Hent igjen"
   },
   "product": {
     "details": "Produktdetaljer",

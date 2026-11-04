@@ -137,10 +137,15 @@ function mockEvent(
   overrides: {
     query?: Record<string, unknown>;
     body?: Record<string, unknown>;
+    /** The tenant's orderPlacement rule; absent means no rule stored. */
+    access?: 'all' | 'authenticated';
   } = {},
 ) {
+  const features = overrides.access
+    ? { orderPlacement: { enabled: true, access: overrides.access } }
+    : {};
   return {
-    context: { tenant: { hostname: 'test.com' } },
+    context: { tenant: { hostname: 'test.com', config: { features } } },
     __query: overrides.query,
     __body: overrides.body,
     node: { req: { socket: { remoteAddress: '127.0.0.1' } } },
@@ -549,30 +554,113 @@ describe('Checkout API routes', () => {
 
   // --- Auth check across all routes ----------------------------------------
   describe('auth enforcement', () => {
-    it('guarded routes propagate 401 from requireAuth; summary is open for guests', async () => {
-      const authError = new Error('Unauthorized') as Error & {
-        statusCode: number;
-      };
-      authError.statusCode = 401;
-      mockRequireAuth.mockRejectedValue(authError);
+    const unauthorized = Object.assign(new Error('Unauthorized'), {
+      statusCode: 401,
+    });
 
+    async function routes() {
       const [getCheckout, validate, createOrderMod] = await Promise.all([
         import('../../../server/api/checkout/index.get'),
         import('../../../server/api/checkout/validate.post'),
         import('../../../server/api/checkout/create-order.post'),
       ]);
+      return {
+        get: getCheckout.default,
+        validate: validate.default,
+        createOrder: createOrderMod.default,
+      };
+    }
 
+    const validBody = {
+      cartId: 'cart-1',
+      paymentId: 1,
+      shippingId: 2,
+      email: 'guest@example.com',
+      billingAddress: {
+        firstName: 'Guest',
+        lastName: 'Buyer',
+        addressLine1: '1 Street',
+        city: 'Stockholm',
+        country: 'SE',
+        zip: '11122',
+      },
+    };
+
+    it('every custom checkout route answers 401 to a signed-out buyer when orderPlacement access is authenticated', async () => {
+      mockRequireAuth.mockRejectedValue(unauthorized);
+      const r = await routes();
+      const event = mockEvent({ access: 'authenticated' });
+
+      await expect(r.get(event)).rejects.toMatchObject({ statusCode: 401 });
+      await expect(r.validate(event)).rejects.toMatchObject({
+        statusCode: 401,
+      });
+      await expect(r.createOrder(event)).rejects.toMatchObject({
+        statusCode: 401,
+      });
+      expect(mockOptionalAuth).not.toHaveBeenCalled();
+      expect(mockGetCheckout).not.toHaveBeenCalled();
+      expect(mockValidateOrder).not.toHaveBeenCalled();
+      expect(mockCreateOrder).not.toHaveBeenCalled();
+    });
+
+    it('every custom checkout route answers 401 to a signed-out buyer when the tenant stores no orderPlacement rule', async () => {
+      mockRequireAuth.mockRejectedValue(unauthorized);
+      const r = await routes();
       const event = mockEvent();
 
-      await expect(getCheckout.default(event)).rejects.toMatchObject({
+      await expect(r.get(event)).rejects.toMatchObject({ statusCode: 401 });
+      await expect(r.validate(event)).rejects.toMatchObject({
         statusCode: 401,
       });
-      await expect(validate.default(event)).rejects.toMatchObject({
+      await expect(r.createOrder(event)).rejects.toMatchObject({
         statusCode: 401,
       });
-      await expect(createOrderMod.default(event)).rejects.toMatchObject({
-        statusCode: 401,
+      expect(mockOptionalAuth).not.toHaveBeenCalled();
+    });
+
+    it('GET /api/checkout serves a signed-out buyer when orderPlacement access is all', async () => {
+      mockOptionalAuth.mockResolvedValue(null);
+      mockGetCheckout.mockResolvedValue({ paymentOptions: [] });
+      const r = await routes();
+      const event = mockEvent({ query: { cartId: 'cart-1' }, access: 'all' });
+
+      await expect(r.get(event)).resolves.toEqual({ paymentOptions: [] });
+      expect(mockRequireAuth).not.toHaveBeenCalled();
+      expect(mockGetCheckout).toHaveBeenCalledWith({ cartId: 'cart-1' }, event);
+    });
+
+    it('POST /api/checkout/validate serves a signed-out buyer when orderPlacement access is all', async () => {
+      mockOptionalAuth.mockResolvedValue(null);
+      mockValidateOrder.mockResolvedValue({ isValid: true });
+      const r = await routes();
+      const event = mockEvent({
+        body: { cartId: 'cart-1', email: 'guest@example.com' },
+        access: 'all',
       });
+
+      await expect(r.validate(event)).resolves.toEqual({ isValid: true });
+      expect(mockRequireAuth).not.toHaveBeenCalled();
+      expect(mockValidateOrder).toHaveBeenCalled();
+    });
+
+    it('POST /api/checkout/create-order places a signed-out order when orderPlacement access is all', async () => {
+      mockOptionalAuth.mockResolvedValue(null);
+      mockGetCart.mockResolvedValue({ items: [{ id: 'line-1' }] });
+      mockCreateOrder.mockResolvedValue({
+        created: true,
+        orderId: '77',
+        publicId: 'pub-77',
+      });
+      const r = await routes();
+      const event = mockEvent({ body: validBody, access: 'all' });
+
+      await expect(r.createOrder(event)).resolves.toEqual({
+        orderId: '77',
+        publicId: 'pub-77',
+      });
+      expect(mockRequireAuth).not.toHaveBeenCalled();
+      expect(mockCreateOrder).toHaveBeenCalled();
     });
   });
 
