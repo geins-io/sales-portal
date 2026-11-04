@@ -1,14 +1,10 @@
 <script setup lang="ts">
 import type { OrderDetailType } from '#shared/types/commerce';
-import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
+import type { PortalItemRow, SummaryRow } from '#shared/types/portal-rows';
 import { productPath } from '#shared/utils/route-helpers';
 import { replayLineHref } from '~/utils/configurator-replay';
-import {
-  orderAmounts,
-  orderPaymentLabel,
-  orderRows,
-  orderTotalRows,
-} from '~/utils/order-view';
+import { orderAmounts, orderPaymentLabel, orderRows } from '~/utils/order-view';
+import { summaryRows } from '~/utils/summary-rows';
 
 /** A just-placed order, as the portal order page shows it, with the same parts. */
 const props = defineProps<{
@@ -45,13 +41,13 @@ function replayHref(
 const rows = computed<PortalItemRow[]>(() =>
   orderRows(props.order, showIncVat.value, replayHref),
 );
-const totals = computed<PortalItemTotal[]>(() =>
-  orderTotalRows(
+const totals = computed<SummaryRow[]>(() =>
+  summaryRows(
     amounts.value,
     itemCount.value,
     showIncVat.value,
     (key, named) => t(key, named ?? {}),
-    t('common.to_pay_inc_vat'),
+    { totalIncVatLabel: t('common.to_pay_inc_vat') },
   ),
 );
 </script>
@@ -63,21 +59,12 @@ const totals = computed<PortalItemTotal[]>(() =>
   >
     <!-- Left: rows (desktop only; mobile uses the sheet) -->
     <div class="hidden lg:col-span-2 lg:block">
-      <OrderItemsTable
-        :items="rows"
-        :amounts="amounts"
-        :item-count="itemCount"
-        :total-inc-vat-label="t('common.to_pay_inc_vat')"
-      />
+      <OrderItemsTable :items="rows" :rows="totals" :show-prices="showPrice" />
     </div>
 
     <!-- Right: summary, rows sheet (mobile) and addresses -->
     <div class="space-y-6">
-      <OrderSummaryCard
-        :amounts="amounts"
-        :item-count="itemCount"
-        :total-inc-vat-label="t('common.to_pay_inc_vat')"
-      />
+      <OrderSummaryCard :rows="totals" :show-prices="showPrice" />
       <PortalItemRowsSheet
         class="lg:hidden"
         :items="rows"

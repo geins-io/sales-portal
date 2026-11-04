@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ArrowLeft, LoaderCircle, RotateCw } from 'lucide-vue-next';
 import type { OrderDetailType } from '#shared/types/commerce';
-import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
+import type { PortalItemRow, SummaryRow } from '#shared/types/portal-rows';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
@@ -12,12 +12,8 @@ import {
 import { reorderLines } from '~/utils/reorder';
 import { productPath } from '#shared/utils/route-helpers';
 import { replayLineHref } from '~/utils/configurator-replay';
-import {
-  orderAmounts,
-  orderPaymentLabel,
-  orderRows,
-  orderTotalRows,
-} from '~/utils/order-view';
+import { orderAmounts, orderPaymentLabel, orderRows } from '~/utils/order-view';
+import { summaryRows } from '~/utils/summary-rows';
 
 definePageMeta({
   middleware: ['auth', 'feature'],
@@ -188,13 +184,14 @@ const orderItemRows = computed<PortalItemRow[]>(() =>
   orderRows(order.value, showIncVat.value, replayHref),
 );
 
-const orderTotals = computed<PortalItemTotal[]>(() =>
-  orderTotalRows(
+// One set of summary rows for the card, the table footer and the sheet.
+const orderTotals = computed<SummaryRow[]>(() =>
+  summaryRows(
     amounts.value,
     itemCount.value,
     showIncVat.value,
     (key, named) => t(key, named ?? {}),
-    t('common.total_inc_vat'),
+    { totalIncVatLabel: t('common.total_inc_vat') },
   ),
 );
 </script>
@@ -269,9 +266,8 @@ const orderTotals = computed<PortalItemTotal[]>(() =>
           <div class="hidden lg:col-span-2 lg:block">
             <OrderItemsTable
               :items="orderItemRows"
-              :amounts="amounts"
-              :item-count="itemCount"
-              :total-inc-vat-label="t('common.total_inc_vat')"
+              :rows="orderTotals"
+              :show-prices="showPrice"
             />
           </div>
 
@@ -300,11 +296,7 @@ const orderTotals = computed<PortalItemTotal[]>(() =>
             </div>
 
             <!-- Summary Card -->
-            <OrderSummaryCard
-              :amounts="amounts"
-              :item-count="itemCount"
-              :total-inc-vat-label="t('common.total_inc_vat')"
-            />
+            <OrderSummaryCard :rows="orderTotals" :show-prices="showPrice" />
 
             <!-- Mobile: the broken desktop table is replaced by a sheet
                  opened from a "View order rows" trigger below the summary. -->

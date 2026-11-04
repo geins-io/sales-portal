@@ -85,6 +85,63 @@ async function fetchSentQuoteId(page: Page): Promise<string> {
   return sent!.id;
 }
 
+/** One rendered order or quotation line: the three numbers a line shows. */
+interface ScreenLine {
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+/**
+ * An order's or a quotation's lines as the running project can see them; both
+ * pages use the same parts. Above `lg` they are the
+ * desktop table; below it that table is hidden and the rows live in the
+ * sheet behind `view-rows-trigger`. Both carry the same three numbers per
+ * line, so no project has to leave the line assertions off.
+ */
+async function readItemLines(page: Page): Promise<ScreenLine[]> {
+  const onDesktop = await page
+    .locator('[data-testid="order-items-table"]')
+    .isVisible()
+    .catch(() => false);
+
+  if (!onDesktop) {
+    await page.locator('[data-testid="view-rows-trigger"]').click();
+    await expect(page.locator('[data-testid="item-rows-sheet"]')).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
+  }
+
+  const prefix = onDesktop ? 'order-item' : 'item-rows';
+  const rows = page.locator(
+    onDesktop
+      ? '[data-testid="order-item-row"]'
+      : '[data-testid="item-rows-row"]',
+  );
+
+  const lines: ScreenLine[] = [];
+  for (let index = 0; index < (await rows.count()); index++) {
+    const row = rows.nth(index);
+    const quantity = (
+      await row.locator(`[data-testid="${prefix}-quantity"]`).innerText()
+    ).trim();
+    lines.push({
+      quantity: Number(quantity),
+      unitPrice: await readPrice(
+        row.locator(`[data-testid="${prefix}-unit-price"]`),
+      ),
+      totalPrice: await readPrice(
+        row.locator(`[data-testid="${prefix}-total-price"]`),
+      ),
+    });
+    expect(
+      Number.isFinite(lines[index]!.quantity),
+      `line ${index} shows no quantity: ${JSON.stringify(quantity)}`,
+    ).toBe(true);
+  }
+  return lines;
+}
+
 test.describe('Portal Overview', () => {
   test('should render stat cards and sections on overview page', async ({
     page,
@@ -391,64 +448,6 @@ test.describe('Portal Order Values', () => {
     });
   }
 
-  /** One rendered order line: the three numbers a line shows. */
-  interface ScreenLine {
-    quantity: number;
-    unitPrice: number;
-    totalPrice: number;
-  }
-
-  /**
-   * The lines as the running project can see them. Above `lg` they are the
-   * desktop table; below it that table is hidden and the rows live in the
-   * sheet behind `view-rows-trigger`. Both carry the same three numbers per
-   * line, so no project has to leave the line assertions off.
-   */
-  async function readOrderLines(page: Page): Promise<ScreenLine[]> {
-    const onDesktop = await page
-      .locator('[data-testid="order-items-table"]')
-      .isVisible()
-      .catch(() => false);
-
-    if (!onDesktop) {
-      await page.locator('[data-testid="view-rows-trigger"]').click();
-      await expect(page.locator('[data-testid="item-rows-sheet"]')).toBeVisible(
-        {
-          timeout: PAGE_TIMEOUT,
-        },
-      );
-    }
-
-    const prefix = onDesktop ? 'order-item' : 'item-rows';
-    const rows = page.locator(
-      onDesktop
-        ? '[data-testid="order-item-row"]'
-        : '[data-testid="item-rows-row"]',
-    );
-
-    const lines: ScreenLine[] = [];
-    for (let index = 0; index < (await rows.count()); index++) {
-      const row = rows.nth(index);
-      const quantity = (
-        await row.locator(`[data-testid="${prefix}-quantity"]`).innerText()
-      ).trim();
-      lines.push({
-        quantity: Number(quantity),
-        unitPrice: await readPrice(
-          row.locator(`[data-testid="${prefix}-unit-price"]`),
-        ),
-        totalPrice: await readPrice(
-          row.locator(`[data-testid="${prefix}-total-price"]`),
-        ),
-      });
-      expect(
-        Number.isFinite(lines[index]!.quantity),
-        `line ${index} shows no quantity: ${JSON.stringify(quantity)}`,
-      ).toBe(true);
-    }
-    return lines;
-  }
-
   for (const side of ['ex', 'inc'] as const) {
     test(`the list, the detail page and the API agree on an order total, ${side} VAT`, async ({
       page,
@@ -565,7 +564,7 @@ test.describe('Portal Order Values', () => {
       expect(apiSum).toBeCloseTo(api.totalIncVat, 2);
 
       await openOrderDetail(page, api.publicId);
-      const lines = await readOrderLines(page);
+      const lines = await readItemLines(page);
       expect(lines.length).toBe(api.items.length);
 
       const screenTotal = await readPrice(
@@ -593,7 +592,7 @@ test.describe('Portal Order Values', () => {
     ).toBeGreaterThan(0);
 
     await openOrderDetail(page, api.publicId);
-    const lines = await readOrderLines(page);
+    const lines = await readItemLines(page);
     expect(lines.length).toBe(api.items.length);
 
     for (const [index, line] of lines.entries()) {
@@ -775,20 +774,27 @@ test.describe('Portal Quotations', () => {
     await expect(page.locator('[data-testid="quote-title"]')).toBeVisible();
     await expect(page.locator('[data-testid="status-badge"]')).toBeVisible();
 
-    // The lines render as a desktop table (`hidden md:block`) or, below md,
-    // as cards on the page. Assert the shape this project can see and count
-    // its rows. `md` is 768px (Tailwind), the breakpoint the page branches on.
-    const isNarrow = (page.viewportSize()?.width ?? 1280) < 768;
+    // The lines render as a desktop table (`hidden lg:block`) or, below lg,
+    // behind a sheet trigger, as on the order page. Assert the shape this
+    // project can see and count its rows. `lg` is 1024px (Tailwind).
+    const isNarrow = (page.viewportSize()?.width ?? 1280) < 1024;
+    if (isNarrow) {
+      await page.locator('[data-testid="view-rows-trigger"]').click();
+      await expect(page.locator('[data-testid="item-rows-sheet"]')).toBeVisible(
+        { timeout: PAGE_TIMEOUT },
+      );
+    }
     const lineRows = page.locator(
       isNarrow
-        ? '[data-testid="line-item-card"]'
-        : '[data-testid="line-item-row"]',
+        ? '[data-testid="item-rows-row"]'
+        : '[data-testid="order-item-row"]',
     );
     await expect(lineRows.first()).toBeVisible({ timeout: PAGE_TIMEOUT });
     expect(await lineRows.count()).toBeGreaterThan(0);
+    if (isNarrow) await page.keyboard.press('Escape');
 
     // Sidebar summary and details
-    await expect(page.locator('[data-testid="quote-summary"]')).toBeVisible();
+    await expect(page.locator('[data-testid="order-summary"]')).toBeVisible();
     await expect(
       page.locator('[data-testid="quote-meta-status"]'),
     ).toBeVisible();
@@ -957,55 +963,6 @@ test.describe('Portal Quotation Values', () => {
     });
   }
 
-  /** One rendered quotation line: the three numbers a line shows. */
-  interface ScreenLine {
-    quantity: number;
-    unitPrice: number;
-    totalPrice: number;
-  }
-
-  /**
-   * The lines as the running project can see them. From `md` up they are the
-   * desktop table; below it each line is a card on the page. Both carry the
-   * same three numbers per line, so no project has to leave the line
-   * assertions off.
-   */
-  async function readQuoteLines(page: Page): Promise<ScreenLine[]> {
-    const onDesktop = await page
-      .locator('[data-testid="line-items-table"]')
-      .isVisible()
-      .catch(() => false);
-
-    const prefix = onDesktop ? 'line-item' : 'line-item-card';
-    const rows = page.locator(
-      onDesktop
-        ? '[data-testid="line-item-row"]'
-        : '[data-testid="line-item-card"]',
-    );
-
-    const lines: ScreenLine[] = [];
-    for (let index = 0; index < (await rows.count()); index++) {
-      const row = rows.nth(index);
-      const quantity = (
-        await row.locator(`[data-testid="${prefix}-quantity"]`).innerText()
-      ).trim();
-      lines.push({
-        quantity: Number(quantity),
-        unitPrice: await readPrice(
-          row.locator(`[data-testid="${prefix}-unit-price"]`),
-        ),
-        totalPrice: await readPrice(
-          row.locator(`[data-testid="${prefix}-total-price"]`),
-        ),
-      });
-      expect(
-        Number.isFinite(lines[index]!.quantity),
-        `line ${index} shows no quantity: ${JSON.stringify(quantity)}`,
-      ).toBe(true);
-    }
-    return lines;
-  }
-
   for (const side of ['ex', 'inc'] as const) {
     test(`the list, the detail page and the API agree on a quotation total, ${side} VAT`, async ({
       page,
@@ -1064,12 +1021,12 @@ test.describe('Portal Quotation Values', () => {
       await openQuotationDetail(page, api.id);
 
       expectRendered(
-        await readPrice(page.locator('[data-testid="quote-summary-total"]')),
+        await readPrice(page.locator('[data-testid="order-summary-total"]')),
         api.total,
         'the detail total',
       );
       expectRendered(
-        await readPrice(page.locator('[data-testid="quote-summary-subtotal"]')),
+        await readPrice(page.locator('[data-testid="order-summary-subtotal"]')),
         api.subtotal,
         'the subtotal',
       );
@@ -1078,7 +1035,7 @@ test.describe('Portal Quotation Values', () => {
       // Each amount is held to the API on its own; an identity between them
       // would fail a correct page.
       expectRendered(
-        await readPrice(page.locator('[data-testid="quote-summary-tax"]')),
+        await readPrice(page.locator('[data-testid="order-summary-tax"]')),
         api.tax,
         'the tax',
       );
@@ -1088,15 +1045,15 @@ test.describe('Portal Quotation Values', () => {
       if (api.shipping > 0) {
         expectRendered(
           await readPrice(
-            page.locator('[data-testid="quote-summary-shipping"]'),
+            page.locator('[data-testid="order-summary-shipping"]'),
           ),
           api.shipping,
           'the shipping fee',
         );
       } else {
-        await expect(page.locator('[data-testid="shipping-row"]')).toHaveCount(
-          0,
-        );
+        await expect(
+          page.locator('[data-testid="order-summary-shipping"]'),
+        ).toHaveCount(0);
       }
     });
   }
@@ -1111,11 +1068,11 @@ test.describe('Portal Quotation Values', () => {
     expect(apiSum).toBeCloseTo(api.subtotal, 2);
 
     await openQuotationDetail(page, api.id);
-    const lines = await readQuoteLines(page);
+    const lines = await readItemLines(page);
     expect(lines.length).toBe(api.items.length);
 
     const screenSubtotal = await readPrice(
-      page.locator('[data-testid="quote-summary-subtotal"]'),
+      page.locator('[data-testid="order-summary-subtotal"]'),
     );
     const screenSum = lines.reduce((sum, line) => sum + line.totalPrice, 0);
     // Every rendered amount carries its own rounding, the subtotal included.
@@ -1137,7 +1094,7 @@ test.describe('Portal Quotation Values', () => {
     ).toBeGreaterThan(0);
 
     await openQuotationDetail(page, api.id);
-    const lines = await readQuoteLines(page);
+    const lines = await readItemLines(page);
     expect(lines.length).toBe(api.items.length);
 
     for (const [index, line] of lines.entries()) {

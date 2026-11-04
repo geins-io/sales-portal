@@ -1,4 +1,5 @@
 import { formatPrice } from '#shared/types/commerce';
+import type { PortalItemRow } from '#shared/types/portal-rows';
 import type { Quote, QuoteStatus } from '#shared/types/quote';
 
 /** A quotation's summary amounts, formatted, on one side of the VAT choice. */
@@ -69,66 +70,29 @@ export function quoteDiscountLabel(
     : t('discount.discount');
 }
 
-/** One row under the summary's lead amount; `key` names it for the page. */
-export interface QuoteSummaryRow {
-  key: 'count' | 'discount' | 'shipping' | 'tax' | 'total' | 'total-inc-vat';
-  label: string;
-  value?: string;
-  emphasis?: boolean;
-}
-
-/** The rows under the lead amount (the subtotal), in the summary's order. */
-export function quoteSummaryRows(
-  amounts: QuoteAmounts,
-  itemCount: number,
+/**
+ * The quotation's lines, as the order parts render them: the desktop table and
+ * the mobile sheet. Keyed by position, as two lines can carry one SKU.
+ */
+export function quoteRows(
+  quote: Quote | null | undefined,
   incVat: boolean,
-  t: Translate,
-  /** Shown in the shipping row while there is no shipping amount. */
-  shippingNote?: string,
-): QuoteSummaryRow[] {
-  const rows: QuoteSummaryRow[] = [
-    {
-      key: 'count',
-      label: t('portal.quotations.items_count'),
-      value: String(itemCount),
-    },
-  ];
-  if (amounts.discount) {
-    rows.push({
-      key: 'discount',
-      label: quoteDiscountLabel(amounts, t),
-      value: `-${amounts.discount}`,
-    });
-  }
-  const shipping = amounts.shipping || shippingNote;
-  if (shipping) {
-    rows.push({
-      key: 'shipping',
-      label: t('portal.quotations.shipping'),
-      value: shipping,
-    });
-  }
-  rows.push(
-    {
-      key: 'tax',
-      label: t(incVat ? 'common.vat_included' : 'common.vat'),
-      value: amounts.tax,
-    },
-    {
-      key: 'total',
-      label: t('portal.quotations.grand_total'),
-      value: amounts.total,
-      emphasis: true,
-    },
-  );
-  if (amounts.totalIncVat) {
-    rows.push({
-      key: 'total-inc-vat',
-      label: t('common.total_inc_vat'),
-      value: amounts.totalIncVat,
-    });
-  }
-  return rows;
+): PortalItemRow[] {
+  return (quote?.lineItems ?? []).map((item, index) => ({
+    key: `row-${index}`,
+    name: item.name,
+    articleNumber: item.articleNumber,
+    quantity: item.quantity,
+    unitPriceFormatted: incVat
+      ? item.unitPriceFormatted
+      : item.unitPriceExVatFormatted,
+    totalPriceFormatted: incVat
+      ? item.totalPriceFormatted
+      : item.totalPriceExVatFormatted,
+    imageFileName: item.imageFileName ?? null,
+    imageUrl: item.imageUrl ?? null,
+    alias: item.alias ?? null,
+  }));
 }
 
 /** What accepting means: Monitor places the order, or the seller confirms first, or neither. */

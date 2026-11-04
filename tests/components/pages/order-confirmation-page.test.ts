@@ -123,14 +123,12 @@ const partStub = (name: string, props: string[]) => ({
 });
 const OrderItemsTableStub = partStub('OrderItemsTable', [
   'items',
-  'amounts',
-  'itemCount',
-  'totalIncVatLabel',
+  'rows',
+  'showPrices',
 ]);
 const OrderSummaryCardStub = partStub('OrderSummaryCard', [
-  'amounts',
-  'itemCount',
-  'totalIncVatLabel',
+  'rows',
+  'showPrices',
 ]);
 const OrderAddressesStub = partStub('OrderAddresses', [
   'billingAddress',
@@ -169,6 +167,10 @@ function propsOf(
 ): Record<string, unknown> {
   return wrapper.findComponent(stub).props() as Record<string, unknown>;
 }
+
+type Row = { key: string; label: string; value?: string };
+const valuesOf = (rows: Row[]) =>
+  Object.fromEntries(rows.map((row) => [row.key, row.value]));
 
 function hasOrderParts(wrapper: ReturnType<typeof mount>) {
   return [
@@ -254,12 +256,15 @@ describe('Order confirmation page — placed in the app', () => {
         totalPriceFormatted: '450,00 kr',
       }),
     ]);
-    expect(table.itemCount).toBe(1);
-    expect(propsOf(wrapper, OrderSummaryCardStub).amounts).toMatchObject({
+    const rows = propsOf(wrapper, OrderSummaryCardStub).rows as Row[];
+    expect(valuesOf(rows)).toMatchObject({
       subtotal: '450,00 kr',
       tax: '90,00 kr',
       total: '450,00 kr',
     });
+    // One set of rows for the card, the table footer and the sheet.
+    expect(table.rows).toEqual(rows);
+    expect(propsOf(wrapper, SheetStub).totals).toEqual(rows);
     expect(propsOf(wrapper, OrderAddressesStub)).toEqual({
       billingAddress: { company: 'Acme' },
       shippingAddress: { company: 'Warehouse' },
@@ -288,15 +293,17 @@ describe('Order confirmation page — placed in the app', () => {
   });
 
   it('labels the inc-VAT line "to pay incl. VAT"', () => {
+    mockShowIncVat.value = false;
     resultFor(ORDER_URL).data.value = makeOrder();
     const wrapper = mount();
 
-    expect(propsOf(wrapper, OrderSummaryCardStub).totalIncVatLabel).toBe(
-      'common.to_pay_inc_vat',
-    );
-    expect(propsOf(wrapper, OrderItemsTableStub).totalIncVatLabel).toBe(
-      'common.to_pay_inc_vat',
-    );
+    for (const part of [OrderSummaryCardStub, OrderItemsTableStub]) {
+      const rows = propsOf(wrapper, part).rows as Row[];
+      expect(rows.at(-1)).toMatchObject({
+        key: 'total-inc-vat',
+        label: 'common.to_pay_inc_vat',
+      });
+    }
   });
 
   it('labels the mobile sheet\'s inc-VAT line "to pay incl. VAT"', () => {
@@ -312,8 +319,10 @@ describe('Order confirmation page — placed in the app', () => {
     Object.assign(order.order.cart.summary, { fixedAmountDiscountIncVat: 25 });
     resultFor(ORDER_URL).data.value = order;
 
-    expect(propsOf(mount(), OrderSummaryCardStub).amounts).toMatchObject({
-      discount: 'SEK\u00a025.00',
+    expect(
+      valuesOf(propsOf(mount(), OrderSummaryCardStub).rows as Row[]),
+    ).toMatchObject({
+      discount: '-SEK\u00a025.00',
     });
   });
 
@@ -348,16 +357,20 @@ describe('Order confirmation page — placed in the app', () => {
   });
 
   it.each([
-    ['shown', true],
-    ['hidden', false],
+    ['mobile sheet', 'shown', true, SheetStub],
+    ['mobile sheet', 'hidden', false, SheetStub],
+    ['summary card', 'shown', true, OrderSummaryCardStub],
+    ['summary card', 'hidden', false, OrderSummaryCardStub],
+    ['line table', 'shown', true, OrderItemsTableStub],
+    ['line table', 'hidden', false, OrderItemsTableStub],
   ])(
-    'tells the mobile sheet whether to show its prices when prices are %s',
-    (_, shown) => {
+    'tells the %s whether to show its prices when prices are %s',
+    (_, __, shown, part) => {
       mockShowPrice.value = shown;
       try {
         resultFor(ORDER_URL).data.value = makeOrder();
 
-        expect(propsOf(mount(), SheetStub).showPrices).toBe(shown);
+        expect(propsOf(mount(), part).showPrices).toBe(shown);
       } finally {
         mockShowPrice.value = true;
       }

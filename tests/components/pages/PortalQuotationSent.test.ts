@@ -4,6 +4,8 @@ import { mount, flushPromises } from '@vue/test-utils';
 import { defaultMountOptions } from '../../utils/component';
 import type { Quote, QuoteStatus } from '../../../shared/types/quote';
 import { makeQuote } from '../../fixtures/quote';
+import { mockShowIncVat } from '../../setup-components';
+import { quoteRows } from '../../../app/utils/quote-view';
 
 /** The thank-you page after a quote request was sent. */
 
@@ -68,8 +70,32 @@ const stub = (name: string, props: string[]) => ({
   props,
   template: `<div data-testid="${name}" />`,
 });
-const ItemsStub = stub('PortalQuoteItems', ['items']);
-const SummaryStub = stub('PortalQuoteSummary', ['quote', 'shippingNote']);
+// The order page's parts, as the order confirmation uses them. Typed props:
+// `show-prices` is a boolean attribute, which an array-props stub reads as ''.
+const partProps = {
+  items: Array,
+  rows: Array,
+  totals: Array,
+  showPrices: Boolean,
+  title: String,
+  triggerLabel: String,
+};
+const TableStub = {
+  name: 'OrderItemsTable',
+  props: partProps,
+  template: '<div data-testid="OrderItemsTable" />',
+};
+const CardStub = {
+  name: 'OrderSummaryCard',
+  props: partProps,
+  template:
+    '<div data-testid="OrderSummaryCard"><slot name="heading-aside" /><slot /></div>',
+};
+const SheetStub = {
+  name: 'PortalItemRowsSheet',
+  props: partProps,
+  template: '<div data-testid="PortalItemRowsSheet" />',
+};
 const BadgeStub = stub('QuoteEstimateBadge', []);
 const AddressStub = stub('AddressBlock', [
   'address',
@@ -98,8 +124,9 @@ async function mountWith(quote: Quote | null) {
       stubs: {
         ...defaultMountOptions.global.stubs,
         QuoteConfirmation: QuoteConfirmationStub,
-        PortalQuoteItems: ItemsStub,
-        PortalQuoteSummary: SummaryStub,
+        OrderItemsTable: TableStub,
+        OrderSummaryCard: CardStub,
+        PortalItemRowsSheet: SheetStub,
         AddressBlock: AddressStub,
         QuoteEstimateBadge: BadgeStub,
       },
@@ -181,38 +208,80 @@ describe('PortalQuotationSent', () => {
       });
     });
 
-    it("lists the request's lines under their heading", async () => {
+    type Row = { key: string; label: string; value?: string };
+    const valueOf = (rows: Row[], key: string) =>
+      rows.find((row) => row.key === key)?.value;
+
+    it("lists the request's lines in the order table, under their heading, from lg", async () => {
+      mockShowIncVat.value = true;
       const quote = sent();
       const { wrapper } = await mountWith(quote);
 
-      const contents = wrapper.find('[data-testid="quote-thanks-contents"]');
-      expect(contents.find('h3').text()).toBe(
+      const table = wrapper.findComponent(TableStub);
+      expect(table.props('items')).toEqual(quoteRows(quote, true));
+      expect(table.props('title')).toBe(
         'portal.quotations.confirm.request_lines',
       );
-      expect(wrapper.findComponent(ItemsStub).props('items')).toEqual(
-        quote.lineItems,
-      );
+      expect(table.props('showPrices')).toBe(true);
+      expect(table.element.parentElement?.classList).toContain('lg:block');
+      expect(table.element.parentElement?.classList).toContain('hidden');
     });
 
-    it('titles the summary and marks it as an estimate', async () => {
+    it('titles the summary card and marks it as an estimate inside it', async () => {
       const { wrapper } = await mountWith(sent());
 
-      const summary = wrapper.find('[data-testid="quote-thanks-summary"]');
-      expect(summary.text()).toContain(
+      const card = wrapper.findComponent(CardStub);
+      expect(card.props('title')).toBe(
         'portal.quotations.request.summary_title',
       );
+      expect(card.props('showPrices')).toBe(true);
       // The same badge and note as on the request page.
-      expect(summary.findComponent(BadgeStub).exists()).toBe(true);
+      expect(card.findComponent(BadgeStub).exists()).toBe(true);
     });
 
-    it('sums it up with the shipping marked as an estimate', async () => {
+    it('sums it up like the order summary, with the shipping marked as an estimate', async () => {
+      mockShowIncVat.value = true;
+      const { wrapper } = await mountWith(sent());
+
+      const rows = wrapper.findComponent(CardStub).props('rows') as Row[];
+      expect(rows.map((row) => row.key)).toEqual([
+        'subtotal',
+        'shipping',
+        'tax',
+        'total',
+      ]);
+      expect(valueOf(rows, 'shipping')).toBe(
+        'portal.quotations.request.shipping_note',
+      );
+      expect(valueOf(rows, 'total')).toBe('250,00 kr');
+    });
+
+    it('repeats the rows under the table and in the sheet', async () => {
+      const { wrapper } = await mountWith(sent());
+
+      const rows = wrapper.findComponent(CardStub).props('rows');
+      expect(wrapper.findComponent(TableStub).props('rows')).toEqual(rows);
+      expect(wrapper.findComponent(SheetStub).props('totals')).toEqual(rows);
+    });
+
+    it('puts the lines behind "show items" below lg, right under the summary', async () => {
+      mockShowIncVat.value = false;
       const quote = sent();
       const { wrapper } = await mountWith(quote);
 
-      expect(wrapper.findComponent(SummaryStub).props()).toEqual({
-        quote,
-        shippingNote: 'portal.quotations.request.shipping_note',
-      });
+      const sheet = wrapper.findComponent(SheetStub);
+      expect(sheet.props()).toEqual(
+        expect.objectContaining({
+          items: quoteRows(quote, false),
+          triggerLabel: 'portal.quotations.view_items',
+          title: 'portal.quotations.confirm.request_lines',
+          showPrices: true,
+        }),
+      );
+      expect(sheet.classes()).toContain('lg:hidden');
+      expect(wrapper.findComponent(CardStub).element.nextElementSibling).toBe(
+        sheet.element,
+      );
     });
 
     it('shows the invoice and delivery addresses', async () => {

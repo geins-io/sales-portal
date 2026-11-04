@@ -5,11 +5,18 @@ import { mountComponent } from '../../utils/component';
 import OrderItemsTable from '../../../app/components/portal/OrderItemsTable.vue';
 import OrderSummaryCard from '../../../app/components/portal/OrderSummaryCard.vue';
 import OrderAddresses from '../../../app/components/portal/OrderAddresses.vue';
+import { summaryRows } from '../../../app/utils/summary-rows';
+import type { OrderAmounts } from '../../../app/utils/order-view';
 
-const mockShowPrice = ref(true);
+// The tenant hides prices: the parts must not read it, the caller decides.
+const mockShowPrice = ref(false);
 vi.mock('../../../app/composables/usePriceVisibility', () => ({
   usePriceVisibility: () => ({ showPrice: mockShowPrice }),
 }));
+
+/** The rows the pages build, on the ex side as `mockShowIncVat` starts. */
+const summary = (a: OrderAmounts, totalIncVatLabel = 'X') =>
+  summaryRows(a, 2, false, (key) => key, { totalIncVatLabel });
 
 const amounts = {
   subtotal: '240 kr',
@@ -66,7 +73,7 @@ describe('OrderItemsTable', () => {
 
   function mount() {
     return mountComponent(OrderItemsTable, {
-      props: { items: rows, amounts, itemCount: 2, totalIncVatLabel: 'X' },
+      props: { items: rows, rows: summary(amounts), showPrices: true },
       global: { stubs },
     });
   }
@@ -118,15 +125,10 @@ describe('the summary rows the decision adds', () => {
 
   it('shows the discount as a deduction in the card and the table footer', () => {
     const card = mountComponent(OrderSummaryCard, {
-      props: { amounts: withDiscount, itemCount: 2, totalIncVatLabel: 'X' },
+      props: { rows: summary(withDiscount), showPrices: true },
     });
     const table = mountComponent(OrderItemsTable, {
-      props: {
-        items: rows,
-        amounts: withDiscount,
-        itemCount: 2,
-        totalIncVatLabel: 'X',
-      },
+      props: { items: rows, rows: summary(withDiscount), showPrices: true },
       global: { stubs },
     });
 
@@ -136,7 +138,7 @@ describe('the summary rows the decision adds', () => {
 
   it('lists the discount right after the subtotal, as the cart does', () => {
     const card = mountComponent(OrderSummaryCard, {
-      props: { amounts: withDiscount, itemCount: 2, totalIncVatLabel: 'X' },
+      props: { rows: summary(withDiscount), showPrices: true },
     });
     const order = [...card.element.querySelectorAll('[data-testid]')]
       .map((el) => el.getAttribute('data-testid'))
@@ -157,7 +159,7 @@ describe('the summary rows the decision adds', () => {
 
   it('shows no discount row without a discount', () => {
     const card = mountComponent(OrderSummaryCard, {
-      props: { amounts, itemCount: 2, totalIncVatLabel: 'X' },
+      props: { rows: summary(amounts), showPrices: true },
     });
 
     expect(card.find('[data-testid="order-summary-discount"]').exists()).toBe(
@@ -168,17 +170,15 @@ describe('the summary rows the decision adds', () => {
   it('labels the inc-VAT line with the text it is given', () => {
     const card = mountComponent(OrderSummaryCard, {
       props: {
-        amounts,
-        itemCount: 2,
-        totalIncVatLabel: 'Att betala inkl. moms',
+        rows: summary(amounts, 'Att betala inkl. moms'),
+        showPrices: true,
       },
     });
     const table = mountComponent(OrderItemsTable, {
       props: {
         items: rows,
-        amounts,
-        itemCount: 2,
-        totalIncVatLabel: 'Att betala inkl. moms',
+        rows: summary(amounts, 'Att betala inkl. moms'),
+        showPrices: true,
       },
       global: { stubs },
     });
@@ -209,7 +209,7 @@ describe('the summary rows the decision adds', () => {
 describe('OrderSummaryCard', () => {
   it('shows each amount it is given', () => {
     const wrapper = mountComponent(OrderSummaryCard, {
-      props: { amounts, itemCount: 2, totalIncVatLabel: 'X' },
+      props: { rows: summary(amounts), showPrices: true },
     });
 
     expect(text(wrapper, 'order-summary-subtotal')).toBe('240 kr');
@@ -223,9 +223,8 @@ describe('OrderSummaryCard', () => {
   it('shows no fee or inc line it is not given', () => {
     const wrapper = mountComponent(OrderSummaryCard, {
       props: {
-        amounts: { subtotal: '1', tax: '2', total: '3' },
-        itemCount: 1,
-        totalIncVatLabel: 'X',
+        rows: summary({ subtotal: '1', tax: '2', total: '3' }),
+        showPrices: true,
       },
     });
 
@@ -253,18 +252,18 @@ describe('an order where prices are hidden', () => {
   ];
 
   afterEach(() => {
-    mockShowPrice.value = true;
+    mockShowPrice.value = false;
   });
 
-  function mountTable() {
+  function mountTable(showPrices: boolean) {
     return mountComponent(OrderItemsTable, {
-      props: { items: rows, amounts, itemCount: 2, totalIncVatLabel: 'X' },
+      props: { items: rows, rows: summary(amounts), showPrices },
       global: { stubs },
     });
   }
 
   it('shows the price columns and the totals footer where prices are shown', () => {
-    const wrapper = mountTable();
+    const wrapper = mountTable(true);
 
     expect(wrapper.text()).toContain('portal.quotations.col_unit_price');
     expect(wrapper.text()).toContain('portal.quotations.line_total');
@@ -277,8 +276,8 @@ describe('an order where prices are hidden', () => {
   });
 
   it('keeps the rows in the table but no price column and no totals', () => {
-    mockShowPrice.value = false;
-    const wrapper = mountTable();
+    mockShowPrice.value = true;
+    const wrapper = mountTable(false);
 
     expect(wrapper.findAll('[data-testid="order-item-row"]')).toHaveLength(2);
     expect(
@@ -304,22 +303,138 @@ describe('an order where prices are hidden', () => {
 
   it('shows the summary card where prices are shown', () => {
     const wrapper = mountComponent(OrderSummaryCard, {
-      props: { amounts, itemCount: 2, totalIncVatLabel: 'X' },
+      props: { rows: summary(amounts), showPrices: true },
     });
 
     expect(wrapper.find('[data-testid="order-summary"]').exists()).toBe(true);
   });
 
   it('shows no summary card, which holds only amounts', () => {
-    mockShowPrice.value = false;
+    mockShowPrice.value = true;
     const wrapper = mountComponent(OrderSummaryCard, {
-      props: { amounts, itemCount: 2, totalIncVatLabel: 'X' },
+      props: { rows: summary(amounts), showPrices: false },
     });
 
     expect(wrapper.find('[data-testid="order-summary"]').exists()).toBe(false);
     for (const amount of allAmounts) {
       expect(wrapper.text()).not.toContain(amount);
     }
+  });
+});
+
+describe('what a quotation asks of the order parts', () => {
+  it('heads the card and the table with the text they are given, the order wording by default', () => {
+    const card = mountComponent(OrderSummaryCard, {
+      props: { rows: summary(amounts), showPrices: true },
+    });
+    const titled = mountComponent(OrderSummaryCard, {
+      props: { rows: summary(amounts), showPrices: true, title: 'Offert' },
+    });
+    const table = mountComponent(OrderItemsTable, {
+      props: { items: rows, rows: summary(amounts), showPrices: true },
+      global: { stubs },
+    });
+    const titledTable = mountComponent(OrderItemsTable, {
+      props: {
+        items: rows,
+        rows: summary(amounts),
+        showPrices: true,
+        title: 'Artiklar',
+      },
+      global: { stubs },
+    });
+
+    expect(card.find('h3').text()).toBe('portal.orders.detail.summary.title');
+    expect(titled.find('h3').text()).toBe('Offert');
+    expect(table.find('h3').text()).toBe('portal.orders.detail.items.title');
+    expect(titledTable.find('h3').text()).toBe('Artiklar');
+  });
+
+  it('renders every row it is given, the discount with its own label', () => {
+    const given = summaryRows(
+      { ...amounts, discount: '25 kr' },
+      2,
+      false,
+      (key) => key,
+      { totalIncVatLabel: 'X', discountLabel: 'Rabatt 5 %' },
+    );
+    const card = mountComponent(OrderSummaryCard, {
+      props: { rows: given, showPrices: true },
+    });
+    const table = mountComponent(OrderItemsTable, {
+      props: { items: rows, rows: given, showPrices: true },
+      global: { stubs },
+    });
+
+    expect(card.find('[data-testid="order-summary-discount"]').text()).toBe(
+      'Rabatt 5 %-25 kr',
+    );
+    expect(
+      table
+        .find('[data-testid="order-items-footer-discount"]')
+        .element.previousElementSibling?.textContent?.trim(),
+    ).toBe('Rabatt 5 %');
+  });
+
+  it('shows a shipping note as the shipping value', () => {
+    const given = summaryRows(
+      { subtotal: '1', tax: '2', total: '3' },
+      1,
+      true,
+      (key) => key,
+      { totalIncVatLabel: 'X', shippingNote: 'Anges i offerten' },
+    );
+    const card = mountComponent(OrderSummaryCard, {
+      props: { rows: given, showPrices: true },
+    });
+    const table = mountComponent(OrderItemsTable, {
+      props: { items: rows, rows: given, showPrices: true },
+      global: { stubs },
+    });
+
+    expect(text(card, 'order-summary-shipping')).toBe('Anges i offerten');
+    expect(text(table, 'order-items-footer-shipping')).toBe('Anges i offerten');
+  });
+
+  it('shows prices where told to, although the tenant hides them', () => {
+    mockShowPrice.value = false;
+    const card = mountComponent(OrderSummaryCard, {
+      props: { rows: summary(amounts), showPrices: true },
+    });
+    const table = mountComponent(OrderItemsTable, {
+      props: { items: rows, rows: summary(amounts), showPrices: true },
+      global: { stubs },
+    });
+
+    expect(text(card, 'order-summary-total')).toBe('310 kr');
+    expect(table.findAll('[data-testid="order-item-unit-price"]')).toHaveLength(
+      2,
+    );
+    expect(text(table, 'order-items-footer-total')).toBe('310 kr');
+  });
+
+  it('puts what goes beside the heading and under the rows inside the card', () => {
+    const card = mountComponent(OrderSummaryCard, {
+      props: { rows: summary(amounts), showPrices: true },
+      slots: {
+        'heading-aside': '<span data-testid="aside">≈</span>',
+        default: '<button data-testid="action">Accept</button>',
+      },
+    });
+    const root = card.find('[data-testid="order-summary"]');
+
+    expect(root.find('[data-testid="aside"]').exists()).toBe(true);
+    expect(
+      root.find('[data-testid="aside"]').element.previousElementSibling
+        ?.tagName,
+    ).toBe('H3');
+    expect(root.find('[data-testid="action"]').exists()).toBe(true);
+    // Under the rows: after the total.
+    const total = root.find('[data-testid="order-summary-total"]').element;
+    const action = root.find('[data-testid="action"]').element;
+    expect(
+      total.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });
 

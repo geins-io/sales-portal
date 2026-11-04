@@ -29,3 +29,18 @@ export interface PortalItemTotal {
   /** Render as the emphasised grand-total row (bold, top border). */
   emphasis?: boolean;
 }
+
+/** Which amount a summary row carries; the parts style and test-id it by this. */
+export type SummaryRowKey =
+  | 'subtotal'
+  | 'discount'
+  | 'shipping'
+  | 'payment-fee'
+  | 'tax'
+  | 'total'
+  | 'total-inc-vat';
+
+/** One row of an order's or a quotation's summary: card, table footer and sheet. */
+export interface SummaryRow extends PortalItemTotal {
+  key: SummaryRowKey;
+}
