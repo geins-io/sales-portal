@@ -14,6 +14,8 @@ const mockGetContentArea = vi.fn().mockResolvedValue({
 vi.mock('../../../../server/services/cms', () => ({
   getPage: (...args: unknown[]) => mockGetPage(...args),
   getContentArea: (...args: unknown[]) => mockGetContentArea(...args),
+  // Not in cmsPages either: the 404 case below.
+  getListedCmsPage: () => Promise.resolve(null),
 }));
 
 // The page schema runs for real: its alias limit decides the 404 case below.

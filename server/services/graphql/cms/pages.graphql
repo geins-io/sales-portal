@@ -1,0 +1,16 @@
+query cmsPagesList($channelId: String, $languageId: String, $marketId: String) {
+  cmsPages(
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    id
+    alias
+    name
+    title
+    tags
+    meta {
+      ...Meta
+    }
+  }
+}
