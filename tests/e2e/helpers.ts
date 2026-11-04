@@ -14,6 +14,7 @@ import {
   PRODUCTION_BUILD,
 } from './target';
 import { purchaseCandidates, type StockedCandidate } from './product-choice';
+import { signedOutSeesPrices } from './price-visibility';
 
 export { e2eCredentials, hasE2ECredentials };
 
@@ -102,6 +103,22 @@ export function noteOutOfScope(reason: ScopeReason, detail: string): void {
     type: SCOPE_NOTE_ANNOTATION,
     description: `${reason}: ${detail}`,
   });
+}
+
+/**
+ * Whether this tenant shows prices to a signed-out visitor, read from
+ * `/api/config`. Asserts the read: without the feature the rule shows prices,
+ * so a broken or wrong-shaped read would turn a caller's assertions into a skip.
+ */
+export async function pricesShownSignedOut(page: Page): Promise<boolean> {
+  const response = await page.request.get('/api/config');
+  expect(response.ok(), '/api/config did not answer 200').toBe(true);
+  const { features } = await response.json();
+  expect(
+    features?.priceVisibility,
+    '/api/config carries no priceVisibility',
+  ).toBeTruthy();
+  return signedOutSeesPrices(features);
 }
 
 // ---------- Data Discovery ----------
@@ -277,56 +294,68 @@ export interface ProductListRow {
   exVat: number;
 }
 
+/** Rows per request; `ProductListSchema` caps `take` at 100. */
+const CATALOGUE_PAGE = 100;
+
 /**
- * A sample of up to `take` catalogue rows from `/api/product-lists/products`,
- * for a caller that picks products by a property and then addresses them by
- * alias.
+ * Every priced catalogue row from `/api/product-lists/products`, for a caller
+ * that picks products by a property and then addresses them by alias.
  *
- * A sample, never the catalogue: the endpoint applies no stable ordering (four
- * calls seconds apart returned four different first products), so two calls
- * are two draws, and `take` is capped at 100 by `ProductListSchema`. Nothing
- * from here may be matched against what the `/products` grid rendered — a card
- * on the grid and a row in this sample are drawn separately, and their overlap
- * measured 9, 4, 0 and 18 rows of 24. To read a card's price from the API, take
- * the alias off the card's own link and ask `/api/products/<alias>`.
+ * Paged, so sorted: unsorted, the endpoint orders differently on every call,
+ * and three paged reads of a 149-product catalogue saw 109, 111 and 146
+ * distinct products. The read asserts it saw `count` distinct products, so a
+ * page that shifts under it fails here instead of quietly dropping products.
  *
  * Requires a locale-prefixed URL and sends its market and locale along, as the
- * grid does, so a sample is drawn from the same catalogue the page shows.
+ * grid does, so the rows come from the same catalogue the page shows.
  */
-export async function fetchProductListSample(
+export async function fetchProductCatalogue(
   page: Page,
-  take = 100,
 ): Promise<ProductListRow[]> {
-  const response = await page.request.get('/api/product-lists/products', {
-    params: { take: String(take), ...localeQueryFrom(page.url()) },
-  });
-  expect(response.ok(), '/api/product-lists/products did not answer 200').toBe(
-    true,
-  );
+  const seen = new Map<number, ProductListRow | null>();
+  let count = 0;
+  let skip = 0;
+  do {
+    const response = await page.request.get('/api/product-lists/products', {
+      params: {
+        take: String(CATALOGUE_PAGE),
+        skip: String(skip),
+        filter: JSON.stringify({ sort: 'ALPHABETICAL' }),
+        ...localeQueryFrom(page.url()),
+      },
+    });
+    expect(
+      response.ok(),
+      '/api/product-lists/products did not answer 200',
+    ).toBe(true);
 
-  const products = (await response.json())?.products ?? [];
-  return products
-    .filter(
-      (p: {
-        alias?: string;
-        articleNumber?: string;
-        unitPrice?: { sellingPriceExVat?: number };
-      }) =>
-        !!p.alias &&
-        !!p.articleNumber &&
-        Number.isFinite(p.unitPrice?.sellingPriceExVat),
-    )
-    .map(
-      (p: {
-        alias: string;
-        articleNumber: string;
-        unitPrice: { sellingPriceExVat: number };
-      }) => ({
-        alias: p.alias,
-        articleNumber: p.articleNumber,
-        exVat: p.unitPrice.sellingPriceExVat,
-      }),
-    );
+    const body = await response.json();
+    count = body?.count ?? 0;
+    const products: {
+      productId: number;
+      alias?: string;
+      articleNumber?: string;
+      unitPrice?: { sellingPriceExVat?: number };
+    }[] = body?.products ?? [];
+    if (products.length === 0) break;
+
+    for (const p of products) {
+      const exVat = p.unitPrice?.sellingPriceExVat;
+      seen.set(
+        p.productId,
+        p.alias && p.articleNumber && Number.isFinite(exVat)
+          ? { alias: p.alias, articleNumber: p.articleNumber, exVat: exVat! }
+          : null,
+      );
+    }
+    skip += CATALOGUE_PAGE;
+  } while (skip < count);
+
+  expect(
+    seen.size,
+    `read ${seen.size} distinct products of a catalogue of ${count}`,
+  ).toBe(count);
+  return [...seen.values()].filter((row) => row !== null);
 }
 
 /**

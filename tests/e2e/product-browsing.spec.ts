@@ -9,6 +9,7 @@ import {
   waitForHydration,
   hasE2ECredentials,
   outOfScope,
+  pricesShownSignedOut,
   signedInState,
 } from './helpers';
 import { BASE_URL } from './target';
@@ -331,6 +332,14 @@ test.describe('Product Browsing', () => {
 
   test.describe('prices (anonymous)', () => {
     test.use({ storageState: { cookies: [], origins: [] } });
+
+    test.beforeEach(async ({ page }) => {
+      outOfScope(
+        await pricesShownSignedOut(page),
+        'tenant-config',
+        'priceVisibility shows prices to signed-out visitors here',
+      );
+    });
 
     test('PDP renders the product but no price', async ({ page }) => {
       const product = await discoverProduct(page);
