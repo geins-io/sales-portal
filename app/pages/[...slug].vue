@@ -184,6 +184,9 @@ const isFramedFormPage = computed(
       </ErrorBoundary>
     </div>
 
+    <!-- Published page with no blocks for this visitor: header and footer only -->
+    <div v-else-if="page?.id" data-testid="cms-empty-page" />
+
     <!-- Empty / 404 -->
     <div v-else>
       <p>{{ $t('common.unable_to_resolve_route') }}</p>

@@ -1,5 +1,5 @@
 import { CmsPageSchema } from '../../../schemas/api-input';
-import { getPage } from '../../../services/cms';
+import { getListedCmsPage, getPage } from '../../../services/cms';
 import { sanitizeCmsPage } from '../../../utils/cms-sanitize';
 import { hasUserToken } from '../../../utils/request-identity';
 
@@ -27,11 +27,25 @@ export default defineEventHandler(async (event) => {
         event,
       );
 
-      if (!page?.containers?.length) {
+      if (page?.containers?.length) return sanitizeCmsPage(page);
+
+      // A published page renders even with no blocks for this visitor.
+      const listed = await getListedCmsPage({ alias: validatedAlias }, event);
+      if (!listed) {
         throw createAppError(ErrorCode.NOT_FOUND, 'Page not found');
       }
 
-      return sanitizeCmsPage(page);
+      return {
+        id: String(listed.id),
+        name: listed.name,
+        title: listed.title || listed.name,
+        meta: {
+          title: listed.meta?.title ?? undefined,
+          description: listed.meta?.description ?? undefined,
+        },
+        tags: listed.tags,
+        containers: [],
+      };
     },
     { operation: 'cms.page.get' },
   );

@@ -3,6 +3,7 @@ import type {
   ContentAreaType,
   MenuType,
   GeinsCustomerType,
+  GeinsPageWidgetPageTypeType,
 } from '@geins/types';
 import type { H3Event } from 'h3';
 import { LRUCache } from 'lru-cache';
@@ -81,6 +82,8 @@ const areaCache = new LRUCache<string, CmsContentArea>({
 // cached miss from an uncached entry; get() returning "" means no page exists.
 const PAGE_LINK_NULL_SENTINEL = '';
 const pageLinkCache = new LRUCache<string, string>({ max: 300 });
+
+const cmsPagesCache = new LRUCache<string, ListedCmsPage[]>({ max: 300 });
 
 /**
  * Cache key prefix without an identity segment: tenant hostname, locale, market.
@@ -463,6 +466,81 @@ async function readArea(
     },
     complete: mobileArea !== null,
   };
+}
+
+export type ListedCmsPage = Pick<
+  GeinsPageWidgetPageTypeType,
+  'id' | 'name' | 'title' | 'meta'
+> & { alias: string; tags: string[] };
+
+/**
+ * The `cmsPages` item for an alias, or null. Geins answers no widget area for a
+ * published page without blocks, the same as for a missing page; `cmsPages`
+ * still lists it, lists CMS pages only, and drops an unpublished page.
+ *
+ * The alias matches exactly, as `widgetArea` does. A failed or malformed read
+ * answers null and is not cached, so the route keeps today's 404.
+ */
+export async function getListedCmsPage(
+  args: { alias: string },
+  event: H3Event,
+): Promise<ListedCmsPage | null> {
+  // No preview variant: cmsPages has no preview arg; preview only disables caching here.
+  const isCacheable = !getPreviewCookie(event);
+  const cacheKey = `${buildAnonymousCachePrefix(event)}::cmspages`;
+
+  let pages = isCacheable ? cmsPagesCache.get(cacheKey) : undefined;
+  if (!pages) {
+    const read = await readCmsPages(event);
+    if (!read) return null;
+    pages = read;
+    if (isCacheable) cmsPagesCache.set(cacheKey, pages, { ttl: CACHE_TTL_MS });
+  }
+
+  return pages.find((page) => page.alias === args.alias) ?? null;
+}
+
+async function readCmsPages(event: H3Event): Promise<ListedCmsPage[] | null> {
+  let result: unknown;
+  try {
+    const sdk = await getTenantSDK(event);
+    result = await wrapServiceCall(
+      () =>
+        sdk.core.graphql.query({
+          queryAsString: loadQuery('cms/pages.graphql'),
+          variables: getRequestChannelVariables(sdk, event),
+        }),
+      'cms',
+    );
+  } catch {
+    logger.warn('[cms] cmsPages read failed; treating the alias as unlisted');
+    return null;
+  }
+
+  const items = unwrapGraphQL(result);
+  if (!Array.isArray(items)) {
+    logger.warn(
+      '[cms] cmsPages answer is not a list; treating the alias as unlisted',
+    );
+    return null;
+  }
+
+  return (items as Array<GeinsPageWidgetPageTypeType | null>).flatMap((item) =>
+    item?.alias
+      ? [
+          {
+            id: item.id,
+            alias: item.alias,
+            name: item.name,
+            title: item.title,
+            meta: item.meta,
+            tags: (item.tags ?? []).filter(
+              (tag): tag is string => typeof tag === 'string',
+            ),
+          },
+        ]
+      : [],
+  );
 }
 
 /**

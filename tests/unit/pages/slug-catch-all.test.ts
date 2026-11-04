@@ -450,6 +450,31 @@ describe('[...slug] page: entity-url fallback', () => {
   );
 
   it(
+    'renders a published page without blocks as an empty page, not a miss',
+    async () => {
+      mockCmsData.value = {
+        id: '26',
+        name: 'tom page test',
+        title: 'tom page test',
+        meta: {},
+        tags: [],
+        containers: [],
+      };
+
+      const wrapper = await mountCatchAll();
+
+      expect(internalFetchMock).not.toHaveBeenCalled();
+      expect(navigateToMock).not.toHaveBeenCalled();
+      expect(createErrorMock).not.toHaveBeenCalled();
+      expect(wrapper.find('[data-testid="cms-empty-page"]').exists()).toBe(
+        true,
+      );
+      expect(wrapper.text()).not.toContain('unable_to_resolve_route');
+    },
+    MOUNT_TIMEOUT,
+  );
+
+  it(
     'throws 404 (no loop) when the resolved target equals the current path',
     async () => {
       // The resolver echoes the current path back (defensive against a
