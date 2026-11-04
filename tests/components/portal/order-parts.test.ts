@@ -343,6 +343,28 @@ describe('OrderAddresses', () => {
     expect(text(wrapper, 'additional-delivery-date')).toContain('2026-10-20');
   });
 
+  it('shows the payment terms it is given in the additional information', () => {
+    const wrapper = mountComponent(OrderAddresses, {
+      props: { paymentTerms: '30 dagar netto' },
+      global: { stubs },
+    });
+
+    expect(text(wrapper, 'additional-payment-terms')).toBe(
+      'portal.quotations.payment_terms: 30 dagar netto',
+    );
+  });
+
+  it('has no payment terms line without terms', () => {
+    const wrapper = mountComponent(OrderAddresses, {
+      props: { paymentMethod: 'Invoice', paymentTerms: '' },
+      global: { stubs },
+    });
+
+    expect(
+      wrapper.find('[data-testid="additional-payment-terms"]').exists(),
+    ).toBe(false);
+  });
+
   it('renders nothing without addresses or information', () => {
     const wrapper = mountComponent(OrderAddresses, {
       props: {},

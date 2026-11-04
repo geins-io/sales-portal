@@ -152,6 +152,8 @@ export interface Quote {
   acceptedBy?: string;
   /** Set once the quotation is finalized into an order. */
   orderId?: string;
+  /** The order's public id, the key its page takes; only once the order is readable. */
+  orderPublicId?: string;
   /** Read from the quotation's customer alone, never the seller. */
   customer?: QuoteCustomer;
   paymentMethods?: QuotePaymentMethod[];

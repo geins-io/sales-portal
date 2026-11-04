@@ -95,8 +95,7 @@ async function placeOrder() {
   placing.value = true;
   const ordered = await store.finalizeQuote(quote.value.id);
   placing.value = false;
-  // The quotation view shows it as finalized until a thank-you page exists.
-  if (ordered) await navigateTo(quotationPath.value);
+  if (ordered) await navigateTo(`${quotationPath.value}/ordered`);
 }
 
 function formatDate(iso: string): string {

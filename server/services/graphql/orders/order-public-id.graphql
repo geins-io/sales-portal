@@ -1,0 +1,15 @@
+query getOrderPublicId(
+  $orderId: Int!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  getOrder(
+    orderId: $orderId
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    publicId
+  }
+}

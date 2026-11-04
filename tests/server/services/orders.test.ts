@@ -435,3 +435,100 @@ describe('orders service', () => {
     });
   });
 });
+
+describe('orders service: an order by its number', () => {
+  const mockEvent = {
+    context: {
+      tenant: { config: { channelSettings: { locales: ['sv-SE'] } } },
+    },
+  } as unknown as H3Event;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    isConfigurable.mockImplementation(byType);
+    ordersService = await import('../../../server/services/orders');
+  });
+
+  describe('findOrderPublicId', () => {
+    it('asks getOrder by the number, as the buyer, in the channel', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getOrder: { publicId: 'pub-1155' },
+      });
+
+      const result = await ordersService.findOrderPublicId(1155, mockEvent);
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith({
+        queryAsString: 'query:orders/order-public-id.graphql',
+        variables: {
+          orderId: 1155,
+          channelId: '1|se',
+          languageId: 'sv-SE',
+          marketId: 'se',
+        },
+        userToken: 'test-user-token',
+      });
+      expect(vi.mocked(wrapServiceCall).mock.calls[0]?.slice(1)).toEqual([
+        'order',
+        OrderError,
+      ]);
+      expect(result).toBe('pub-1155');
+    });
+
+    // Geins answers null alike for an order not readable yet, one of another
+    // company and one that does not exist.
+    it('answers nothing when Geins answers no order', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({ getOrder: null });
+
+      await expect(
+        ordersService.findOrderPublicId(1155, mockEvent),
+      ).resolves.toBeUndefined();
+    });
+
+    it('asks without a user token when the request carries no context', async () => {
+      const { buildRequestContext } =
+        await import('../../../server/services/_sdk');
+      vi.mocked(buildRequestContext).mockReturnValueOnce(undefined);
+      mockGraphqlQuery.mockResolvedValueOnce({ getOrder: null });
+
+      await ordersService.findOrderPublicId(1155, mockEvent);
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ userToken: undefined }),
+      );
+    });
+
+    it('answers nothing for an order without a public id', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({ getOrder: { publicId: '' } });
+
+      await expect(
+        ordersService.findOrderPublicId(1155, mockEvent),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('getOrderByNumber', () => {
+    it('reads the order the portal reads, by the public id the number gives', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getOrder: { publicId: 'pub-1155' },
+      });
+      mockOrderGet.mockResolvedValueOnce({ id: 1155, publicId: 'pub-1155' });
+
+      const result = await ordersService.getOrderByNumber(1155, mockEvent);
+
+      expect(mockOrderGet).toHaveBeenCalledWith(
+        { publicOrderId: 'pub-1155' },
+        expect.anything(),
+      );
+      expect(result).toEqual({ id: 1155, publicId: 'pub-1155' });
+    });
+
+    it('asks no further when the number gives no order', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({ getOrder: null });
+
+      await expect(
+        ordersService.getOrderByNumber(1155, mockEvent),
+      ).resolves.toBeUndefined();
+      expect(mockOrderGet).not.toHaveBeenCalled();
+    });
+  });
+});

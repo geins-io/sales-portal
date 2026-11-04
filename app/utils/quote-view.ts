@@ -83,6 +83,8 @@ export function quoteSummaryRows(
   itemCount: number,
   incVat: boolean,
   t: Translate,
+  /** Shown in the shipping row while there is no shipping amount. */
+  shippingNote?: string,
 ): QuoteSummaryRow[] {
   const rows: QuoteSummaryRow[] = [
     {
@@ -98,11 +100,12 @@ export function quoteSummaryRows(
       value: `-${amounts.discount}`,
     });
   }
-  if (amounts.shipping) {
+  const shipping = amounts.shipping || shippingNote;
+  if (shipping) {
     rows.push({
       key: 'shipping',
       label: t('portal.quotations.shipping'),
-      value: amounts.shipping,
+      value: shipping,
     });
   }
   rows.push(

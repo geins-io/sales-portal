@@ -8,6 +8,7 @@ import {
   Clock,
   FileText,
   Info,
+  ShoppingBag,
   User,
 } from 'lucide-vue-next';
 import { Badge } from '~/components/ui/badge';
@@ -39,6 +40,7 @@ const { timezone } = useTenant();
 const route = useRoute();
 const store = useQuotesStore();
 const { localePath } = useLocaleMarket();
+const { canAccess } = useFeatureAccess();
 
 const quoteId = computed(() => route.params.id as string);
 
@@ -130,6 +132,8 @@ interface MetaRow {
   icon: FunctionalComponent;
   label: string;
   lines: string[];
+  /** Where the first line links to. */
+  href?: string;
 }
 
 /** The details card: only the rows that have a value, in the prototype's order. */
@@ -183,6 +187,17 @@ const metaRows = computed<MetaRow[]>(() => {
     icon: CircleCheck,
     label: t('portal.quotations.accepted_at'),
     lines: q.acceptedAt ? [formatDate(q.acceptedAt), q.acceptedBy ?? ''] : [],
+  });
+  add({
+    key: 'order',
+    testId: 'quote-meta-order',
+    icon: ShoppingBag,
+    label: t('portal.quotations.order_row'),
+    lines: q.orderId ? [`#${q.orderId}`] : [],
+    href:
+      q.orderPublicId && canAccess('orderHistory')
+        ? localePath(`/portal/orders/${encodeURIComponent(q.orderPublicId)}`)
+        : undefined,
   });
   add({
     key: 'contact',
@@ -357,11 +372,18 @@ const customerSummary = computed(() => {
                     {{ row.label }}
                   </p>
                   <p
-                    v-for="line in row.lines"
+                    v-for="(line, l) in row.lines"
                     :key="line"
                     class="text-muted-foreground text-sm break-words whitespace-pre-line"
                   >
-                    {{ line }}
+                    <NuxtLink
+                      v-if="row.href && l === 0"
+                      :to="row.href"
+                      :data-testid="`${row.testId}-link`"
+                      class="text-primary hover:underline"
+                      >{{ line }}</NuxtLink
+                    >
+                    <template v-else>{{ line }}</template>
                   </p>
                 </div>
               </div>

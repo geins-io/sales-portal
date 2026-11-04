@@ -517,7 +517,7 @@ describe('PortalQuotationOrder', () => {
       expect(wrapper.find(PLACE).attributes('disabled')).toBeUndefined();
     });
 
-    it('finalizes once with the box ticked, then opens the quotation view', async () => {
+    it('finalizes once with the box ticked, then opens the thank-you page', async () => {
       mockFinalizeQuote.mockResolvedValue(orderable({ status: 'finalized' }));
       const wrapper = await mountWith(orderable());
 
@@ -526,7 +526,7 @@ describe('PortalQuotationOrder', () => {
 
       expect(mockFinalizeQuote).toHaveBeenCalledTimes(1);
       expect(mockFinalizeQuote).toHaveBeenCalledWith('q-001');
-      expect(mockNavigateTo).toHaveBeenCalledWith(VIEW_PATH);
+      expect(mockNavigateTo).toHaveBeenCalledWith(`${VIEW_PATH}/ordered`);
     });
 
     it('ignores a second click while the order is being placed', async () => {

@@ -569,11 +569,7 @@
     "quote_message_placeholder": "Lisää mahdolliset erityisvaatimukset tai huomautukset...",
     "requesting_quote": "Pyydetään tarjousta...",
     "po_number": "Ostotilausnumero",
-    "payment_terms": "Maksuehdot",
-    "confirmation_title": "Tarjouspyyntö lähetetty",
-    "confirmation_message": "Tarjouspyyntösi on lähetetty. Käymme sen läpi ja palaamme asiaan pian.",
-    "quote_number": "Tarjousnumero",
-    "back_to_portal": "Näytä tarjouksesi"
+    "payment_terms": "Maksuehdot"
   },
   "frontpage": {
     "fallback": {
@@ -972,7 +968,24 @@
       },
       "col_item": "Tuote",
       "col_article": "Tuotenro",
-      "col_unit_price": "À-hinta"
+      "col_unit_price": "À-hinta",
+      "order_row": "Tilaus",
+      "confirm": {
+        "request_title": "Pyyntö lähetetty!",
+        "request_body": "Kiitos tarjouspyynnöstäsi. Tilausta ei ole tehty.",
+        "request_number": "Pyyntö",
+        "next_1": "Myyjäsi käy pyynnön läpi.",
+        "next_2": "Saat tiedon, kun tarjous on valmis, ja löydät sen asiakasportaalin kohdasta Tarjoukset.",
+        "next_3": "Siellä voit tarkastella tarjousta ja vastata siihen.",
+        "view_request": "Näytä pyyntö asiakasportaalissa",
+        "request_lines": "Pyynnön tuotteet",
+        "order_title": "Tilaus vahvistettu!",
+        "order_body": "Kiitos tilauksestasi. Vahvistus on lähetetty sähköpostiisi.",
+        "order_number": "Tilausnumero",
+        "from_quotation": "Tilattu tarjouksesta {number}",
+        "view_quotation": "Näytä tarjous asiakasportaalissa",
+        "continue_shopping": "Jatka ostoksia"
+      }
     },
     "favorites": {
       "title": "Suosikit",

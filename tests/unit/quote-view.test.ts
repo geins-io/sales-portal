@@ -196,6 +196,40 @@ describe('quoteSummaryRows', () => {
     ]);
   });
 
+  it('says where the shipping comes from when there is no shipping amount yet', () => {
+    const rows = quoteSummaryRows(
+      { subtotal: 's', tax: 'v', total: 't' },
+      1,
+      true,
+      t,
+      'Anges i offerten',
+    );
+
+    expect(rows.map((row) => row.key)).toEqual([
+      'count',
+      'shipping',
+      'tax',
+      'total',
+    ]);
+    expect(rows[1]).toEqual({
+      key: 'shipping',
+      label: 'portal.quotations.shipping',
+      value: 'Anges i offerten',
+    });
+  });
+
+  it('shows the shipping amount over the note once there is one', () => {
+    const rows = quoteSummaryRows(
+      { subtotal: 's', shipping: 'sh', tax: 'v', total: 't' },
+      1,
+      true,
+      t,
+      'Anges i offerten',
+    );
+
+    expect(rows.find((row) => row.key === 'shipping')?.value).toBe('sh');
+  });
+
   it('leaves out what the amounts lack, and labels VAT as included on the inc side', () => {
     const rows = quoteSummaryRows(
       { subtotal: 's', tax: 'v', total: 't' },

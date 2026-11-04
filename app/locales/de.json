@@ -569,11 +569,7 @@
     "quote_message_placeholder": "Besondere Anforderungen oder Hinweise hinzufügen...",
     "requesting_quote": "Angebot wird angefordert...",
     "po_number": "PO-Nummer",
-    "payment_terms": "Zahlungsbedingungen",
-    "confirmation_title": "Angebotsanfrage eingereicht",
-    "confirmation_message": "Ihre Angebotsanfrage wurde eingereicht. Wir prüfen sie und melden uns in Kürze bei Ihnen.",
-    "quote_number": "Angebotsnummer",
-    "back_to_portal": "Ihre Angebote ansehen"
+    "payment_terms": "Zahlungsbedingungen"
   },
   "frontpage": {
     "fallback": {
@@ -972,7 +968,24 @@
       },
       "col_item": "Artikel",
       "col_article": "Art.-Nr.",
-      "col_unit_price": "Stückpreis"
+      "col_unit_price": "Stückpreis",
+      "order_row": "Bestellung",
+      "confirm": {
+        "request_title": "Anfrage gesendet!",
+        "request_body": "Vielen Dank für Ihre Angebotsanfrage. Es wurde keine Bestellung aufgegeben.",
+        "request_number": "Anfrage",
+        "next_1": "Ihr Verkäufer prüft die Anfrage.",
+        "next_2": "Sie werden benachrichtigt, sobald das Angebot fertig ist, und finden es unter Angebote im Kundenportal.",
+        "next_3": "Dort können Sie das Angebot prüfen und darauf antworten.",
+        "view_request": "Anfrage im Kundenportal ansehen",
+        "request_lines": "Artikel in der Anfrage",
+        "order_title": "Bestellung bestätigt!",
+        "order_body": "Vielen Dank für Ihre Bestellung. Eine Bestätigung wurde an Ihre E-Mail-Adresse gesendet.",
+        "order_number": "Bestellnummer",
+        "from_quotation": "Bestellt aus Angebot {number}",
+        "view_quotation": "Angebot im Kundenportal ansehen",
+        "continue_shopping": "Weiter einkaufen"
+      }
     },
     "favorites": {
       "title": "Favoriten",

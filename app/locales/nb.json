@@ -569,11 +569,7 @@
     "quote_message_placeholder": "Legg til eventuelle spesialkrav eller notater...",
     "requesting_quote": "Ber om tilbud...",
     "po_number": "PO-nummer",
-    "payment_terms": "Betalingsbetingelser",
-    "confirmation_title": "Tilbudsforespørselen er sendt",
-    "confirmation_message": "Tilbudsforespørselen din er sendt. Vi går gjennom den og kommer tilbake til deg snarest.",
-    "quote_number": "Tilbudsnummer",
-    "back_to_portal": "Vis tilbudene dine"
+    "payment_terms": "Betalingsbetingelser"
   },
   "frontpage": {
     "fallback": {
@@ -972,7 +968,24 @@
       },
       "col_item": "Vare",
       "col_article": "Varenr.",
-      "col_unit_price": "Stykkpris"
+      "col_unit_price": "Stykkpris",
+      "order_row": "Ordre",
+      "confirm": {
+        "request_title": "Forespørsel sendt!",
+        "request_body": "Takk for tilbudsforespørselen. Ingen ordre er lagt inn.",
+        "request_number": "Forespørsel",
+        "next_1": "Selgeren din går gjennom forespørselen.",
+        "next_2": "Du får beskjed når tilbudet er klart, og finner det under Tilbud i kundeportalen.",
+        "next_3": "Der kan du se gjennom tilbudet og svare på det.",
+        "view_request": "Vis forespørselen i kundeportalen",
+        "request_lines": "Varer i forespørselen",
+        "order_title": "Bestilling bekreftet!",
+        "order_body": "Takk for bestillingen. En bekreftelse er sendt til e-postadressen din.",
+        "order_number": "Ordrenummer",
+        "from_quotation": "Bestilt fra tilbud {number}",
+        "view_quotation": "Vis tilbudet i kundeportalen",
+        "continue_shopping": "Fortsett å handle"
+      }
     },
     "favorites": {
       "title": "Favoritter",
