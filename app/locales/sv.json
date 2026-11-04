@@ -576,11 +576,7 @@
     "quote_message_placeholder": "Lägg till eventuella specialkrav eller anteckningar...",
     "requesting_quote": "Begär offert...",
     "po_number": "PO-nummer",
-    "payment_terms": "Betalningsvillkor",
-    "confirmation_title": "Offertförfrågan skickad",
-    "confirmation_message": "Din offertförfrågan har skickats. Vi granskar den och återkommer till dig inom kort.",
-    "quote_number": "Offertnummer",
-    "back_to_portal": "Visa dina offerter"
+    "payment_terms": "Betalningsvillkor"
   },
   "frontpage": {
     "fallback": {
@@ -979,7 +975,24 @@
       },
       "col_item": "Artikel",
       "col_article": "Art nr",
-      "col_unit_price": "à-pris"
+      "col_unit_price": "à-pris",
+      "order_row": "Order",
+      "confirm": {
+        "request_title": "Förfrågan skickad!",
+        "request_body": "Tack för din offertförfrågan. Ingen order är lagd.",
+        "request_number": "Förfrågan",
+        "next_1": "Din säljare går igenom förfrågan.",
+        "next_2": "Du får besked när offerten är klar, och hittar den under Offerter i kundportalen.",
+        "next_3": "Där kan du granska offerten och svara på den.",
+        "view_request": "Visa förfrågan i kundportalen",
+        "request_lines": "Artiklar i förfrågan",
+        "order_title": "Beställning bekräftad!",
+        "order_body": "Tack för din beställning. En bekräftelse har skickats till din e-postadress.",
+        "order_number": "Ordernummer",
+        "from_quotation": "Beställd från offert {number}",
+        "view_quotation": "Visa offerten i kundportalen",
+        "continue_shopping": "Fortsätt handla"
+      }
     },
     "favorites": {
       "title": "Favoriter",

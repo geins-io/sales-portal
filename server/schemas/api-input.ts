@@ -246,6 +246,15 @@ export const OrderIdSchema = z.object({
 });
 export type OrderIdInput = z.infer<typeof OrderIdSchema>;
 
+/** An order number as Geins takes it: a positive 32-bit integer, written plainly. */
+export const OrderNumberSchema = z.object({
+  number: z
+    .string()
+    .regex(/^[1-9]\d{0,9}$/)
+    .transform(Number)
+    .refine((n) => n <= 2147483647),
+});
+
 // ---------------------------------------------------------------------------
 // Checkout
 // ---------------------------------------------------------------------------

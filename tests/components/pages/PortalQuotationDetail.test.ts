@@ -34,6 +34,13 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: tSpy, locale: ref('en') }),
 }));
 
+const { mockCanAccess } = vi.hoisted(() => ({
+  mockCanAccess: vi.fn((_name: string) => true),
+}));
+vi.mock('../../../app/composables/useFeatureAccess', () => ({
+  useFeatureAccess: () => ({ canAccess: mockCanAccess }),
+}));
+
 // Hoist reactive mock state so it's available inside vi.mock factories
 const {
   mockData,
@@ -315,6 +322,8 @@ describe('PortalQuotationDetail', () => {
       return Promise.resolve(null);
     });
     mockShowIncVat.value = true;
+    mockCanAccess.mockReset();
+    mockCanAccess.mockReturnValue(true);
   });
 
   describe('SSR 404 handling', () => {
@@ -1064,6 +1073,66 @@ describe('PortalQuotationDetail', () => {
         expect(row.text()).toContain(`portal.quotations.${key}`);
       },
     );
+
+    describe('the order it was finalized into', () => {
+      const finalized = (overrides: Partial<Quote> = {}) =>
+        makeQuote({
+          status: 'finalized',
+          orderId: '1155',
+          orderPublicId: 'pub-1155',
+          acceptedAt: '2026-10-28T09:00:00Z',
+          seller: { name: 'Sam Seller' },
+          ...overrides,
+        });
+      const orderRow = (wrapper: Wrapper) =>
+        wrapper.find('[data-testid="quote-meta-order"]');
+
+      it('comes after the acceptance and before the seller', async () => {
+        const keys = metaKeys(await mountWith(finalized()));
+
+        expect(keys.slice(keys.indexOf('accepted'))).toEqual([
+          'accepted',
+          'order',
+          'contact',
+        ]);
+      });
+
+      it('links the order number to the order', async () => {
+        const row = orderRow(await mountWith(finalized()));
+
+        expect(row.text()).toContain('portal.quotations.order_row');
+        const link = row.find('[data-testid="quote-meta-order-link"]');
+        expect(link.text()).toBe('#1155');
+        expect(link.attributes('href')).toBe('/se/en/portal/orders/pub-1155');
+        expect(mockCanAccess).toHaveBeenCalledWith('orderHistory');
+      });
+
+      it('shows the number without a link to a buyer without order history', async () => {
+        mockCanAccess.mockImplementation((name) => name !== 'orderHistory');
+
+        const row = orderRow(await mountWith(finalized()));
+
+        expect(row.text()).toContain('#1155');
+        expect(row.find('a').exists()).toBe(false);
+      });
+
+      it('shows the number without a link while the order is not readable', async () => {
+        const row = orderRow(
+          await mountWith(finalized({ orderPublicId: undefined })),
+        );
+
+        expect(row.text()).toContain('#1155');
+        expect(row.find('a').exists()).toBe(false);
+      });
+
+      it('has no order row without an order', async () => {
+        const wrapper = await mountWith(
+          finalized({ orderId: undefined, orderPublicId: undefined }),
+        );
+
+        expect(orderRow(wrapper).exists()).toBe(false);
+      });
+    });
 
     it('has no status row on a request draft', async () => {
       const wrapper = await mountWith(makeQuote({ status: 'request_draft' }));

@@ -70,6 +70,43 @@ export async function getOrder(
   return order ? toOrderDetail(order, configurableCheck(event)) : undefined;
 }
 
+/**
+ * The public id of an order known by its number, which is all a quotation
+ * knows of the order it became. Geins answers null alike for an order not
+ * readable yet, one of another company and one that does not exist.
+ */
+export async function findOrderPublicId(
+  orderNumber: number,
+  event: H3Event,
+): Promise<string | undefined> {
+  const sdk = await getTenantSDK(event);
+  const requestContext = buildRequestContext(event);
+  const result = await wrapServiceCall(
+    () =>
+      sdk.core.graphql.query({
+        queryAsString: loadQuery('orders/order-public-id.graphql'),
+        variables: {
+          orderId: orderNumber,
+          ...getRequestChannelVariables(sdk, event),
+        },
+        userToken: requestContext?.userToken,
+      }),
+    'order',
+    OrderError,
+  );
+  const order = unwrapGraphQL(result) as { publicId?: string } | null;
+  return order?.publicId || undefined;
+}
+
+/** The order by its number, read as the portal reads every order. */
+export async function getOrderByNumber(
+  orderNumber: number,
+  event: H3Event,
+): Promise<OrderDetailType | undefined> {
+  const publicOrderId = await findOrderPublicId(orderNumber, event);
+  return publicOrderId ? getOrder({ publicOrderId }, event) : undefined;
+}
+
 export async function listOrders(
   event: H3Event,
 ): Promise<{ orders: OrderListItem[]; total: number }> {

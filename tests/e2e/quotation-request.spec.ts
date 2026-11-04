@@ -121,7 +121,7 @@ async function openInApp(page: Page, to: string) {
 }
 
 test.describe('Send a quote request', () => {
-  test('sends the entered details, then the request, and lands on the quotation', async ({
+  test('sends the entered details, then the request, and lands on the sent page', async ({
     page,
   }) => {
     const calls = await answerQuotation(page, 'request_draft');
@@ -162,7 +162,7 @@ test.describe('Send a quote request', () => {
       .fill('Leverans till lager 2');
 
     await page.locator('[data-testid="place-order-button"]').click();
-    await page.waitForURL(new RegExp(`${VIEW_PATH}$`), {
+    await page.waitForURL(new RegExp(`${VIEW_PATH}/sent$`), {
       timeout: PAGE_TIMEOUT,
     });
 
@@ -174,6 +174,20 @@ test.describe('Send a quote request', () => {
       },
     ]);
     expect(calls.release).toBe(1);
+    const thanks = page.locator('[data-testid="quote-thanks"]');
+    await expect(thanks).toBeVisible({ timeout: PAGE_TIMEOUT });
+    await expect(thanks).toHaveAttribute('data-kind', 'request');
+    await expect(
+      page.locator('[data-testid="quote-thanks-number"]'),
+    ).toContainText(makeQuote('requested').quoteNumber);
+    await expect(
+      page.locator('[data-testid="quote-thanks-contents"]'),
+    ).toBeVisible();
+
+    await page.locator('[data-testid="quote-thanks-portal"]').click();
+    await page.waitForURL(new RegExp(`${VIEW_PATH}$`), {
+      timeout: PAGE_TIMEOUT,
+    });
     await expect(page.locator('[data-testid="quote-detail"]')).toBeVisible({
       timeout: PAGE_TIMEOUT,
     });
@@ -223,6 +237,20 @@ test.describe('Send a quote request', () => {
       page.locator('[data-testid="quote-request-error"]'),
     ).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`${VIEW_PATH}/request$`));
+  });
+
+  test('sends a quotation that is not sent from the sent page to the quotation view', async ({
+    page,
+  }) => {
+    await answerQuotation(page, 'pending');
+
+    await openInApp(page, `${VIEW_PATH}/sent`);
+    await page.waitForURL(new RegExp(`${VIEW_PATH}$`), {
+      timeout: PAGE_TIMEOUT,
+    });
+    await expect(page.locator('[data-testid="quote-detail"]')).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
   });
 
   test('sends a quotation that is not a draft to the quotation view', async ({

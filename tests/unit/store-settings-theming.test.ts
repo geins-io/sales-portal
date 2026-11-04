@@ -19,9 +19,9 @@ const read = (rel: string) =>
 describe('store-settings button color on standalone CTAs', () => {
   const ctaFiles = [
     'app/components/checkout/OrderConfirmation.vue',
+    'app/components/checkout/QuoteConfirmation.vue',
     'app/components/shared/EmptyState.vue',
     'app/components/cart/CartEmptyState.vue',
-    'app/pages/quote-confirmation/[id].vue',
   ];
 
   for (const file of ctaFiles) {
@@ -43,12 +43,12 @@ describe('store-settings button text colour on standalone CTAs', () => {
   const files = [
     'app/components/cart/CartEmptyState.vue',
     'app/components/checkout/OrderConfirmation.vue',
+    'app/components/checkout/QuoteConfirmation.vue',
     'app/components/cms/widgets/BannerWidget.vue',
     'app/components/cms/widgets/ButtonsWidget.vue',
     'app/components/cms/widgets/JsonWidget.vue',
     'app/components/layout/footer/LayoutFooterTop.vue',
     'app/components/shared/EmptyState.vue',
-    'app/pages/quote-confirmation/[id].vue',
   ];
 
   for (const file of files) {

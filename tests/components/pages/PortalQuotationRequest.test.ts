@@ -499,7 +499,7 @@ describe('PortalQuotationRequest', () => {
   });
 
   describe('sending', () => {
-    it('sends the trimmed details and lands on the quotation view', async () => {
+    it('sends the trimmed details and lands on the sent page', async () => {
       mockSendQuoteRequest.mockResolvedValue(draft({ status: 'requested' }));
       const wrapper = await mountWith(draft());
 
@@ -519,7 +519,7 @@ describe('PortalQuotationRequest', () => {
         customerReference: 'PO-77',
         comment: 'Leverans till lager 2',
       });
-      expect(mockNavigateTo).toHaveBeenCalledWith(VIEW_PATH);
+      expect(mockNavigateTo).toHaveBeenCalledWith(`${VIEW_PATH}/sent`);
     });
 
     it('sends blank fields as left out', async () => {

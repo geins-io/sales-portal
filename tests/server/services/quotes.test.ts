@@ -27,6 +27,11 @@ vi.mock('../../../server/services/_sdk', () => ({
   }),
 }));
 
+const mockFindOrderPublicId = vi.fn().mockResolvedValue(undefined);
+vi.mock('../../../server/services/orders', () => ({
+  findOrderPublicId: (...args: unknown[]) => mockFindOrderPublicId(...args),
+}));
+
 vi.mock('../../../server/services/graphql/loader', () => ({
   loadQuery: vi.fn((path: string) => `query:${path}`),
 }));
@@ -267,6 +272,62 @@ describe('quotes service', () => {
       const result = await quotesService.getQuote('cart-001', mockEvent);
 
       expect(result.orderId).toBe('1712');
+    });
+
+    it("gives a finalized quotation its order's public id, looked up by the number", async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: makeRawQuotationCart({
+          status: 'FINALIZED',
+          orderId: '1712',
+        }),
+      });
+      mockFindOrderPublicId.mockResolvedValueOnce('pub-1712');
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(mockFindOrderPublicId).toHaveBeenCalledWith(1712, mockEvent);
+      expect(result.orderPublicId).toBe('pub-1712');
+    });
+
+    it('leaves the public id out while the order is not readable', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: makeRawQuotationCart({
+          status: 'FINALIZED',
+          orderId: '1712',
+        }),
+      });
+      mockFindOrderPublicId.mockResolvedValueOnce(undefined);
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(result.orderId).toBe('1712');
+      expect(result).not.toHaveProperty('orderPublicId');
+    });
+
+    it('still answers the quotation when the order lookup fails', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: makeRawQuotationCart({
+          status: 'FINALIZED',
+          orderId: '1712',
+        }),
+      });
+      mockFindOrderPublicId.mockRejectedValueOnce(new Error('Geins down'));
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(result.orderId).toBe('1712');
+      expect(result).not.toHaveProperty('orderPublicId');
+    });
+
+    it('looks up no order for a quotation without one', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: makeRawQuotationCart(),
+      });
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(mockFindOrderPublicId).not.toHaveBeenCalled();
+      expect(result).not.toHaveProperty('orderPublicId');
     });
 
     it('gives a quotation without an order no order id', async () => {

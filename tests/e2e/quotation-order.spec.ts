@@ -57,12 +57,25 @@ test.describe('Order from a quotation', () => {
       'the test account has no pending quotation without confirmation to order from',
     );
 
+    // A real order of the buyer's stands in for the one the finalize would
+    // place, so the thank-you page reads a real order by its number.
+    const ordersResponse = await page.request.get('/api/orders');
+    expect(ordersResponse.ok(), '/api/orders did not answer 200').toBe(true);
+    const { orders } = (await ordersResponse.json()) as {
+      orders: Array<{ id: number | string }>;
+    };
+    outOfScope(
+      !orders.length,
+      'fixture-missing',
+      'the test account has no order for the thank-you page to read',
+    );
+    const orderNumber = String(orders[0]!.id);
+    const finalized = { ...quote, status: 'finalized', orderId: orderNumber };
+
     const finalizeCalls: string[] = [];
     await page.route('**/api/quotes/*/finalize', async (route) => {
       finalizeCalls.push(route.request().url());
-      await route.fulfill({
-        json: { quote: { ...quote, status: 'finalized' } },
-      });
+      await route.fulfill({ json: { quote: finalized } });
     });
 
     const viewPath = `/se/sv/portal/quotations/${quote!.id}`;
@@ -119,12 +132,51 @@ test.describe('Order from a quotation', () => {
 
     await page.locator('#checkout-terms-checkbox').click();
     await expect(place).toBeEnabled();
+    // From here on the quotation reads as the order it became.
+    await page.route(`**/api/quotes/${quote!.id}`, async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      await route.fulfill({ json: { quote: finalized } });
+    });
     await place.click();
-    await page.waitForURL(new RegExp(`${viewPath}$`), {
+    await page.waitForURL(new RegExp(`${viewPath}/ordered$`), {
       timeout: PAGE_TIMEOUT,
     });
     expect(finalizeCalls).toHaveLength(1);
     expect(finalizeCalls[0]).toContain(`/api/quotes/${quote!.id}/finalize`);
+
+    const thanks = page.locator('[data-testid="quote-thanks"]');
+    await expect(thanks).toHaveAttribute('data-kind', 'order', {
+      timeout: PAGE_TIMEOUT,
+    });
+    await expect(
+      page.locator('[data-testid="quote-thanks-number"]'),
+    ).toContainText(orderNumber);
+    await expect(
+      page.locator('[data-testid="quote-thanks-from"]'),
+    ).toContainText(String(quote!.quoteNumber));
+    await expect(
+      page.locator('[data-testid="confirmation-order"]'),
+    ).toBeVisible({ timeout: PAGE_TIMEOUT });
+  });
+
+  test('sends a quotation that is not finalized from the ordered page to the quotation view', async ({
+    page,
+  }) => {
+    const quote = await findOrderable(page);
+    outOfScope(
+      !quote,
+      'fixture-missing',
+      'the test account has no pending quotation to open the ordered page on',
+    );
+
+    const viewPath = `/se/sv/portal/quotations/${quote!.id}`;
+    await page.goto(`${viewPath}/ordered`);
+    await page.waitForURL(new RegExp(`${viewPath}$`), {
+      timeout: PAGE_TIMEOUT,
+    });
+    await expect(page.locator('[data-testid="quote-detail"]')).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
   });
 
   test('sends a quotation that cannot be ordered back to the quotation view', async ({

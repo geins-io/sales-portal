@@ -16,6 +16,7 @@ import {
   buildRequestContext,
   getRequestChannelVariables,
 } from './_sdk';
+import { findOrderPublicId } from './orders';
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
 
@@ -442,7 +443,15 @@ export async function getQuote(
   if (!cart) {
     throw createAppError(ErrorCode.NOT_FOUND, `Quote ${quoteId} not found`);
   }
-  return mapQuotationCartToQuote(cart);
+  const quote = mapQuotationCartToQuote(cart);
+  // The quotation names its order by number only, and the order's page takes
+  // the public id. Without it the quotation still reads, with no order link.
+  const orderPublicId =
+    quote.orderId &&
+    (await findOrderPublicId(Number(quote.orderId), event).catch(
+      () => undefined,
+    ));
+  return orderPublicId ? { ...quote, orderPublicId } : quote;
 }
 
 /**

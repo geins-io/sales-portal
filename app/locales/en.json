@@ -576,11 +576,7 @@
     "quote_message_placeholder": "Add any special requirements or notes...",
     "requesting_quote": "Requesting Quote...",
     "po_number": "PO Number",
-    "payment_terms": "Payment Terms",
-    "confirmation_title": "Quote Request Submitted",
-    "confirmation_message": "Your quote request has been submitted. We will review it and get back to you shortly.",
-    "quote_number": "Quote Number",
-    "back_to_portal": "View Your Quotes"
+    "payment_terms": "Payment Terms"
   },
   "frontpage": {
     "fallback": {
@@ -979,7 +975,24 @@
       },
       "col_item": "Item",
       "col_article": "Article no.",
-      "col_unit_price": "Unit price"
+      "col_unit_price": "Unit price",
+      "order_row": "Order",
+      "confirm": {
+        "request_title": "Request sent!",
+        "request_body": "Thank you for your quote request. No order has been placed.",
+        "request_number": "Request",
+        "next_1": "Your seller reviews the request.",
+        "next_2": "You are told when the quotation is ready, and find it under Quotations in the customer portal.",
+        "next_3": "There you can review the quotation and respond to it.",
+        "view_request": "View request in the customer portal",
+        "request_lines": "Items in the request",
+        "order_title": "Order confirmed!",
+        "order_body": "Thank you for your order. A confirmation has been sent to your email.",
+        "order_number": "Order number",
+        "from_quotation": "Ordered from quotation {number}",
+        "view_quotation": "View quotation in the customer portal",
+        "continue_shopping": "Continue shopping"
+      }
     },
     "favorites": {
       "title": "Favorites",

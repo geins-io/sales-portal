@@ -11,6 +11,8 @@ const props = defineProps<{
   desiredDeliveryDate?: string | null;
   /** How the order was paid, as the order names it. */
   paymentMethod?: string | null;
+  /** The payment terms, from the quotation an order came from. */
+  paymentTerms?: string | null;
 }>();
 
 const { t } = useI18n();
@@ -42,7 +44,8 @@ const hasAdditionalInfo = computed(
       props.customerOrderNumber ||
       props.goodsLabel ||
       props.desiredDeliveryDate ||
-      props.paymentMethod
+      props.paymentMethod ||
+      props.paymentTerms
     ),
 );
 
@@ -128,6 +131,13 @@ const deliveryDate = computed(() => {
         class="text-muted-foreground text-sm"
       >
         {{ paymentMethodLine }}
+      </p>
+      <p
+        v-if="paymentTerms"
+        data-testid="additional-payment-terms"
+        class="text-muted-foreground text-sm"
+      >
+        {{ t('portal.quotations.payment_terms') }}: {{ paymentTerms }}
       </p>
     </div>
   </div>

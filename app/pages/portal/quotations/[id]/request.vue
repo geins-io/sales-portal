@@ -1,12 +1,7 @@
 <script setup lang="ts">
-import { ArrowLeft, FileText, Info, MessageSquare } from 'lucide-vue-next';
+import { ArrowLeft, FileText, MessageSquare } from 'lucide-vue-next';
 import { Card, CardContent } from '~/components/ui/card';
 import { Label } from '~/components/ui/label';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '~/components/ui/popover';
 import CheckoutCardHeader from '~/components/checkout/CheckoutCardHeader.vue';
 import { useQuotesStore } from '~/stores/quotes';
 import { useAuthStore } from '~/stores/auth';
@@ -99,8 +94,7 @@ async function send() {
     customerReference: form.reference.trim() || undefined,
     comment: form.comment.trim() || undefined,
   });
-  // The view shows it as sent until a thank-you page exists.
-  if (sent) await navigateTo(quotationPath.value);
+  if (sent) await navigateTo(`${quotationPath.value}/sent`);
 }
 </script>
 
@@ -249,25 +243,7 @@ async function send() {
             @place-order="send"
           >
             <template #title-aside>
-              <Popover>
-                <PopoverTrigger as-child>
-                  <button
-                    type="button"
-                    data-testid="quote-estimate-badge"
-                    class="text-muted-foreground hover:text-foreground focus-visible:ring-ring mt-1 inline-flex shrink-0 items-center gap-1 rounded py-0.5 text-xs focus-visible:ring-2 focus-visible:outline-none"
-                  >
-                    ≈ {{ t('portal.quotations.request.estimate_badge') }}
-                    <Info class="size-3.5" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent
-                  align="end"
-                  class="w-64 text-sm"
-                  data-testid="quote-estimate-note"
-                >
-                  {{ t('portal.quotations.request.estimate_note') }}
-                </PopoverContent>
-              </Popover>
+              <QuoteEstimateBadge />
             </template>
             <template #footer>
               <p

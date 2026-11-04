@@ -2,7 +2,11 @@
 import type { Quote } from '#shared/types/quote';
 import { quoteAmounts, quoteSummaryRows } from '~/utils/quote-view';
 
-const props = defineProps<{ quote: Quote }>();
+const props = defineProps<{
+  quote: Quote;
+  /** Shown in the shipping row while the quotation has no shipping. */
+  shippingNote?: string;
+}>();
 
 const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
@@ -18,6 +22,7 @@ const summaryRows = computed(() =>
     props.quote.lineItems?.length ?? 0,
     showIncVat.value,
     t,
+    props.shippingNote,
   ),
 );
 </script>
