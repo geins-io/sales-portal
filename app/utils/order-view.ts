@@ -3,7 +3,7 @@ import {
   type OrderDetailItem,
   type OrderDetailType,
 } from '#shared/types/commerce';
-import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
+import type { PortalItemRow } from '#shared/types/portal-rows';
 import { feeOf } from '~/utils/fee';
 
 /** An order's summary amounts, formatted, on one side of the VAT choice. */
@@ -146,55 +146,6 @@ export function orderRows(
     unitPrice: item.unitPrice,
     totalPrice: item.totalPrice,
   }));
-}
-
-type Translate = (key: string, named?: Record<string, unknown>) => string;
-
-/** The totals under the rows in the mobile sheet, in the summary's order. */
-export function orderTotalRows(
-  amounts: OrderAmounts,
-  itemCount: number,
-  incVat: boolean,
-  t: Translate,
-  /** The inc-VAT line's text: each page words it its own way. */
-  totalIncVatLabel: string,
-): PortalItemTotal[] {
-  const rows: PortalItemTotal[] = [
-    {
-      label: t('portal.orders.detail.summary.subtotal_with_count', {
-        count: itemCount,
-      }),
-      value: amounts.subtotal,
-    },
-  ];
-  // As the cart orders them: the discount right after the subtotal.
-  if (amounts.discount) {
-    rows.push({ label: t('discount.discount'), value: `-${amounts.discount}` });
-  }
-  if (amounts.shipping) {
-    rows.push({
-      label: t('portal.orders.detail.summary.shipping'),
-      value: amounts.shipping,
-    });
-  }
-  if (amounts.paymentFee) {
-    rows.push({ label: t('common.payment_fee'), value: amounts.paymentFee });
-  }
-  rows.push(
-    {
-      label: t(incVat ? 'common.vat_included' : 'common.vat'),
-      value: amounts.tax,
-    },
-    {
-      label: t('portal.orders.detail.summary.total'),
-      value: amounts.total,
-      emphasis: true,
-    },
-  );
-  if (amounts.totalIncVat) {
-    rows.push({ label: totalIncVatLabel, value: amounts.totalIncVat });
-  }
-  return rows;
 }
 
 /** How the order says it was paid, or undefined when it does not. */

@@ -4,7 +4,6 @@ import {
   orderAmounts,
   orderPaymentLabel,
   orderRows,
-  orderTotalRows,
 } from '../../app/utils/order-view';
 
 const price = (inc: number, ex: number) => ({
@@ -404,62 +403,6 @@ describe('orderRows', () => {
 
   it('has no rows without an order', () => {
     expect(orderRows(undefined, true, () => undefined)).toEqual([]);
-  });
-});
-
-describe('orderTotalRows', () => {
-  const t = (key: string, named?: Record<string, unknown>) =>
-    named ? `${key}:${JSON.stringify(named)}` : key;
-
-  it('lists every row the amounts carry, in the summary order', () => {
-    const rows = orderTotalRows(
-      {
-        subtotal: 's',
-        shipping: 'sh',
-        paymentFee: 'pf',
-        discount: 'd',
-        tax: 'v',
-        total: 'tot',
-        totalIncVat: 'inc',
-      },
-      3,
-      false,
-      t,
-      'Att betala inkl. moms',
-    );
-
-    expect(rows).toEqual([
-      {
-        label: 'portal.orders.detail.summary.subtotal_with_count:{"count":3}',
-        value: 's',
-      },
-      { label: 'discount.discount', value: '-d' },
-      { label: 'portal.orders.detail.summary.shipping', value: 'sh' },
-      { label: 'common.payment_fee', value: 'pf' },
-      { label: 'common.vat', value: 'v' },
-      {
-        label: 'portal.orders.detail.summary.total',
-        value: 'tot',
-        emphasis: true,
-      },
-      { label: 'Att betala inkl. moms', value: 'inc' },
-    ]);
-  });
-
-  it('leaves out what the amounts lack, and labels VAT as included on the inc side', () => {
-    const rows = orderTotalRows(
-      { subtotal: 's', tax: 'v', total: 't' },
-      1,
-      true,
-      t,
-      'Totalt inkl. moms',
-    );
-
-    expect(rows.map((row) => row.label)).toEqual([
-      'portal.orders.detail.summary.subtotal_with_count:{"count":1}',
-      'common.vat_included',
-      'portal.orders.detail.summary.total',
-    ]);
   });
 });
 
