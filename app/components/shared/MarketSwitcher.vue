@@ -85,7 +85,7 @@ const showSwitcher = computed(() => availableMarkets.value.length > 1);
         :aria-label="t('common.change_market')"
         data-testid="market-switcher-trigger"
       >
-        <MapPin class="mr-2 h-4 w-4" />
+        <MapPin class="mr-2 hidden h-4 w-4 sm:block" />
         {{ marketShortLabel(currentMarket) }}
       </Button>
       <Button

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { OrderListItem } from '#shared/types/commerce';
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 
@@ -144,11 +145,13 @@ function handleSort(_column: string) {
           @sort="handleSort"
         />
 
-        <!-- Pagination -->
+        <!-- Pagination. Below sm the summary sits above the controls and
+             previous/next are chevrons: side by side, with their text, the
+             row was wider than a phone screen. -->
         <div
           v-if="showPagination"
           data-testid="orders-pagination"
-          class="mt-4 flex items-center justify-between"
+          class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
         >
           <span
             data-testid="orders-showing-count"
@@ -156,15 +159,19 @@ function handleSort(_column: string) {
           >
             {{ paginationSummary }}
           </span>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <Button
               data-testid="orders-previous"
               variant="ghost"
               size="sm"
               :disabled="currentPage <= 1"
+              :aria-label="t('portal.orders.pagination.previous')"
               @click="goToPage(currentPage - 1)"
             >
-              {{ t('portal.orders.pagination.previous') }}
+              <ChevronLeft class="size-4 sm:hidden" aria-hidden="true" />
+              <span class="hidden sm:inline">{{
+                t('portal.orders.pagination.previous')
+              }}</span>
             </Button>
             <template v-for="page in totalPages" :key="page">
               <Button
@@ -194,9 +201,13 @@ function handleSort(_column: string) {
               variant="ghost"
               size="sm"
               :disabled="currentPage >= totalPages"
+              :aria-label="t('portal.orders.pagination.next')"
               @click="goToPage(currentPage + 1)"
             >
-              {{ t('portal.orders.pagination.next') }}
+              <span class="hidden sm:inline">{{
+                t('portal.orders.pagination.next')
+              }}</span>
+              <ChevronRight class="size-4 sm:hidden" aria-hidden="true" />
             </Button>
           </div>
         </div>
