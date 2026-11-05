@@ -110,7 +110,11 @@ const mockProductsRefresh = vi.fn();
 let mockListsData: { lists: unknown[]; total?: number } | null = { lists: [] };
 let mockListsPending = false;
 
-type FetchOptions = { immediate?: boolean };
+let mockCompanyData: { company: { buyers: unknown[] | null } } | null = null;
+let mockCompanyPending = false;
+let mockCompanyError: Error | null = null;
+
+type FetchOptions = { immediate?: boolean; key?: string };
 const fetchCalls: Array<{ url: string; opts?: FetchOptions }> = [];
 // The requests the page lets run: `immediate: false` sends none.
 const requested = (url: string) =>
@@ -120,6 +124,13 @@ const requested = (url: string) =>
 
 function routedUseFetch(url: string, opts?: FetchOptions) {
   fetchCalls.push({ url, opts });
+  if (url.includes('/api/portal/company')) {
+    return {
+      data: ref(mockCompanyData),
+      pending: ref(mockCompanyPending),
+      error: ref(mockCompanyError),
+    };
+  }
   if (url.includes('/orders/products')) {
     return {
       data: ref(mockProductsData),
@@ -199,8 +210,8 @@ const stubs = {
   },
   PortalStatCard: {
     template:
-      '<div data-testid="portal-stat-card" :data-count="count" :data-label="label" :data-show-dot="showDot"><slot /></div>',
-    props: ['icon', 'count', 'label', 'showDot'],
+      '<div data-testid="portal-stat-card" :data-count="count" :data-label="label" :data-to="to" :data-show-dot="showDot"><slot /></div>',
+    props: ['icon', 'count', 'label', 'showDot', 'to'],
   },
   PortalOrdersTable: {
     template: '<div data-testid="portal-orders-table"></div>',
@@ -263,6 +274,9 @@ describe('Portal Overview page', () => {
     mockShowIncVat.value = true;
     mockFeatures.value = ALL_ON();
     fetchCalls.length = 0;
+    mockCompanyData = null;
+    mockCompanyPending = false;
+    mockCompanyError = null;
   });
 
   // -------------------------------------------------------------------------
@@ -994,6 +1008,75 @@ describe('Portal Overview page', () => {
       const wrapper = await mountPage();
 
       expect(listsRow(wrapper).exists()).toBe(false);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Persons in the organisation
+  // -------------------------------------------------------------------------
+  describe('persons in the organisation', () => {
+    const personsCard = (wrapper: Awaited<ReturnType<typeof mountPage>>) =>
+      wrapper.find(
+        '[data-testid="portal-stat-card"][data-label="portal.overview.stat.persons_in_org"]',
+      );
+
+    it('shows the number of buyers in the company', async () => {
+      mockCompanyData = { company: { buyers: [{}, {}, {}] } };
+      const wrapper = await mountPage();
+
+      expect(personsCard(wrapper).attributes('data-count')).toBe('3');
+    });
+
+    it('shows 0 for a company with no buyers', async () => {
+      mockCompanyData = { company: { buyers: [] } };
+      const wrapper = await mountPage();
+
+      expect(personsCard(wrapper).attributes('data-count')).toBe('0');
+    });
+
+    it('shows 0 for a company whose buyers are null', async () => {
+      mockCompanyData = { company: { buyers: null } };
+      const wrapper = await mountPage();
+
+      expect(personsCard(wrapper).attributes('data-count')).toBe('0');
+    });
+
+    it('shows no number while the company read is loading', async () => {
+      mockCompanyPending = true;
+      const wrapper = await mountPage();
+
+      expect(personsCard(wrapper).exists()).toBe(true);
+      expect(personsCard(wrapper).attributes('data-count')).toBeUndefined();
+    });
+
+    it('shows no number when the company read fails', async () => {
+      mockCompanyData = { company: { buyers: [{}, {}] } };
+      mockCompanyError = new Error('company read failed');
+      const wrapper = await mountPage();
+
+      expect(personsCard(wrapper).exists()).toBe(true);
+      expect(personsCard(wrapper).attributes('data-count')).toBeUndefined();
+    });
+
+    it('links the persons stat to the persons page', async () => {
+      const wrapper = await mountPage();
+
+      expect(personsCard(wrapper).attributes('data-to')).toBe(
+        '/se/en/portal/organisation/persons',
+      );
+    });
+
+    it('reads the company under the key the persons page uses', async () => {
+      await mountPage();
+
+      expect(
+        fetchCalls.filter((call) => call.url === '/api/portal/company'),
+      ).toEqual([
+        {
+          url: '/api/portal/company',
+          opts: expect.objectContaining({ key: 'portal-company' }),
+        },
+      ]);
     });
   });
 });

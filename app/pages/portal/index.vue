@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { OrderListItem, PurchasedProduct } from '#shared/types/commerce';
+import type { Company } from '#shared/types/company';
 import type { QuoteListItem } from '#shared/types/quote';
 import {
   ArrowRight,
@@ -104,8 +105,23 @@ const purchasedProductCount = computed(() =>
   productsError.value ? undefined : (productsData.value?.total ?? 0),
 );
 
+// ---------------------------------------------------------------------------
+// Company data — keyed like the persons page, so the two share one read.
+// ---------------------------------------------------------------------------
+const { data: companyData, error: companyError } = useFetch<{
+  company: Company;
+}>('/api/portal/company', { key: 'portal-company', dedupe: 'defer' });
+
+// No company yet, or a failed read, gives no number rather than a false 0.
+// Null buyers count as none, as on the persons page.
+const buyerCount = computed(() => {
+  const company = companyData.value?.company;
+  if (companyError.value || !company) return undefined;
+  return (company.buyers ?? []).length;
+});
+
 // Awaited so the SSR render and the hydration payload hold the quotes. After
-// both useFetch calls, so the three loads run in parallel.
+// the useFetch calls, so all the loads run in parallel.
 if (showQuotes.value) {
   await callOnce('portal-quotes', () => quotesStore.fetchQuotes());
 }
@@ -224,8 +240,9 @@ function handleProductAddToCart(
       <PortalStatCard
         :class="{ 'col-span-2 lg:col-span-1': statCardCount % 2 === 1 }"
         :icon="Users"
-        :count="0"
+        :count="buyerCount"
         :label="t('portal.overview.stat.persons_in_org')"
+        :to="localePath('/portal/organisation/persons')"
       />
     </div>
 
