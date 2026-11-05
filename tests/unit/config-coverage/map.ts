@@ -154,6 +154,7 @@ const BRAND_LOGO_FALLBACK = 'tests/components/BrandLogoFallback.test.ts';
 const POWERED_BY = 'tests/components/PoweredBy.test.ts';
 const HEADER_TOPBAR = 'tests/components/layout/LayoutHeaderTopbar.test.ts';
 const PORTAL_SHELL = 'tests/components/portal/PortalShell.test.ts';
+const PORTAL_OVERVIEW = 'tests/unit/pages/PortalOverview.test.ts';
 const PORTAL_ORDERS_TABLE = 'tests/components/portal/PortalOrdersTable.test.ts';
 const TENANT_CONFIG_SERVICE = 'tests/server/tenant-config-service.test.ts';
 const PRICE_DISPLAY = 'tests/components/commerce/PriceDisplay.test.ts';
@@ -299,6 +300,11 @@ function accessNeverRead(note: string) {
   const entry = { status: 'no-consumer', note } as const;
   return { all: entry, authenticated: entry, absent: entry };
 }
+
+const OVERVIEW_NOTE =
+  'Three call sites ask: the portal tab, the feature middleware on the ' +
+  "key's pages, and the portal overview (pages/portal/index.vue), whose " +
+  'stat, section and load for this key follow it.';
 
 const REGISTRATION_ACCESS = accessNeverRead(
   'All three consumers read `.enabled` directly; none calls canAccess for ' +
@@ -491,6 +497,21 @@ function middlewareCells(key: string): FeatureCells {
         `allows ${key} when it requires authentication and the user is signed in`,
       ),
     ],
+  };
+}
+
+/**
+ * The portal overview's references for one of the keys its parts follow
+ * (`pages/portal/index.vue`). The spec runs the real `useFeatureAccess` over a
+ * features fixture, so both cases write the configured value.
+ */
+function overviewRefs(offTitle: string): { on: TestRef[]; off: TestRef[] } {
+  const ref = (title: string): TestRef[] => [
+    { spec: PORTAL_OVERVIEW, title, kind: 'consumer', drives: 'field' },
+  ];
+  return {
+    on: ref('shows every part when quotes, orderHistory and lists are enabled'),
+    off: ref(offTitle),
   };
 }
 
@@ -1967,6 +1988,8 @@ export const CONFIG_COVERAGE_MAP = {
     lists: namedFeature({
       consumer: 'app/components/portal/PortalShell.vue:116',
       cells: middlewareCells('lists'),
+      ...overviewRefs('does not show the lists when lists is disabled'),
+      note: OVERVIEW_NOTE,
       denied: [
         {
           spec: PORTAL_SHELL,
@@ -2030,6 +2053,10 @@ export const CONFIG_COVERAGE_MAP = {
     orderHistory: namedFeature({
       consumer: 'app/components/portal/PortalShell.vue:116',
       cells: middlewareCells('orderHistory'),
+      ...overviewRefs(
+        'neither loads nor shows orders when orderHistory is disabled',
+      ),
+      note: OVERVIEW_NOTE,
       denied: [
         {
           spec: PORTAL_SHELL,
@@ -2168,6 +2195,9 @@ export const CONFIG_COVERAGE_MAP = {
     quotes: namedFeature({
       consumer: 'app/components/portal/PortalShell.vue:116',
       cells: middlewareCells('quotes'),
+      ...overviewRefs(
+        'neither loads nor shows quotations when quotes is disabled',
+      ),
       denied: [
         {
           spec: PORTAL_SHELL,
@@ -2176,6 +2206,7 @@ export const CONFIG_COVERAGE_MAP = {
           drives: 'reader',
         },
       ],
+      note: OVERVIEW_NOTE,
     }),
     quoteRequests: namedFeature({
       consumer: 'server/api/quotes/requests.post.ts:14',
