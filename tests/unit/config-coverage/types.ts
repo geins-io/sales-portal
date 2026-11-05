@@ -188,13 +188,17 @@ export interface StringFieldCoverage {
  */
 export type ThemeColorKey = keyof ThemeColors;
 
+/** Feature flags `buildTenantConfig` derives from another feature, never seeded. */
+export type DerivedFeatureKey = 'quoteRequests';
+
 /**
- * The 14 feature keys seeded for every tenant. Derived from the defaults
- * object literal rather than declared here, so a fifteenth feature fails
- * `pnpm typecheck` the day it is seeded.
+ * The 14 feature keys seeded for every tenant, plus the derived ones. The
+ * seeded keys come from the defaults object literal rather than being declared
+ * here, so a fifteenth feature fails `pnpm typecheck` the day it is seeded.
  */
 export type FeatureKey =
-  keyof (typeof import('~~/server/utils/storefront-settings-defaults'))['STOREFRONT_SETTINGS_DEFAULTS']['features'];
+  | keyof (typeof import('~~/server/utils/storefront-settings-defaults'))['STOREFRONT_SETTINGS_DEFAULTS']['features']
+  | DerivedFeatureKey;
 
 export interface FeatureCoverage {
   enabled: Record<'true' | 'false', Coverage>;
