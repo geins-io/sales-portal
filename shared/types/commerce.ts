@@ -467,6 +467,8 @@ export interface OrderListItem {
   createdAt?: string | null;
   customerId?: number | null;
   customerEmail?: string | null;
+  /** The currency code, e.g. "SEK". */
+  currency?: string | null;
   placedBy?: string | null;
   billingAddress?: {
     firstName?: string;
