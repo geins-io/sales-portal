@@ -4,6 +4,7 @@ import type {
   ConfigurationValue,
   ConfigurationVariable,
 } from '#shared/types/configurator';
+import { useEventListener } from '@vueuse/core';
 import { AlertCircle } from 'lucide-vue-next';
 import {
   boundsNarrowed,
@@ -109,12 +110,19 @@ function commit() {
  * The stepper button a press is on, recorded in the capture phase so it is
  * known before the stepper answers the same `pointerdown`. From an empty field
  * the stepper's own answer is replaced (see `emptyStep`); once the field holds
- * a number, its answer stands. The stepper steps in its own listener for the
- * same event, so the record is dropped when that task is over — not on a
- * microtask, which a browser runs between the two listeners. A press the
- * stepper ignored must not rewrite a value typed later.
+ * a number, its answer stands. The stepper steps a mouse on the `pointerdown`
+ * but a finger on the `pointerup`, a task or more later, so the record lasts
+ * until the press ends and is dropped when that task is over — not on a
+ * microtask, which a browser runs between two listeners. A press the stepper
+ * ignored must not rewrite a value typed later.
  */
 let pressed: StepDirection | null = null;
+
+useEventListener(['pointerup', 'pointercancel'], () => {
+  setTimeout(() => {
+    pressed = null;
+  });
+});
 
 const empty = computed(() => typeof draft.value !== 'number');
 
@@ -125,9 +133,6 @@ function stepBlocked(direction: StepDirection): boolean {
 function onPress(event: PointerEvent, direction: StepDirection) {
   if (event.button !== 0 || stepBlocked(direction)) return;
   pressed = direction;
-  setTimeout(() => {
-    pressed = null;
-  });
 }
 
 function onNumber(value: number | undefined) {

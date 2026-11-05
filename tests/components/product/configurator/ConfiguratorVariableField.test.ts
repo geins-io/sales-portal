@@ -468,6 +468,23 @@ describe('ConfiguratorVariableField', () => {
     await flushPromises();
   }
 
+  const TOUCH = { ...MOUSE, pointerType: 'touch', pointerId: 2 } as const;
+
+  /**
+   * A tap as a finger makes it: the stepper steps a touch on the up, not the
+   * down, and a finger lifts at least a task after it lands.
+   */
+  async function tap(wrapper: VueWrapper, label: 'Increase' | 'Decrease') {
+    await flushPromises();
+    const button = wrapper.find(`button[aria-label="${label}"]`);
+    button.element.dispatchEvent(new PointerEvent('pointerdown', TOUCH));
+    await new Promise((resolve) => setTimeout(resolve));
+    window.dispatchEvent(new PointerEvent('pointerup', TOUCH));
+    await flushPromises();
+    await button.trigger('click');
+    await flushPromises();
+  }
+
   it('steps an empty field up from zero by one, not to zero', async () => {
     const wrapper = mountField(openNumber());
 
@@ -518,6 +535,16 @@ describe('ConfiguratorVariableField', () => {
     ]);
   });
 
+  it('steps an empty field with a floor of zero up to the first step on a tap', async () => {
+    const wrapper = mountField(openNumber({ min: 0 }));
+
+    await tap(wrapper, 'Increase');
+
+    expect(wrapper.emitted('change')).toEqual([
+      [{ type: 'variable', variableId: 'width', value: 1 }],
+    ]);
+  });
+
   it('disables a step down from an empty field that the floor rules out', async () => {
     const wrapper = mountField(openNumber({ min: 0 }));
 
@@ -540,29 +567,35 @@ describe('ConfiguratorVariableField', () => {
     ).toBeDefined();
   });
 
-  it('keeps a typed value after a press the stepper did not act on', async () => {
-    // Locked while a batch is in flight: the press reaches the button, the
-    // stepper ignores it, and no step follows to use it up.
-    const wrapper = mountComponent(ConfiguratorVariableField, {
-      props: { variable: openNumber(), disabled: true },
-    });
-    await flushPromises();
-    wrapper
-      .find('button[aria-label="Increase"]')
-      .element.dispatchEvent(new PointerEvent('pointerdown', MOUSE));
-    window.dispatchEvent(new PointerEvent('pointerup', MOUSE));
-    // Typing is a later task than the press, never the same one.
-    await new Promise((resolve) => setTimeout(resolve));
-    await wrapper.setProps({ disabled: false });
+  it.each([
+    ['mouse', MOUSE],
+    ['touch', TOUCH],
+  ] as const)(
+    'keeps a typed value after a %s press the stepper did not act on',
+    async (_pointer, pointer) => {
+      // Locked while a batch is in flight: the press reaches the button, the
+      // stepper ignores it, and no step follows to use it up.
+      const wrapper = mountComponent(ConfiguratorVariableField, {
+        props: { variable: openNumber(), disabled: true },
+      });
+      await flushPromises();
+      wrapper
+        .find('button[aria-label="Increase"]')
+        .element.dispatchEvent(new PointerEvent('pointerdown', pointer));
+      window.dispatchEvent(new PointerEvent('pointerup', pointer));
+      // Typing is a later task than the press, never the same one.
+      await new Promise((resolve) => setTimeout(resolve));
+      await wrapper.setProps({ disabled: false });
 
-    const input = wrapper.find('input');
-    await input.setValue('5');
-    await input.trigger('keydown', { key: 'Enter' });
+      const input = wrapper.find('input');
+      await input.setValue('5');
+      await input.trigger('keydown', { key: 'Enter' });
 
-    expect(wrapper.emitted('change')).toEqual([
-      [{ type: 'variable', variableId: 'width', value: 5 }],
-    ]);
-  });
+      expect(wrapper.emitted('change')).toEqual([
+        [{ type: 'variable', variableId: 'width', value: 5 }],
+      ]);
+    },
+  );
 
   it('steps a set value by its step as before', async () => {
     const wrapper = mountField(
