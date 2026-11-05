@@ -221,7 +221,7 @@ describe('ConfiguratorSection', () => {
     const wrapper = mountSection(sectionOf(workbench.sections, 'frame'));
     const input = wrapper.find('[data-variable-id="width"] input');
     await input.setValue('1500');
-    await input.trigger('keydown.enter');
+    await input.trigger('keydown', { key: 'Enter' });
 
     expect(wrapper.emitted('change')?.[0]?.[0]).toEqual([
       { type: 'variable', variableId: 'width', value: 1500 },

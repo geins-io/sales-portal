@@ -210,7 +210,7 @@ describe('ConfiguratorVariableField', () => {
     const wrapper = mountField(findVariable(workbench, 'width'));
     const input = wrapper.find('input');
     await input.setValue('1500');
-    await input.trigger('keydown.enter');
+    await input.trigger('keydown', { key: 'Enter' });
 
     expect(wrapper.emitted('change')?.[0]?.[0]).toEqual({
       type: 'variable',
@@ -311,7 +311,7 @@ describe('ConfiguratorVariableField', () => {
     const wrapper = mountField(unsetNumber());
     const input = wrapper.find('input');
     await input.setValue('1500');
-    await input.trigger('keydown.enter');
+    await input.trigger('keydown', { key: 'Enter' });
 
     expect(wrapper.emitted('change')?.[0]?.[0]).toEqual({
       type: 'variable',
@@ -326,7 +326,7 @@ describe('ConfiguratorVariableField', () => {
     });
     const input = wrapper.find('input');
     await input.setValue('1500');
-    await input.trigger('keydown.enter');
+    await input.trigger('keydown', { key: 'Enter' });
     expect(wrapper.emitted('change')).toHaveLength(1);
 
     // The page locks every field while the batch is in flight. It fails, so
@@ -442,19 +442,25 @@ describe('ConfiguratorVariableField', () => {
     };
   }
 
+  const MOUSE = {
+    pointerType: 'mouse',
+    pointerId: 1,
+    button: 0,
+    bubbles: true,
+  } as const;
+
   /**
-   * A press as a pointer makes it: down on the button, up anywhere, click. The
-   * down is a real `PointerEvent`, because the stepper ignores any press whose
-   * `button` is not 0 and `trigger` does not carry one.
+   * A press as a mouse makes it: down on the button, up anywhere, click. Both
+   * are real `PointerEvent`s, because the stepper ignores any press whose
+   * `button` is not 0, steps a mouse on the down, and takes only the up with
+   * the down's `pointerId`; `trigger` carries none of these.
    */
   async function press(wrapper: VueWrapper, label: 'Increase' | 'Decrease') {
     // The stepper listens once it has found its element, a tick after mount.
     await flushPromises();
     const button = wrapper.find(`button[aria-label="${label}"]`);
-    button.element.dispatchEvent(
-      new PointerEvent('pointerdown', { button: 0, bubbles: true }),
-    );
-    window.dispatchEvent(new Event('pointerup'));
+    button.element.dispatchEvent(new PointerEvent('pointerdown', MOUSE));
+    window.dispatchEvent(new PointerEvent('pointerup', MOUSE));
     // A browser renders between the down and the click, so a button the step
     // disabled is disabled by the time the click would land.
     await flushPromises();
@@ -543,17 +549,15 @@ describe('ConfiguratorVariableField', () => {
     await flushPromises();
     wrapper
       .find('button[aria-label="Increase"]')
-      .element.dispatchEvent(
-        new PointerEvent('pointerdown', { button: 0, bubbles: true }),
-      );
-    window.dispatchEvent(new Event('pointerup'));
+      .element.dispatchEvent(new PointerEvent('pointerdown', MOUSE));
+    window.dispatchEvent(new PointerEvent('pointerup', MOUSE));
     // Typing is a later task than the press, never the same one.
     await new Promise((resolve) => setTimeout(resolve));
     await wrapper.setProps({ disabled: false });
 
     const input = wrapper.find('input');
     await input.setValue('5');
-    await input.trigger('keydown.enter');
+    await input.trigger('keydown', { key: 'Enter' });
 
     expect(wrapper.emitted('change')).toEqual([
       [{ type: 'variable', variableId: 'width', value: 5 }],

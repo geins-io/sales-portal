@@ -887,7 +887,13 @@ describe('ConfigurationPanel', () => {
     });
 
     function grantClipboard() {
-      const writeText = vi.fn().mockResolvedValue(undefined);
+      // Each text the panel copied. VueUse writes a ClipboardItem through
+      // `clipboard.write()`, as a browser takes it.
+      const written = vi.fn<(text: string) => void>();
+      const write = vi.fn(async (items: ClipboardItem[]) => {
+        const blob = await items[0]!.getType('text/plain');
+        written(await blob.text());
+      });
       // jsdom has neither a clipboard nor a permission to write to it, and
       // without both `useClipboard` reports the feature unsupported, renders
       // no button, and writes nothing when one is pressed.
@@ -897,7 +903,7 @@ describe('ConfigurationPanel', () => {
       // the tier runs without isolation, so a clipboard left behind is one
       // every later file in this worker would see.
       Object.defineProperty(navigator, 'clipboard', {
-        value: { writeText },
+        value: { write },
         configurable: true,
       });
       Object.defineProperty(navigator, 'permissions', {
@@ -911,7 +917,7 @@ describe('ConfigurationPanel', () => {
         },
         configurable: true,
       });
-      return writeText;
+      return written;
     }
 
     async function copyText(wrapper: ReturnType<typeof mountPanel>) {
@@ -923,7 +929,7 @@ describe('ConfigurationPanel', () => {
     }
 
     it('copies the specification as plain text', async () => {
-      const writeText = grantClipboard();
+      const written = grantClipboard();
 
       const wrapper = mountPanel();
       await flushPromises();
@@ -949,7 +955,7 @@ describe('ConfigurationPanel', () => {
           .map((t) => t.text()),
       ).toContain('configurator.panel.copied');
 
-      const copied = writeText.mock.calls[0]?.[0] as string;
+      const copied = written.mock.calls[0]?.[0] as string;
       expect(copied).toContain('Arbetsbord Pro (KONF-1001)');
       expect(copied).toContain('configurator.panel.indicative');
       expect(copied).toContain('FRAME');
@@ -967,11 +973,11 @@ describe('ConfigurationPanel', () => {
     });
 
     it('copies the base price on a line of its own above the first section', async () => {
-      const writeText = grantClipboard();
+      const written = grantClipboard();
 
       await copyText(mountPanel());
 
-      const lines = (writeText.mock.calls[0]?.[0] as string)
+      const lines = (written.mock.calls[0]?.[0] as string)
         .split('\n')
         .map(plainText);
       expect(lines.slice(1, 6)).toEqual([
@@ -984,7 +990,7 @@ describe('ConfigurationPanel', () => {
     });
 
     it('copies an option of several at the price of all of them', async () => {
-      const writeText = grantClipboard();
+      const written = grantClipboard();
       const config = makeValidConfiguration();
       const power = findOption(config, 'acc-power');
       power.selected = true;
@@ -992,7 +998,7 @@ describe('ConfigurationPanel', () => {
 
       await copyText(mountPanel({ configuration: config }));
 
-      const lines = (writeText.mock.calls[0]?.[0] as string)
+      const lines = (written.mock.calls[0]?.[0] as string)
         .split('\n')
         .map(plainText);
       expect(lines).toContain(
@@ -1001,7 +1007,7 @@ describe('ConfigurationPanel', () => {
     });
 
     it('copies a base price of zero', async () => {
-      const writeText = grantClipboard();
+      const written = grantClipboard();
       const config = makeValidConfiguration();
       findOption(config, 'legs-fixed').selected = false;
       findOption(config, 'legs-electric').selected = true;
@@ -1009,7 +1015,7 @@ describe('ConfigurationPanel', () => {
 
       await copyText(mountPanel({ configuration: config }));
 
-      const lines = (writeText.mock.calls[0]?.[0] as string)
+      const lines = (written.mock.calls[0]?.[0] as string)
         .split('\n')
         .map(plainText);
       expect(lines).toContain('configurator.panel.base_price: SEK 0.00');
@@ -1017,23 +1023,23 @@ describe('ConfigurationPanel', () => {
 
     it('copies no base price where the buyer may not see prices', async () => {
       setFeatures({ priceVisibility: { enabled: false } });
-      const writeText = grantClipboard();
+      const written = grantClipboard();
 
       await copyText(mountPanel());
 
-      expect(writeText.mock.calls[0]?.[0]).not.toContain(
+      expect(written.mock.calls[0]?.[0]).not.toContain(
         'configurator.panel.base_price',
       );
     });
 
     it('copies the totals for the quantity under the quantity line', async () => {
-      const writeText = grantClipboard();
+      const written = grantClipboard();
       const config = makeValidConfiguration();
       config.quantity = 3;
 
       await copyText(mountPanel({ configuration: config }));
 
-      const lines = (writeText.mock.calls[0]?.[0] as string)
+      const lines = (written.mock.calls[0]?.[0] as string)
         .split('\n')
         .map(plainText);
       expect(lines).toContain('configurator.panel.copy_quantity 3');
@@ -1047,7 +1053,7 @@ describe('ConfigurationPanel', () => {
 
     it('copies a base price of zero on the inc side where per-option rounding passes the unit', async () => {
       mockShowIncVat.value = true;
-      const writeText = grantClipboard();
+      const written = grantClipboard();
       const config = makeValidConfiguration();
       for (const id of ['legs-fixed', 'top-laminate', 'ral-9005']) {
         findOption(config, id).unitPrice = {
@@ -1065,7 +1071,7 @@ describe('ConfigurationPanel', () => {
 
       await copyText(mountPanel({ configuration: config }));
 
-      const lines = (writeText.mock.calls[0]?.[0] as string)
+      const lines = (written.mock.calls[0]?.[0] as string)
         .split('\n')
         .map(plainText);
       expect(lines).toContain('configurator.panel.base_price: SEK 0.00');
@@ -1073,7 +1079,7 @@ describe('ConfigurationPanel', () => {
 
     it('copies every price on the inc side when the buyer chose it', async () => {
       mockShowIncVat.value = true;
-      const writeText = grantClipboard();
+      const written = grantClipboard();
       const config = makeValidConfiguration();
       findOption(config, 'legs-fixed').selected = false;
       findOption(config, 'legs-electric').selected = true;
@@ -1086,7 +1092,7 @@ describe('ConfigurationPanel', () => {
 
       await copyText(mountPanel({ configuration: config }));
 
-      const lines = (writeText.mock.calls[0]?.[0] as string)
+      const lines = (written.mock.calls[0]?.[0] as string)
         .split('\n')
         .map(plainText);
       expect(lines).toContain('configurator.panel.base_price: SEK 4,000.00');
@@ -1100,7 +1106,7 @@ describe('ConfigurationPanel', () => {
     // As the prototype's "Ytbehandling": the group is specified by its
     // "Inget valt", on screen and in the copy alike.
     it('writes an optional single choice left at nothing chosen as "none"', async () => {
-      const writeText = grantClipboard();
+      const written = grantClipboard();
       const configuration = makeValidConfiguration();
       const top = findOptionGroup(configuration, 'top');
       top.minSelections = undefined;
@@ -1113,7 +1119,7 @@ describe('ConfigurationPanel', () => {
       expect(row?.find('dd').text()).toBe('configurator.none_option');
 
       await copyText(wrapper);
-      const copied = writeText.mock.calls[0]?.[0] as string;
+      const copied = written.mock.calls[0]?.[0] as string;
       expect(copied).toContain('  Table top:\n    configurator.none_option\n');
     });
   });
