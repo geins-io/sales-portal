@@ -96,7 +96,7 @@ export default defineEventHandler(async (event) => {
   const key = `${hashToken(token)}:${tenantId}:${channelId}`;
   const now = Date.now();
 
-  let markets: string[] | null = null;
+  let markets: string[] | null;
   const cached = getCacheEntry(key, now);
   if (cached) {
     markets = cached.markets;

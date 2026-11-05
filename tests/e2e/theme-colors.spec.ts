@@ -48,7 +48,7 @@ async function collectThemeState(page: Page) {
       const cssVar = (name: string) =>
         getComputedStyle(root).getPropertyValue(name).trim();
 
-      let cssRuleCount = -1;
+      let cssRuleCount: number;
       try {
         cssRuleCount = styleEl?.sheet?.cssRules.length ?? -1;
       } catch {
