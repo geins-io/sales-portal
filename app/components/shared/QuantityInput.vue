@@ -15,10 +15,18 @@ const emit = defineEmits<{
 }>();
 
 // The field re-applies its value on blur, so a press elsewhere after a step
-// would send the same quantity again, racing whatever that press does.
-function onUpdate(value: number) {
-  if (value === props.modelValue) return;
+// would send the same quantity again, racing whatever that press does. A
+// cleared field has no quantity to send.
+function onUpdate(value: number | undefined) {
+  if (value === undefined || value === props.modelValue) return;
   emit('update:modelValue', value);
+}
+
+// The number field leaves a cleared input empty, so on blur it is mounted
+// again, showing the quantity the parent still holds.
+const inputKey = ref(0);
+function onBlur(event: FocusEvent) {
+  if ((event.target as HTMLInputElement).value === '') inputKey.value++;
 }
 </script>
 
@@ -34,7 +42,7 @@ function onUpdate(value: number) {
   >
     <NumberFieldContent>
       <NumberFieldDecrement />
-      <NumberFieldInput />
+      <NumberFieldInput :key="inputKey" @blur="onBlur" />
       <NumberFieldIncrement />
     </NumberFieldContent>
   </NumberField>
