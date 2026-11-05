@@ -134,7 +134,12 @@
     "edit_configuration": "Ändra konfiguration",
     "quantity_updating": "Uppdaterar…",
     "quantity_change_failed": "Antalet kunde inte ändras. Produkten i varukorgen är oförändrad.",
-    "items_short": "varor"
+    "items_short": "varor",
+    "add_to_quote": "Lägg varukorgen i offert",
+    "add_to_quote_hint": "Varukorgen blir ett utkast till offertförfrågan och töms. Ingen order läggs.",
+    "quote_request_name": "Varukorg {date}",
+    "add_to_quote_failed": "Offertförfrågan kunde inte skapas. Varukorgen är oförändrad.",
+    "add_to_quote_rate_limited": "För många försök. Vänta en stund och försök igen."
   },
   "checkout": {
     "title": "Kassa",

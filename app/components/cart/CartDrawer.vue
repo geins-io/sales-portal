@@ -281,6 +281,7 @@ function goToCheckout() {
           >
             {{ $t('cart.checkout') }}
           </Button>
+          <CartQuoteRequestButton />
         </aside>
       </template>
     </SheetContent>

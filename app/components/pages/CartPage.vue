@@ -265,6 +265,7 @@ function goToCheckout() {
             >
               {{ $t('cart.proceed_to_checkout') }}
             </Button>
+            <CartQuoteRequestButton />
           </aside>
         </ErrorBoundary>
       </template>

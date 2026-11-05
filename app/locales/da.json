@@ -134,7 +134,12 @@
     "edit_configuration": "Rediger konfiguration",
     "quantity_updating": "Opdaterer…",
     "quantity_change_failed": "Antallet kunne ikke ændres. Produktet i kurven er uændret.",
-    "items_short": "varer"
+    "items_short": "varer",
+    "add_to_quote": "Læg kurven i tilbud",
+    "add_to_quote_hint": "Kurven bliver et udkast til tilbudsforespørgsel og tømmes. Der afgives ingen ordre.",
+    "quote_request_name": "Kurv {date}",
+    "add_to_quote_failed": "Tilbudsforespørgslen kunne ikke oprettes. Kurven er uændret.",
+    "add_to_quote_rate_limited": "For mange forsøg. Vent et øjeblik, og prøv igen."
   },
   "checkout": {
     "title": "Kasse",

@@ -420,6 +420,27 @@ describe('CartPage', () => {
     expect(router.push).toHaveBeenCalledWith('/se/en/checkout');
   });
 
+  it('offers the cart as a quote request right under the checkout button', () => {
+    const store = useCartStore();
+    store.cart = mockCart;
+
+    const wrapper = shallowMountComponent(CartPage, {
+      global: {
+        stubs: {
+          ...defaultStubs,
+          CartQuoteRequestButton: {
+            template: '<div data-testid="quote-request-slot" />',
+          },
+        },
+      },
+    });
+
+    const checkout = wrapper.find('[data-testid="cart-checkout-button"]');
+    expect(
+      checkout.element.nextElementSibling?.getAttribute('data-testid'),
+    ).toBe('quote-request-slot');
+  });
+
   it('checkout button is disabled while a configured line is changing', () => {
     const store = useCartStore();
     store.cart = mockCart;
