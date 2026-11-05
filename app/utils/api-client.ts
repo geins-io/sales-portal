@@ -361,13 +361,7 @@ export function createApiClient(config: ApiClientConfig = {}) {
           throw await $fetch(request, {
             ...options,
             method: options.method as
-              | 'GET'
-              | 'POST'
-              | 'PUT'
-              | 'DELETE'
-              | 'PATCH'
-              | 'HEAD'
-              | 'OPTIONS',
+              'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS',
             baseURL: baseUrl,
             timeout,
             credentials,
@@ -416,13 +410,7 @@ export function createApiClient(config: ApiClientConfig = {}) {
           throw await $fetch(request, {
             ...options,
             method: options.method as
-              | 'GET'
-              | 'POST'
-              | 'PUT'
-              | 'DELETE'
-              | 'PATCH'
-              | 'HEAD'
-              | 'OPTIONS',
+              'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS',
             baseURL: baseUrl,
             timeout,
             credentials,

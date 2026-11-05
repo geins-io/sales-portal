@@ -190,8 +190,7 @@ export function getRequestChannelVariables(
   marketId: string;
 } {
   const tenantConfig = event.context.tenant?.config as
-    | { channelSettings?: { locales?: string[] } }
-    | undefined;
+    { channelSettings?: { locales?: string[] } } | undefined;
 
   return getChannelVariables(
     sdk,

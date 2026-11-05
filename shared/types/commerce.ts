@@ -71,10 +71,7 @@ export interface ParameterGroupType {
 
 /** Stock availability state — derived from StockType fields */
 export type StockStatus =
-  | 'in-stock'
-  | 'low-stock'
-  | 'out-of-stock'
-  | 'on-demand';
+  'in-stock' | 'low-stock' | 'out-of-stock' | 'on-demand';
 
 /**
  * Derive stock status from StockType.
@@ -179,10 +176,7 @@ export type CartType = Omit<SdkCartType, 'items'> & { items: CartItemType[] };
 // Discount & lowest-price types (from enriched pricing GraphQL fragments)
 // ---------------------------------------------------------------------------
 export type ProductDiscountType =
-  | 'NONE'
-  | 'SALE_PRICE'
-  | 'PRICE_CAMPAIGN'
-  | 'EXTERNAL';
+  'NONE' | 'SALE_PRICE' | 'PRICE_CAMPAIGN' | 'EXTERNAL';
 
 export interface LowestPriceInfo {
   lowestPriceIncVat: number;

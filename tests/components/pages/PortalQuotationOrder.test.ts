@@ -37,8 +37,8 @@ const {
     mockError: ref<Error | null>(null),
     mockUseFetch: vi.fn(),
     mockNavigateTo: vi.fn((..._args: unknown[]) => Promise.resolve()),
-    mockFinalizeQuote: vi.fn(
-      (_id: string): Promise<Quote | null> => Promise.resolve(null),
+    mockFinalizeQuote: vi.fn((_id: string): Promise<Quote | null> =>
+      Promise.resolve(null),
     ),
     mockIsActionLoading: ref(false),
     mockStoreError: ref<string | null>(null),

@@ -89,4 +89,23 @@ describe('QuantityInput with the real number field', () => {
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([3]);
     wrapper.unmount();
   });
+
+  it('sends nothing for a cleared field and shows the quantity again on blur', async () => {
+    const wrapper = mountComponent(QuantityInput, {
+      props: { modelValue: 2 },
+      attachTo: document.body,
+    });
+    const input = wrapper.find('input');
+    input.element.focus();
+    await input.setValue('');
+
+    expect(document.activeElement).toBe(input.element);
+    expect(input.element.value).toBe('');
+
+    await input.trigger('blur');
+
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+    expect(wrapper.find('input').element.value).toBe('2');
+    wrapper.unmount();
+  });
 });

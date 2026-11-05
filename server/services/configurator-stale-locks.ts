@@ -86,15 +86,13 @@ async function releaseStaleLocks(
   try {
     const cleared = await backend.applyChanges(
       answer.configurationId,
-      stale.map(
-        (option): ConfigurationChange => ({
-          type: 'option',
-          optionId: option.id,
-          instanceId: option.instanceId,
-          selected: false,
-          lock: 'none',
-        }),
-      ),
+      stale.map((option): ConfigurationChange => ({
+        type: 'option',
+        optionId: option.id,
+        instanceId: option.instanceId,
+        selected: false,
+        lock: 'none',
+      })),
       ctx,
     );
     return {

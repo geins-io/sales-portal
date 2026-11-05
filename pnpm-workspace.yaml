@@ -1,0 +1,6 @@
+# Skip versions younger than 3 days (in minutes) when resolving: a freshly
+# published malicious release is usually caught and pulled within that window.
+# Our own SDK, canary builds included, installs at once.
+minimumReleaseAge: 4320
+minimumReleaseAgeExclude:
+  - '@geins/*'

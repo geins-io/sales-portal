@@ -93,7 +93,6 @@ test.describe('Configurator and the stock', () => {
       if (/\/api\/configurations\/[^/]+\/cart$/.test(url)) sent.adds++;
     });
 
-    let added: string | null = null;
     try {
       await page.goto(`/se/sv/p/${ALIAS}`);
       await waitForHydration(page);
@@ -108,7 +107,7 @@ test.describe('Configurator and the stock', () => {
       await commit.click();
       const response = await addResponse;
       expect(response.status()).toBe(200);
-      added = ((await response.json()) as { itemId: string }).itemId;
+      const added = ((await response.json()) as { itemId: string }).itemId;
 
       const drawer = page.getByTestId('cart-drawer');
       await expect(drawer).toBeVisible();

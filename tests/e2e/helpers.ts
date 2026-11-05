@@ -313,7 +313,7 @@ export async function fetchProductCatalogue(
   page: Page,
 ): Promise<ProductListRow[]> {
   const seen = new Map<number, ProductListRow | null>();
-  let count = 0;
+  let count: number;
   let skip = 0;
   do {
     const response = await page.request.get('/api/product-lists/products', {

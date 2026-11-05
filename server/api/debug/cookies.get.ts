@@ -19,8 +19,7 @@ export default defineEventHandler((event) => {
   const cartId = getCookie(event, COOKIE_NAMES.CART_ID);
 
   const tenant = event.context.tenant as
-    | { hostname?: string; tenantId?: string; config?: TenantConfig }
-    | undefined;
+    { hostname?: string; tenantId?: string; config?: TenantConfig } | undefined;
 
   const config = tenant?.config;
   const channelSettings = config?.channelSettings;

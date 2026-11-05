@@ -21,11 +21,7 @@ import type { StockBlock } from '~/utils/stock-in-cart';
 export type ConfiguratorAction = 'start' | 'change' | 'commit' | 'add';
 
 export type ConfiguratorStage =
-  | 'committed'
-  | 'expired'
-  | 'form'
-  | 'error'
-  | 'loading';
+  'committed' | 'expired' | 'form' | 'error' | 'loading';
 
 export interface ConfiguratorPageState {
   status: ConfiguratorSessionStatus;

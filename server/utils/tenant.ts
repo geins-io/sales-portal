@@ -584,8 +584,7 @@ export function adaptMerchantApiResponse(
 ): Record<string, unknown> | null {
   const appSettings = (raw.appSettings as Record<string, unknown>) ?? raw;
   const channelSettings = raw.channelSettings as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
   if (!channelSettings) return null;
 
   // `hostNames` lists the default host too; an alias is every other name.

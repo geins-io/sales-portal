@@ -112,7 +112,7 @@ async function hydrateWithoutPayload(
   });
   nuxtApp.isHydrating = true;
   nuxtApp.payload.serverRendered = true;
-  let content: string | null = null;
+  let content: string | null;
   try {
     const wrapper = await mountSuspended(component, {
       route: '',

@@ -210,7 +210,7 @@ describe('ConfiguratorVariableField', () => {
     const wrapper = mountField(findVariable(workbench, 'width'));
     const input = wrapper.find('input');
     await input.setValue('1500');
-    await input.trigger('keydown.enter');
+    await input.trigger('keydown', { key: 'Enter' });
 
     expect(wrapper.emitted('change')?.[0]?.[0]).toEqual({
       type: 'variable',
@@ -311,7 +311,7 @@ describe('ConfiguratorVariableField', () => {
     const wrapper = mountField(unsetNumber());
     const input = wrapper.find('input');
     await input.setValue('1500');
-    await input.trigger('keydown.enter');
+    await input.trigger('keydown', { key: 'Enter' });
 
     expect(wrapper.emitted('change')?.[0]?.[0]).toEqual({
       type: 'variable',
@@ -326,7 +326,7 @@ describe('ConfiguratorVariableField', () => {
     });
     const input = wrapper.find('input');
     await input.setValue('1500');
-    await input.trigger('keydown.enter');
+    await input.trigger('keydown', { key: 'Enter' });
     expect(wrapper.emitted('change')).toHaveLength(1);
 
     // The page locks every field while the batch is in flight. It fails, so
@@ -442,21 +442,44 @@ describe('ConfiguratorVariableField', () => {
     };
   }
 
+  const MOUSE = {
+    pointerType: 'mouse',
+    pointerId: 1,
+    button: 0,
+    bubbles: true,
+  } as const;
+
   /**
-   * A press as a pointer makes it: down on the button, up anywhere, click. The
-   * down is a real `PointerEvent`, because the stepper ignores any press whose
-   * `button` is not 0 and `trigger` does not carry one.
+   * A press as a mouse makes it: down on the button, up anywhere, click. Both
+   * are real `PointerEvent`s, because the stepper ignores any press whose
+   * `button` is not 0, steps a mouse on the down, and takes only the up with
+   * the down's `pointerId`; `trigger` carries none of these.
    */
   async function press(wrapper: VueWrapper, label: 'Increase' | 'Decrease') {
     // The stepper listens once it has found its element, a tick after mount.
     await flushPromises();
     const button = wrapper.find(`button[aria-label="${label}"]`);
-    button.element.dispatchEvent(
-      new PointerEvent('pointerdown', { button: 0, bubbles: true }),
-    );
-    window.dispatchEvent(new Event('pointerup'));
+    button.element.dispatchEvent(new PointerEvent('pointerdown', MOUSE));
+    window.dispatchEvent(new PointerEvent('pointerup', MOUSE));
     // A browser renders between the down and the click, so a button the step
     // disabled is disabled by the time the click would land.
+    await flushPromises();
+    await button.trigger('click');
+    await flushPromises();
+  }
+
+  const TOUCH = { ...MOUSE, pointerType: 'touch', pointerId: 2 } as const;
+
+  /**
+   * A tap as a finger makes it: the stepper steps a touch on the up, not the
+   * down, and a finger lifts at least a task after it lands.
+   */
+  async function tap(wrapper: VueWrapper, label: 'Increase' | 'Decrease') {
+    await flushPromises();
+    const button = wrapper.find(`button[aria-label="${label}"]`);
+    button.element.dispatchEvent(new PointerEvent('pointerdown', TOUCH));
+    await new Promise((resolve) => setTimeout(resolve));
+    window.dispatchEvent(new PointerEvent('pointerup', TOUCH));
     await flushPromises();
     await button.trigger('click');
     await flushPromises();
@@ -512,6 +535,16 @@ describe('ConfiguratorVariableField', () => {
     ]);
   });
 
+  it('steps an empty field with a floor of zero up to the first step on a tap', async () => {
+    const wrapper = mountField(openNumber({ min: 0 }));
+
+    await tap(wrapper, 'Increase');
+
+    expect(wrapper.emitted('change')).toEqual([
+      [{ type: 'variable', variableId: 'width', value: 1 }],
+    ]);
+  });
+
   it('disables a step down from an empty field that the floor rules out', async () => {
     const wrapper = mountField(openNumber({ min: 0 }));
 
@@ -534,31 +567,35 @@ describe('ConfiguratorVariableField', () => {
     ).toBeDefined();
   });
 
-  it('keeps a typed value after a press the stepper did not act on', async () => {
-    // Locked while a batch is in flight: the press reaches the button, the
-    // stepper ignores it, and no step follows to use it up.
-    const wrapper = mountComponent(ConfiguratorVariableField, {
-      props: { variable: openNumber(), disabled: true },
-    });
-    await flushPromises();
-    wrapper
-      .find('button[aria-label="Increase"]')
-      .element.dispatchEvent(
-        new PointerEvent('pointerdown', { button: 0, bubbles: true }),
-      );
-    window.dispatchEvent(new Event('pointerup'));
-    // Typing is a later task than the press, never the same one.
-    await new Promise((resolve) => setTimeout(resolve));
-    await wrapper.setProps({ disabled: false });
+  it.each([
+    ['mouse', MOUSE],
+    ['touch', TOUCH],
+  ] as const)(
+    'keeps a typed value after a %s press the stepper did not act on',
+    async (_pointer, pointer) => {
+      // Locked while a batch is in flight: the press reaches the button, the
+      // stepper ignores it, and no step follows to use it up.
+      const wrapper = mountComponent(ConfiguratorVariableField, {
+        props: { variable: openNumber(), disabled: true },
+      });
+      await flushPromises();
+      wrapper
+        .find('button[aria-label="Increase"]')
+        .element.dispatchEvent(new PointerEvent('pointerdown', pointer));
+      window.dispatchEvent(new PointerEvent('pointerup', pointer));
+      // Typing is a later task than the press, never the same one.
+      await new Promise((resolve) => setTimeout(resolve));
+      await wrapper.setProps({ disabled: false });
 
-    const input = wrapper.find('input');
-    await input.setValue('5');
-    await input.trigger('keydown.enter');
+      const input = wrapper.find('input');
+      await input.setValue('5');
+      await input.trigger('keydown', { key: 'Enter' });
 
-    expect(wrapper.emitted('change')).toEqual([
-      [{ type: 'variable', variableId: 'width', value: 5 }],
-    ]);
-  });
+      expect(wrapper.emitted('change')).toEqual([
+        [{ type: 'variable', variableId: 'width', value: 5 }],
+      ]);
+    },
+  );
 
   it('steps a set value by its step as before', async () => {
     const wrapper = mountField(

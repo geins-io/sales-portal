@@ -42,10 +42,7 @@ import { choicesOf, type OrderRowRef } from '~/utils/configurator-replay';
 // ---------------------------------------------------------------------------
 
 export type ConfiguratorSessionStatus =
-  | 'idle'
-  | 'active'
-  | 'expired'
-  | 'closed';
+  'idle' | 'active' | 'expired' | 'closed';
 
 /** What counts as the buyer at work on the page. A moving cursor does not. */
 const ACTIVITY_EVENTS: WindowEventName[] = [

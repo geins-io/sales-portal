@@ -252,7 +252,9 @@ test.describe('Configurator', () => {
     await openSection(page, COLOUR_SECTION);
 
     const changed = changeResponse(page);
-    await (await openColourSheet(page))
+    await (
+      await openColourSheet(page)
+    )
       .locator(`[data-option-id="${PRICED_COLOUR}"]`)
       .click();
     await changed;
@@ -335,7 +337,9 @@ test.describe('Configurator', () => {
     await openConfigurator(page);
     await openSection(page, COLOUR_SECTION);
     const changed = changeResponse(page);
-    await (await openColourSheet(page))
+    await (
+      await openColourSheet(page)
+    )
       .locator(`[data-option-id="${PRICED_COLOUR}"]`)
       .click();
     await changed;
@@ -468,7 +472,9 @@ test.describe('Configurator', () => {
     await openSection(page, COLOUR_SECTION);
 
     const changed = changeResponse(page);
-    await (await openColourSheet(page))
+    await (
+      await openColourSheet(page)
+    )
       .locator(`[data-option-id="${PRICED_COLOUR}"]`)
       .click();
     await expect(action(page)).toHaveAttribute('aria-busy', 'true');
@@ -518,7 +524,9 @@ test.describe('Configurator', () => {
 
     await openSection(page, COLOUR_SECTION);
     const changed = changeResponse(page);
-    await (await openColourSheet(page))
+    await (
+      await openColourSheet(page)
+    )
       .locator(`[data-option-id="${PRICED_COLOUR}"]`)
       .click();
     await changed;
@@ -531,7 +539,9 @@ test.describe('Configurator', () => {
     expect(released.status()).toBe(204);
 
     const refused = changeResponse(page);
-    await (await openColourSheet(page))
+    await (
+      await openColourSheet(page)
+    )
       .locator(`[data-option-id="${OTHER_COLOUR}"]`)
       .click();
     expect((await refused).status()).toBe(410);
@@ -583,7 +593,9 @@ test.describe('Configurator', () => {
 
     await openSection(page, COLOUR_SECTION);
     const changed = changeResponse(page);
-    await (await openColourSheet(page))
+    await (
+      await openColourSheet(page)
+    )
       .locator(`[data-option-id="${PRICED_COLOUR}"]`)
       .click();
     const { expiresAt } = (await (await changed).json()) as {
@@ -1510,7 +1522,9 @@ test.describe('Configurator refusals a second try cannot fix', () => {
     await openConfigurator(page);
     await openSection(page, COLOUR_SECTION);
     const changed = changeResponse(page);
-    await (await openColourSheet(page))
+    await (
+      await openColourSheet(page)
+    )
       .locator(`[data-option-id="${PRICED_COLOUR}"]`)
       .click();
     await changed;

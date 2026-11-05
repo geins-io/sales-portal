@@ -16,11 +16,7 @@ export const CONFIGURATION_TAB_ID = 'product-configuration';
 
 /** The tab values, in the order they are rendered. */
 export type ProductTabValue =
-  | 'configuration'
-  | 'description'
-  | 'specifications'
-  | 'documents'
-  | 'related';
+  'configuration' | 'description' | 'specifications' | 'documents' | 'related';
 
 export interface ProductTabContent {
   hasDescription: boolean;

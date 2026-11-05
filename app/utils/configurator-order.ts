@@ -58,12 +58,14 @@ export function byIndex<T>(nodes: T[], indexOf: (node: T) => Index): T[] {
  */
 export function sectionMembers(section: ConfigurationSection): SectionMember[] {
   const members: SectionMember[] = [
-    ...section.optionGroups.map(
-      (group): SectionMember => ({ kind: 'group', group }),
-    ),
-    ...section.variables.map(
-      (variable): SectionMember => ({ kind: 'variable', variable }),
-    ),
+    ...section.optionGroups.map((group): SectionMember => ({
+      kind: 'group',
+      group,
+    })),
+    ...section.variables.map((variable): SectionMember => ({
+      kind: 'variable',
+      variable,
+    })),
   ];
 
   return byIndex(members, (member) =>

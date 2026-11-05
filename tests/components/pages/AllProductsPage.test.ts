@@ -95,8 +95,7 @@ const { default: AllProductsPage } =
 function lastReplacedQuery(): Record<string, string> | undefined {
   const calls = replaceMock.mock.calls;
   const arg = calls[calls.length - 1]?.[0] as
-    | { query?: Record<string, string> }
-    | undefined;
+    { query?: Record<string, string> } | undefined;
   return arg?.query;
 }
 

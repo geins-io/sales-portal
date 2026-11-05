@@ -246,8 +246,7 @@ describe('tenant-seo plugin / reactive locale', () => {
       );
       expect(htmlAttrsCall).toBeDefined();
       const options = htmlAttrsCall?.[1] as
-        | { tagPriority?: number }
-        | undefined;
+        { tagPriority?: number } | undefined;
       expect(typeof options?.tagPriority).toBe('number');
       expect(options?.tagPriority as number).toBeGreaterThan(102);
     });

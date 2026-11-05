@@ -59,8 +59,7 @@ function firstBatch(
   wrapper: ReturnType<typeof mountGroup>,
 ): ConfigurationChange[] | undefined {
   return wrapper.emitted('change')?.[0]?.[0] as
-    | ConfigurationChange[]
-    | undefined;
+    ConfigurationChange[] | undefined;
 }
 
 const CHOOSER = '[data-testid="configurator-group-chooser"]';

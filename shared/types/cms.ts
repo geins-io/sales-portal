@@ -131,11 +131,7 @@ export interface VideoWidgetData {
 }
 
 export type FormFieldType =
-  | 'input'
-  | 'email'
-  | 'textarea'
-  | 'select'
-  | 'checkbox';
+  'input' | 'email' | 'textarea' | 'select' | 'checkbox';
 
 export interface FormWidgetField {
   label: string;
