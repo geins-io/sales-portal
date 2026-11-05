@@ -32,22 +32,85 @@ async function listQuotes(page: Page): Promise<ListedQuote[]> {
   return ((await response.json()) as { quotes: ListedQuote[] }).quotes;
 }
 
-/** A pending quotation that needs no confirmation and is not Monitor-linked. */
-async function findOrderable(page: Page) {
+type FullQuote = Record<string, unknown> & {
+  id: string;
+  quoteNumber?: string;
+  lineItems: unknown[];
+};
+
+/** The first quotation in `status` that is not Monitor-linked and matches. */
+async function findQuote(
+  page: Page,
+  status: string,
+  requiresConfirmation: boolean,
+): Promise<FullQuote | undefined> {
   for (const listed of await listQuotes(page)) {
-    if (listed.status !== 'pending') continue;
+    if (listed.status !== status) continue;
     const response = await page.request.get(`/api/quotes/${listed.id}`);
     if (!response.ok()) continue;
-    const { quote } = (await response.json()) as {
-      quote: Record<string, unknown> & { lineItems: unknown[] };
-    };
-    if (!quote.requiresConfirmation && !quote.externalReference) return quote;
+    const { quote } = (await response.json()) as { quote: FullQuote };
+    if (
+      !!quote.requiresConfirmation === requiresConfirmation &&
+      !quote.externalReference
+    ) {
+      return quote;
+    }
   }
   return undefined;
 }
 
+/** A pending quotation that needs no confirmation and is not Monitor-linked. */
+const findOrderable = (page: Page) => findQuote(page, 'pending', false);
+
+/**
+ * A real order of the buyer's stands in for the one the finalize would place,
+ * so the thank-you page reads a real order by its number. Finalize and the
+ * quotation's reload are answered by the test from here on.
+ */
+async function mockFinalize(page: Page, quote: FullQuote) {
+  const ordersResponse = await page.request.get('/api/orders');
+  expect(ordersResponse.ok(), '/api/orders did not answer 200').toBe(true);
+  const { orders } = (await ordersResponse.json()) as {
+    orders: Array<{ id: number | string }>;
+  };
+  outOfScope(
+    !orders.length,
+    'fixture-missing',
+    'the test account has no order for the thank-you page to read',
+  );
+  const orderNumber = String(orders[0]!.id);
+  const finalized = { ...quote, status: 'finalized', orderId: orderNumber };
+
+  const finalizeCalls: string[] = [];
+  await page.route('**/api/quotes/*/finalize', async (route) => {
+    finalizeCalls.push(route.request().url());
+    await route.fulfill({ json: { quote: finalized } });
+  });
+  return { orderNumber, finalized, finalizeCalls };
+}
+
+/** Opens the quotation view and follows its order button to the order page. */
+async function openOrderPageFromView(
+  page: Page,
+  viewPath: string,
+  button: string,
+) {
+  await page.goto(viewPath);
+  await page.waitForLoadState('load');
+  await waitForHydration(page);
+  const link = page.locator(`[data-testid="${button}"]`);
+  await expect(link).toBeVisible({ timeout: PAGE_TIMEOUT });
+  await link.click();
+  await page.waitForURL(new RegExp(`${viewPath}/order$`), {
+    timeout: PAGE_TIMEOUT,
+  });
+  await expect(page.locator('[data-testid="quote-order-page"]')).toBeVisible({
+    timeout: PAGE_TIMEOUT,
+  });
+}
+
 test.describe('Order from a quotation', () => {
-  test('shows the quotation read-only and places the order with the terms accepted', async ({
+  test('"Acceptera och lägg order" opens the quotation read-only and places the order with the terms accepted', async ({
     page,
   }) => {
     const quote = await findOrderable(page);
@@ -56,35 +119,15 @@ test.describe('Order from a quotation', () => {
       'fixture-missing',
       'the test account has no pending quotation without confirmation to order from',
     );
-
-    // A real order of the buyer's stands in for the one the finalize would
-    // place, so the thank-you page reads a real order by its number.
-    const ordersResponse = await page.request.get('/api/orders');
-    expect(ordersResponse.ok(), '/api/orders did not answer 200').toBe(true);
-    const { orders } = (await ordersResponse.json()) as {
-      orders: Array<{ id: number | string }>;
-    };
-    outOfScope(
-      !orders.length,
-      'fixture-missing',
-      'the test account has no order for the thank-you page to read',
+    const { orderNumber, finalized, finalizeCalls } = await mockFinalize(
+      page,
+      quote!,
     );
-    const orderNumber = String(orders[0]!.id);
-    const finalized = { ...quote, status: 'finalized', orderId: orderNumber };
-
-    const finalizeCalls: string[] = [];
-    await page.route('**/api/quotes/*/finalize', async (route) => {
-      finalizeCalls.push(route.request().url());
-      await route.fulfill({ json: { quote: finalized } });
-    });
 
     const viewPath = `/se/sv/portal/quotations/${quote!.id}`;
-    await page.goto(`${viewPath}/order`);
-    await page.waitForLoadState('load');
-    await waitForHydration(page);
+    await openOrderPageFromView(page, viewPath, 'accept-btn');
 
     const orderPage = page.locator('[data-testid="quote-order-page"]');
-    await expect(orderPage).toBeVisible({ timeout: PAGE_TIMEOUT });
     // The quotation's lines in the "Artiklar" card: a table from md (768 px)
     // up, cards below it. Only the shape for this viewport is visible.
     const articles = orderPage.locator('[data-testid="quote-articles"]');
@@ -157,6 +200,43 @@ test.describe('Order from a quotation', () => {
     await expect(
       page.locator('[data-testid="confirmation-order"]'),
     ).toBeVisible({ timeout: PAGE_TIMEOUT });
+  });
+
+  test('"Lägg order" on a confirmed quotation leads through the order page to the order', async ({
+    page,
+  }) => {
+    const quote = await findQuote(page, 'confirmed', true);
+    outOfScope(
+      !quote,
+      'fixture-missing',
+      'the test account has no confirmed quotation to order from',
+    );
+    const { orderNumber, finalized, finalizeCalls } = await mockFinalize(
+      page,
+      quote!,
+    );
+
+    const viewPath = `/se/sv/portal/quotations/${quote!.id}`;
+    await openOrderPageFromView(page, viewPath, 'quote-place-order');
+
+    const place = page.locator('[data-testid="place-order-button"]');
+    await expect(place).toBeDisabled();
+    await page.locator('#checkout-terms-checkbox').click();
+    await expect(place).toBeEnabled();
+    await page.route(`**/api/quotes/${quote!.id}`, async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      await route.fulfill({ json: { quote: finalized } });
+    });
+    await place.click();
+    await page.waitForURL(new RegExp(`${viewPath}/ordered$`), {
+      timeout: PAGE_TIMEOUT,
+    });
+    expect(finalizeCalls).toEqual([
+      expect.stringContaining(`/api/quotes/${quote!.id}/finalize`),
+    ]);
+    await expect(
+      page.locator('[data-testid="quote-thanks-number"]'),
+    ).toContainText(orderNumber, { timeout: PAGE_TIMEOUT });
   });
 
   test('sends a quotation that is not finalized from the ordered page to the quotation view', async ({

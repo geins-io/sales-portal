@@ -41,7 +41,11 @@ const acceptCases = [
 const helperKeys = [
   ...statuses.map((status) => quoteKindLabelKey(status)),
   ...statuses.flatMap((status) =>
-    acceptCases.map((o) => quoteStatusInfoKey(makeQuote({ status, ...o }))),
+    acceptCases.flatMap((o) =>
+      [true, false].map((canPlaceOrders) =>
+        quoteStatusInfoKey(makeQuote({ status, ...o }), canPlaceOrders),
+      ),
+    ),
   ),
 ].filter((key): key is string => !!key);
 
@@ -58,17 +62,23 @@ const copyKeys = [
   'accept_confirm',
   'accept_confirm_title',
   'accept_confirm_body',
+  'accept_confirm_order_body',
   'accept_monitor',
   'accept_monitor_title',
   'accept_monitor_body',
+  'accept_and_order',
+  'note_order',
   'note_confirm',
+  'note_confirm_order',
   'note_monitor',
   'view_items',
   'status_label',
   'accepted_at',
   'customer_and_addresses',
   'delivery_short',
-].map((key) => `portal.quotations.${key}`);
+]
+  .map((key) => `portal.quotations.${key}`)
+  .concat('checkout.place_order');
 
 const keys = [...new Set([...helperKeys, ...copyKeys])];
 const localeFiles = readdirSync(LOCALES_DIR).filter((f) => f.endsWith('.json'));
@@ -115,7 +125,41 @@ describe('quotation response texts', () => {
     expect(lookup(loadLocale('en.json'), full)).toBe(en);
   });
 
-  // Until ordering from a quotation exists, the confirmation case promises no order step.
+  // A buyer who can order is told so, in the prototype's words.
+  it.each([
+    [
+      'status_info_accepted_plain_order',
+      'Du har accepterat offerten. Du kan lägga ordern.',
+      'You have accepted the quotation. You can place the order.',
+    ],
+    [
+      'status_info_confirmed_order',
+      'Offerten är bekräftad. Du kan lägga ordern.',
+      'The quotation is confirmed. You can place the order.',
+    ],
+    [
+      'accept_confirm_order_body',
+      'Din säljare bekräftar offerten. Därefter kan du lägga ordern.',
+      'Your seller confirms the quotation. Then you can place the order.',
+    ],
+    [
+      'note_confirm_order',
+      'Din säljare bekräftar innan du kan lägga ordern.',
+      'Your seller confirms before you can place the order.',
+    ],
+    [
+      'note_order',
+      'Ordern läggs på offertens priser och villkor.',
+      "The order is placed at the quotation's prices and terms.",
+    ],
+    ['accept_and_order', 'Acceptera och lägg order', 'Accept and place order'],
+  ])('words %s as in the prototype', (key, sv, en) => {
+    const full = `portal.quotations.${key}`;
+    expect(lookup(loadLocale('sv.json'), full)).toBe(sv);
+    expect(lookup(loadLocale('en.json'), full)).toBe(en);
+  });
+
+  // A buyer who cannot place orders is promised no order step.
   it.each([
     [
       'accept_confirm_body',
