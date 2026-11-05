@@ -3,9 +3,15 @@ import { getCart } from '../../services/cart';
 import { CreateQuoteRequestSchema } from '../../schemas/api-input';
 import { forgetCart } from '../../utils/cart-owner';
 import { quoteRespondRateLimiter, getClientIp } from '../../utils/rate-limiter';
+import { assertFeatureAccess } from '../../utils/feature-access';
 
 export default defineEventHandler(async (event) => {
   await requireAuth(event);
+
+  // The same rule as the cart button, so the switch holds outside the UI.
+  const signedIn = { authenticated: true };
+  await assertFeatureAccess(event, 'quotes', signedIn);
+  await assertFeatureAccess(event, 'quoteRequests', signedIn);
 
   const { allowed } = await quoteRespondRateLimiter.check(getClientIp(event));
   if (!allowed) {

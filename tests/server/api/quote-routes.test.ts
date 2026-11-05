@@ -44,6 +44,11 @@ vi.stubGlobal('getSessionToken', vi.fn().mockReturnValue('auth-token-abc'));
 // requireAuth — auto-imported from server/utils/auth
 const mockRequireAuth = vi.fn();
 vi.stubGlobal('requireAuth', mockRequireAuth);
+// The real feature-access helper imports it from the module.
+vi.mock('../../../server/utils/auth', () => ({
+  requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
+  optionalAuth: vi.fn(),
+}));
 
 // Rate limiter — uses useStorage('kv'), must stay mocked
 const mockRateLimitCheck = vi.fn();
@@ -126,13 +131,31 @@ const mockQuote = {
   createdAt: '2026-03-01T10:00:00Z',
 };
 
-const mockEvent = {
-  context: {
-    tenant: { hostname: 'test.example.com', tenantId: 'test-tenant' },
-    params: {},
-  },
-  node: { req: { headers: {} } },
-} as unknown as import('h3').H3Event;
+/** An event on a tenant whose quotes and quoteRequests are as given. */
+function eventOn(
+  quotes: boolean | undefined,
+  quoteRequests: boolean | undefined,
+): import('h3').H3Event {
+  const features = {
+    ...(quotes === undefined ? {} : { quotes: { enabled: quotes } }),
+    ...(quoteRequests === undefined
+      ? {}
+      : { quoteRequests: { enabled: quoteRequests } }),
+  };
+  return {
+    context: {
+      tenant: {
+        hostname: 'test.example.com',
+        tenantId: 'test-tenant',
+        config: { features },
+      },
+      params: {},
+    },
+    node: { req: { headers: {} } },
+  } as unknown as import('h3').H3Event;
+}
+
+const mockEvent = eventOn(true, true);
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -626,6 +649,81 @@ describe('Quote API Routes', () => {
         await expect((await load('create'))(mockEvent)).rejects.toThrow();
         expect(mockGetCart).not.toHaveBeenCalled();
         expect(mockCreateQuoteRequest).not.toHaveBeenCalled();
+      });
+
+      // The cart button shows only when both are on; the route asks the same.
+      describe('the quotes and quoteRequests switches', () => {
+        const expectRefused = async (event: import('h3').H3Event) => {
+          await expect((await load('create'))(event)).rejects.toMatchObject({
+            statusCode: 403,
+          });
+          expect(mockRateLimitCheck).not.toHaveBeenCalled();
+          expect(mockGetCart).not.toHaveBeenCalled();
+          expect(mockCreateQuoteRequest).not.toHaveBeenCalled();
+          expect(mockForgetCart).not.toHaveBeenCalled();
+        };
+
+        it('creates the request when quotes and quoteRequests are both enabled', async () => {
+          const result = await (await load('create'))(eventOn(true, true));
+
+          expect(mockCreateQuoteRequest).toHaveBeenCalled();
+          expect(result).toEqual({ quote: draft });
+        });
+
+        it('answers 403 when quoteRequests is disabled and quotes is enabled', async () => {
+          await expectRefused(eventOn(true, false));
+        });
+
+        it('answers 403 when quotes is disabled and quoteRequests is enabled', async () => {
+          await expectRefused(eventOn(false, true));
+        });
+
+        it('answers 403 when quotes and quoteRequests are both disabled', async () => {
+          await expectRefused(eventOn(false, false));
+        });
+
+        it('answers 403 when the tenant stores no quoteRequests', async () => {
+          await expectRefused(eventOn(true, undefined));
+        });
+
+        it('lets the signed-in buyer through when quotes requires authentication', async () => {
+          const event = eventOn(true, true);
+          event.context.tenant.config!.features.quotes = {
+            enabled: true,
+            access: 'authenticated',
+          };
+
+          await expect((await load('create'))(event)).resolves.toEqual({
+            quote: draft,
+          });
+        });
+
+        it('checks the switches only after sign-in', async () => {
+          mockRequireAuth.mockRejectedValue(
+            new Error('Authentication required'),
+          );
+
+          await expect(
+            (await load('create'))(eventOn(false, false)),
+          ).rejects.toThrow('Authentication required');
+        });
+
+        it.each([
+          ['update', mockUpdateQuoteRequest, { comment: 'Leverans' }],
+          ['release', mockReleaseQuoteRequest, undefined],
+        ] as const)(
+          'leaves %s to an existing request when both switches are off',
+          async (path, service, body) => {
+            readBodyMock.mockReturnValue(body);
+            service.mockResolvedValue(draft);
+            const event = eventOn(false, false);
+            event.context.params = { id: 'draft-001' };
+
+            await expect((await load(path))(event)).resolves.toEqual({
+              quote: draft,
+            });
+          },
+        );
       });
 
       it('takes a name of exactly 80 characters', async () => {

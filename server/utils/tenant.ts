@@ -454,6 +454,12 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
       rawFeatures[key] = value;
     }
   }
+  // Studio keeps the request switch on the quotes card; the portal reads it as
+  // its own flag. A top-level quoteRequests key is overwritten.
+  const { quotes } = rawFeatures;
+  rawFeatures.quoteRequests = {
+    enabled: quotes?.enabled === true && quotes.quoteRequests === 'enabled',
+  };
   const features = normalizeFeatureAccess(rawFeatures, merged.hostname);
 
   // Server-only, but typed with the same narrowed FeatureAccess.

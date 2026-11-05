@@ -146,6 +146,7 @@ const HEADER_ACTIONS =
 const SERVER_CHECKOUT = 'tests/unit/api/checkout.test.ts';
 const SERVER_ORDER_GET = 'tests/server/api/orders/[id]-get.test.ts';
 const SERVER_CART = 'tests/server/api/cart.test.ts';
+const SERVER_QUOTE_ROUTES = 'tests/server/api/quote-routes.test.ts';
 const SERVER_REGISTER = 'tests/server/api/auth-register.test.ts';
 const AUTH_CARD = 'tests/components/auth/AuthCard.test.ts';
 const AUTH_SHEET = 'tests/components/auth/AuthSheet.test.ts';
@@ -2175,6 +2176,37 @@ export const CONFIG_COVERAGE_MAP = {
           drives: 'reader',
         },
       ],
+    }),
+    quoteRequests: namedFeature({
+      consumer: 'server/api/quotes/requests.post.ts:14',
+      cells: {
+        enabledTrue: [
+          {
+            spec: SERVER_QUOTE_ROUTES,
+            title:
+              'creates the request when quotes and quoteRequests are both enabled',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
+        enabledFalse: [
+          {
+            spec: SERVER_QUOTE_ROUTES,
+            title:
+              'answers 403 when quoteRequests is disabled and quotes is enabled',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
+      },
+      access: accessNeverRead(
+        'buildTenantConfig derives it from features.quotes as { enabled } ' +
+          'with no access rule, and the route checks it after sign-in.',
+      ),
+      note:
+        'The route runs the real assertFeatureAccess over the tenant config ' +
+        'in the event, so both cases write the configured value. The ' +
+        'derivation from quotes.quoteRequests is tested in tenant.test.ts.',
     }),
     registration: {
       enabled: {

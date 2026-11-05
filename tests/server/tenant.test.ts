@@ -15,6 +15,8 @@ import {
   DEFAULT_CMS_CONFIG,
 } from '../../server/utils/tenant';
 import { canAccessFeature } from '../../shared/utils/feature-access';
+import { getPublicConfig } from '../../server/services/tenant-config';
+import type { H3Event } from 'h3';
 import { CMS_MENUS } from '../../shared/constants/cms';
 import { CMS_SLOTS } from '../../shared/types/cms-slots';
 import partialPayloadFixture from '../fixtures/store-settings/partial-payload.json';
@@ -1143,6 +1145,128 @@ describe('Tenant utilities', () => {
         updatedAt: '2026-01-01T00:00:00.000Z',
       };
     }
+
+    // Studio keeps the request switch on the quotes card:
+    // "quotes": { "enabled": true|false, "quoteRequests": "enabled"|"disabled" }.
+    describe('quote requests from the quotes card', () => {
+      // Parse, defaults, merge and derivation, down to the features that
+      // /api/config serves.
+      async function build(
+        features: Record<string, unknown>,
+        overrides?: Record<string, unknown>,
+      ) {
+        const candidate = { ...fullCandidate(), features, overrides };
+        const out = parseStoreSettingsResilient(candidate, 'h');
+        if (!out) throw new Error('candidate did not parse');
+        const event = {
+          context: { tenant: { config: buildTenantConfig(out) } },
+        } as unknown as H3Event;
+        const config = await getPublicConfig(event);
+        if (!config) throw new Error('no public config');
+        return config.features;
+      }
+
+      it('1. no quotes key: quotes on by default, quote requests off', async () => {
+        const features = await build({});
+        expect(features.quotes).toEqual({ enabled: true });
+        expect(features.quoteRequests).toEqual({ enabled: false });
+      });
+
+      it('2. quotes true: quotes on, quote requests off', async () => {
+        const features = await build({ quotes: true });
+        expect(features.quotes).toEqual({ enabled: true });
+        expect(features.quoteRequests).toEqual({ enabled: false });
+      });
+
+      it('3. quotes false: quotes off, quote requests off', async () => {
+        const features = await build({ quotes: false });
+        expect(features.quotes).toEqual({ enabled: false });
+        expect(features.quoteRequests).toEqual({ enabled: false });
+      });
+
+      it('4. quotes { enabled: true }: quotes on, quote requests off', async () => {
+        const features = await build({ quotes: { enabled: true } });
+        expect(features.quotes).toEqual({ enabled: true });
+        expect(features.quoteRequests).toEqual({ enabled: false });
+      });
+
+      it('5. quotes { enabled: false }: quotes off, quote requests off', async () => {
+        const features = await build({ quotes: { enabled: false } });
+        expect(features.quotes).toEqual({ enabled: false });
+        expect(features.quoteRequests).toEqual({ enabled: false });
+      });
+
+      it('6. quotes enabled with quoteRequests disabled: quotes on, quote requests off', async () => {
+        const features = await build({
+          quotes: { enabled: true, quoteRequests: 'disabled' },
+        });
+        expect(features.quotes).toEqual({ enabled: true });
+        expect(features.quoteRequests).toEqual({ enabled: false });
+      });
+
+      it('7. quotes enabled with quoteRequests enabled: both on', async () => {
+        const features = await build({
+          quotes: { enabled: true, quoteRequests: 'enabled' },
+        });
+        expect(features.quotes).toEqual({ enabled: true });
+        expect(features.quoteRequests).toEqual({ enabled: true });
+      });
+
+      it('8. quotes disabled with quoteRequests enabled: both off', async () => {
+        const features = await build({
+          quotes: { enabled: false, quoteRequests: 'enabled' },
+        });
+        expect(features.quotes).toEqual({ enabled: false });
+        expect(features.quoteRequests).toEqual({ enabled: false });
+      });
+
+      it('9. quotes enabled with quoteRequests yes: quotes on, quote requests off (the leaf is stripped)', async () => {
+        const features = await build({
+          quotes: { enabled: true, quoteRequests: 'yes' },
+        });
+        expect(features.quotes).toEqual({ enabled: true });
+        expect(features.quoteRequests).toEqual({ enabled: false });
+      });
+
+      it('ignores a top-level quoteRequests key', async () => {
+        expect(
+          (await build({ quotes: { enabled: true }, quoteRequests: true }))
+            .quoteRequests,
+        ).toEqual({ enabled: false });
+        expect(
+          (
+            await build({
+              quotes: { enabled: true, quoteRequests: 'enabled' },
+              quoteRequests: false,
+            })
+          ).quoteRequests,
+        ).toEqual({ enabled: true });
+      });
+
+      it('keeps the access rule on quotes and gives quoteRequests none', async () => {
+        const features = await build({
+          quotes: {
+            enabled: true,
+            access: 'authenticated',
+            quoteRequests: 'enabled',
+          },
+        });
+        expect(features.quotes).toEqual({
+          enabled: true,
+          access: 'authenticated',
+        });
+        expect(features.quoteRequests).toEqual({ enabled: true });
+      });
+
+      it('derives quoteRequests after the override layer', async () => {
+        const features = await build(
+          { quotes: { enabled: true, quoteRequests: 'enabled' } },
+          { features: { quotes: { enabled: false } } },
+        );
+        expect(features.quotes).toEqual({ enabled: false });
+        expect(features.quoteRequests).toEqual({ enabled: false });
+      });
+    });
 
     it('returns the strict-parsed value on a clean candidate', () => {
       const out = parseStoreSettingsResilient(fullCandidate(), 'h');
