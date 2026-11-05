@@ -52,9 +52,7 @@ The Geins merchant API (`/store-settings?hostname=...`) returns:
   "channelSettings": {
     /* channelId, defaultLocale, locales, markets, defaultHostName, hostNames */
   },
-  "appSettings": {
-    /* theme, branding, features, cms, ... */
-  },
+  "appSettings": {/* theme, branding, features, cms, ... */},
 }
 ```
 

@@ -35,12 +35,7 @@ export type SelectionSource =
 
 /** Why a variable holds the value it holds. */
 export type ValueSource =
-  | 'initial'
-  | 'manual'
-  | 'formula'
-  | 'linked'
-  | 'fallback'
-  | 'unknown';
+  'initial' | 'manual' | 'formula' | 'linked' | 'fallback' | 'unknown';
 
 // ---------------------------------------------------------------------------
 // Messages

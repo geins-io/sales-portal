@@ -44,15 +44,13 @@ export function singleChoiceChanges(
       !(option.id === pick.optionId && option.instanceId === pick.instanceId),
   );
   return [
-    ...others.map(
-      (option): ConfigurationChange => ({
-        type: 'option',
-        optionId: option.id,
-        instanceId: option.instanceId,
-        selected: false,
-        lock: 'none',
-      }),
-    ),
+    ...others.map((option): ConfigurationChange => ({
+      type: 'option',
+      optionId: option.id,
+      instanceId: option.instanceId,
+      selected: false,
+      lock: 'none',
+    })),
     pick,
   ];
 }

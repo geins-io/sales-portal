@@ -9,9 +9,7 @@ import type { ImageRef } from './image';
  */
 export function widgetImageUrl(
   images:
-    | readonly Pick<ContentImageType, 'fileName' | 'url'>[]
-    | null
-    | undefined,
+    readonly Pick<ContentImageType, 'fileName' | 'url'>[] | null | undefined,
   fileName: string,
 ): string | null {
   if (!fileName) return null;
@@ -25,9 +23,7 @@ export function widgetImageUrl(
 export function widgetMobileImage(
   image: WidgetImage | undefined,
   images:
-    | readonly Pick<ContentImageType, 'fileName' | 'url'>[]
-    | null
-    | undefined,
+    readonly Pick<ContentImageType, 'fileName' | 'url'>[] | null | undefined,
 ): ImageRef | undefined {
   const fileName = image?.filenameForMobileDevice;
   if (!fileName) return undefined;

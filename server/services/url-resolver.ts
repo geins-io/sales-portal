@@ -175,9 +175,7 @@ export async function resolveEntityUrl(
     'url-resolver',
   );
   const unwrapped = unwrapGraphQL(result) as
-    | UrlHistoryResult['urlHistory']
-    | UrlHistoryResult
-    | null;
+    UrlHistoryResult['urlHistory'] | UrlHistoryResult | null;
 
   // unwrapGraphQL collapses the single-key `{ urlHistory: {...} }` wrapper to
   // the inner value, but guard for both shapes in case it does not.

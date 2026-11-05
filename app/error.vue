@@ -123,8 +123,7 @@ const handleBack = () => {
         <p class="mb-2 text-sm font-medium">Debug Info:</p>
         <pre
           class="error-page__muted overflow-auto text-xs whitespace-pre-wrap"
-          >{{ error.stack }}</pre
-        >
+          >{{ error.stack }}</pre>
       </div>
     </div>
   </div>

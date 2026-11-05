@@ -23,12 +23,9 @@ function document(isValid = true) {
 }
 
 let backend: {
-  [K in
-    | 'reopen'
-    | 'applyChanges'
-    | 'commit'
-    | 'release'
-    | 'replaceLine']: ReturnType<typeof vi.fn>;
+  [
+    K in 'reopen' | 'applyChanges' | 'commit' | 'release' | 'replaceLine'
+  ]: ReturnType<typeof vi.fn>;
 };
 let warn: ReturnType<typeof vi.spyOn>;
 

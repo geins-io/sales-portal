@@ -8,9 +8,7 @@ import { canConfigure, type UserContext } from '#shared/utils/feature-access';
  * here and one more branch in the page — never a condition inside a page.
  */
 export type ProductPageType =
-  | 'ordinary'
-  | 'configurable'
-  | 'sign-in-to-configure';
+  'ordinary' | 'configurable' | 'sign-in-to-configure';
 
 /**
  * A signed-in buyer gets the configurator for a configurable product and a

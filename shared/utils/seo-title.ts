@@ -7,9 +7,7 @@ import type { TenantConfig } from '#shared/types/tenant-config';
  */
 export function resolveDefaultTitle(
   seo:
-    | Pick<NonNullable<TenantConfig['seo']>, 'defaultTitle'>
-    | null
-    | undefined,
+    Pick<NonNullable<TenantConfig['seo']>, 'defaultTitle'> | null | undefined,
   brandName: string,
 ): string {
   return seo?.defaultTitle || brandName;

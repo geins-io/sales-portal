@@ -25,8 +25,7 @@ async function expectedDefaultTitle(
   request: APIRequestContext,
 ): Promise<string> {
   const config = (await (await request.get('/api/config')).json()) as
-    | TenantConfigTitle
-    | undefined;
+    TenantConfigTitle | undefined;
   return (
     config?.seo?.defaultTitle ||
     config?.branding?.name ||

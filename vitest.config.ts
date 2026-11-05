@@ -67,8 +67,7 @@ export default defineConfig(async (): Promise<ViteUserConfig> => {
     ...baseEnvOptions,
     nuxt: {
       ...((baseEnvOptions as Record<string, unknown>).nuxt as
-        | Record<string, unknown>
-        | undefined),
+        Record<string, unknown> | undefined),
       overrides: { experimental: { appManifest: false } },
     },
   };

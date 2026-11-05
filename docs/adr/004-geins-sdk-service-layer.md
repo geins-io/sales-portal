@@ -293,42 +293,46 @@ CMS call site in `server/services/` passes it. The CRM facade (`crm.auth`, `crm.
 `crm.user.orders`, `crm.user.password`) exposes no such parameter.
 
 **Auth** (`crm.auth`):
-| Method | Signature |
-|--------|-----------|
-| `login` | `(credentials: AuthCredentials) → Promise<AuthResponse \| undefined>` |
-| `logout` | `() → Promise<AuthResponse \| undefined>` |
-| `refresh` | `(refreshToken: string) → Promise<AuthResponse \| undefined>` |
-| `getUser` | `(refreshToken: string, userToken?: string) → Promise<AuthResponse \| undefined>` |
-| `authorized` | `(refreshToken: string) → Promise<boolean>` |
+
+| Method       | Signature                                                                         |
+| ------------ | --------------------------------------------------------------------------------- |
+| `login`      | `(credentials: AuthCredentials) → Promise<AuthResponse \| undefined>`             |
+| `logout`     | `() → Promise<AuthResponse \| undefined>`                                         |
+| `refresh`    | `(refreshToken: string) → Promise<AuthResponse \| undefined>`                     |
+| `getUser`    | `(refreshToken: string, userToken?: string) → Promise<AuthResponse \| undefined>` |
+| `authorized` | `(refreshToken: string) → Promise<boolean>`                                       |
 
 **User** (`crm.user`):
-| Method | Signature |
-|--------|-----------|
-| `get` | `(userToken: string) → Promise<GeinsUserType \| undefined>` |
-| `update` | `(user: GeinsUserInputTypeType, userToken: string) → Promise<GeinsUserType \| undefined>` |
-| `create` | `(credentials: AuthCredentials, user?: GeinsUserInputTypeType) → Promise<AuthResponse \| undefined>` |
-| `remove` | `(userToken: string) → Promise<boolean>` |
-| `password.change` | `(credentials: AuthCredentials, refreshToken: string) → Promise<AuthResponse \| undefined>` |
-| `password.requestReset` | `(email: string) → Promise<boolean>` |
-| `password.commitReset` | `(resetKey: string, password: string) → Promise<boolean>` |
-| `orders.get` | `(userToken: string) → Promise<GeinsUserOrdersType \| undefined>` |
+
+| Method                  | Signature                                                                                            |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| `get`                   | `(userToken: string) → Promise<GeinsUserType \| undefined>`                                          |
+| `update`                | `(user: GeinsUserInputTypeType, userToken: string) → Promise<GeinsUserType \| undefined>`            |
+| `create`                | `(credentials: AuthCredentials, user?: GeinsUserInputTypeType) → Promise<AuthResponse \| undefined>` |
+| `remove`                | `(userToken: string) → Promise<boolean>`                                                             |
+| `password.change`       | `(credentials: AuthCredentials, refreshToken: string) → Promise<AuthResponse \| undefined>`          |
+| `password.requestReset` | `(email: string) → Promise<boolean>`                                                                 |
+| `password.commitReset`  | `(resetKey: string, password: string) → Promise<boolean>`                                            |
+| `orders.get`            | `(userToken: string) → Promise<GeinsUserOrdersType \| undefined>`                                    |
 
 **Cart** (`oms.cart`) — flat API, `cartId` always required. `ctx` is `requestContext?: RequestContext`:
-| Method | Signature |
-|--------|-----------|
-| `get` | `(cartId: string, forceRefresh?: boolean, ctx?) → Promise<CartType>` |
-| `create` | `(ctx?) → Promise<CartType>` |
-| `addItem` | `(cartId: string, input: CartItemInputType, ctx?) → Promise<CartType>` |
-| `updateItem` | `(cartId: string, input: CartItemInputType, ctx?) → Promise<CartType>` |
-| `deleteItem` | `(cartId: string, itemId: string, ctx?) → Promise<CartType>` |
-| `setPromotionCode` | `(cartId: string, code: string, ctx?) → Promise<CartType>` |
-| `removePromotionCode` | `(cartId: string, ctx?) → Promise<CartType>` |
+
+| Method                | Signature                                                              |
+| --------------------- | ---------------------------------------------------------------------- |
+| `get`                 | `(cartId: string, forceRefresh?: boolean, ctx?) → Promise<CartType>`   |
+| `create`              | `(ctx?) → Promise<CartType>`                                           |
+| `addItem`             | `(cartId: string, input: CartItemInputType, ctx?) → Promise<CartType>` |
+| `updateItem`          | `(cartId: string, input: CartItemInputType, ctx?) → Promise<CartType>` |
+| `deleteItem`          | `(cartId: string, itemId: string, ctx?) → Promise<CartType>`           |
+| `setPromotionCode`    | `(cartId: string, code: string, ctx?) → Promise<CartType>`             |
+| `removePromotionCode` | `(cartId: string, ctx?) → Promise<CartType>`                           |
 
 **CMS** (`cms.menu`, `cms.page`, `cms.area`):
-| Method | Signature |
-|--------|-----------|
-| `menu.get` | `({ menuLocationId }, ctx?) → Promise<MenuType \| undefined>` |
-| `page.get` | `({ alias }, ctx?) → Promise<ContentPageType \| undefined>` |
+
+| Method     | Signature                                                              |
+| ---------- | ---------------------------------------------------------------------- |
+| `menu.get` | `({ menuLocationId }, ctx?) → Promise<MenuType \| undefined>`          |
+| `page.get` | `({ alias }, ctx?) → Promise<ContentPageType \| undefined>`            |
 | `area.get` | `({ family, areaName }, ctx?) → Promise<ContentAreaType \| undefined>` |
 
 ### Missing or empty credentials
