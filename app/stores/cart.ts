@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { useDebounceFn } from '@vueuse/core';
 import type { CartType } from '#shared/types/commerce';
+import type { Quote } from '#shared/types/quote';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
 import { COOKIE_NAMES } from '#shared/constants/storage';
 import { internalFetch } from '~/utils/internal-fetch';
@@ -44,6 +45,8 @@ export const useCartStore = defineStore('cart', () => {
    * Geins, and a new cart would orphan them.
    */
   const loadFailed = ref(false);
+  /** Why the last "cart to quote request" failed, as a locale key. */
+  const quoteRequestError = ref<string | null>(null);
   watch(
     cartId,
     () => {
@@ -379,6 +382,35 @@ export const useCartStore = defineStore('cart', () => {
     }
   }
 
+  /**
+   * The cart as a new quote request draft, answering the draft's id, or null
+   * when it failed and the cart is as it was. Geins copies the lines and keeps
+   * the cart, so the cart is let go here: the server clears its cookie, but
+   * this ref is not refreshed from that and would keep sending the old id.
+   */
+  async function requestQuote(name: string): Promise<string | null> {
+    isLoading.value = true;
+    quoteRequestError.value = null;
+    try {
+      const { quote } = await $fetch<{ quote: Quote }>('/api/quotes/requests', {
+        method: 'POST',
+        body: { name },
+      });
+      cart.value = null;
+      cartId.value = null;
+      isOpen.value = false;
+      return quote.id;
+    } catch (failure) {
+      quoteRequestError.value =
+        errorCodeOf(failure) === 'RATE_LIMITED'
+          ? 'cart.add_to_quote_rate_limited'
+          : 'cart.add_to_quote_failed';
+      return null;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   return {
     cart,
     cartId,
@@ -388,6 +420,7 @@ export const useCartStore = defineStore('cart', () => {
     skippedConfigurable,
     needsSignIn,
     loadFailed,
+    quoteRequestError,
     pendingQuantities,
     updatingItems,
     quantityFailed,
@@ -405,5 +438,6 @@ export const useCartStore = defineStore('cart', () => {
     removeItem,
     applyPromoCode,
     removePromoCode,
+    requestQuote,
   };
 });

@@ -526,6 +526,30 @@ describe('CartDrawer', () => {
       const btn = wrapper.find('[data-testid="cart-drawer-checkout-button"]');
       expect(btn.attributes('disabled')).toBeDefined();
     });
+
+    it('offers the cart as a quote request right under the checkout button', () => {
+      const store = useCartStore();
+      store.isOpen = true;
+      store.cart = cartWithItems;
+
+      const wrapper = shallowMountComponent(CartDrawer, {
+        global: {
+          stubs: {
+            ...drawerStubs,
+            CartQuoteRequestButton: {
+              template: '<div data-testid="quote-request-slot" />',
+            },
+          },
+        },
+      });
+
+      const checkout = wrapper.find(
+        '[data-testid="cart-drawer-checkout-button"]',
+      );
+      expect(
+        checkout.element.nextElementSibling?.getAttribute('data-testid'),
+      ).toBe('quote-request-slot');
+    });
   });
 
   describe('discount line', () => {

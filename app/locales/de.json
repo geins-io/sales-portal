@@ -134,7 +134,12 @@
     "edit_configuration": "Konfiguration ändern",
     "quantity_updating": "Wird aktualisiert…",
     "quantity_change_failed": "Die Menge konnte nicht geändert werden. Das Produkt im Warenkorb ist unverändert.",
-    "items_short": "Artikel"
+    "items_short": "Artikel",
+    "add_to_quote": "Warenkorb ins Angebot legen",
+    "add_to_quote_hint": "Der Warenkorb wird zu einem Entwurf einer Angebotsanfrage und geleert. Es wird keine Bestellung aufgegeben.",
+    "quote_request_name": "Warenkorb {date}",
+    "add_to_quote_failed": "Die Angebotsanfrage konnte nicht erstellt werden. Der Warenkorb ist unverändert.",
+    "add_to_quote_rate_limited": "Zu viele Versuche. Bitte warten Sie einen Moment und versuchen Sie es erneut."
   },
   "checkout": {
     "title": "Kasse",

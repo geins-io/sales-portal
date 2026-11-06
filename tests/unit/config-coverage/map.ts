@@ -155,6 +155,10 @@ const POWERED_BY = 'tests/components/PoweredBy.test.ts';
 const HEADER_TOPBAR = 'tests/components/layout/LayoutHeaderTopbar.test.ts';
 const PORTAL_SHELL = 'tests/components/portal/PortalShell.test.ts';
 const PORTAL_OVERVIEW = 'tests/unit/pages/PortalOverview.test.ts';
+const CART_QUOTE_REQUEST =
+  'tests/components/cart/CartQuoteRequestButton.test.ts';
+const CART_QUOTE_REQUEST_SHOWN =
+  'shows the button and its hint to a signed-in buyer when quotes and quoteRequests are enabled';
 const PORTAL_ORDERS_TABLE = 'tests/components/portal/PortalOrdersTable.test.ts';
 const TENANT_CONFIG_SERVICE = 'tests/server/tenant-config-service.test.ts';
 const PRICE_DISPLAY = 'tests/components/commerce/PriceDisplay.test.ts';
@@ -512,6 +516,42 @@ function overviewRefs(offTitle: string): { on: TestRef[]; off: TestRef[] } {
   return {
     on: ref('shows every part when quotes, orderHistory and lists are enabled'),
     off: ref(offTitle),
+  };
+}
+
+/**
+ * The cart's quote request button runs the real `useFeatureAccess` over the
+ * tenant fixture, so each case drives the field. It also needs a session, so
+ * `access: all` hides it from a signed-out buyer.
+ */
+function withCartQuoteRequestCells(cells: FeatureCells): FeatureCells {
+  const ref = (title: string): TestRef => ({
+    spec: CART_QUOTE_REQUEST,
+    title,
+    kind: 'consumer',
+    drives: 'field',
+  });
+  const shown = ref(CART_QUOTE_REQUEST_SHOWN);
+  return {
+    ...cells,
+    enabledTrue: [...(cells.enabledTrue ?? []), shown],
+    accessAbsent: [...(cells.accessAbsent ?? []), shown],
+    enabledFalse: [
+      ...(cells.enabledFalse ?? []),
+      ref('renders nothing when quotes is disabled'),
+    ],
+    accessAll: [
+      ...(cells.accessAll ?? []),
+      ref(
+        'renders nothing to a signed-out buyer even when quotes access is open to all',
+      ),
+    ],
+    accessAuthenticated: [
+      ...(cells.accessAuthenticated ?? []),
+      ref(
+        'renders nothing when quotes requires authentication and the user is anonymous',
+      ),
+    ],
   };
 }
 
@@ -2194,7 +2234,7 @@ export const CONFIG_COVERAGE_MAP = {
     }),
     quotes: namedFeature({
       consumer: 'app/components/portal/PortalShell.vue:116',
-      cells: middlewareCells('quotes'),
+      cells: withCartQuoteRequestCells(middlewareCells('quotes')),
       ...overviewRefs(
         'neither loads nor shows quotations when quotes is disabled',
       ),
@@ -2219,12 +2259,24 @@ export const CONFIG_COVERAGE_MAP = {
             kind: 'consumer',
             drives: 'field',
           },
+          {
+            spec: CART_QUOTE_REQUEST,
+            title: CART_QUOTE_REQUEST_SHOWN,
+            kind: 'consumer',
+            drives: 'field',
+          },
         ],
         enabledFalse: [
           {
             spec: SERVER_QUOTE_ROUTES,
             title:
               'answers 403 when quoteRequests is disabled and quotes is enabled',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: CART_QUOTE_REQUEST,
+            title: 'renders nothing when quoteRequests is disabled',
             kind: 'consumer',
             drives: 'field',
           },

@@ -134,7 +134,12 @@
     "edit_configuration": "Change configuration",
     "quantity_updating": "Updating…",
     "quantity_change_failed": "The quantity could not be changed. The product in the cart is unchanged.",
-    "items_short": "Items"
+    "items_short": "Items",
+    "add_to_quote": "Add cart to quote",
+    "add_to_quote_hint": "The cart becomes a quote request draft and is emptied. No order is placed.",
+    "quote_request_name": "Cart {date}",
+    "add_to_quote_failed": "The quote request could not be created. Your cart is unchanged.",
+    "add_to_quote_rate_limited": "Too many attempts. Wait a moment and try again."
   },
   "checkout": {
     "title": "Checkout",

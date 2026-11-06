@@ -1343,4 +1343,131 @@ describe('useCartStore', () => {
       });
     });
   });
+
+  describe('requestQuote', () => {
+    const NAME = 'Varukorg 4 nov. 2026';
+    const CREATED = { quote: { id: 'quote-1', status: 'request_draft' } };
+
+    function refused(code: string, statusCode: number) {
+      return Object.assign(
+        new Error(`[POST] "/api/quotes/requests": ${statusCode}`),
+        { statusCode, data: { statusCode, data: { code } } },
+      );
+    }
+
+    beforeEach(() => {
+      mockCartIdRef.value = 'cart-123';
+    });
+
+    it('sends the name and answers the new request id', async () => {
+      mockFetch.mockResolvedValueOnce(CREATED);
+
+      const store = useCartStore();
+      store.cart = mockCart as unknown as typeof store.cart;
+
+      expect(await store.requestQuote(NAME)).toBe('quote-1');
+      expect(mockFetch).toHaveBeenCalledWith('/api/quotes/requests', {
+        method: 'POST',
+        body: { name: NAME },
+      });
+    });
+
+    it('lets the cart go, its id with it, and closes the panel', async () => {
+      mockFetch.mockResolvedValueOnce(CREATED);
+
+      const store = useCartStore();
+      store.cart = mockCart as unknown as typeof store.cart;
+      store.isOpen = true;
+      await store.requestQuote(NAME);
+
+      expect(store.cart).toBeNull();
+      expect(mockCartIdRef.value).toBeNull();
+      expect(store.isEmpty).toBe(true);
+      expect(store.isOpen).toBe(false);
+      expect(store.quoteRequestError).toBeNull();
+    });
+
+    it('puts the next add on a new cart, not on the one the request copied', async () => {
+      const NEW_CART = { ...mockCart, id: 'new-cart' };
+      mockFetch
+        .mockResolvedValueOnce(CREATED) // POST /api/quotes/requests
+        .mockResolvedValueOnce(NEW_CART) // POST /api/cart
+        .mockResolvedValueOnce(NEW_CART); // POST /api/cart/items
+
+      const store = useCartStore();
+      store.cart = mockCart as unknown as typeof store.cart;
+      await store.requestQuote(NAME);
+      await store.addItem(200, 1);
+
+      expect(mockFetch).toHaveBeenNthCalledWith(2, '/api/cart', {
+        method: 'POST',
+      });
+      expect(mockFetch).toHaveBeenNthCalledWith(3, '/api/cart/items', {
+        method: 'POST',
+        body: { cartId: 'new-cart', skuId: 200, quantity: 1 },
+      });
+    });
+
+    it('is loading while the request is on its way, and not after', async () => {
+      let answer!: (value: unknown) => void;
+      mockFetch.mockReturnValueOnce(
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+      );
+
+      const store = useCartStore();
+      store.cart = mockCart as unknown as typeof store.cart;
+      const pending = store.requestQuote(NAME);
+      expect(store.isLoading).toBe(true);
+
+      answer(CREATED);
+      await pending;
+      expect(store.isLoading).toBe(false);
+    });
+
+    it('keeps the cart and its id when the request fails, and says so', async () => {
+      mockFetch.mockRejectedValueOnce(refused('EXTERNAL_API_ERROR', 502));
+
+      const store = useCartStore();
+      store.cart = mockCart as unknown as typeof store.cart;
+      store.isOpen = true;
+
+      expect(await store.requestQuote(NAME)).toBeNull();
+      expect(store.cart).toEqual(mockCart);
+      expect(mockCartIdRef.value).toBe('cart-123');
+      expect(store.isOpen).toBe(true);
+      expect(store.isLoading).toBe(false);
+      expect(store.quoteRequestError).toBe('cart.add_to_quote_failed');
+    });
+
+    it('says an empty cart failed like any other refusal', async () => {
+      mockFetch.mockRejectedValueOnce(refused('EMPTY_CART', 409));
+
+      const store = useCartStore();
+      expect(await store.requestQuote(NAME)).toBeNull();
+      expect(store.quoteRequestError).toBe('cart.add_to_quote_failed');
+    });
+
+    it('asks the buyer to wait when the requests are rate limited', async () => {
+      mockFetch.mockRejectedValueOnce(refused('RATE_LIMITED', 429));
+
+      const store = useCartStore();
+      expect(await store.requestQuote(NAME)).toBeNull();
+      expect(store.quoteRequestError).toBe('cart.add_to_quote_rate_limited');
+      expect(mockCartIdRef.value).toBe('cart-123');
+    });
+
+    it('clears the last failure when the buyer tries again', async () => {
+      mockFetch
+        .mockRejectedValueOnce(refused('RATE_LIMITED', 429))
+        .mockReturnValueOnce(new Promise(() => {}));
+
+      const store = useCartStore();
+      await store.requestQuote(NAME);
+      void store.requestQuote(NAME);
+
+      expect(store.quoteRequestError).toBeNull();
+    });
+  });
 });

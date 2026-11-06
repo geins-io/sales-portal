@@ -672,15 +672,18 @@ test.describe('Cart layout', () => {
 
   /**
    * Scrolled to the last line, the first one has left the view and the
-   * summary and the checkout button have not.
+   * summary, the checkout button and the quote request button under it have
+   * not.
    */
   async function expectBottomStays(
     lines: Locator,
     summary: Locator,
     checkout: Locator,
   ) {
+    const toQuote = summary.locator('[data-testid="cart-add-to-quote"]');
     await expect(summary).toBeInViewport({ ratio: 1 });
     await expect(checkout).toBeInViewport({ ratio: 1 });
+    await expect(toQuote).toBeInViewport({ ratio: 1 });
     await expect(lines.last()).not.toBeInViewport();
 
     await lines.last().scrollIntoViewIfNeeded();
@@ -688,6 +691,7 @@ test.describe('Cart layout', () => {
     await expect(lines.first()).not.toBeInViewport();
     await expect(summary).toBeInViewport({ ratio: 1 });
     await expect(checkout).toBeInViewport({ ratio: 1 });
+    await expect(toQuote).toBeInViewport({ ratio: 1 });
   }
 
   for (const [name, viewport] of [
