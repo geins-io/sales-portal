@@ -1,0 +1,43 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    # Same window as minimumReleaseAge in pnpm-workspace.yaml.
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      npm:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Majors are taken on by hand; a major that fixes a vulnerability still
+      # arrives as a security update, which ignores update-types.
+      - dependency-name: '*'
+        update-types:
+          - version-update:semver-major
+      # Updated through the SDK's canary flow.
+      - dependency-name: '@geins/*'
+      # The Playwright image tag in the workflows must change in the same PR.
+      - dependency-name: '@playwright/test'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      actions:
+        patterns:
+          - '*'
