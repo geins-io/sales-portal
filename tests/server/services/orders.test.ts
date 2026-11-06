@@ -371,6 +371,84 @@ describe('orders service', () => {
       expect(result).toHaveProperty('total');
     });
 
+    describe("each order's total", () => {
+      const total = {
+        sellingPriceIncVat: 1800,
+        sellingPriceIncVatFormatted: '1 800 kr',
+        sellingPriceExVat: 1440,
+        sellingPriceExVatFormatted: '1 440 kr',
+      };
+      const withTotal = (order: Record<string, unknown>) => ({
+        id: 1,
+        status: 'Placed',
+        publicId: 'a',
+        cart: { summary: { total } },
+        ...order,
+      });
+
+      it("has two decimals, in the order's currency, where Geins' string has none", async () => {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          getCompanyOrders: [withTotal({ currency: 'SEK' })],
+        });
+
+        const result = await ordersService.listOrders(mockEvent);
+
+        expect(result.orders[0]!.cart!.summary!.total).toEqual({
+          sellingPriceIncVat: 1800,
+          sellingPriceIncVatFormatted: '1 800,00 kr',
+          sellingPriceExVat: 1440,
+          sellingPriceExVatFormatted: '1 440,00 kr',
+        });
+      });
+
+      it("keeps Geins' strings for an order without a currency", async () => {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          getCompanyOrders: [withTotal({ currency: null })],
+        });
+
+        const result = await ordersService.listOrders(mockEvent);
+
+        expect(result.orders[0]!.cart!.summary!.total).toEqual(total);
+      });
+
+      it('leaves an order without a total as it came', async () => {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          getCompanyOrders: [
+            withTotal({ currency: 'SEK', cart: { summary: { total: null } } }),
+            withTotal({ currency: 'SEK', cart: { summary: null } }),
+            withTotal({ currency: 'SEK', cart: null }),
+          ],
+        });
+
+        const result = await ordersService.listOrders(mockEvent);
+
+        expect(result.orders[0]!.cart).toEqual({ summary: { total: null } });
+        expect(result.orders[1]!.cart).toEqual({ summary: null });
+        expect(result.orders[2]!.cart).toBeNull();
+      });
+
+      it("keeps Geins' string for an amount it does not give as a number", async () => {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          getCompanyOrders: [
+            withTotal({
+              currency: 'SEK',
+              cart: {
+                summary: {
+                  total: { sellingPriceExVatFormatted: '1 440 kr' },
+                },
+              },
+            }),
+          ],
+        });
+
+        const result = await ordersService.listOrders(mockEvent);
+
+        expect(result.orders[0]!.cart!.summary!.total).toEqual({
+          sellingPriceExVatFormatted: '1 440 kr',
+        });
+      });
+    });
+
     it('returns empty array when getOrders returns null', async () => {
       mockGraphqlQuery.mockResolvedValueOnce({ getCompanyOrders: null });
 

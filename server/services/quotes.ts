@@ -17,6 +17,7 @@ import {
   getRequestChannelVariables,
 } from './_sdk';
 import { findOrderPublicId } from './orders';
+import { amountWriter } from './amount';
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
 
@@ -184,7 +185,22 @@ function mapStatus(raw?: string): QuoteStatus {
 // Transform helpers
 // ---------------------------------------------------------------------------
 
-function mapLineItem(item: RawCartItem): QuoteLineItem {
+/** An amount the quotation shows, `''` when Geins gives none. */
+type QuoteAmount = (
+  value: number | null | undefined,
+  geins: string | null | undefined,
+) => string;
+
+function quoteAmount(
+  currency: string | undefined,
+  locale: string,
+): QuoteAmount {
+  const write = amountWriter(currency, locale);
+  return (value, geins) => write(value, geins) ?? '';
+}
+
+function mapLineItem(item: RawCartItem, amount: QuoteAmount): QuoteLineItem {
+  const { unitPrice, totalPrice } = item;
   return {
     productId: item.product?.productId ?? 0,
     alias: item.product?.alias ?? null,
@@ -193,13 +209,25 @@ function mapLineItem(item: RawCartItem): QuoteLineItem {
     articleNumber: item.product?.articleNumber ?? '',
     quantity: item.quantity,
     unitPrice: item.unitPrice?.sellingPriceIncVat ?? 0,
-    unitPriceFormatted: item.unitPrice?.sellingPriceIncVatFormatted ?? '',
+    unitPriceFormatted: amount(
+      unitPrice?.sellingPriceIncVat,
+      unitPrice?.sellingPriceIncVatFormatted,
+    ),
     totalPrice: item.totalPrice?.sellingPriceIncVat ?? 0,
-    totalPriceFormatted: item.totalPrice?.sellingPriceIncVatFormatted ?? '',
+    totalPriceFormatted: amount(
+      totalPrice?.sellingPriceIncVat,
+      totalPrice?.sellingPriceIncVatFormatted,
+    ),
     unitPriceExVat: item.unitPrice?.sellingPriceExVat ?? 0,
-    unitPriceExVatFormatted: item.unitPrice?.sellingPriceExVatFormatted ?? '',
+    unitPriceExVatFormatted: amount(
+      unitPrice?.sellingPriceExVat,
+      unitPrice?.sellingPriceExVatFormatted,
+    ),
     totalPriceExVat: item.totalPrice?.sellingPriceExVat ?? 0,
-    totalPriceExVatFormatted: item.totalPrice?.sellingPriceExVatFormatted ?? '',
+    totalPriceExVatFormatted: amount(
+      totalPrice?.sellingPriceExVat,
+      totalPrice?.sellingPriceExVatFormatted,
+    ),
     imageFileName: item.product?.productImages?.[0]?.fileName ?? undefined,
     imageUrl: item.product?.productImages?.[0]?.url ?? null,
   };
@@ -291,10 +319,14 @@ function mapExternalReference(
   };
 }
 
-function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
+function mapQuotationCartToQuote(
+  cart: RawQuotationCart,
+  locale: string,
+): Quote {
   const q = cart.quotation ?? {};
   const summary = cart.summary;
-  const items = (cart.items ?? []).map(mapLineItem);
+  const amount = quoteAmount(q.currency, locale);
+  const items = (cart.items ?? []).map((item) => mapLineItem(item, amount));
 
   const contactFirstName = q.customer?.firstName ?? q.owner?.firstName ?? '';
   const contactLastName = q.customer?.lastName ?? q.owner?.lastName ?? '';
@@ -312,21 +344,39 @@ function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
     internalNotes: undefined,
     lineItems: items,
     subtotal: summary?.subTotal?.sellingPriceIncVat ?? 0,
-    subtotalFormatted: summary?.subTotal?.sellingPriceIncVatFormatted ?? '',
+    subtotalFormatted: amount(
+      summary?.subTotal?.sellingPriceIncVat,
+      summary?.subTotal?.sellingPriceIncVatFormatted,
+    ),
     // The total's VAT, as the order view reads it: the subtotal's leaves out
     // the shipping and the discount.
     tax: summary?.total?.vat ?? 0,
-    taxFormatted: summary?.total?.vatFormatted ?? '',
+    taxFormatted: amount(summary?.total?.vat, summary?.total?.vatFormatted),
     shipping: summary?.shipping?.feeIncVat ?? 0,
-    shippingFormatted: summary?.shipping?.feeIncVatFormatted ?? '',
+    shippingFormatted: amount(
+      summary?.shipping?.feeIncVat,
+      summary?.shipping?.feeIncVatFormatted,
+    ),
     total: summary?.total?.sellingPriceIncVat ?? 0,
-    totalFormatted: summary?.total?.sellingPriceIncVatFormatted ?? '',
+    totalFormatted: amount(
+      summary?.total?.sellingPriceIncVat,
+      summary?.total?.sellingPriceIncVatFormatted,
+    ),
     subtotalExVat: summary?.subTotal?.sellingPriceExVat ?? 0,
-    subtotalExVatFormatted: summary?.subTotal?.sellingPriceExVatFormatted ?? '',
+    subtotalExVatFormatted: amount(
+      summary?.subTotal?.sellingPriceExVat,
+      summary?.subTotal?.sellingPriceExVatFormatted,
+    ),
     shippingExVat: summary?.shipping?.feeExVat ?? 0,
-    shippingExVatFormatted: summary?.shipping?.feeExVatFormatted ?? '',
+    shippingExVatFormatted: amount(
+      summary?.shipping?.feeExVat,
+      summary?.shipping?.feeExVatFormatted,
+    ),
     totalExVat: summary?.total?.sellingPriceExVat ?? 0,
-    totalExVatFormatted: summary?.total?.sellingPriceExVatFormatted ?? '',
+    totalExVatFormatted: amount(
+      summary?.total?.sellingPriceExVat,
+      summary?.total?.sellingPriceExVatFormatted,
+    ),
     discount: summary?.fixedAmountDiscountIncVat ?? 0,
     discountExVat: summary?.fixedAmountDiscountExVat ?? 0,
     discountPercent:
@@ -353,8 +403,13 @@ function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
   };
 }
 
-function mapQuotationCartToListItem(cart: RawQuotationCart): QuoteListItem {
+function mapQuotationCartToListItem(
+  cart: RawQuotationCart,
+  locale: string,
+): QuoteListItem {
   const q = cart.quotation ?? {};
+  const total = cart.summary?.total;
+  const amount = quoteAmount(q.currency, locale);
   const contactFirstName = q.customer?.firstName ?? q.owner?.firstName ?? '';
   const contactLastName = q.customer?.lastName ?? q.owner?.lastName ?? '';
 
@@ -365,9 +420,15 @@ function mapQuotationCartToListItem(cart: RawQuotationCart): QuoteListItem {
     contactEmail: q.billingAddress?.email ?? '',
     status: mapStatus(q.status),
     total: cart.summary?.total?.sellingPriceIncVat ?? 0,
-    totalFormatted: cart.summary?.total?.sellingPriceIncVatFormatted ?? '',
+    totalFormatted: amount(
+      total?.sellingPriceIncVat,
+      total?.sellingPriceIncVatFormatted,
+    ),
     totalExVat: cart.summary?.total?.sellingPriceExVat ?? 0,
-    totalExVatFormatted: cart.summary?.total?.sellingPriceExVatFormatted ?? '',
+    totalExVatFormatted: amount(
+      total?.sellingPriceExVat,
+      total?.sellingPriceExVatFormatted,
+    ),
     currency: q.currency ?? '',
     itemCount: cart.items?.length ?? 0,
     createdAt: q.createdAt ?? '',
@@ -412,7 +473,9 @@ export async function listQuotes(
     'quotes',
   );
   const carts = (unwrapGraphQL(result) as RawQuotationCart[] | null) ?? [];
-  const quotes = carts.map(mapQuotationCartToListItem);
+  const quotes = carts.map((cart) =>
+    mapQuotationCartToListItem(cart, languageId),
+  );
   // Newest first. The Geins API returns carts in an unspecified order, so sort
   // by createdAt descending. Empty or unparseable dates sort last (epoch 0).
   quotes.sort((a, b) => quoteCreatedTime(b) - quoteCreatedTime(a));
@@ -443,7 +506,7 @@ export async function getQuote(
   if (!cart) {
     throw createAppError(ErrorCode.NOT_FOUND, `Quote ${quoteId} not found`);
   }
-  const quote = mapQuotationCartToQuote(cart);
+  const quote = mapQuotationCartToQuote(cart, languageId);
   // The quotation names its order by number only, and the order's page takes
   // the public id. Without it the quotation still reads, with no order link.
   const orderPublicId =
@@ -536,7 +599,7 @@ async function requestMutation(
       `Geins answered no quotation for ${queryFile}`,
     );
   }
-  return mapQuotationCartToQuote(cart);
+  return mapQuotationCartToQuote(cart, channel.languageId);
 }
 
 /** A new `REQUEST_DRAFT` with the cart's lines; Geins leaves the cart as it is */

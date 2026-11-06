@@ -20,6 +20,7 @@ import { getCompany } from './company';
 import type { ConfigurableCandidate } from './configurator';
 import { configurableCheck } from './configurator';
 import { lineConfiguration } from './line-configuration';
+import { amountWriter } from './amount';
 
 /**
  * Puts each row's configurable flag and its configuration, as the buyer reads
@@ -107,6 +108,34 @@ export async function getOrderByNumber(
   return publicOrderId ? getOrder({ publicOrderId }, event) : undefined;
 }
 
+/** The order's total written as the order page writes it, from the numbers. */
+function withTotalWritten(order: OrderListItem, locale: string): OrderListItem {
+  const summary = order.cart?.summary;
+  const total = summary?.total;
+  if (!total) return order;
+  const amount = amountWriter(order.currency, locale);
+  return {
+    ...order,
+    cart: {
+      ...order.cart,
+      summary: {
+        ...summary,
+        total: {
+          ...total,
+          sellingPriceIncVatFormatted: amount(
+            total.sellingPriceIncVat,
+            total.sellingPriceIncVatFormatted,
+          ),
+          sellingPriceExVatFormatted: amount(
+            total.sellingPriceExVat,
+            total.sellingPriceExVatFormatted,
+          ),
+        },
+      },
+    },
+  };
+}
+
 export async function listOrders(
   event: H3Event,
 ): Promise<{ orders: OrderListItem[]; total: number }> {
@@ -120,14 +149,13 @@ export async function listOrders(
   // Unresolved rows stay null so the table renders a dash rather than
   // the billing contact (which would mislead the viewer into thinking
   // that person placed the order).
+  const channel = getRequestChannelVariables(sdk, event);
   const [orderResult, company] = await Promise.all([
     wrapServiceCall(
       () =>
         sdk.core.graphql.query({
           queryAsString: loadQuery('orders/orders-list.graphql'),
-          variables: {
-            ...getRequestChannelVariables(sdk, event),
-          },
+          variables: { ...channel },
           userToken: requestContext?.userToken,
         }),
       'order',
@@ -157,7 +185,7 @@ export async function listOrders(
       (internalId && nameByInternalId.get(internalId)) ||
       (email && nameByEmail.get(email)) ||
       null;
-    return { ...order, placedBy };
+    return { ...withTotalWritten(order, channel.languageId), placedBy };
   });
   return { orders: enriched, total: enriched.length };
 }

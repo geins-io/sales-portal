@@ -71,6 +71,9 @@ vi.stubGlobal('ErrorCode', {
 
 let quotesService: typeof import('../../../server/services/quotes');
 
+/** An amount as `Intl` writes it in sv-SE: non-breaking spaces. */
+const kr = (text: string) => text.replace(/ /g, ' ');
+
 describe('quotes service', () => {
   const mockEvent = {
     context: {
@@ -111,9 +114,9 @@ describe('quotes service', () => {
         id: 'cart-001',
         quoteNumber: 'Q-20260101001',
         status: 'pending',
-        totalFormatted: '10 039 SEK',
+        totalFormatted: kr('10 039,00 kr'),
         totalExVat: 8031.2,
-        totalExVatFormatted: '8 031 SEK',
+        totalExVatFormatted: kr('8 031,20 kr'),
         currency: 'SEK',
         itemCount: 1,
       });
@@ -142,6 +145,34 @@ describe('quotes service', () => {
         });
       },
     );
+
+    it("keeps Geins' total when the quotation carries no currency", async () => {
+      const cart = makeRawQuotationCart({ currency: null });
+      mockGraphqlQuery.mockResolvedValueOnce({ listQuotationCarts: [cart] });
+
+      const result = await quotesService.listQuotes('org-1', 0, 10, mockEvent);
+
+      expect(result.quotes[0]).toMatchObject({
+        totalFormatted: '10 039 SEK',
+        totalExVatFormatted: '8 031 SEK',
+      });
+    });
+
+    it('formats the totals in the language the quotation was read in', async () => {
+      const sdk = await import('../../../server/services/_sdk');
+      vi.mocked(sdk.getRequestChannelVariables).mockReturnValueOnce({
+        channelId: '1|se',
+        languageId: 'en-GB',
+        marketId: 'se',
+      });
+      mockGraphqlQuery.mockResolvedValueOnce({
+        listQuotationCarts: [makeRawQuotationCart()],
+      });
+
+      const result = await quotesService.listQuotes('org-1', 0, 10, mockEvent);
+
+      expect(result.quotes[0]!.totalFormatted).toBe('SEK\u00a010,039.00');
+    });
 
     it('returns empty array when listQuotationCarts returns null', async () => {
       mockGraphqlQuery.mockResolvedValueOnce({ listQuotationCarts: null });
@@ -391,19 +422,19 @@ describe('quotes service', () => {
         status: 'pending',
         currency: 'SEK',
         total: 10039,
-        totalFormatted: '10 039 SEK',
+        totalFormatted: kr('10 039,00 kr'),
         subtotal: 9990,
-        subtotalFormatted: '9 990 SEK',
+        subtotalFormatted: kr('9 990,00 kr'),
         tax: 2007.8,
-        taxFormatted: '2 007,80 SEK',
+        taxFormatted: kr('2 007,80 kr'),
         shipping: 49,
-        shippingFormatted: '49 SEK',
+        shippingFormatted: kr('49,00 kr'),
         subtotalExVat: 7992,
-        subtotalExVatFormatted: '7 992 SEK',
+        subtotalExVatFormatted: kr('7 992,00 kr'),
         shippingExVat: 39.2,
-        shippingExVatFormatted: '39 SEK',
+        shippingExVatFormatted: kr('39,20 kr'),
         totalExVat: 8031.2,
-        totalExVatFormatted: '8 031 SEK',
+        totalExVatFormatted: kr('8 031,20 kr'),
         createdAt: '2026-03-01T10:15:00Z',
         updatedAt: '2026-03-01T10:15:00Z',
         expiresAt: '2026-04-01T00:00:00Z',
@@ -421,13 +452,13 @@ describe('quotes service', () => {
         articleNumber: 'SD-OAK-L',
         quantity: 2,
         unitPrice: 4995,
-        unitPriceFormatted: '4 995 SEK',
+        unitPriceFormatted: kr('4 995,00 kr'),
         totalPrice: 9990,
-        totalPriceFormatted: '9 990 SEK',
+        totalPriceFormatted: kr('9 990,00 kr'),
         unitPriceExVat: 3996,
-        unitPriceExVatFormatted: '3 996 SEK',
+        unitPriceExVatFormatted: kr('3 996,00 kr'),
         totalPriceExVat: 7992,
-        totalPriceExVatFormatted: '7 992 SEK',
+        totalPriceExVatFormatted: kr('7 992,00 kr'),
         imageFileName: '/img/desk.jpg',
         imageUrl: 'https://cdn.example.test/acme/products/desk.jpg',
       });
@@ -469,6 +500,53 @@ describe('quotes service', () => {
       });
     });
 
+    it("gives whole amounts two decimals, where Geins' strings have none", async () => {
+      const cart = makeRawQuotationCart();
+      const items = cart.items as Array<Record<string, unknown>>;
+      items[0]!.quantity = 360;
+      items[0]!.unitPrice = {
+        sellingPriceIncVat: 5,
+        sellingPriceIncVatFormatted: '5 kr',
+        sellingPriceExVat: 4,
+        sellingPriceExVatFormatted: '4 kr',
+      };
+      items[0]!.totalPrice = {
+        sellingPriceIncVat: 1800,
+        sellingPriceIncVatFormatted: '1 800 kr',
+        sellingPriceExVat: 1440,
+        sellingPriceExVatFormatted: '1 440 kr',
+      };
+      mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(result.lineItems[0]).toMatchObject({
+        unitPriceFormatted: kr('5,00 kr'),
+        unitPriceExVatFormatted: kr('4,00 kr'),
+        totalPriceFormatted: kr('1 800,00 kr'),
+        totalPriceExVatFormatted: kr('1 440,00 kr'),
+      });
+    });
+
+    it("keeps Geins' strings when the quotation carries no currency", async () => {
+      const cart = makeRawQuotationCart({ currency: null });
+      mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(result).toMatchObject({
+        subtotalFormatted: '9 990 SEK',
+        taxFormatted: '2 007,80 SEK',
+        shippingFormatted: '49 SEK',
+        totalFormatted: '10 039 SEK',
+        totalExVatFormatted: '8 031 SEK',
+      });
+      expect(result.lineItems[0]).toMatchObject({
+        unitPriceFormatted: '4 995 SEK',
+        totalPriceExVatFormatted: '7 992 SEK',
+      });
+    });
+
     it('returns undefined for shippingAddress when raw shippingAddress is null', async () => {
       const cart = makeRawQuotationCart({ shippingAddress: null });
       mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
@@ -479,6 +557,16 @@ describe('quotes service', () => {
       // Billing still populated even when shipping is missing
       expect(result.billingAddress).toBeDefined();
       expect(result.billingAddress?.addressLine1).toBe('Street 1');
+    });
+
+    it('reads a quotation Geins answers without lines as one with none', async () => {
+      const cart = makeRawQuotationCart();
+      cart.items = null;
+      mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(result.lineItems).toEqual([]);
     });
 
     it('defaults shipping to 0 and empty string when summary.shipping is missing', async () => {
@@ -563,7 +651,7 @@ describe('quotes service', () => {
 
       // The subtotal's VAT (1 998) leaves out the shipping's.
       expect(result.tax).toBe(2007.8);
-      expect(result.taxFormatted).toBe('2 007,80 SEK');
+      expect(result.taxFormatted).toBe(kr('2 007,80 kr'));
     });
 
     it('leaves the VAT empty when the total carries none', async () => {
@@ -1004,6 +1092,7 @@ describe('quotes service', () => {
           quoteNumber: '2611-2-0001-00',
           status: 'request_draft',
           name: 'Varukorg 2 nov 2026',
+          totalFormatted: kr('10 039,00 kr'),
         });
         expect(result.lineItems).toHaveLength(1);
       });

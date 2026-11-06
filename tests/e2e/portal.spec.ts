@@ -409,17 +409,24 @@ test.describe('Portal Orders', () => {
 });
 
 /**
+ * An order or quotation amount as the order page writes it: two decimals,
+ * whatever the decimal separator and wherever the currency stands
+ * ("4,00 kr", "SEK 10,039.00", "$12.34").
+ */
+const TWO_DECIMALS = /\d[.,]\d{2}(?:\s*[^\d\s.,]+)?$/;
+
+/**
  * Portal Order Values
  *
  * Every amount on the orders surfaces, against the numbers the orders API
- * answered with. Numbers, never strings: the same order's total is
- * "1 125 kr" from the list endpoint and "1 125,00 kr" from the detail one, so
- * a string comparison across the two views fails on a correct application.
+ * answered with. Numbers, never strings: the screen rounds to two decimals,
+ * the API does not.
  *
  * Orders are chosen by what they contain — most lines, amounts that do not
  * terminate in two decimals — never by a fixed id, which would rot the day
  * the account is reseeded.
  */
+
 test.describe('Portal Order Values', () => {
   /** What one rendered amount may be off by: the screen rounds to two decimals, the API does not. */
   const ROUNDING = 0.005;
@@ -509,6 +516,9 @@ test.describe('Portal Order Values', () => {
 
       const listTotal = await readPrice(
         row.locator('[data-testid="order-total"]'),
+      );
+      await expect(row.locator('[data-testid="order-total"]')).toHaveText(
+        TWO_DECIMALS,
       );
 
       const api = await fetchOrder(page, publicId!);
@@ -1033,6 +1043,9 @@ test.describe('Portal Quotation Values', () => {
       const listTotal = await readPrice(
         row.locator('[data-testid="quotation-total"]'),
       );
+      await expect(row.locator('[data-testid="quotation-total"]')).toHaveText(
+        TWO_DECIMALS,
+      );
 
       const listed = (await fetchQuoteList(page, side)).find(
         (quote) => quote.id === id,
@@ -1057,6 +1070,9 @@ test.describe('Portal Quotation Values', () => {
 
       await openQuotationDetail(page, api.id);
 
+      await expect(
+        page.locator('[data-testid="order-summary-subtotal"]'),
+      ).toHaveText(TWO_DECIMALS);
       expectRendered(
         await readPrice(page.locator('[data-testid="order-summary-total"]')),
         api.total,
