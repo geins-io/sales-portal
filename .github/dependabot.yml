@@ -4,7 +4,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
-      day: monday
+      day: sunday
     # Same window as minimumReleaseAge in pnpm-workspace.yaml.
     cooldown:
       default-days: 3
@@ -32,7 +32,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
-      day: monday
+      day: sunday
     cooldown:
       default-days: 3
     commit-message:
