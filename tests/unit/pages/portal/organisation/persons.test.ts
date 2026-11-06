@@ -83,23 +83,18 @@ let mockPending = false;
 let mockError: Error | null = null;
 
 vi.mock('#app/composables/fetch', () => ({
-  useFetch: vi.fn(() => ({
-    data: ref(mockCompanyData),
-    pending: ref(mockPending),
-    error: ref(mockError),
-    refresh: vi.fn(),
-    execute: vi.fn(),
-  })),
+  useFetch: (url: string, opts?: { key?: string }) => mockUseFetch(url, opts),
   $fetch: vi.fn(),
 }));
 
-vi.stubGlobal('useFetch', () => ({
+const mockUseFetch = vi.fn((_url: string, _opts?: { key?: string }) => ({
   data: ref(mockCompanyData),
   pending: ref(mockPending),
   error: ref(mockError),
   refresh: vi.fn(),
   execute: vi.fn(),
 }));
+vi.stubGlobal('useFetch', mockUseFetch);
 
 // ---------------------------------------------------------------------------
 // Component stubs
@@ -186,5 +181,15 @@ describe('Portal Organisation persons page', () => {
     const wrapper = mount(PersonsPage.default, { global: { stubs } });
     await flushPromises();
     expect(wrapper.find('[data-testid="persons-table"]').exists()).toBe(true);
+  });
+
+  it('reads the company under the key the overview uses', async () => {
+    mockUseFetch.mockClear();
+    mount(PersonsPage.default, { global: { stubs } });
+    await flushPromises();
+    expect(mockUseFetch).toHaveBeenCalledWith(
+      '/api/portal/company',
+      expect.objectContaining({ key: 'portal-company' }),
+    );
   });
 });

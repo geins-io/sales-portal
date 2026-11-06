@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { OrderListItem, PurchasedProduct } from '#shared/types/commerce';
+import type { Company } from '#shared/types/company';
 import type { QuoteListItem } from '#shared/types/quote';
 import {
   ArrowRight,
@@ -30,6 +31,24 @@ const { formatLocale } = useFormatLocale();
 const { timezone } = useTenant();
 const { localePath } = useLocaleMarket();
 const { showIncVat } = useVatDisplay();
+const { canAccess } = useFeatureAccess();
+
+// Each part of the overview follows the feature its own portal tab follows:
+// with the feature off, the part is neither fetched nor shown.
+const showQuotes = computed(() => canAccess('quotes'));
+const showOrders = computed(() => canAccess('orderHistory'));
+const showLists = computed(() => canAccess('lists'));
+
+// The stats row has as many desktop columns as cards, so a hidden card leaves
+// no empty slot. Full class names, so Tailwind finds them.
+const statCardCount = computed(
+  () => 2 + Number(showQuotes.value) + Number(showOrders.value),
+);
+const STAT_GRID_COLUMNS: Record<number, string> = {
+  2: 'lg:grid-cols-2',
+  3: 'lg:grid-cols-3',
+  4: 'lg:grid-cols-4',
+};
 
 function quoteTotal(quote: QuoteListItem): string {
   return showIncVat.value ? quote.totalFormatted : quote.totalExVatFormatted;
@@ -46,7 +65,7 @@ const {
 } = useFetch<{
   orders: OrderListItem[];
   total: number;
-}>('/api/orders', { dedupe: 'defer' });
+}>('/api/orders', { dedupe: 'defer', immediate: showOrders.value });
 
 // A failed read is not an empty one: no rows and no count, so the section
 // shows the error and the stat card a dash instead of a false 0.
@@ -86,9 +105,26 @@ const purchasedProductCount = computed(() =>
   productsError.value ? undefined : (productsData.value?.total ?? 0),
 );
 
+// ---------------------------------------------------------------------------
+// Company data — keyed like the persons page, so the two share one read.
+// ---------------------------------------------------------------------------
+const { data: companyData, error: companyError } = useFetch<{
+  company: Company;
+}>('/api/portal/company', { key: 'portal-company', dedupe: 'defer' });
+
+// No company yet, or a failed read, gives no number rather than a false 0.
+// Null buyers count as none, as on the persons page.
+const buyerCount = computed(() => {
+  const company = companyData.value?.company;
+  if (companyError.value || !company) return undefined;
+  return (company.buyers ?? []).length;
+});
+
 // Awaited so the SSR render and the hydration payload hold the quotes. After
-// both useFetch calls, so the three loads run in parallel.
-await callOnce('portal-quotes', () => quotesStore.fetchQuotes());
+// the useFetch calls, so all the loads run in parallel.
+if (showQuotes.value) {
+  await callOnce('portal-quotes', () => quotesStore.fetchQuotes());
+}
 
 // ---------------------------------------------------------------------------
 // Saved lists data — client-side via SDK ListsSession (no server API).
@@ -171,9 +207,13 @@ function handleProductAddToCart(
 
 <template>
   <PortalShell>
-    <!-- Stat Cards: two columns on mobile, four on large screens. -->
-    <div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <!-- Stat Cards: two columns on mobile, one per card on large screens. -->
+    <div
+      data-testid="overview-stats"
+      :class="['mb-6 grid grid-cols-2 gap-4', STAT_GRID_COLUMNS[statCardCount]]"
+    >
       <PortalStatCard
+        v-if="showQuotes"
         :icon="FileText"
         :count="quotesStore.pendingCount"
         :label="t('portal.overview.stat.pending_quotations')"
@@ -182,6 +222,7 @@ function handleProductAddToCart(
         :to="localePath('/portal/quotations')"
       />
       <PortalStatCard
+        v-if="showOrders"
         :icon="ShoppingBag"
         :count="orderCount"
         :label="t('portal.overview.stat.orders_placed')"
@@ -195,15 +236,21 @@ function handleProductAddToCart(
         :subtitle="mostPurchasedSubtitle"
         :to="localePath('/portal/products')"
       />
+      <!-- An odd card count leaves this one alone on its mobile row. -->
       <PortalStatCard
+        :class="{ 'col-span-2 lg:col-span-1': statCardCount % 2 === 1 }"
         :icon="Users"
-        :count="0"
+        :count="buyerCount"
         :label="t('portal.overview.stat.persons_in_org')"
+        :to="localePath('/portal/organisation/persons')"
       />
     </div>
 
     <!-- Latest Orders — bordered card per Figma -->
-    <div class="border-border mb-6 rounded-lg border bg-white p-6">
+    <div
+      v-if="showOrders"
+      class="border-border mb-6 rounded-lg border bg-white p-6"
+    >
       <div class="mb-4 flex items-center justify-between">
         <h3 class="text-xl font-semibold">
           {{ t('portal.overview.latest_orders') }}
@@ -241,10 +288,20 @@ function handleProductAddToCart(
       <PortalOrdersTable v-else :orders="orders" :limit="5" />
     </div>
 
-    <!-- Pending Quotations & Your Lists -->
-    <div class="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <!-- Pending Quotations & Your Lists; one alone takes the full width. -->
+    <div
+      v-if="showQuotes || showLists"
+      data-testid="overview-lists-row"
+      :class="[
+        'mb-6 grid grid-cols-1 gap-6',
+        { 'lg:grid-cols-2': showQuotes && showLists },
+      ]"
+    >
       <!-- Pending Quotations mini-table -->
-      <div class="border-border rounded-lg border bg-white p-6">
+      <div
+        v-if="showQuotes"
+        class="border-border rounded-lg border bg-white p-6"
+      >
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-xl font-semibold">
             {{ t('portal.overview.pending_quotations') }}
@@ -351,7 +408,10 @@ function handleProductAddToCart(
       </div>
 
       <!-- Your Lists mini-table -->
-      <div class="border-border rounded-lg border bg-white p-6">
+      <div
+        v-if="showLists"
+        class="border-border rounded-lg border bg-white p-6"
+      >
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-xl font-semibold">
             {{ t('portal.overview.your_lists') }}

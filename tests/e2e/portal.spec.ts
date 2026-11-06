@@ -248,6 +248,43 @@ test.describe('Portal Overview', () => {
     await waitForHydration(page);
     expect(clientReads).toEqual([]);
   });
+
+  // Each page waits for the part that settles last: a width taken before it
+  // renders would pass for the wrong reason.
+  for (const { path, ready } of [
+    { path: '/se/sv/portal', ready: '[data-testid="overview-stats"]' },
+    {
+      path: '/se/sv/portal/orders',
+      ready:
+        '[data-testid="portal-orders-table"], [data-testid="orders-empty"]',
+    },
+    {
+      path: '/se/sv/portal/quotations',
+      ready:
+        '[data-testid="quotations-table"], [data-testid="quotations-empty"]',
+    },
+  ]) {
+    test(`${path} is no wider than a 390 or a 360 px phone screen`, async ({
+      page,
+    }) => {
+      for (const width of [390, 360]) {
+        await page.setViewportSize({ width, height: 844 });
+        await page.goto(path);
+        await page.waitForLoadState('load');
+        await waitForHydration(page);
+        await expect(page.locator(ready).first()).toBeVisible({
+          timeout: PAGE_TIMEOUT,
+        });
+        const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+          scrollWidth: document.documentElement.scrollWidth,
+          clientWidth: document.documentElement.clientWidth,
+        }));
+        expect(scrollWidth, `page width at a ${width} px viewport`).toBe(
+          clientWidth,
+        );
+      }
+    });
+  }
 });
 
 test.describe('Portal Orders', () => {

@@ -64,12 +64,20 @@ vi.mock('../../../app/composables/useFormatLocale', () => ({
   }),
 }));
 
-// The page reads only the tenant timezone. Unmocked, the real composable
-// fetches /api/config through the routed useFetch stub below, which expects a
-// plain URL string and throws on the key this composable passes.
+// The page reads the tenant timezone, and the real useFeatureAccess reads the
+// features, so a test writes the configured value itself. Unmocked, the real
+// composable fetches /api/config through the routed useFetch stub below, which
+// expects a plain URL string and throws on the key this composable passes.
+const ALL_ON = () => ({
+  quotes: { enabled: true },
+  orderHistory: { enabled: true },
+  lists: { enabled: true },
+});
+const mockFeatures = ref<Record<string, { enabled: boolean }>>(ALL_ON());
 vi.mock('../../../app/composables/useTenant', () => ({
   useTenant: () => ({
     timezone: computed(() => undefined),
+    features: computed(() => mockFeatures.value),
   }),
 }));
 
@@ -102,7 +110,27 @@ const mockProductsRefresh = vi.fn();
 let mockListsData: { lists: unknown[]; total?: number } | null = { lists: [] };
 let mockListsPending = false;
 
-function routedUseFetch(url: string) {
+let mockCompanyData: { company: { buyers: unknown[] | null } } | null = null;
+let mockCompanyPending = false;
+let mockCompanyError: Error | null = null;
+
+type FetchOptions = { immediate?: boolean; key?: string };
+const fetchCalls: Array<{ url: string; opts?: FetchOptions }> = [];
+// The requests the page lets run: `immediate: false` sends none.
+const requested = (url: string) =>
+  fetchCalls.filter(
+    (call) => call.url === url && call.opts?.immediate !== false,
+  );
+
+function routedUseFetch(url: string, opts?: FetchOptions) {
+  fetchCalls.push({ url, opts });
+  if (url.includes('/api/portal/company')) {
+    return {
+      data: ref(mockCompanyData),
+      pending: ref(mockCompanyPending),
+      error: ref(mockCompanyError),
+    };
+  }
   if (url.includes('/orders/products')) {
     return {
       data: ref(mockProductsData),
@@ -123,11 +151,15 @@ function routedUseFetch(url: string) {
 }
 
 vi.mock('#app/composables/fetch', () => ({
-  useFetch: vi.fn((url: string) => routedUseFetch(url)),
+  useFetch: vi.fn((url: string, opts?: FetchOptions) =>
+    routedUseFetch(url, opts),
+  ),
   $fetch: vi.fn(),
 }));
 
-vi.stubGlobal('useFetch', (url: string) => routedUseFetch(url));
+vi.stubGlobal('useFetch', (url: string, opts?: FetchOptions) =>
+  routedUseFetch(url, opts),
+);
 
 // ---------------------------------------------------------------------------
 // Mock quotes store
@@ -178,8 +210,8 @@ const stubs = {
   },
   PortalStatCard: {
     template:
-      '<div data-testid="portal-stat-card" :data-count="count" :data-show-dot="showDot"><slot /></div>',
-    props: ['icon', 'count', 'label', 'showDot'],
+      '<div data-testid="portal-stat-card" :data-count="count" :data-label="label" :data-to="to" :data-show-dot="showDot"><slot /></div>',
+    props: ['icon', 'count', 'label', 'showDot', 'to'],
   },
   PortalOrdersTable: {
     template: '<div data-testid="portal-orders-table"></div>',
@@ -240,6 +272,11 @@ describe('Portal Overview page', () => {
     mockListsData = { lists: [] };
     mockListsPending = false;
     mockShowIncVat.value = true;
+    mockFeatures.value = ALL_ON();
+    fetchCalls.length = 0;
+    mockCompanyData = null;
+    mockCompanyPending = false;
+    mockCompanyError = null;
   });
 
   // -------------------------------------------------------------------------
@@ -828,5 +865,218 @@ describe('Portal Overview page', () => {
         ).toBe('-');
       },
     );
+  });
+
+  // -------------------------------------------------------------------------
+  // The portal feature flags
+  // -------------------------------------------------------------------------
+  describe('the portal feature flags', () => {
+    type Wrapper = Awaited<ReturnType<typeof mountPage>>;
+    const off = (...keys: string[]) => {
+      mockFeatures.value = {
+        ...ALL_ON(),
+        ...Object.fromEntries(keys.map((key) => [key, { enabled: false }])),
+      };
+    };
+    const stats = (wrapper: Wrapper) =>
+      wrapper.find('[data-testid="overview-stats"]');
+    const statLabels = (wrapper: Wrapper) =>
+      wrapper
+        .findAll('[data-testid="portal-stat-card"]')
+        .map((card) => card.attributes('data-label'));
+    const listsRow = (wrapper: Wrapper) =>
+      wrapper.find('[data-testid="overview-lists-row"]');
+    const has = (wrapper: Wrapper, testId: string) =>
+      wrapper.find(`[data-testid="${testId}"]`).exists();
+
+    it('shows every part when quotes, orderHistory and lists are enabled', async () => {
+      const wrapper = await mountPage();
+
+      expect(mockFetchQuotes).toHaveBeenCalledTimes(1);
+      expect(requested('/api/orders')).toHaveLength(1);
+      expect(statLabels(wrapper)).toEqual([
+        'portal.overview.stat.pending_quotations',
+        'portal.overview.stat.orders_placed',
+        'portal.overview.stat.purchased_products',
+        'portal.overview.stat.persons_in_org',
+      ]);
+      expect(stats(wrapper).classes()).toContain('lg:grid-cols-4');
+      expect(has(wrapper, 'portal-orders-table')).toBe(true);
+      expect(has(wrapper, 'pending-quotations-empty')).toBe(true);
+      expect(has(wrapper, 'your-lists-empty')).toBe(true);
+      expect(listsRow(wrapper).classes()).toContain('lg:grid-cols-2');
+      const cards = wrapper.findAll('[data-testid="portal-stat-card"]');
+      expect(cards[3]?.classes()).not.toContain('col-span-2');
+    });
+
+    it('neither loads nor shows quotations when quotes is disabled', async () => {
+      off('quotes');
+      mockPendingQuotes = [
+        {
+          id: 'q1',
+          quoteNumber: 'Q-1001',
+          contactName: 'Jane Doe',
+          status: 'pending',
+          totalFormatted: 'SEK 1,000',
+          createdAt: '2026-01-15T10:00:00Z',
+        },
+      ];
+      mockPendingCount = 1;
+      const wrapper = await mountPage();
+
+      expect(mockFetchQuotes).not.toHaveBeenCalled();
+      expect(statLabels(wrapper)).not.toContain(
+        'portal.overview.stat.pending_quotations',
+      );
+      expect(has(wrapper, 'pending-quotations-empty')).toBe(false);
+      expect(has(wrapper, 'pending-quotations-table')).toBe(false);
+      expect(wrapper.html()).not.toContain('/portal/quotations');
+    });
+
+    it('neither loads nor shows orders when orderHistory is disabled', async () => {
+      off('orderHistory');
+      mockOrdersData = { orders: [{ id: 'o1', createdAt: '2026-01-15' }] };
+      const wrapper = await mountPage();
+
+      expect(requested('/api/orders')).toHaveLength(0);
+      expect(statLabels(wrapper)).not.toContain(
+        'portal.overview.stat.orders_placed',
+      );
+      expect(has(wrapper, 'portal-orders-table')).toBe(false);
+      expect(has(wrapper, 'latest-orders-error')).toBe(false);
+      expect(wrapper.text()).not.toContain('portal.overview.latest_orders');
+      expect(wrapper.html()).not.toContain('/portal/orders');
+      // Purchased products have their own tab, which no flag hides.
+      expect(requested('/api/orders/products')).toHaveLength(1);
+    });
+
+    it('does not show the lists when lists is disabled', async () => {
+      off('lists');
+      const wrapper = await mountPage();
+
+      expect(has(wrapper, 'your-lists-empty')).toBe(false);
+      expect(has(wrapper, 'your-lists-table')).toBe(false);
+      expect(wrapper.text()).not.toContain('portal.overview.your_lists');
+      expect(wrapper.html()).not.toContain('/portal/lists');
+    });
+
+    it('closes the gaps the quotations leave when quotes is disabled', async () => {
+      off('quotes');
+      const wrapper = await mountPage();
+
+      expect(stats(wrapper).classes()).toContain('lg:grid-cols-3');
+      // Three cards in the two mobile columns: the last spans both.
+      const cards = wrapper.findAll('[data-testid="portal-stat-card"]');
+      expect(cards[2]?.classes()).toEqual(
+        expect.arrayContaining(['col-span-2', 'lg:col-span-1']),
+      );
+      expect(listsRow(wrapper).classes()).not.toContain('lg:grid-cols-2');
+      expect(has(wrapper, 'your-lists-empty')).toBe(true);
+    });
+
+    it('closes the gaps the orders leave when orderHistory is disabled', async () => {
+      off('orderHistory');
+      const wrapper = await mountPage();
+
+      expect(stats(wrapper).classes()).toContain('lg:grid-cols-3');
+      const cards = wrapper.findAll('[data-testid="portal-stat-card"]');
+      expect(cards[2]?.classes()).toEqual(
+        expect.arrayContaining(['col-span-2', 'lg:col-span-1']),
+      );
+    });
+
+    it('closes the gap the lists leave when lists is disabled', async () => {
+      off('lists');
+      const wrapper = await mountPage();
+
+      expect(listsRow(wrapper).classes()).not.toContain('lg:grid-cols-2');
+      expect(has(wrapper, 'pending-quotations-empty')).toBe(true);
+    });
+
+    it('keeps two even stat columns when quotes and orderHistory are disabled', async () => {
+      off('quotes', 'orderHistory');
+      const wrapper = await mountPage();
+
+      expect(stats(wrapper).classes()).toContain('lg:grid-cols-2');
+      const cards = wrapper.findAll('[data-testid="portal-stat-card"]');
+      expect(cards).toHaveLength(2);
+      expect(cards[1]?.classes()).not.toContain('col-span-2');
+    });
+
+    it('drops the row when quotes and lists are both disabled', async () => {
+      off('quotes', 'lists');
+      const wrapper = await mountPage();
+
+      expect(listsRow(wrapper).exists()).toBe(false);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Persons in the organisation
+  // -------------------------------------------------------------------------
+  describe('persons in the organisation', () => {
+    const personsCard = (wrapper: Awaited<ReturnType<typeof mountPage>>) =>
+      wrapper.find(
+        '[data-testid="portal-stat-card"][data-label="portal.overview.stat.persons_in_org"]',
+      );
+
+    it('shows the number of buyers in the company', async () => {
+      mockCompanyData = { company: { buyers: [{}, {}, {}] } };
+      const wrapper = await mountPage();
+
+      expect(personsCard(wrapper).attributes('data-count')).toBe('3');
+    });
+
+    it('shows 0 for a company with no buyers', async () => {
+      mockCompanyData = { company: { buyers: [] } };
+      const wrapper = await mountPage();
+
+      expect(personsCard(wrapper).attributes('data-count')).toBe('0');
+    });
+
+    it('shows 0 for a company whose buyers are null', async () => {
+      mockCompanyData = { company: { buyers: null } };
+      const wrapper = await mountPage();
+
+      expect(personsCard(wrapper).attributes('data-count')).toBe('0');
+    });
+
+    it('shows no number while the company read is loading', async () => {
+      mockCompanyPending = true;
+      const wrapper = await mountPage();
+
+      expect(personsCard(wrapper).exists()).toBe(true);
+      expect(personsCard(wrapper).attributes('data-count')).toBeUndefined();
+    });
+
+    it('shows no number when the company read fails', async () => {
+      mockCompanyData = { company: { buyers: [{}, {}] } };
+      mockCompanyError = new Error('company read failed');
+      const wrapper = await mountPage();
+
+      expect(personsCard(wrapper).exists()).toBe(true);
+      expect(personsCard(wrapper).attributes('data-count')).toBeUndefined();
+    });
+
+    it('links the persons stat to the persons page', async () => {
+      const wrapper = await mountPage();
+
+      expect(personsCard(wrapper).attributes('data-to')).toBe(
+        '/se/en/portal/organisation/persons',
+      );
+    });
+
+    it('reads the company under the key the persons page uses', async () => {
+      await mountPage();
+
+      expect(
+        fetchCalls.filter((call) => call.url === '/api/portal/company'),
+      ).toEqual([
+        {
+          url: '/api/portal/company',
+          opts: expect.objectContaining({ key: 'portal-company' }),
+        },
+      ]);
+    });
   });
 });

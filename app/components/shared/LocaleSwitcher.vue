@@ -100,7 +100,7 @@ const showSwitcher = computed(() => availableLocales.value.length > 1);
         class="h-auto py-2"
         :aria-label="t('common.change_language')"
       >
-        <Globe class="mr-2 h-4 w-4" />
+        <Globe class="mr-2 hidden h-4 w-4 sm:block" />
         {{ currentLocaleAbbr }}
       </Button>
       <Button

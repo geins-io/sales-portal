@@ -9,9 +9,10 @@ useHead({
   title: computed(() => t('portal.org.persons.title')),
 });
 
+// Keyed like the overview's persons stat, so the two share one read.
 const { data, pending, error } = useFetch<{ company: Company }>(
   '/api/portal/company',
-  { dedupe: 'defer' },
+  { key: 'portal-company', dedupe: 'defer' },
 );
 
 const buyers = computed(() => data.value?.company?.buyers ?? []);
