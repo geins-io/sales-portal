@@ -354,9 +354,16 @@ export type CreateQuoteRequestInput = z.infer<typeof CreateQuoteRequestSchema>;
 export const UpdateQuoteRequestSchema = z.object({
   comment: z.string().max(2000).optional(),
   desiredDeliveryDate: z.iso.date().optional(),
-  customerReference: z.string().trim().max(50).optional(),
+  customerOrderNumber: z.string().trim().max(30).optional(),
 });
 export type UpdateQuoteRequestInput = z.infer<typeof UpdateQuoteRequestSchema>;
+
+// A bare POST, with no body, places the order without a message.
+export const FinalizeQuoteSchema = z
+  .object({ message: z.string().max(2000).optional() })
+  .optional()
+  .transform((body) => body ?? {});
+export type FinalizeQuoteInput = z.infer<typeof FinalizeQuoteSchema>;
 
 // Saved-list schemas removed — saved lists are entirely client-side
 // (SDK ListsSession + localStorage). See `docs/patterns/lists.md`.

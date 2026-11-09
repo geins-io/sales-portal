@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { ArrowLeft, CreditCard, FileText } from 'lucide-vue-next';
+import {
+  ArrowLeft,
+  CreditCard,
+  FileText,
+  MessageSquare,
+} from 'lucide-vue-next';
 import { Card, CardContent } from '~/components/ui/card';
 import CheckoutCardHeader from '~/components/checkout/CheckoutCardHeader.vue';
 import { useAuthStore } from '~/stores/auth';
@@ -64,18 +69,19 @@ const title = computed(() =>
 );
 useHead({ title });
 
-// The order takes all of this from the quotation, so the page shows it locked.
+// The order takes all of this from the quotation, so the page shows it locked:
+// Geins refuses a PO number, date or goods label that differs at checkout.
 const itemCount = computed(() =>
   quote.value.lineItems.reduce((sum, line) => sum + line.quantity, 0),
 );
 const company = computed(() => quoteCheckoutCompany(quote.value));
-const request = computed(() => quote.value.request ?? {});
+const details = computed(() => quote.value.orderDetails ?? {});
 const showDelivery = computed(
   () =>
     !!company.value &&
     (!!company.value.addresses?.length ||
-      !!request.value.desiredDeliveryDate ||
-      !!request.value.goodsLabel),
+      !!details.value.desiredDeliveryDate ||
+      !!details.value.goodsLabel),
 );
 const paymentOptions = computed(() => quotePaymentOptions(quote.value));
 // With several methods, which one the order gets is not known.
@@ -87,13 +93,21 @@ const amounts = computed(() =>
 );
 const todayIso = new Date().toLocaleDateString('en-CA');
 
+const MESSAGE_MAX_LENGTH = 2000;
+const message = ref('');
+// Geins keeps a message on the quotation's cart once written, so after one
+// try sent a message, every later try sends the box, empty or not.
+const messageWritten = ref(false);
 const acceptedTerms = ref(false);
 const placing = ref(false);
 
 async function placeOrder() {
   if (!acceptedTerms.value || placing.value) return;
   placing.value = true;
-  const ordered = await store.finalizeQuote(quote.value.id);
+  const text = message.value.trim();
+  const send = text || messageWritten.value ? text : undefined;
+  if (text) messageWritten.value = true;
+  const ordered = await store.finalizeQuote(quote.value.id, send);
   placing.value = false;
   if (ordered) await navigateTo(`${quotationPath.value}/ordered`);
 }
@@ -162,15 +176,15 @@ function formatDate(iso: string): string {
             v-if="company"
             :company="company"
             :buyer-email="authStore.user?.username ?? undefined"
-            :customer-order-number="request.customerReference ?? ''"
+            :customer-order-number="details.customerOrderNumber ?? ''"
             locked
           />
 
           <CheckoutDeliveryInfo
             v-if="company && showDelivery"
             :company="company"
-            :desired-delivery-date="request.desiredDeliveryDate ?? ''"
-            :goods-label="request.goodsLabel ?? ''"
+            :desired-delivery-date="details.desiredDeliveryDate ?? ''"
+            :goods-label="details.goodsLabel ?? ''"
             :today-iso="todayIso"
             locked
           >
@@ -207,6 +221,25 @@ function formatDate(iso: string): string {
                 {{ t('portal.quotations.payment_terms') }}:
                 {{ quote.paymentTerms }}
               </p>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="quote-order-message-card">
+            <CheckoutCardHeader
+              :icon="MessageSquare"
+              :title="t('checkout.order_message')"
+            />
+            <CardContent class="px-6">
+              <textarea
+                id="quote-order-message"
+                v-model="message"
+                :aria-label="t('checkout.order_message')"
+                :placeholder="t('checkout.order_message_placeholder')"
+                :maxlength="MESSAGE_MAX_LENGTH"
+                :disabled="placing"
+                class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[80px] w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                data-testid="quote-order-message"
+              />
             </CardContent>
           </Card>
         </div>

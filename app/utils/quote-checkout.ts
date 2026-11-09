@@ -82,13 +82,14 @@ export function quoteCheckoutCompany(quote: Quote): Company | null {
 /**
  * The quotation's payment methods as checkout options. Numbered by position:
  * the order takes its method from the quotation, so the id only marks the
- * radio. No fee: the API does not say on which side of VAT it is. No name:
- * the API's is technical ("ManualInvoice"), so the option shows the
- * checkout's own invoice label.
+ * radio. No fee: the API does not say on which side of VAT it is. The display
+ * name when Geins gives one, never the technical name ("ManualInvoice"):
+ * without one the option shows the checkout's own invoice label.
  */
 export function quotePaymentOptions(quote: Quote): PaymentOptionType[] {
   return (quote.paymentMethods ?? []).map((method, index) => ({
     id: index + 1,
+    displayName: method.displayName,
     feeIncVat: 0,
     feeExVat: 0,
     isDefault: false,

@@ -82,6 +82,7 @@ const VIEW_PATH = '/se/en/portal/quotations/q-001';
 const QUOTE_URL = '/api/quotes/q-001';
 const ORDER_URL = '/api/orders/by-number/1155';
 const PUBLIC_ID = '8dd16643-aaaa-bbbb-cccc-000000000000';
+const PUBLIC_ORDER_URL = `/api/orders/${PUBLIC_ID}`;
 
 const QuoteConfirmationStub = {
   name: 'QuoteConfirmation',
@@ -238,11 +239,33 @@ describe('PortalQuotationOrdered', () => {
       });
     });
 
-    it('reads the order by the number on the quotation', async () => {
+    it('reads the order by the number on an older quotation, which has no public id', async () => {
       await mountWith(ordered());
 
       expect(orderRequests().map(([url]) => url)).toEqual([ORDER_URL]);
       expect(orderRequests()[0]![1]).toMatchObject({ dedupe: 'defer' });
+    });
+
+    it('reads the order by the public id the quotation carries', async () => {
+      await mountWith(ordered({ orderPublicId: PUBLIC_ID }));
+
+      expect(orderRequests().map(([url]) => url)).toEqual([PUBLIC_ORDER_URL]);
+      expect(orderRequests()[0]![1]).toMatchObject({ dedupe: 'defer' });
+    });
+
+    it('waits for the order by its public id', async () => {
+      resultFor(PUBLIC_ORDER_URL).error.value = notFound();
+      mockPollFetch.mockResolvedValue({ order: ORDER });
+      const { wrapper } = await mountWith(
+        ordered({ orderPublicId: PUBLIC_ID }),
+      );
+
+      await vi.advanceTimersByTimeAsync(2500);
+
+      expect(mockPollFetch.mock.calls).toEqual([
+        [PUBLIC_ORDER_URL, { cache: 'no-store' }],
+      ]);
+      expect(wrapper.findComponent(ConfirmedOrderStub).exists()).toBe(true);
     });
 
     it("shows the order with the order confirmation's parts", async () => {

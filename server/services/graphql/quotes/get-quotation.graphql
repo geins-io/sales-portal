@@ -13,7 +13,21 @@ query getQuotationCart($quotationId: Guid!, $languageId: String) {
       validPaymentMethods {
         paymentId
         name
+        displayName
         paymentFee
+      }
+      orderPublicId
+      orderDetails {
+        customerOrderNumber
+        customerReference
+        desiredDeliveryDate
+        goodsLabel
+      }
+      request {
+        customerOrderNumber
+        customerReference
+        desiredDeliveryDate
+        goodsLabel
       }
     }
   }

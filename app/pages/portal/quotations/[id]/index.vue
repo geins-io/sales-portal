@@ -398,35 +398,14 @@ const customerSummary = computed(() => {
           >
             <template v-for="(row, i) in metaRows" :key="row.key">
               <hr v-if="i > 0" class="border-border" />
-              <div
-                :data-testid="row.testId"
-                :data-meta-row="row.key"
-                class="flex items-start gap-3"
-              >
-                <component
-                  :is="row.icon"
-                  class="text-muted-foreground mt-0.5 size-4 shrink-0"
-                />
-                <div class="space-y-1">
-                  <p class="text-foreground text-sm font-semibold">
-                    {{ row.label }}
-                  </p>
-                  <p
-                    v-for="(line, l) in row.lines"
-                    :key="line"
-                    class="text-muted-foreground text-sm break-words whitespace-pre-line"
-                  >
-                    <NuxtLink
-                      v-if="row.href && l === 0"
-                      :to="row.href"
-                      :data-testid="`${row.testId}-link`"
-                      class="text-primary hover:underline"
-                      >{{ line }}</NuxtLink
-                    >
-                    <template v-else>{{ line }}</template>
-                  </p>
-                </div>
-              </div>
+              <PortalMetaRow
+                :row-key="row.key"
+                :test-id="row.testId"
+                :icon="row.icon"
+                :label="row.label"
+                :lines="row.lines"
+                :href="row.href"
+              />
             </template>
           </div>
 

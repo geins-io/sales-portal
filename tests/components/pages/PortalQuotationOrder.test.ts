@@ -37,8 +37,9 @@ const {
     mockError: ref<Error | null>(null),
     mockUseFetch: vi.fn(),
     mockNavigateTo: vi.fn((..._args: unknown[]) => Promise.resolve()),
-    mockFinalizeQuote: vi.fn((_id: string): Promise<Quote | null> =>
-      Promise.resolve(null),
+    mockFinalizeQuote: vi.fn(
+      (_id: string, _message?: string): Promise<Quote | null> =>
+        Promise.resolve(null),
     ),
     mockIsActionLoading: ref(false),
     mockStoreError: ref<string | null>(null),
@@ -96,7 +97,8 @@ vi.mock('../../../app/stores/quotes', () => ({
     set error(value: string | null) {
       mockStoreError.value = value;
     },
-    finalizeQuote: (id: string) => mockFinalizeQuote(id),
+    finalizeQuote: (id: string, message?: string) =>
+      mockFinalizeQuote(id, message),
   }),
 }));
 
@@ -162,8 +164,8 @@ const orderable = (overrides: Partial<Quote> = {}) =>
     ...overrides,
   });
 
-const REQUEST: NonNullable<Quote['request']> = {
-  customerReference: 'PO-4411',
+const DETAILS: NonNullable<Quote['orderDetails']> = {
+  customerOrderNumber: 'PO-4411',
   desiredDeliveryDate: '2026-12-01',
   goodsLabel: 'Dock B',
 };
@@ -171,6 +173,7 @@ const REFERENCE = '[data-testid="checkout-customer-order-number"]';
 const DATE = '[data-testid="checkout-desired-delivery-date"]';
 const GOODS_LABEL = '[data-testid="checkout-goods-label"]';
 const PLACE = '[data-testid="place-order-button"]';
+const MESSAGE = '[data-testid="quote-order-message"]';
 
 async function tickTerms(wrapper: Wrapper) {
   await wrapper.find('[data-testid="terms-box"]').setValue(true);
@@ -363,8 +366,8 @@ describe('PortalQuotationOrder', () => {
       ).toBe(false);
     });
 
-    it("shows the request's reference, date and goods label", async () => {
-      const wrapper = await mountWith(orderable({ request: REQUEST }));
+    it('shows the PO number, date and goods label the order gets', async () => {
+      const wrapper = await mountWith(orderable({ orderDetails: DETAILS }));
 
       expect(wrapper.find<HTMLInputElement>(REFERENCE).element.value).toBe(
         'PO-4411',
@@ -377,7 +380,7 @@ describe('PortalQuotationOrder', () => {
       );
     });
 
-    it('hides the reference, date and goods label until the quotation carries them', async () => {
+    it('hides the PO number, date and goods label when the quotation carries none', async () => {
       const wrapper = await mountWith(orderable());
 
       expect(wrapper.find(REFERENCE).exists()).toBe(false);
@@ -402,6 +405,25 @@ describe('PortalQuotationOrder', () => {
       expect(
         wrapper.find('[data-testid="quote-order-payment-terms"]').text(),
       ).toContain('Net 30');
+    });
+
+    it("shows the method's display name when Geins gives one", async () => {
+      const wrapper = await mountWith(
+        orderable({
+          paymentMethods: [
+            {
+              id: '18',
+              name: 'ManualInvoice',
+              displayName: 'Faktura 30 dagar',
+              fee: 0,
+            },
+          ],
+        }),
+      );
+
+      const options = wrapper.find('[data-testid="checkout-payment-options"]');
+      expect(options.text()).toContain('Faktura 30 dagar');
+      expect(options.text()).not.toContain('checkout.payment_types.invoice');
     });
 
     it('selects nothing when the quotation allows more than one method', async () => {
@@ -482,9 +504,9 @@ describe('PortalQuotationOrder', () => {
     });
   });
 
-  describe('nothing on the page changes the order', () => {
-    it('disables every control except the terms box, with every value shown', async () => {
-      const wrapper = await mountWith(orderable({ request: REQUEST }));
+  describe("only the message and the terms are the buyer's to give", () => {
+    it('disables every control except the message and the terms box, with every value shown', async () => {
+      const wrapper = await mountWith(orderable({ orderDetails: DETAILS }));
 
       const controls = wrapper
         .find('[data-testid="quote-order-page"]')
@@ -492,19 +514,33 @@ describe('PortalQuotationOrder', () => {
       const enabled = controls.filter(
         (control) =>
           !(control.element as HTMLInputElement).disabled &&
-          control.attributes('data-testid') !== 'terms-box',
+          !['terms-box', 'quote-order-message'].includes(
+            control.attributes('data-testid') ?? '',
+          ),
       );
       expect(controls.length).toBeGreaterThan(5);
       expect(enabled.map((control) => control.html())).toEqual([]);
     });
 
-    it('has no remove button and no message field', async () => {
-      const wrapper = await mountWith(orderable({ request: REQUEST }));
+    it('has no remove button', async () => {
+      const wrapper = await mountWith(orderable({ orderDetails: DETAILS }));
 
       expect(
         wrapper.find('[data-testid="checkout-remove-item"]').exists(),
       ).toBe(false);
-      expect(wrapper.find('textarea').exists()).toBe(false);
+    });
+
+    it("has the checkout's message field, empty, up to 2000 characters", async () => {
+      const wrapper = await mountWith(orderable());
+
+      const card = wrapper.find('[data-testid="quote-order-message-card"]');
+      expect(card.text()).toContain('checkout.order_message');
+      const field = card.find<HTMLTextAreaElement>(MESSAGE);
+      expect(field.element.value).toBe('');
+      expect(field.attributes('maxlength')).toBe('2000');
+      expect(field.attributes('placeholder')).toBe(
+        'checkout.order_message_placeholder',
+      );
     });
   });
 
@@ -525,8 +561,62 @@ describe('PortalQuotationOrder', () => {
       await place(wrapper);
 
       expect(mockFinalizeQuote).toHaveBeenCalledTimes(1);
-      expect(mockFinalizeQuote).toHaveBeenCalledWith('q-001');
+      expect(mockFinalizeQuote).toHaveBeenCalledWith('q-001', undefined);
       expect(mockNavigateTo).toHaveBeenCalledWith(`${VIEW_PATH}/ordered`);
+    });
+
+    it('clears a message written on an earlier try, so it never reaches the order', async () => {
+      mockFinalizeQuote.mockResolvedValueOnce(null);
+      mockFinalizeQuote.mockResolvedValueOnce(
+        orderable({ status: 'finalized' }),
+      );
+      const wrapper = await mountWith(orderable());
+
+      await wrapper.find(MESSAGE).setValue('A');
+      await tickTerms(wrapper);
+      await place(wrapper);
+      await wrapper.find(MESSAGE).setValue('   ');
+      await place(wrapper);
+
+      expect(mockFinalizeQuote.mock.calls).toEqual([
+        ['q-001', 'A'],
+        ['q-001', ''],
+      ]);
+    });
+
+    it('places the order with the message the buyer wrote', async () => {
+      mockFinalizeQuote.mockResolvedValue(orderable({ status: 'finalized' }));
+      const wrapper = await mountWith(orderable());
+
+      await wrapper.find(MESSAGE).setValue('Ring innan leverans');
+      await tickTerms(wrapper);
+      await place(wrapper);
+
+      expect(mockFinalizeQuote).toHaveBeenCalledWith(
+        'q-001',
+        'Ring innan leverans',
+      );
+    });
+
+    it('locks the message while the order is being placed, and keeps it on failure', async () => {
+      let answer!: (quote: Quote | null) => void;
+      mockFinalizeQuote.mockReturnValue(
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+      );
+      const wrapper = await mountWith(orderable());
+
+      await wrapper.find(MESSAGE).setValue('Hej');
+      await tickTerms(wrapper);
+      await wrapper.find(PLACE).trigger('click');
+      expect(wrapper.find(MESSAGE).attributes('disabled')).toBeDefined();
+      answer(null);
+      await flushPromises();
+
+      const field = wrapper.find<HTMLTextAreaElement>(MESSAGE);
+      expect(field.attributes('disabled')).toBeUndefined();
+      expect(field.element.value).toBe('Hej');
     });
 
     it('ignores a second click while the order is being placed', async () => {

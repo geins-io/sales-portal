@@ -99,13 +99,19 @@ export const useQuotesStore = defineStore('quotes', () => {
     }
   }
 
-  async function finalizeQuote(id: string): Promise<Quote | null> {
+  /** Places the order; a message, even an empty one, is written first. */
+  async function finalizeQuote(
+    id: string,
+    message?: string,
+  ): Promise<Quote | null> {
     isActionLoading.value = true;
     error.value = null;
     try {
       const data = await $fetch<{ quote: Quote }>(
         `/api/quotes/${id}/finalize`,
-        { method: 'POST' },
+        message === undefined
+          ? { method: 'POST' }
+          : { method: 'POST', body: { message: message.trim() } },
       );
       currentQuote.value = data.quote;
       const idx = quotes.value.findIndex((q) => q.id === id);
