@@ -6,7 +6,6 @@ import type {
   QuoteAddress,
   QuoteCompany,
   QuoteCustomer,
-  QuoteExternalReference,
   QuoteLineItem,
   QuoteListItem,
   QuoteOrderDetails,
@@ -85,11 +84,6 @@ interface RawQuotation {
   };
   terms?: { text?: string };
   settings?: { requireConfirmation?: boolean | null } | null;
-  externalReference?: {
-    system?: string | null;
-    number?: string | null;
-    orderNumber?: string | null;
-  } | null;
   billingAddress?: {
     email?: string;
     phone?: string;
@@ -383,18 +377,6 @@ function calendarDay(instant: string | null | undefined) {
   return instant?.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? undefined;
 }
 
-/** Linked only when the reference carries a value; the API may send empty strings. */
-function mapExternalReference(
-  ref: RawQuotation['externalReference'],
-): QuoteExternalReference | undefined {
-  if (!ref || !(ref.system || ref.number || ref.orderNumber)) return undefined;
-  return {
-    system: ref.system || undefined,
-    number: ref.number || undefined,
-    orderNumber: ref.orderNumber || undefined,
-  };
-}
-
 function mapQuotationCartToQuote(
   cart: RawQuotationCart,
   locale: string,
@@ -470,7 +452,6 @@ function mapQuotationCartToQuote(
       : undefined,
     company: q.company ? mapCompany(q.company) : undefined,
     requiresConfirmation: q.settings?.requireConfirmation === true,
-    externalReference: mapExternalReference(q.externalReference),
     seller: mapSeller(q.owner),
     ...mapAccepted(q.customer),
     ...(q.orderId ? { orderId: q.orderId } : {}),

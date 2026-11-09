@@ -282,7 +282,6 @@ async function mountDetailPage() {
 
 const pending = (overrides: Partial<Quote> = {}) =>
   makeQuote({ status: 'pending', ...overrides });
-const monitorLinked = { system: 'Monitor', number: 'M-1001' };
 
 async function mountWith(quote: Quote) {
   mockData.value = { quote };
@@ -850,16 +849,6 @@ describe('PortalQuotationDetail', () => {
         },
       ],
       [
-        'pending, Monitor-linked',
-        pending({ externalReference: monitorLinked }),
-        true,
-        {
-          'decline-btn': 'portal.quotations.decline',
-          'accept-btn': 'portal.quotations.accept_monitor',
-          'quote-accept-note': 'portal.quotations.note_monitor',
-        },
-      ],
-      [
         'accepted, no confirmation',
         makeQuote({ status: 'accepted' }),
         true,
@@ -874,12 +863,6 @@ describe('PortalQuotationDetail', () => {
       [
         'accepted, waiting for confirmation',
         makeQuote({ status: 'accepted', ...confirm }),
-        true,
-        {},
-      ],
-      [
-        'accepted, Monitor-linked',
-        makeQuote({ status: 'accepted', externalReference: monitorLinked }),
         true,
         {},
       ],
@@ -1007,13 +990,6 @@ describe('PortalQuotationDetail', () => {
         'accept-btn',
         'accept_confirm',
         false,
-        false,
-      ],
-      [
-        'Monitor-linked accept',
-        pending({ externalReference: monitorLinked }),
-        'accept-btn',
-        'accept_monitor',
         false,
       ],
     ])(
@@ -1203,37 +1179,6 @@ describe('PortalQuotationDetail', () => {
 
       expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(false);
     });
-
-    // No Monitor-linked quotation exists on the test tenant; this is the proof
-    // for that case.
-    it('Monitor-linked: accepting says the order is placed, and then says it is on its way', async () => {
-      mockAcceptQuote.mockResolvedValueOnce(
-        makeQuote({ status: 'accepted', externalReference: monitorLinked }),
-      );
-      const wrapper = await mountWith(
-        pending({
-          externalReference: monitorLinked,
-          requiresConfirmation: true,
-        }),
-      );
-
-      expect(wrapper.find('[data-testid="accept-btn"]').text()).toBe(
-        'portal.quotations.accept_monitor',
-      );
-      await wrapper.find('[data-testid="accept-btn"]').trigger('click');
-      expect(wrapper.find('[data-testid="dialog-title"]').text()).toBe(
-        'portal.quotations.accept_monitor_title',
-      );
-      await wrapper
-        .find('[data-testid="quote-action-confirm"]')
-        .trigger('click');
-      await flushPromises();
-
-      expect(mockAcceptQuote).toHaveBeenCalledWith('q-001');
-      expect(
-        wrapper.find('[data-testid="quote-meta-status"]').text(),
-      ).toContain('portal.quotations.status_info_accepted_monitor');
-    });
   });
 
   describe('details', () => {
@@ -1340,11 +1285,6 @@ describe('PortalQuotationDetail', () => {
         'accepted',
         { requiresConfirmation: true },
         'status_info_accepted_confirm',
-      ],
-      [
-        'accepted',
-        { externalReference: monitorLinked },
-        'status_info_accepted_monitor',
       ],
       ['confirmed', {}, 'status_info_confirmed'],
     ] as const)(

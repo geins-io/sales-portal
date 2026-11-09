@@ -35,10 +35,5 @@ fragment QuotationCore on CartQuotationType {
   settings {
     requireConfirmation
   }
-  externalReference {
-    system
-    number
-    orderNumber
-  }
   orderId
 }

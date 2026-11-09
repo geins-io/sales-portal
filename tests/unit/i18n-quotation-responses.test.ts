@@ -32,11 +32,7 @@ function lookup(obj: Record<string, unknown>, key: string): unknown {
 }
 
 const statuses = Object.keys(QUOTE_STATUS_DISPLAY) as QuoteStatus[];
-const acceptCases = [
-  {},
-  { requiresConfirmation: true },
-  { externalReference: { number: 'M-1' } },
-];
+const acceptCases = [{}, { requiresConfirmation: true }];
 
 const helperKeys = [
   ...statuses.map((status) => quoteKindLabelKey(status)),
@@ -63,14 +59,10 @@ const copyKeys = [
   'accept_confirm_title',
   'accept_confirm_body',
   'accept_confirm_order_body',
-  'accept_monitor',
-  'accept_monitor_title',
-  'accept_monitor_body',
   'accept_and_order',
   'note_order',
   'note_confirm',
   'note_confirm_order',
-  'note_monitor',
   'view_items',
   'status_label',
   'accepted_at',
@@ -108,11 +100,6 @@ describe('quotation response texts', () => {
       'accepted_confirm',
       'Du har accepterat offerten. Den väntar på bekräftelse från din säljare.',
       'You have accepted the quotation. It is waiting for confirmation from your seller.',
-    ],
-    [
-      'accepted_monitor',
-      'Du har accepterat offerten. Ordern läggs hos din säljare och offerten visas som Slutförd när den är registrerad.',
-      'You have accepted the quotation. The order is placed with your seller, and the quotation shows as Finalized once it is registered.',
     ],
     [
       'confirmed',

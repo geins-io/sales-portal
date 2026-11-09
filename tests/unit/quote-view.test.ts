@@ -278,20 +278,6 @@ describe('quoteAcceptKind', () => {
       'confirm',
     );
   });
-
-  it('is monitor when the quotation is linked, whatever the confirmation', () => {
-    const externalReference = { system: 'Monitor', number: 'M-1' };
-    expect(
-      quoteAcceptKind(
-        makeQuote({ externalReference, requiresConfirmation: true }),
-      ),
-    ).toBe('monitor');
-    expect(
-      quoteAcceptKind(
-        makeQuote({ externalReference, requiresConfirmation: false }),
-      ),
-    ).toBe('monitor');
-  });
 });
 
 describe('quoteCanOrder', () => {
@@ -329,21 +315,6 @@ describe('quoteCanOrder', () => {
     );
   });
 
-  it.each<QuoteStatus>(['pending', 'accepted', 'confirmed'])(
-    'never orders a Monitor-linked %s quotation',
-    (status) => {
-      const externalReference = { number: 'M-1' };
-      expect(quoteCanOrder(makeQuote({ status, externalReference }))).toBe(
-        false,
-      );
-      expect(
-        quoteCanOrder(
-          makeQuote({ status, externalReference, requiresConfirmation: true }),
-        ),
-      ).toBe(false);
-    },
-  );
-
   it.each(others)('does not order a %s quotation', (status) => {
     expect(quoteCanOrder(makeQuote({ status }))).toBe(false);
     expect(
@@ -361,7 +332,6 @@ describe('quoteResponses', () => {
     placeOrder: false,
   };
   const confirm = { requiresConfirmation: true };
-  const monitor = { externalReference: { number: 'M-1' } };
 
   it.each([true, false])(
     'lets a sent request be withdrawn, nothing else (orders: %s)',
@@ -414,24 +384,6 @@ describe('quoteResponses', () => {
         noteKey: k('note_confirm'),
       });
     });
-
-    it.each([true, false])(
-      'Monitor-linked, accepting places the order in Monitor (orders: %s)',
-      (canPlaceOrders) => {
-        expect(
-          quoteResponses(
-            makeQuote({ status: 'pending', ...monitor, ...confirm }),
-            canPlaceOrders,
-          ),
-        ).toEqual({
-          ...none,
-          decline: true,
-          accept: 'monitor',
-          acceptBodyKey: k('accept_monitor_body'),
-          noteKey: k('note_monitor'),
-        });
-      },
-    );
   });
 
   it.each([
@@ -448,11 +400,6 @@ describe('quoteResponses', () => {
   it.each([
     ['accepted, waiting for the seller', { status: 'accepted', ...confirm }],
     ['confirmed without needing it', { status: 'confirmed' }],
-    ['accepted, Monitor-linked', { status: 'accepted', ...monitor }],
-    [
-      'confirmed, Monitor-linked',
-      { status: 'confirmed', ...monitor, ...confirm },
-    ],
   ] as const)('offers nothing on %s', (_, overrides) => {
     expect(quoteResponses(makeQuote(overrides), true)).toEqual(none);
   });
@@ -509,10 +456,6 @@ describe('quoteStatusInfoKey', () => {
       { requiresConfirmation: true },
       'portal.quotations.status_info_accepted_confirm',
     ],
-    [
-      { externalReference: { number: 'M-1' } },
-      'portal.quotations.status_info_accepted_monitor',
-    ],
   ])('explains an accepted quotation by how it was accepted (%j)', (o, key) => {
     expect(
       quoteStatusInfoKey(makeQuote({ status: 'accepted', ...o }), false),
@@ -535,10 +478,7 @@ describe('quoteStatusInfoKey', () => {
     },
   );
 
-  it.each([
-    [{ requiresConfirmation: true }, 'status_info_accepted_confirm'],
-    [{ externalReference: { number: 'M-1' } }, 'status_info_accepted_monitor'],
-  ])(
+  it.each([[{ requiresConfirmation: true }, 'status_info_accepted_confirm']])(
     'promises no order on an accepted quotation that cannot be ordered (%j)',
     (o, key) => {
       expect(

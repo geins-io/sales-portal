@@ -102,15 +102,6 @@ export interface QuoteOrderDetails {
 }
 
 // ---------------------------------------------------------------------------
-// Quote External Reference (a quotation linked to an ERP, e.g. Monitor)
-// ---------------------------------------------------------------------------
-export interface QuoteExternalReference {
-  system?: string;
-  number?: string;
-  orderNumber?: string;
-}
-
-// ---------------------------------------------------------------------------
 // Quote
 // ---------------------------------------------------------------------------
 export interface Quote {
@@ -152,8 +143,6 @@ export interface Quote {
   company?: QuoteCompany;
   /** The seller confirms an accepted quotation before the order. */
   requiresConfirmation?: boolean;
-  /** Set when the quotation is linked to an ERP: accepting places the order there. */
-  externalReference?: QuoteExternalReference;
   /** The seller who owns the quotation. */
   seller?: { name: string; phone?: string };
   /** When the buyer accepted, once the API sets it. */
