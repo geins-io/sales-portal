@@ -75,8 +75,12 @@ const amounts = computed(() =>
   quoteAmounts(quote.value, showIncVat.value, formatLocale.value),
 );
 
-// Nothing reads the details back yet, so they live here until the send.
-const form = reactive({ reference: '', desiredDeliveryDate: '', comment: '' });
+const form = reactive({
+  reference: '',
+  desiredDeliveryDate: '',
+  goodsLabel: '',
+  comment: '',
+});
 // en-CA gives yyyy-mm-dd in the buyer's own timezone, as on the checkout.
 const todayIso = new Date().toLocaleDateString('en-CA');
 const submitted = ref(false);
@@ -92,6 +96,7 @@ async function send() {
   const sent = await store.sendQuoteRequest(quote.value.id, {
     desiredDeliveryDate: form.desiredDeliveryDate || undefined,
     customerOrderNumber: form.reference.trim() || undefined,
+    goodsLabel: form.goodsLabel.trim() || undefined,
     comment: form.comment.trim() || undefined,
   });
   if (sent) await navigateTo(`${quotationPath.value}/sent`);
@@ -167,8 +172,7 @@ async function send() {
               <CheckoutDeliveryInfo
                 :company="company"
                 :desired-delivery-date="form.desiredDeliveryDate"
-                goods-label=""
-                :show-goods-label="false"
+                :goods-label="form.goodsLabel"
                 :disabled="sending"
                 :today-iso="todayIso"
                 :date-label="t('portal.quotations.request.desired_date')"
@@ -176,6 +180,7 @@ async function send() {
                 @update:desired-delivery-date="
                   form.desiredDeliveryDate = $event
                 "
+                @update:goods-label="form.goodsLabel = $event"
               />
               <p
                 v-if="submitted && dateInPast"

@@ -65,6 +65,15 @@ const totals = computed(() =>
   ),
 );
 
+// What the buyer sent; nothing when every field is empty.
+const sentDetails = computed(() => {
+  const request = quote.value.request;
+  return request && Object.values(request).some(Boolean) ? request : undefined;
+});
+const hasAddress = computed(
+  () => !!(quote.value.billingAddress || quote.value.shippingAddress),
+);
+
 useHead({
   title: computed(() => t('portal.quotations.confirm.request_title')),
 });
@@ -110,7 +119,7 @@ useHead({
             show-prices
           />
           <div
-            v-if="quote.billingAddress || quote.shippingAddress"
+            v-if="hasAddress || sentDetails"
             data-testid="quote-thanks-addresses"
             class="bg-muted space-y-4 rounded-lg p-6 text-sm"
           >
@@ -134,6 +143,51 @@ useHead({
               :label="t('portal.quotations.delivery_address')"
               :address="quote.shippingAddress"
             />
+            <hr v-if="hasAddress && sentDetails" class="border-border" />
+            <div
+              v-if="sentDetails"
+              data-testid="quote-thanks-request"
+              class="space-y-1"
+            >
+              <p class="text-foreground font-semibold">
+                {{ t('portal.orders.detail.additional_info.title') }}
+              </p>
+              <p
+                v-if="sentDetails.customerOrderNumber"
+                data-testid="quote-thanks-your-reference"
+                class="text-muted-foreground break-words"
+              >
+                {{ t('portal.orders.detail.additional_info.your_reference') }}:
+                {{ sentDetails.customerOrderNumber }}
+              </p>
+              <p
+                v-if="sentDetails.desiredDeliveryDate"
+                data-testid="quote-thanks-desired-date"
+                class="text-muted-foreground"
+              >
+                {{
+                  t(
+                    'portal.orders.detail.additional_info.desired_delivery_date',
+                  )
+                }}:
+                {{ sentDetails.desiredDeliveryDate }}
+              </p>
+              <p
+                v-if="sentDetails.goodsLabel"
+                data-testid="quote-thanks-goods-label"
+                class="text-muted-foreground break-words"
+              >
+                {{ t('portal.orders.detail.additional_info.goods_label') }}:
+                {{ sentDetails.goodsLabel }}
+              </p>
+              <p
+                v-if="sentDetails.comment"
+                data-testid="quote-thanks-comment"
+                class="text-muted-foreground break-words whitespace-pre-line"
+              >
+                {{ t('portal.quotations.comment') }}: {{ sentDetails.comment }}
+              </p>
+            </div>
           </div>
         </div>
       </div>

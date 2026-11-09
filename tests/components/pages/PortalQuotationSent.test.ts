@@ -308,4 +308,108 @@ describe('PortalQuotationSent', () => {
       ).toBe(false);
     });
   });
+
+  describe('what the buyer sent', () => {
+    const SENT = {
+      customerOrderNumber: 'PO-7781',
+      desiredDeliveryDate: '2026-12-09',
+      goodsLabel: 'Lastbrygga B',
+      comment: 'Leverans till lager 2\nPorten på baksidan',
+    };
+    const info = (wrapper: Awaited<ReturnType<typeof mountWith>>['wrapper']) =>
+      wrapper.find('[data-testid="quote-thanks-request"]');
+    const line = (
+      wrapper: Awaited<ReturnType<typeof mountWith>>['wrapper'],
+      id: string,
+    ) => wrapper.find(`[data-testid="quote-thanks-${id}"]`);
+
+    it('shows all four under "Ytterligare information", after the addresses', async () => {
+      const { wrapper } = await mountWith(sent({ request: SENT }));
+
+      const box = wrapper.find('[data-testid="quote-thanks-addresses"]');
+      expect(box.element.lastElementChild).toBe(info(wrapper).element);
+      expect(info(wrapper).find('p').text()).toBe(
+        'portal.orders.detail.additional_info.title',
+      );
+      expect(
+        info(wrapper)
+          .findAll('[data-testid^="quote-thanks-"]')
+          .map((p) => p.attributes('data-testid')),
+      ).toEqual([
+        'quote-thanks-your-reference',
+        'quote-thanks-desired-date',
+        'quote-thanks-goods-label',
+        'quote-thanks-comment',
+      ]);
+      expect(line(wrapper, 'your-reference').text()).toBe(
+        'portal.orders.detail.additional_info.your_reference: PO-7781',
+      );
+      expect(line(wrapper, 'desired-date').text()).toBe(
+        'portal.orders.detail.additional_info.desired_delivery_date: 2026-12-09',
+      );
+      expect(line(wrapper, 'goods-label').text()).toBe(
+        'portal.orders.detail.additional_info.goods_label: Lastbrygga B',
+      );
+      // Labelled like the other lines, unlike the prototype; line breaks kept.
+      expect(line(wrapper, 'comment').text()).toBe(
+        `portal.quotations.comment: ${SENT.comment}`,
+      );
+      expect(line(wrapper, 'comment').classes()).toContain(
+        'whitespace-pre-line',
+      );
+    });
+
+    it('shows only the ones that are set', async () => {
+      const { wrapper } = await mountWith(
+        sent({ request: { goodsLabel: 'Dock B', comment: 'Hej' } }),
+      );
+
+      expect(line(wrapper, 'your-reference').exists()).toBe(false);
+      expect(line(wrapper, 'desired-date').exists()).toBe(false);
+      expect(line(wrapper, 'goods-label').text()).toContain('Dock B');
+      expect(line(wrapper, 'comment').text()).toBe(
+        'portal.quotations.comment: Hej',
+      );
+    });
+
+    it.each([
+      ['no request', undefined],
+      ['an empty request', {}],
+    ])(
+      'leaves "Ytterligare information" out with %s',
+      async (_label, request) => {
+        const { wrapper } = await mountWith(sent({ request }));
+
+        expect(info(wrapper).exists()).toBe(false);
+        expect(
+          wrapper
+            .find('[data-testid="quote-thanks-addresses"] hr:last-child')
+            .exists(),
+        ).toBe(false);
+      },
+    );
+
+    it('divides it from the addresses', async () => {
+      const { wrapper } = await mountWith(sent({ request: SENT }));
+
+      const previous = info(wrapper).element.previousElementSibling;
+      expect(previous?.tagName).toBe('HR');
+    });
+
+    it('shows it in the box without addresses, with no divider', async () => {
+      const { wrapper } = await mountWith(
+        sent({
+          billingAddress: undefined,
+          shippingAddress: undefined,
+          request: { customerOrderNumber: 'PO-1' },
+        }),
+      );
+
+      expect(wrapper.findAllComponents(AddressStub)).toHaveLength(0);
+      expect(info(wrapper).exists()).toBe(true);
+      expect(
+        wrapper.find('[data-testid="quote-thanks-addresses"] hr').exists(),
+      ).toBe(false);
+    });
+  });
 });

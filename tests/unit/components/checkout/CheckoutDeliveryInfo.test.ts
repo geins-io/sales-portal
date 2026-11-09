@@ -266,7 +266,7 @@ describe('CheckoutDeliveryInfo', () => {
     expect(goodsInput.attributes('disabled')).toBeDefined();
   });
 
-  it('shows the goods label by default', () => {
+  it('shows the goods label', () => {
     const wrapper = mount(CheckoutDeliveryInfo.default, {
       props: makeProps(),
       global: { stubs },
@@ -274,37 +274,6 @@ describe('CheckoutDeliveryInfo', () => {
     expect(wrapper.find('[data-testid="checkout-goods-label"]').exists()).toBe(
       true,
     );
-  });
-
-  it('leaves the goods label out with showGoodsLabel false, keeping the date', () => {
-    const wrapper = mount(CheckoutDeliveryInfo.default, {
-      props: makeProps({ showGoodsLabel: false, goodsLabel: 'Dock 4' }),
-      global: { stubs },
-    });
-    expect(wrapper.find('[data-testid="checkout-goods-label"]').exists()).toBe(
-      false,
-    );
-    expect(
-      wrapper.find('[data-testid="checkout-desired-delivery-date"]').exists(),
-    ).toBe(true);
-  });
-
-  it('keeps a filled goods label out with showGoodsLabel false, even when locked', () => {
-    const wrapper = mount(CheckoutDeliveryInfo.default, {
-      props: makeProps({
-        showGoodsLabel: false,
-        locked: true,
-        goodsLabel: 'Dock 4',
-        desiredDeliveryDate: '2026-12-15',
-      }),
-      global: { stubs },
-    });
-    expect(wrapper.find('[data-testid="checkout-goods-label"]').exists()).toBe(
-      false,
-    );
-    expect(
-      wrapper.find('[data-testid="checkout-desired-delivery-date"]').exists(),
-    ).toBe(true);
   });
 
   it('labels the date and its help with the checkout text by default', () => {

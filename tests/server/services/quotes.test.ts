@@ -1083,6 +1083,92 @@ describe('quotes service', () => {
           expect(quote.orderDetails).toBeUndefined();
         });
       });
+
+      describe('what the buyer sent', () => {
+        it('reads all four from the request, never from orderDetails', async () => {
+          const quote = await getMapped({
+            orderDetails: {
+              customerOrderNumber: 'PO-SELLER',
+              desiredDeliveryDate: '2027-01-10T00:00:00+00:00',
+              goodsLabel: 'Seller label',
+            },
+            request: {
+              comment: 'Leverans till lager 2\nPorten på baksidan',
+              customerOrderNumber: 'PO-7781',
+              customerReference: 'Anna',
+              desiredDeliveryDate: '2026-12-09T00:00:00+00:00',
+              goodsLabel: 'Lastbrygga B',
+            },
+          });
+          expect(quote.request).toEqual({
+            comment: 'Leverans till lager 2\nPorten på baksidan',
+            customerOrderNumber: 'PO-7781',
+            desiredDeliveryDate: '2026-12-09',
+            goodsLabel: 'Lastbrygga B',
+          });
+        });
+
+        it('reads the fields that are set and leaves the empty ones out', async () => {
+          const quote = await getMapped({
+            request: {
+              comment: '',
+              customerOrderNumber: null,
+              desiredDeliveryDate: '2026-12-09T00:00:00Z',
+              goodsLabel: 'Dock B',
+            },
+          });
+          expect(quote.request).toEqual({
+            comment: undefined,
+            customerOrderNumber: undefined,
+            desiredDeliveryDate: '2026-12-09',
+            goodsLabel: 'Dock B',
+          });
+        });
+
+        it("takes an older request's reference as the PO number", async () => {
+          const quote = await getMapped({
+            request: { customerReference: 'PO-77', customerOrderNumber: '' },
+          });
+          expect(quote.request?.customerOrderNumber).toBe('PO-77');
+        });
+
+        it('reads a date it cannot read as no date', async () => {
+          const quote = await getMapped({
+            // Only a value that starts with its day is read as one.
+            request: { desiredDeliveryDate: 'by 2026-12-09', comment: 'Hej' },
+          });
+          expect(quote.request).toEqual({
+            comment: 'Hej',
+            customerOrderNumber: undefined,
+            desiredDeliveryDate: undefined,
+            goodsLabel: undefined,
+          });
+        });
+
+        it.each([
+          ['no request', {}],
+          ['a null request', { request: null }],
+          [
+            'only empty values',
+            {
+              request: {
+                comment: '',
+                customerOrderNumber: '',
+                customerReference: '',
+                desiredDeliveryDate: null,
+                goodsLabel: '',
+              },
+            },
+          ],
+          [
+            'only orderDetails',
+            { orderDetails: { customerOrderNumber: 'PO-1' }, request: null },
+          ],
+        ])('has none with %s', async (_label, overrides) => {
+          const quote = await getMapped(overrides);
+          expect(quote.request).toBeUndefined();
+        });
+      });
     });
 
     describe('what the buyer may do and who answers for the seller', () => {
@@ -1562,6 +1648,7 @@ describe('quotes service', () => {
           comment: 'Leverans till lager B',
           desiredDeliveryDate: '2026-12-15',
           customerOrderNumber: 'PO-7781',
+          goodsLabel: 'Lastbrygga B',
         };
 
         const result = await quotesService.updateQuoteRequest(
@@ -1582,6 +1669,7 @@ describe('quotes service', () => {
               // INVALID_VALUE; the day is sent as its UTC midnight.
               desiredDeliveryDate: '2026-12-15T00:00:00Z',
               customerOrderNumber: 'PO-7781',
+              goodsLabel: 'Lastbrygga B',
             },
             languageId: 'sv-SE',
           },

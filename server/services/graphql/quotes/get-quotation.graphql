@@ -24,6 +24,7 @@ query getQuotationCart($quotationId: Guid!, $languageId: String) {
         goodsLabel
       }
       request {
+        comment
         customerOrderNumber
         customerReference
         desiredDeliveryDate

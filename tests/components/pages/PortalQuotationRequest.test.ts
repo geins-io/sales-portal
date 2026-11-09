@@ -404,15 +404,19 @@ describe('PortalQuotationRequest', () => {
       ).toBe('quote-request-message');
     });
 
-    it('has no goods label', async () => {
+    it('has the goods label beside the desired date', async () => {
       const wrapper = await mountWith(draft());
 
+      const delivery = wrapper.find('[data-testid="checkout-delivery-info"]');
       expect(
-        wrapper.find('[data-testid="checkout-goods-label"]').exists(),
-      ).toBe(false);
+        delivery.find('[data-testid="checkout-goods-label"]').exists(),
+      ).toBe(true);
+      expect(delivery.find('label[for="checkout-goods-label"]').text()).toBe(
+        'checkout.goods_label',
+      );
     });
 
-    it('caps the PO number at 30 and the message at 2000 characters', async () => {
+    it('caps the PO number at 30, the goods label at 500 and the message at 2000 characters', async () => {
       const wrapper = await mountWith(draft());
 
       expect(
@@ -420,6 +424,11 @@ describe('PortalQuotationRequest', () => {
           .find('[data-testid="checkout-customer-order-number"]')
           .attributes('maxlength'),
       ).toBe('30');
+      expect(
+        wrapper
+          .find('[data-testid="checkout-goods-label"]')
+          .attributes('maxlength'),
+      ).toBe('500');
       expect(
         wrapper
           .find('[data-testid="quote-request-message"]')
@@ -510,6 +519,9 @@ describe('PortalQuotationRequest', () => {
         .find('[data-testid="checkout-customer-order-number"]')
         .setValue('  PO-77  ');
       await wrapper
+        .find('[data-testid="checkout-goods-label"]')
+        .setValue(' Lastbrygga B  ');
+      await wrapper
         .find('[data-testid="quote-request-message"]')
         .setValue('  Leverans till lager 2 ');
       await send(wrapper);
@@ -517,6 +529,7 @@ describe('PortalQuotationRequest', () => {
       expect(mockSendQuoteRequest).toHaveBeenCalledWith('q-001', {
         desiredDeliveryDate: '2099-12-01',
         customerOrderNumber: 'PO-77',
+        goodsLabel: 'Lastbrygga B',
         comment: 'Leverans till lager 2',
       });
       expect(mockNavigateTo).toHaveBeenCalledWith(`${VIEW_PATH}/sent`);
@@ -528,11 +541,13 @@ describe('PortalQuotationRequest', () => {
       await wrapper
         .find('[data-testid="checkout-customer-order-number"]')
         .setValue('   ');
+      await wrapper.find('[data-testid="checkout-goods-label"]').setValue('  ');
       await send(wrapper);
 
       expect(mockSendQuoteRequest).toHaveBeenCalledWith('q-001', {
         desiredDeliveryDate: undefined,
         customerOrderNumber: undefined,
+        goodsLabel: undefined,
         comment: undefined,
       });
     });
@@ -598,6 +613,11 @@ describe('PortalQuotationRequest', () => {
       expect(
         wrapper
           .find('[data-testid="checkout-customer-order-number"]')
+          .attributes('disabled'),
+      ).toBeDefined();
+      expect(
+        wrapper
+          .find('[data-testid="checkout-goods-label"]')
           .attributes('disabled'),
       ).toBeDefined();
     });
