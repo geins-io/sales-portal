@@ -331,6 +331,44 @@ describe('useQuotesStore', () => {
       });
     });
 
+    it('sends the order message, trimmed', async () => {
+      mockFetchImpl.mockResolvedValueOnce({ quote: finalized });
+
+      const store = useQuotesStore();
+      await store.finalizeQuote('q-001', '  Ring innan leverans \n');
+
+      expect(mockFetchImpl).toHaveBeenCalledWith('/api/quotes/q-001/finalize', {
+        method: 'POST',
+        body: { message: 'Ring innan leverans' },
+      });
+    });
+
+    it('sends no body without a message', async () => {
+      mockFetchImpl.mockResolvedValueOnce({ quote: finalized });
+
+      const store = useQuotesStore();
+      await store.finalizeQuote('q-001', undefined);
+
+      expect(mockFetchImpl).toHaveBeenCalledWith('/api/quotes/q-001/finalize', {
+        method: 'POST',
+      });
+    });
+
+    it.each(['', '   '])(
+      'sends the blank message %j as empty, which clears one written before',
+      async (message) => {
+        mockFetchImpl.mockResolvedValueOnce({ quote: finalized });
+
+        const store = useQuotesStore();
+        await store.finalizeQuote('q-001', message);
+
+        expect(mockFetchImpl).toHaveBeenCalledWith(
+          '/api/quotes/q-001/finalize',
+          { method: 'POST', body: { message: '' } },
+        );
+      },
+    );
+
     it('returns the quote the server answered with and keeps it', async () => {
       mockFetchImpl.mockResolvedValueOnce({ quote: finalized });
 
@@ -423,7 +461,7 @@ describe('useQuotesStore', () => {
     const requested = { ...mockQuote, status: 'requested' as const };
     const details = {
       desiredDeliveryDate: '2026-12-01',
-      customerReference: 'PO-77',
+      customerOrderNumber: 'PO-77',
       comment: 'Leverans till lager 2',
     };
 
@@ -458,7 +496,7 @@ describe('useQuotesStore', () => {
       const store = useQuotesStore();
       await store.sendQuoteRequest('q-001', {
         comment: undefined,
-        customerReference: '',
+        customerOrderNumber: '',
         desiredDeliveryDate: undefined,
       });
 
@@ -475,7 +513,7 @@ describe('useQuotesStore', () => {
       const store = useQuotesStore();
       await store.sendQuoteRequest('q-001', {
         comment: 'Hej',
-        customerReference: undefined,
+        customerOrderNumber: undefined,
       });
 
       expect(mockFetchImpl.mock.calls[0]).toEqual([

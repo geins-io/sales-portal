@@ -126,9 +126,49 @@ describe('GraphQL loader', () => {
         );
       }
       expect(query.match(/fragment Price on PriceType/g)).toHaveLength(1);
-      // Prod fails the whole line's product on `alias` until the platform
-      // fills quotation lines in from the catalogue.
-      expect(query).not.toMatch(/^\s*alias$/m);
+      // The product name links to the product page by its alias.
+      expect(query).toMatch(/product \{[^}]*\salias\s/);
+    });
+
+    it('reads what the order will get, its payment names and its order on the single quotation', () => {
+      const query = loadQuery('quotes/get-quotation.graphql');
+
+      for (const block of ['orderDetails', 'request']) {
+        expect(query).toMatch(
+          new RegExp(
+            `${block} \\{\\s*customerOrderNumber\\s+customerReference\\s+desiredDeliveryDate\\s+goodsLabel\\s*\\}`,
+          ),
+        );
+      }
+      expect(query).toMatch(/validPaymentMethods \{[^}]*\sdisplayName\s/);
+      expect(query).toMatch(/^\s*orderPublicId$/m);
+    });
+
+    it('reads no order details on the list', () => {
+      const query = loadQuery('quotes/list-quotations.graphql');
+
+      expect(query).not.toContain('orderDetails');
+      expect(query).not.toMatch(/^\s*request \{/m);
+    });
+
+    it("reads only the quotation's number for the order's link back", () => {
+      const query = loadQuery('quotes/quotation-number.graphql');
+
+      expect(query).toMatch(
+        /getQuotationCart\(quotationId: \$quotationId, languageId: \$languageId\)/,
+      );
+      expect(query).toMatch(/quotation \{\s*quotationNumber\s*\}/);
+      expect(query).not.toContain('items');
+    });
+
+    it("writes only the message on the quotation cart's checkout", () => {
+      const query = loadQuery('quotes/quotation-checkout.graphql');
+
+      expect(query).toMatch(/^mutation /);
+      expect(query).toMatch(
+        /createOrUpdateCheckout\(\s*cartId: \$cartId\s+checkout: \$checkout\b/,
+      );
+      expect(query).toMatch(/\)\s*\{\s*message\s*\}\s*\}\s*$/);
     });
 
     it('reads no configuration for the list, which only counts the lines', () => {

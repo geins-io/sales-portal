@@ -9,6 +9,7 @@ import type {
   QuoteExternalReference,
   QuoteLineItem,
   QuoteListItem,
+  QuoteOrderDetails,
   QuotePaymentMethod,
   QuoteRequestDetails,
   QuoteStatus,
@@ -118,18 +119,30 @@ interface RawQuotation {
     country?: string;
   } | null;
   orderId?: string | null;
+  orderPublicId?: string | null;
   validPaymentMethods?:
     | {
         paymentId?: string | null;
         name?: string | null;
+        displayName?: string | null;
         paymentFee?: number | null;
       }[]
     | null;
+  orderDetails?: RawOrderDetails | null;
+  request?: RawOrderDetails | null;
   /** The seller's discount; the amount it comes to is on the cart summary. */
   discount?: {
     type?: string | null;
     value?: number | null;
   } | null;
+}
+
+/** `QuotationOrderDetailsType`, and the same fields of `QuotationRequestType` */
+interface RawOrderDetails {
+  customerOrderNumber?: string | null;
+  customerReference?: string | null;
+  desiredDeliveryDate?: string | null;
+  goodsLabel?: string | null;
 }
 
 interface RawCartSummary {
@@ -316,8 +329,31 @@ function mapPaymentMethods(
   return methods.map((method) => ({
     id: method.paymentId ?? '',
     name: method.name || undefined,
+    displayName: method.displayName || undefined,
     fee: method.paymentFee ?? undefined,
   }));
+}
+
+/**
+ * What the order gets: `orderDetails`, or for a quotation requested before
+ * Geins had it, the request, whose reference finalize takes as the PO number.
+ */
+function mapOrderDetails(
+  q: Pick<RawQuotation, 'orderDetails' | 'request'>,
+): QuoteOrderDetails | undefined {
+  const source = q.orderDetails ?? q.request;
+  if (!source) return undefined;
+  const poNumber = q.orderDetails
+    ? source.customerOrderNumber
+    : source.customerOrderNumber || source.customerReference;
+  const details: QuoteOrderDetails = {
+    customerOrderNumber: poNumber || undefined,
+    // Geins answers an instant; the day is the one it was written for.
+    desiredDeliveryDate:
+      source.desiredDeliveryDate?.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? undefined,
+    goodsLabel: source.goodsLabel || undefined,
+  };
+  return Object.values(details).some(Boolean) ? details : undefined;
 }
 
 /** Linked only when the reference carries a value; the API may send empty strings. */
@@ -413,6 +449,8 @@ function mapQuotationCartToQuote(
     ...(q.orderId ? { orderId: q.orderId } : {}),
     customer: mapCustomer(q.customer),
     paymentMethods: mapPaymentMethods(q.validPaymentMethods),
+    ...(q.orderPublicId ? { orderPublicId: q.orderPublicId } : {}),
+    orderDetails: mapOrderDetails(q),
   };
 }
 
@@ -520,14 +558,42 @@ export async function getQuote(
     throw createAppError(ErrorCode.NOT_FOUND, `Quote ${quoteId} not found`);
   }
   const quote = mapQuotationCartToQuote(cart, languageId);
-  // The quotation names its order by number only, and the order's page takes
-  // the public id. Without it the quotation still reads, with no order link.
-  const orderPublicId =
-    quote.orderId &&
-    (await findOrderPublicId(Number(quote.orderId), event).catch(
-      () => undefined,
-    ));
+  if (quote.orderPublicId || !quote.orderId) return quote;
+  // A quotation finalized before Geins carried the public id names its order
+  // by number only. Without the id it still reads, with no order link.
+  const orderPublicId = await findOrderPublicId(
+    Number(quote.orderId),
+    event,
+  ).catch(() => undefined);
   return orderPublicId ? { ...quote, orderPublicId } : quote;
+}
+
+/**
+ * The quotation's number, read as the signed-in buyer. Geins gives a buyer
+ * only their own quotations, so it also says whether the buyer can open it.
+ */
+export async function getQuoteNumber(
+  quoteId: string,
+  event: H3Event,
+): Promise<string> {
+  const sdk = await getTenantSDK(event);
+  const requestContext = buildRequestContext(event);
+  const { languageId } = getRequestChannelVariables(sdk, event);
+  const result = await wrapServiceCall(
+    () =>
+      sdk.core.graphql.query({
+        queryAsString: loadQuery('quotes/quotation-number.graphql'),
+        variables: { quotationId: quoteId, languageId },
+        userToken: requestContext?.userToken,
+      }),
+    'quotes',
+  );
+  const cart = unwrapGraphQL(result) as RawQuotationCart | null;
+  const number = cart?.quotation?.quotationNumber;
+  if (!number) {
+    throw createAppError(ErrorCode.NOT_FOUND, `Quote ${quoteId} not found`);
+  }
+  return number;
 }
 
 /**
@@ -575,9 +641,51 @@ export function rejectQuote(quoteId: string, event: H3Event): Promise<Quote> {
   return respondToQuote('quotes/reject-quotation.graphql', quoteId, event);
 }
 
-/** Place the order for a quotation; Geins builds it from the quotation's cart */
-export function finalizeQuote(quoteId: string, event: H3Event): Promise<Quote> {
+/**
+ * Place the order for a quotation; Geins builds it from the quotation's cart.
+ * The message goes first as the cart's checkout input, which finalize puts on
+ * the order; when Geins refuses it, no order is placed.
+ */
+export async function finalizeQuote(
+  quoteId: string,
+  event: H3Event,
+  options: { message?: string } = {},
+): Promise<Quote> {
+  // An empty message clears one an earlier try wrote on the cart.
+  if (options.message !== undefined) {
+    await writeOrderMessage(quoteId, options.message.trim(), event);
+  }
   return respondToQuote('quotes/finalize-quotation.graphql', quoteId, event);
+}
+
+async function writeOrderMessage(
+  cartId: string,
+  message: string,
+  event: H3Event,
+): Promise<void> {
+  const sdk = await getTenantSDK(event);
+  const requestContext = buildRequestContext(event);
+  const result = await wrapServiceCall(
+    () =>
+      sdk.core.graphql.mutation({
+        queryAsString: loadQuery('quotes/quotation-checkout.graphql'),
+        variables: {
+          cartId,
+          checkout: { message },
+          ...getRequestChannelVariables(sdk, event),
+        },
+        userToken: requestContext?.userToken,
+        // No timeout: a message Geins saves after a cut would read as failed.
+        requestOptions: { context: { timeoutMs: 0 } },
+      }),
+    'quotes',
+  );
+  if (!unwrapGraphQL(result)) {
+    throw createAppError(
+      ErrorCode.EXTERNAL_API_ERROR,
+      `Geins answered no checkout for quote ${cartId}`,
+    );
+  }
 }
 
 type ChannelVariables = ReturnType<typeof getRequestChannelVariables>;

@@ -47,11 +47,11 @@
     "docs:preview": "vitepress preview docs"
   },
   "dependencies": {
-    "@geins/cms": "0.12.2",
-    "@geins/core": "0.12.2",
-    "@geins/crm": "0.12.2",
-    "@geins/oms": "0.12.2",
-    "@geins/types": "0.12.2",
+    "@geins/cms": "0.13.0",
+    "@geins/core": "0.13.0",
+    "@geins/crm": "0.13.0",
+    "@geins/oms": "0.13.0",
+    "@geins/types": "0.13.0",
     "@nuxt/fonts": "0.14.0",
     "@nuxt/hints": "^1.1.5",
     "@nuxt/icon": "2.6.2",

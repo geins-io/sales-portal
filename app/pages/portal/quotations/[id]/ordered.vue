@@ -42,10 +42,13 @@ if (!orderNumber) {
 
 const quote = computed(() => data.value!.quote);
 
-// The quotation knows its order by number only.
-const orderUrl = orderNumber
-  ? `/api/orders/by-number/${encodeURIComponent(orderNumber)}`
-  : null;
+// An older quotation knows its order by number only.
+const orderPublicId = data.value.quote.orderPublicId;
+const orderUrl = orderPublicId
+  ? `/api/orders/${encodeURIComponent(orderPublicId)}`
+  : orderNumber
+    ? `/api/orders/by-number/${encodeURIComponent(orderNumber)}`
+    : null;
 const { data: orderData, pending: orderPending } = useFetch<{
   order: OrderDetailType;
 }>(orderUrl ?? '', { dedupe: 'defer', immediate: !!orderUrl });

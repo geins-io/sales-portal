@@ -74,6 +74,8 @@ export interface QuoteCompany {
 export interface QuotePaymentMethod {
   id: string;
   name?: string;
+  /** The name the buyer reads; none on quotations built before Geins had it. */
+  displayName?: string;
   /** Unformatted, and the API does not say on which side of VAT. */
   fee?: number;
 }
@@ -89,10 +91,11 @@ export interface QuoteCustomer {
 }
 
 // ---------------------------------------------------------------------------
-// Quote Request (what the buyer gave when asking for the quotation)
+// Quote Order Details (what the order from the quotation gets)
 // ---------------------------------------------------------------------------
-export interface QuoteRequest {
-  customerReference?: string;
+export interface QuoteOrderDetails {
+  /** The buyer's PO number */
+  customerOrderNumber?: string;
   /** A calendar day, `YYYY-MM-DD` */
   desiredDeliveryDate?: string;
   goodsLabel?: string;
@@ -163,8 +166,8 @@ export interface Quote {
   /** Read from the quotation's customer alone, never the seller. */
   customer?: QuoteCustomer;
   paymentMethods?: QuotePaymentMethod[];
-  /** Not read yet: the merchant API does not return it on prod. */
-  request?: QuoteRequest;
+  /** Only on the single quotation read. */
+  orderDetails?: QuoteOrderDetails;
 }
 
 // ---------------------------------------------------------------------------
@@ -208,5 +211,6 @@ export interface QuoteRequestDetails {
   comment?: string;
   /** A calendar day, `YYYY-MM-DD` */
   desiredDeliveryDate?: string;
-  customerReference?: string;
+  /** The buyer's PO number, at most 30 characters */
+  customerOrderNumber?: string;
 }

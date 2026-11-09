@@ -1,0 +1,8 @@
+query getQuotationNumber($quotationId: Guid!, $languageId: String) {
+  getQuotationCart(quotationId: $quotationId, languageId: $languageId) {
+    id
+    quotation {
+      quotationNumber
+    }
+  }
+}

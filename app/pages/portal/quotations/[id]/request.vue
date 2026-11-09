@@ -16,7 +16,7 @@ definePageMeta({
 });
 
 const COMMENT_MAX_LENGTH = 2000;
-const REFERENCE_MAX_LENGTH = 50;
+const REFERENCE_MAX_LENGTH = 30;
 
 const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
@@ -91,7 +91,7 @@ async function send() {
   if (dateInPast.value || !hasLines.value || sending.value) return;
   const sent = await store.sendQuoteRequest(quote.value.id, {
     desiredDeliveryDate: form.desiredDeliveryDate || undefined,
-    customerReference: form.reference.trim() || undefined,
+    customerOrderNumber: form.reference.trim() || undefined,
     comment: form.comment.trim() || undefined,
   });
   if (sent) await navigateTo(`${quotationPath.value}/sent`);

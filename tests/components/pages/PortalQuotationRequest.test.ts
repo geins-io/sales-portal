@@ -412,14 +412,14 @@ describe('PortalQuotationRequest', () => {
       ).toBe(false);
     });
 
-    it('caps the reference at 50 and the message at 2000 characters', async () => {
+    it('caps the PO number at 30 and the message at 2000 characters', async () => {
       const wrapper = await mountWith(draft());
 
       expect(
         wrapper
           .find('[data-testid="checkout-customer-order-number"]')
           .attributes('maxlength'),
-      ).toBe('50');
+      ).toBe('30');
       expect(
         wrapper
           .find('[data-testid="quote-request-message"]')
@@ -516,7 +516,7 @@ describe('PortalQuotationRequest', () => {
 
       expect(mockSendQuoteRequest).toHaveBeenCalledWith('q-001', {
         desiredDeliveryDate: '2099-12-01',
-        customerReference: 'PO-77',
+        customerOrderNumber: 'PO-77',
         comment: 'Leverans till lager 2',
       });
       expect(mockNavigateTo).toHaveBeenCalledWith(`${VIEW_PATH}/sent`);
@@ -532,7 +532,7 @@ describe('PortalQuotationRequest', () => {
 
       expect(mockSendQuoteRequest).toHaveBeenCalledWith('q-001', {
         desiredDeliveryDate: undefined,
-        customerReference: undefined,
+        customerOrderNumber: undefined,
         comment: undefined,
       });
     });

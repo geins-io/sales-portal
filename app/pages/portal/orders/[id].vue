@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, LoaderCircle, RotateCw } from 'lucide-vue-next';
+import { ArrowLeft, FileText, LoaderCircle, RotateCw } from 'lucide-vue-next';
 import type { OrderDetailType } from '#shared/types/commerce';
 import type { PortalItemRow, SummaryRow } from '#shared/types/portal-rows';
 import { Badge } from '~/components/ui/badge';
@@ -112,6 +112,34 @@ useAwaitedOrder<{ order: OrderDetailType }>({
 });
 
 const itemCount = computed(() => order.value?.cart?.items?.length ?? 0);
+
+// Colleagues share the company's orders but not each other's quotations, so
+// the link shows only once the buyer's own read of the quotation answers.
+const quotationId = computed(() =>
+  canAccess('quotes') ? order.value?.quotationId : undefined,
+);
+const { data: quotationData, execute: readQuotation } = useFetch<{
+  number: string;
+}>(
+  () =>
+    quotationId.value
+      ? `/api/quotes/${encodeURIComponent(quotationId.value)}/number`
+      : '',
+  { server: false, immediate: false, watch: false, dedupe: 'defer' },
+);
+watch(
+  quotationId,
+  (id) => {
+    if (import.meta.client && id) readQuotation();
+  },
+  { immediate: true },
+);
+const fromQuotation = computed(() => {
+  const number = quotationId.value && quotationData.value?.number;
+  return number
+    ? { number, path: localePath(`/portal/quotations/${quotationId.value}`) }
+    : null;
+});
 
 // Every amount is the side of the buyer's VAT choice; VAT itself is one number.
 const { showIncVat } = useVatDisplay();
@@ -308,6 +336,21 @@ const orderTotals = computed<SummaryRow[]>(() =>
               :title="t('portal.orders.detail.items.title')"
               :show-prices="showPrice"
             />
+
+            <div
+              v-if="fromQuotation"
+              data-testid="order-quotation"
+              class="bg-muted space-y-4 rounded-lg p-6"
+            >
+              <PortalMetaRow
+                row-key="quotation"
+                test-id="order-quotation-row"
+                :icon="FileText"
+                :label="t('portal.quotations.quotation_reference')"
+                :lines="[`REF: ${fromQuotation.number}`]"
+                :href="fromQuotation.path"
+              />
+            </div>
 
             <!-- Addresses: share one grey container per Figma 25361-102134.
                  Section headers dark not uppercase, company line muted. -->

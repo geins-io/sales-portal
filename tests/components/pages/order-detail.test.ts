@@ -8,7 +8,8 @@ import {
   assert,
 } from 'vitest';
 import type { AuthUser } from '@geins/types';
-import { enableAutoUnmount } from '@vue/test-utils';
+import { enableAutoUnmount, flushPromises } from '@vue/test-utils';
+import { ref, unref } from 'vue';
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { shallowMountComponent } from '../../utils/component';
 import OrderDetail from '../../../app/pages/portal/orders/[id].vue';
@@ -175,16 +176,36 @@ vi.mock('#app/composables/router', async (importOriginal) => {
   };
 });
 
+// The quotation the order came from, read apart from the order.
+const quotationRead = {
+  data: ref<{ number: string } | null>(null),
+  error: ref<Error | null>(null),
+  execute: vi.fn(),
+};
+
 // Mock useFetch
 const mockUseFetch = vi.fn(
-  (_url: string | (() => string), _options?: Record<string, unknown>) => ({
-    data: mockData,
-    error: mockError,
-    status: mockStatus,
-    pending: mockPending,
-    refresh: vi.fn(),
-    execute: vi.fn(),
-  }),
+  (url: string | (() => string), _options?: Record<string, unknown>) => {
+    const path = String(typeof url === 'function' ? url() : unref(url));
+    if (path === '' || path.startsWith('/api/quotes/')) {
+      return {
+        data: quotationRead.data,
+        error: quotationRead.error,
+        status: ref('idle'),
+        pending: ref(false),
+        refresh: vi.fn(),
+        execute: quotationRead.execute,
+      };
+    }
+    return {
+      data: mockData,
+      error: mockError,
+      status: mockStatus,
+      pending: mockPending,
+      refresh: vi.fn(),
+      execute: vi.fn(),
+    };
+  },
 );
 
 vi.mock('#app/composables/fetch', () => ({
@@ -321,6 +342,7 @@ const defaultStubs = {
   OrderItemsTable: false,
   OrderSummaryCard: false,
   OrderAddresses: false,
+  PortalMetaRow: false,
   PortalShell: {
     template: '<div data-testid="portal-shell"><slot /></div>',
   },
@@ -369,6 +391,9 @@ describe('OrderDetail', () => {
     mockQuery.value = {};
     mockReplace.mockClear();
     mockPollFetch.mockReset();
+    quotationRead.data.value = null;
+    quotationRead.error.value = null;
+    quotationRead.execute.mockClear();
   });
 
   // canReorder is `canAccess('reorder') && !isCatalogMode`, so each test has to
@@ -1588,6 +1613,116 @@ describe('OrderDetail', () => {
         billing.element.parentElement?.getAttribute('class') ?? '';
       expect(parentClass).toContain('bg-muted');
       expect(parentClass).toContain('rounded-lg');
+    });
+  });
+
+  describe('the quotation the order came from', () => {
+    const QUOTATION_ID = '01a1c05f-fc33-7fd5-a197-dcdd1b0c109c';
+
+    function quotationReads() {
+      return mockUseFetch.mock.calls.filter(([url]) =>
+        String(typeof url === 'function' ? url() : unref(url)).startsWith(
+          '/api/quotes/',
+        ),
+      );
+    }
+
+    beforeEach(() => {
+      setFeatures({ reorder: { enabled: true }, quotes: { enabled: true } });
+      useAuthStore().user = SIGNED_IN;
+    });
+
+    it('asks, on the client only, whether the buyer can open the quotation', async () => {
+      mockData.value = makeOrder({ quotationId: QUOTATION_ID });
+
+      shallowMountComponent(OrderDetail, { global: { stubs: defaultStubs } });
+      await flushPromises();
+
+      const [url, options] = quotationReads()[0]!;
+      expect(typeof url === 'function' ? url() : unref(url)).toBe(
+        `/api/quotes/${QUOTATION_ID}/number`,
+      );
+      expect(options).toMatchObject({ server: false, dedupe: 'defer' });
+      expect(quotationRead.execute).toHaveBeenCalledTimes(1);
+    });
+
+    it('names the quotation and links to it, between the summary and the addresses', async () => {
+      mockData.value = makeOrder({ quotationId: QUOTATION_ID });
+      quotationRead.data.value = { number: '2611-2-0015-00' };
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+      await flushPromises();
+
+      const box = wrapper.find('[data-testid="order-quotation"]');
+      expect(box.classes()).toEqual(
+        expect.arrayContaining(['bg-muted', 'rounded-lg', 'p-6']),
+      );
+      // The quotation view's details row, as its reference row reads.
+      const row = box.findComponent({ name: 'PortalMetaRow' });
+      expect(row.props()).toMatchObject({
+        rowKey: 'quotation',
+        testId: 'order-quotation-row',
+        label: 'portal.quotations.quotation_reference',
+        lines: ['REF: 2611-2-0015-00'],
+      });
+      const link = box.find('[data-testid="order-quotation-row-link"]');
+      expect(link.text()).toBe('REF: 2611-2-0015-00');
+      expect(link.attributes('href')).toContain(
+        `/portal/quotations/${QUOTATION_ID}`,
+      );
+      const html = wrapper.html();
+      expect(html.indexOf('data-testid="order-quotation"')).toBeGreaterThan(
+        html.indexOf('data-testid="order-summary"'),
+      );
+      expect(html.indexOf('data-testid="order-quotation"')).toBeLessThan(
+        html.indexOf('data-testid="billing-address"'),
+      );
+    });
+
+    it("shows nothing for a quotation the buyer cannot open, such as a colleague's", async () => {
+      mockData.value = makeOrder({ quotationId: QUOTATION_ID });
+      quotationRead.error.value = new Error('Not found');
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="order-quotation"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('asks nothing and shows nothing for an order not from a quotation', async () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+      await flushPromises();
+
+      expect(quotationRead.execute).not.toHaveBeenCalled();
+      expect(wrapper.find('[data-testid="order-quotation"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('asks nothing and shows nothing without the quotes feature', async () => {
+      setFeatures({ reorder: { enabled: true }, quotes: { enabled: false } });
+      mockData.value = makeOrder({ quotationId: QUOTATION_ID });
+      quotationRead.data.value = { number: '2611-2-0015-00' };
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+      await flushPromises();
+
+      expect(quotationRead.execute).not.toHaveBeenCalled();
+      expect(wrapper.find('[data-testid="order-quotation"]').exists()).toBe(
+        false,
+      );
     });
   });
 

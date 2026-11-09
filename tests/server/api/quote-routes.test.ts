@@ -7,6 +7,7 @@ type AnyFn = (...args: unknown[]) => unknown;
 // ---------------------------------------------------------------------------
 const mockListQuotes = vi.fn();
 const mockGetQuote = vi.fn();
+const mockGetQuoteNumber = vi.fn();
 const mockAcceptQuote = vi.fn();
 const mockRejectQuote = vi.fn();
 const mockFinalizeQuote = vi.fn();
@@ -17,6 +18,7 @@ const mockReleaseQuoteRequest = vi.fn();
 vi.mock('../../../server/services/quotes', () => ({
   listQuotes: (...args: unknown[]) => mockListQuotes(...args),
   getQuote: (...args: unknown[]) => mockGetQuote(...args),
+  getQuoteNumber: (...args: unknown[]) => mockGetQuoteNumber(...args),
   acceptQuote: (...args: unknown[]) => mockAcceptQuote(...args),
   rejectQuote: (...args: unknown[]) => mockRejectQuote(...args),
   finalizeQuote: (...args: unknown[]) => mockFinalizeQuote(...args),
@@ -312,6 +314,63 @@ describe('Quote API Routes', () => {
   });
 
   // -------------------------------------------------------------------------
+  // GET /api/quotes/[id]/number
+  // -------------------------------------------------------------------------
+  describe('GET /api/quotes/[id]/number', () => {
+    const eventWithId = {
+      ...mockEvent,
+      context: { ...mockEvent.context, params: { id: 'quote-uuid-001' } },
+    } as unknown as import('h3').H3Event;
+    const load = async () =>
+      (await import('../../../server/api/quotes/[id]/number.get')).default;
+
+    it("answers the quotation's number, for the buyer who can read it", async () => {
+      mockGetQuoteNumber.mockResolvedValue('2611-2-0015-00');
+
+      const result = await (await load())(eventWithId);
+
+      expect(mockRequireAuth).toHaveBeenCalledWith(eventWithId);
+      expect(mockGetQuoteNumber).toHaveBeenCalledWith(
+        'quote-uuid-001',
+        eventWithId,
+      );
+      expect(result).toEqual({ number: '2611-2-0015-00' });
+    });
+
+    it("is never cached past the buyer's own read", async () => {
+      mockGetQuoteNumber.mockResolvedValue('2611-2-0015-00');
+
+      await (
+        await load()
+      )(eventWithId);
+
+      expect(setHeader).toHaveBeenCalledWith(
+        eventWithId,
+        'Cache-Control',
+        'private, no-cache',
+      );
+    });
+
+    it('passes a quotation the buyer cannot read on as its error', async () => {
+      const notFound = Object.assign(new Error('Quote not found'), {
+        statusCode: 404,
+      });
+      mockGetQuoteNumber.mockRejectedValue(notFound);
+
+      await expect((await load())(eventWithId)).rejects.toBe(notFound);
+    });
+
+    it('requires authentication', async () => {
+      mockRequireAuth.mockRejectedValue(new Error('Authentication required'));
+
+      await expect((await load())(eventWithId)).rejects.toThrow(
+        'Authentication required',
+      );
+      expect(mockGetQuoteNumber).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // POST /api/quotes/[id]/accept
   // -------------------------------------------------------------------------
   describe('POST /api/quotes/[id]/accept', () => {
@@ -416,8 +475,59 @@ describe('Quote API Routes', () => {
       expect(mockFinalizeQuote).toHaveBeenCalledWith(
         'quote-uuid-001',
         eventWithId,
+        {},
       );
       expect(result).toEqual({ quote: finalized });
+    });
+
+    describe('the order message', () => {
+      const eventWithId = {
+        ...mockEvent,
+        context: { ...mockEvent.context, params: { id: 'quote-uuid-001' } },
+      } as unknown as import('h3').H3Event;
+      const load = async () =>
+        (await import('../../../server/api/quotes/[id]/finalize.post')).default;
+
+      beforeEach(() => mockFinalizeQuote.mockResolvedValue(mockQuote));
+
+      it('passes the message on, and nothing else from the body', async () => {
+        readBodyMock.mockReturnValue({
+          message: 'Ring innan leverans',
+          customerOrderNumber: 'PO-1',
+        });
+
+        await (
+          await load()
+        )(eventWithId);
+
+        expect(mockFinalizeQuote).toHaveBeenCalledWith(
+          'quote-uuid-001',
+          eventWithId,
+          { message: 'Ring innan leverans' },
+        );
+      });
+
+      it('takes a message of 2000 characters', async () => {
+        readBodyMock.mockReturnValue({ message: 'x'.repeat(2000) });
+
+        await (
+          await load()
+        )(eventWithId);
+
+        expect(mockFinalizeQuote.mock.calls[0]![2]).toEqual({
+          message: 'x'.repeat(2000),
+        });
+      });
+
+      it.each([
+        ['a message over 2000 characters', { message: 'x'.repeat(2001) }],
+        ['a message that is not text', { message: 42 }],
+      ])('refuses %s and places no order', async (_label, body) => {
+        readBodyMock.mockReturnValue(body);
+
+        await expect((await load())(eventWithId)).rejects.toThrow();
+        expect(mockFinalizeQuote).not.toHaveBeenCalled();
+      });
     });
 
     it('requires authentication', async () => {
@@ -743,7 +853,8 @@ describe('Quote API Routes', () => {
         readBodyMock.mockReturnValue({
           comment: 'Leverans till lager B',
           desiredDeliveryDate: '2026-12-15',
-          customerReference: ' PO-7781 ',
+          customerOrderNumber: ' PO-7781 ',
+          customerReference: 'not passed on',
           items: [{ skuId: 1, quantity: 1 }],
           goodsLabel: 'not live yet',
         });
@@ -756,7 +867,7 @@ describe('Quote API Routes', () => {
           {
             comment: 'Leverans till lager B',
             desiredDeliveryDate: '2026-12-15',
-            customerReference: 'PO-7781',
+            customerOrderNumber: 'PO-7781',
           },
           withId,
         );
@@ -778,8 +889,8 @@ describe('Quote API Routes', () => {
       it.each([
         ['a comment over 2000 characters', { comment: 'x'.repeat(2001) }],
         [
-          'a reference over 50 characters',
-          { customerReference: 'x'.repeat(51) },
+          'a PO number over 30 characters',
+          { customerOrderNumber: 'x'.repeat(31) },
         ],
         ['a date in another format', { desiredDeliveryDate: '15/12/2026' }],
         ['a date that does not exist', { desiredDeliveryDate: '2026-02-30' }],
@@ -791,10 +902,10 @@ describe('Quote API Routes', () => {
         expect(mockUpdateQuoteRequest).not.toHaveBeenCalled();
       });
 
-      it('takes a comment of 2000 and a reference of 50 characters', async () => {
+      it('takes a comment of 2000 and a PO number of 30 characters', async () => {
         const body = {
           comment: 'x'.repeat(2000),
-          customerReference: 'y'.repeat(50),
+          customerOrderNumber: 'y'.repeat(30),
         };
         readBodyMock.mockReturnValue(body);
 

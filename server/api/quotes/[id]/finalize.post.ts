@@ -1,4 +1,5 @@
 import * as quotesService from '../../../services/quotes';
+import { FinalizeQuoteSchema } from '../../../schemas/api-input';
 import {
   quoteRespondRateLimiter,
   getClientIp,
@@ -12,9 +13,10 @@ export default defineEventHandler(async (event) => {
     throw createAppError(ErrorCode.RATE_LIMITED, 'Too many quote responses');
   }
 
+  const options = await readValidatedBody(event, FinalizeQuoteSchema.parse);
   const id = getRouterParam(event, 'id');
 
-  const quote = await quotesService.finalizeQuote(id as string, event);
+  const quote = await quotesService.finalizeQuote(id as string, event, options);
 
   return { quote };
 });

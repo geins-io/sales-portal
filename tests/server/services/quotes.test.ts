@@ -320,6 +320,40 @@ describe('quotes service', () => {
       expect(result.orderPublicId).toBe('pub-1712');
     });
 
+    it("takes the order's public id from the quotation, without looking it up", async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: makeRawQuotationCart({
+          status: 'FINALIZED',
+          orderId: '1712',
+          orderPublicId: 'pub-from-quotation',
+        }),
+      });
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(mockFindOrderPublicId).not.toHaveBeenCalled();
+      expect(result.orderPublicId).toBe('pub-from-quotation');
+    });
+
+    it.each([null, ''])(
+      'looks the public id up by the number when the quotation carries %j',
+      async (orderPublicId) => {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          getQuotationCart: makeRawQuotationCart({
+            status: 'FINALIZED',
+            orderId: '1712',
+            orderPublicId,
+          }),
+        });
+        mockFindOrderPublicId.mockResolvedValueOnce('pub-1712');
+
+        const result = await quotesService.getQuote('cart-001', mockEvent);
+
+        expect(mockFindOrderPublicId).toHaveBeenCalledWith(1712, mockEvent);
+        expect(result.orderPublicId).toBe('pub-1712');
+      },
+    );
+
     it('leaves the public id out while the order is not readable', async () => {
       mockGraphqlQuery.mockResolvedValueOnce({
         getQuotationCart: makeRawQuotationCart({
@@ -951,6 +985,104 @@ describe('quotes service', () => {
           expect(quote.customer).toBeUndefined();
         },
       );
+
+      it("reads the payment method's display name", async () => {
+        const quote = await getMapped({
+          validPaymentMethods: [
+            { paymentId: '18', name: 'ManualInvoice', displayName: 'Faktura' },
+            { paymentId: '19', name: 'Card', displayName: '' },
+            { paymentId: '20', name: 'Old', displayName: null },
+          ],
+        });
+        expect(quote.paymentMethods?.map((m) => m.displayName)).toEqual([
+          'Faktura',
+          undefined,
+          undefined,
+        ]);
+      });
+
+      describe('the order details the order gets', () => {
+        it('reads them from orderDetails, the date as its day', async () => {
+          const quote = await getMapped({
+            orderDetails: {
+              customerOrderNumber: 'PO-1',
+              customerReference: 'Anna',
+              desiredDeliveryDate: '2026-12-15T00:00:00+00:00',
+              goodsLabel: 'Dock B',
+            },
+            request: {
+              customerOrderNumber: 'PO-OLD',
+              desiredDeliveryDate: '2026-12-01T00:00:00+00:00',
+              goodsLabel: 'Old label',
+            },
+          });
+          expect(quote.orderDetails).toEqual({
+            customerOrderNumber: 'PO-1',
+            desiredDeliveryDate: '2026-12-15',
+            goodsLabel: 'Dock B',
+          });
+        });
+
+        it('reads an orderDetails field left empty as missing, never from the request', async () => {
+          const quote = await getMapped({
+            orderDetails: {
+              customerOrderNumber: '',
+              desiredDeliveryDate: null,
+              goodsLabel: 'Dock B',
+            },
+            request: { customerOrderNumber: 'PO-OLD' },
+          });
+          expect(quote.orderDetails).toEqual({
+            customerOrderNumber: undefined,
+            desiredDeliveryDate: undefined,
+            goodsLabel: 'Dock B',
+          });
+        });
+
+        it('falls back to the request when the quotation has no orderDetails', async () => {
+          const quote = await getMapped({
+            orderDetails: null,
+            request: {
+              customerOrderNumber: 'PO-2',
+              customerReference: 'ref',
+              desiredDeliveryDate: '2026-11-30T00:00:00Z',
+              goodsLabel: '',
+            },
+          });
+          expect(quote.orderDetails).toEqual({
+            customerOrderNumber: 'PO-2',
+            desiredDeliveryDate: '2026-11-30',
+            goodsLabel: undefined,
+          });
+        });
+
+        it("takes an older request's reference as the PO number, as finalize does", async () => {
+          const quote = await getMapped({
+            orderDetails: null,
+            request: { customerReference: 'PO-77', customerOrderNumber: '' },
+          });
+          expect(quote.orderDetails?.customerOrderNumber).toBe('PO-77');
+        });
+
+        it('reads a date it cannot read as no date', async () => {
+          const quote = await getMapped({
+            orderDetails: { desiredDeliveryDate: 'soon', goodsLabel: 'Dock B' },
+          });
+          expect(quote.orderDetails?.desiredDeliveryDate).toBeUndefined();
+        });
+
+        it.each([
+          ['neither', {}],
+          ['both null', { orderDetails: null, request: null }],
+          [
+            'only empty values',
+            { orderDetails: null, request: { customerReference: '' } },
+          ],
+        ])('has none with %s', async (_label, overrides) => {
+          const quote = await getMapped(overrides);
+          expect(quote.orderDetails).toBeUndefined();
+        });
+      });
     });
 
     describe('what the buyer may do and who answers for the seller', () => {
@@ -1181,6 +1313,190 @@ describe('quotes service', () => {
     });
   });
 
+  describe('getQuoteNumber', () => {
+    it("reads only the quotation's number, as the signed-in buyer", async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: {
+          id: 'cart-001',
+          quotation: { quotationNumber: '2611-2-0015-00' },
+        },
+      });
+
+      const number = await quotesService.getQuoteNumber('cart-001', mockEvent);
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith({
+        queryAsString: 'query:quotes/quotation-number.graphql',
+        variables: { quotationId: 'cart-001', languageId: 'sv-SE' },
+        userToken: 'test-user-token',
+      });
+      expect(wrapServiceCall).toHaveBeenCalledWith(
+        expect.any(Function),
+        'quotes',
+      );
+      expect(number).toBe('2611-2-0015-00');
+    });
+
+    it.each([
+      ['no quotation', null],
+      ['a cart without its quotation', { id: 'cart-001' }],
+      ['a quotation without a number', { id: 'cart-001', quotation: {} }],
+      [
+        'an empty number',
+        { id: 'cart-001', quotation: { quotationNumber: '' } },
+      ],
+    ])('answers not found for %s', async (_label, answer) => {
+      mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: answer });
+
+      await expect(
+        quotesService.getQuoteNumber('cart-001', mockEvent),
+      ).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+        message: expect.stringContaining('cart-001'),
+      });
+    });
+
+    it('sends no user token when the request carries no context', async () => {
+      const { buildRequestContext } =
+        await import('../../../server/services/_sdk');
+      vi.mocked(buildRequestContext).mockReturnValueOnce(undefined);
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: {
+          id: 'cart-001',
+          quotation: { quotationNumber: 'Q-1' },
+        },
+      });
+
+      await quotesService.getQuoteNumber('cart-001', mockEvent);
+
+      expect(mockGraphqlQuery.mock.calls[0]![0].userToken).toBeUndefined();
+    });
+  });
+
+  // The order message travels as checkout input on the quotation's cart, which
+  // finalize then puts on the order.
+  describe('finalizeQuote with an order message', () => {
+    function finalizes() {
+      mockGraphqlMutation
+        .mockResolvedValueOnce({ createOrUpdateCheckout: { message: 'x' } })
+        .mockResolvedValueOnce({ finalizeQuotation: true });
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: makeRawQuotationCart({ status: 'FINALIZED' }),
+      });
+    }
+
+    it('writes the message on the quotation cart, then finalizes', async () => {
+      finalizes();
+
+      const result = await quotesService.finalizeQuote('cart-001', mockEvent, {
+        message: '  Ring innan leverans  ',
+      });
+
+      const [checkout, finalize] = mockGraphqlMutation.mock.calls.map(
+        ([options]) => options,
+      );
+      expect(checkout).toMatchObject({
+        queryAsString: 'query:quotes/quotation-checkout.graphql',
+        userToken: 'test-user-token',
+        variables: {
+          cartId: 'cart-001',
+          checkout: { message: 'Ring innan leverans' },
+          channelId: '1|se',
+          languageId: 'sv-SE',
+          marketId: 'se',
+        },
+        requestOptions: { context: { timeoutMs: 0 } },
+      });
+      expect(Object.keys(checkout.variables.checkout)).toEqual(['message']);
+      expect(finalize).toMatchObject({
+        queryAsString: 'query:quotes/finalize-quotation.graphql',
+      });
+      expect(result.status).toBe('finalized');
+    });
+
+    it('finalizes alone without a message', async () => {
+      mockGraphqlMutation.mockResolvedValueOnce({ finalizeQuotation: true });
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: makeRawQuotationCart({ status: 'FINALIZED' }),
+      });
+
+      await quotesService.finalizeQuote('cart-001', mockEvent, {});
+
+      expect(mockGraphqlMutation).toHaveBeenCalledTimes(1);
+      expect(mockGraphqlMutation.mock.calls[0]![0]).toMatchObject({
+        queryAsString: 'query:quotes/finalize-quotation.graphql',
+      });
+    });
+
+    it.each(['', '   '])(
+      'writes the blank message %j as empty, which clears one written before',
+      async (message) => {
+        finalizes();
+
+        await quotesService.finalizeQuote('cart-001', mockEvent, { message });
+
+        expect(mockGraphqlMutation.mock.calls[0]![0]).toMatchObject({
+          queryAsString: 'query:quotes/quotation-checkout.graphql',
+          variables: { checkout: { message: '' } },
+        });
+        expect(mockGraphqlMutation.mock.calls[1]![0]).toMatchObject({
+          queryAsString: 'query:quotes/finalize-quotation.graphql',
+        });
+      },
+    );
+
+    it('places no order when the message is refused', async () => {
+      const refused = new Error('message too long');
+      mockGraphqlMutation.mockRejectedValueOnce(refused);
+
+      await expect(
+        quotesService.finalizeQuote('cart-001', mockEvent, { message: 'Hej' }),
+      ).rejects.toBe(refused);
+      expect(mockGraphqlMutation).toHaveBeenCalledTimes(1);
+      expect(mockGraphqlQuery).not.toHaveBeenCalled();
+    });
+
+    it('places no order when Geins answers the checkout with nothing', async () => {
+      mockGraphqlMutation.mockResolvedValueOnce({
+        createOrUpdateCheckout: null,
+      });
+
+      await expect(
+        quotesService.finalizeQuote('cart-001', mockEvent, { message: 'Hej' }),
+      ).rejects.toMatchObject({
+        code: 'EXTERNAL_API_ERROR',
+        message: expect.stringContaining('cart-001'),
+      });
+      expect(mockGraphqlMutation).toHaveBeenCalledTimes(1);
+    });
+
+    it('names the quotes service for the error mapping', async () => {
+      finalizes();
+
+      await quotesService.finalizeQuote('cart-001', mockEvent, {
+        message: 'Hej',
+      });
+
+      expect(wrapServiceCall).toHaveBeenNthCalledWith(
+        1,
+        expect.any(Function),
+        'quotes',
+      );
+    });
+
+    it('sends no user token when the request carries no context', async () => {
+      const { buildRequestContext } =
+        await import('../../../server/services/_sdk');
+      vi.mocked(buildRequestContext).mockReturnValueOnce(undefined);
+      finalizes();
+
+      await quotesService.finalizeQuote('cart-001', mockEvent, {
+        message: 'Hej',
+      });
+
+      expect(mockGraphqlMutation.mock.calls[0]![0].userToken).toBeUndefined();
+    });
+  });
+
   // -------------------------------------------------------------------------
   // createQuoteRequest / updateQuoteRequest / releaseQuoteRequest
   // -------------------------------------------------------------------------
@@ -1245,7 +1561,7 @@ describe('quotes service', () => {
         const details = {
           comment: 'Leverans till lager B',
           desiredDeliveryDate: '2026-12-15',
-          customerReference: 'PO-7781',
+          customerOrderNumber: 'PO-7781',
         };
 
         const result = await quotesService.updateQuoteRequest(
@@ -1265,7 +1581,7 @@ describe('quotes service', () => {
               // Geins takes a DateTimeOffset and refuses a bare date as
               // INVALID_VALUE; the day is sent as its UTC midnight.
               desiredDeliveryDate: '2026-12-15T00:00:00Z',
-              customerReference: 'PO-7781',
+              customerOrderNumber: 'PO-7781',
             },
             languageId: 'sv-SE',
           },

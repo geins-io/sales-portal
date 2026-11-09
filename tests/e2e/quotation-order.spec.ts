@@ -39,7 +39,10 @@ async function findOrderable(page: Page) {
     const response = await page.request.get(`/api/quotes/${listed.id}`);
     if (!response.ok()) continue;
     const { quote } = (await response.json()) as {
-      quote: Record<string, unknown> & { lineItems: unknown[] };
+      quote: Record<string, unknown> & {
+        lineItems: unknown[];
+        orderDetails?: { customerOrderNumber?: string };
+      };
     };
     if (!quote.requiresConfirmation && !quote.externalReference) return quote;
   }
@@ -58,11 +61,12 @@ test.describe('Order from a quotation', () => {
     );
 
     // A real order of the buyer's stands in for the one the finalize would
-    // place, so the thank-you page reads a real order by its number.
+    // place, so the thank-you page reads a real order by its public id, as a
+    // quotation finalized now carries it.
     const ordersResponse = await page.request.get('/api/orders');
     expect(ordersResponse.ok(), '/api/orders did not answer 200').toBe(true);
     const { orders } = (await ordersResponse.json()) as {
-      orders: Array<{ id: number | string }>;
+      orders: Array<{ id: number | string; publicId?: string | null }>;
     };
     outOfScope(
       !orders.length,
@@ -70,11 +74,19 @@ test.describe('Order from a quotation', () => {
       'the test account has no order for the thank-you page to read',
     );
     const orderNumber = String(orders[0]!.id);
-    const finalized = { ...quote, status: 'finalized', orderId: orderNumber };
+    const finalized = {
+      ...quote,
+      status: 'finalized',
+      orderId: orderNumber,
+      orderPublicId: orders[0]!.publicId ?? undefined,
+    };
 
-    const finalizeCalls: string[] = [];
+    const finalizeCalls: Array<{ url: string; body: unknown }> = [];
     await page.route('**/api/quotes/*/finalize', async (route) => {
-      finalizeCalls.push(route.request().url());
+      finalizeCalls.push({
+        url: route.request().url(),
+        body: route.request().postDataJSON(),
+      });
       await route.fulfill({ json: { quote: finalized } });
     });
 
@@ -116,12 +128,18 @@ test.describe('Order from a quotation', () => {
     await expect(
       orderPage.locator('[data-testid="checkout-payment-options"]'),
     ).toBeVisible();
-    // Nothing but the terms box can be changed.
+    // Nothing but the message and the terms box can be changed.
     await expect(
       orderPage.locator(
-        'input:enabled:not(#checkout-terms-checkbox), textarea:enabled, select:enabled',
+        'input:enabled:not(#checkout-terms-checkbox), textarea:enabled:not(#quote-order-message), select:enabled',
       ),
     ).toHaveCount(0);
+    const poNumber = quote!.orderDetails?.customerOrderNumber;
+    if (poNumber) {
+      await expect(
+        orderPage.locator('[data-testid="checkout-customer-order-number"]'),
+      ).toHaveValue(poNumber);
+    }
     await expect(
       orderPage.locator('[data-testid="checkout-quantity-stepper"]'),
     ).toHaveCount(0);
@@ -130,6 +148,9 @@ test.describe('Order from a quotation', () => {
     await expect(place).toBeDisabled();
     expect(finalizeCalls).toHaveLength(0);
 
+    await page
+      .locator('[data-testid="quote-order-message"]')
+      .fill('Ring innan leverans');
     await page.locator('#checkout-terms-checkbox').click();
     await expect(place).toBeEnabled();
     // From here on the quotation reads as the order it became.
@@ -142,7 +163,10 @@ test.describe('Order from a quotation', () => {
       timeout: PAGE_TIMEOUT,
     });
     expect(finalizeCalls).toHaveLength(1);
-    expect(finalizeCalls[0]).toContain(`/api/quotes/${quote!.id}/finalize`);
+    expect(finalizeCalls[0]!.url).toContain(
+      `/api/quotes/${quote!.id}/finalize`,
+    );
+    expect(finalizeCalls[0]!.body).toEqual({ message: 'Ring innan leverans' });
 
     const thanks = page.locator('[data-testid="quote-thanks"]');
     await expect(thanks).toHaveAttribute('data-kind', 'order', {

@@ -197,4 +197,19 @@ describe('quotePaymentOptions', () => {
       undefined,
     ]);
   });
+
+  it('shows the display name Geins gives, and none for an older quotation', () => {
+    const options = quotePaymentOptions(
+      makeQuote({
+        paymentMethods: [
+          { id: '18', name: 'ManualInvoice', displayName: 'Faktura 30 dagar' },
+          { id: '19', name: 'ManualInvoice' },
+        ],
+      }),
+    );
+    expect(options.map((option) => option.displayName)).toEqual([
+      'Faktura 30 dagar',
+      undefined,
+    ]);
+  });
 });
