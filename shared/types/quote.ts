@@ -168,6 +168,11 @@ export interface Quote {
   paymentMethods?: QuotePaymentMethod[];
   /** Only on the single quotation read. */
   orderDetails?: QuoteOrderDetails;
+  /**
+   * What the buyer sent with the request; only on the single quotation read.
+   * The seller may change `orderDetails`, never this.
+   */
+  request?: QuoteRequestDetails;
 }
 
 // ---------------------------------------------------------------------------
@@ -213,4 +218,5 @@ export interface QuoteRequestDetails {
   desiredDeliveryDate?: string;
   /** The buyer's PO number, at most 30 characters */
   customerOrderNumber?: string;
+  goodsLabel?: string;
 }

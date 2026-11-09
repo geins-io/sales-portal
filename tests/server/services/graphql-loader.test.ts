@@ -133,13 +133,11 @@ describe('GraphQL loader', () => {
     it('reads what the order will get, its payment names and its order on the single quotation', () => {
       const query = loadQuery('quotes/get-quotation.graphql');
 
-      for (const block of ['orderDetails', 'request']) {
-        expect(query).toMatch(
-          new RegExp(
-            `${block} \\{\\s*customerOrderNumber\\s+customerReference\\s+desiredDeliveryDate\\s+goodsLabel\\s*\\}`,
-          ),
-        );
-      }
+      const details =
+        'customerOrderNumber\\s+customerReference\\s+desiredDeliveryDate\\s+goodsLabel\\s*\\}';
+      expect(query).toMatch(new RegExp(`orderDetails \\{\\s*${details}`));
+      // What the buyer sent also carries their message.
+      expect(query).toMatch(new RegExp(`request \\{\\s*comment\\s+${details}`));
       expect(query).toMatch(/validPaymentMethods \{[^}]*\sdisplayName\s/);
       expect(query).toMatch(/^\s*orderPublicId$/m);
     });

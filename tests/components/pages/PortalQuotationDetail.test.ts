@@ -8,6 +8,7 @@ import {
   type VNode,
 } from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
+import { Hash, MessageSquare, Tag, Truck } from 'lucide-vue-next';
 import { defaultMountOptions } from '../../utils/component';
 import type { Quote, QuoteStatus } from '../../../shared/types/quote';
 import { makeQuote } from '../../fixtures/quote';
@@ -1445,6 +1446,124 @@ describe('PortalQuotationDetail', () => {
       expect(wrapper.find('[data-testid="quote-meta-status"]').exists()).toBe(
         false,
       );
+    });
+
+    describe('what the buyer sent', () => {
+      const SENT = {
+        customerOrderNumber: 'PO-7781',
+        desiredDeliveryDate: '2026-12-09',
+        goodsLabel: 'Lastbrygga B',
+        comment: 'Leverans till lager 2\nPorten på baksidan',
+      };
+      const row = (wrapper: Wrapper, id: string) =>
+        wrapper.find(`[data-testid="quote-meta-${id}"]`);
+
+      it('adds the four rows after the status, in the prototype order', async () => {
+        const wrapper = await mountWith(
+          makeQuote({ status: 'requested', request: SENT }),
+        );
+
+        expect(metaKeys(wrapper)).toEqual([
+          'reference',
+          'created',
+          'status',
+          'your-reference',
+          'desired-date',
+          'goods-label',
+          'comment',
+          'expires',
+          'terms',
+        ]);
+      });
+
+      it('labels each row and shows what was sent', async () => {
+        const wrapper = await mountWith(
+          makeQuote({ status: 'pending', request: SENT }),
+        );
+
+        expect(row(wrapper, 'your-reference').text()).toBe(
+          'portal.quotations.your_reference' + 'PO-7781',
+        );
+        expect(row(wrapper, 'goods-label').text()).toBe(
+          'portal.quotations.goods_label' + 'Lastbrygga B',
+        );
+        expect(row(wrapper, 'comment').text()).toBe(
+          'portal.quotations.comment' + SENT.comment,
+        );
+        const date = row(wrapper, 'desired-date');
+        expect(date.text()).toContain('portal.quotations.desired_date');
+        // A calendar day: the same day in every timezone, never the one before.
+        expect(date.text()).toMatch(/2026/);
+        expect(date.text()).toMatch(/\b9\b/);
+        expect(date.text()).not.toMatch(/\b8\b/);
+      });
+
+      it('gives each row its own icon', async () => {
+        const wrapper = await mountWith(
+          makeQuote({ status: 'requested', request: SENT }),
+        );
+
+        const iconOf = (key: string) =>
+          wrapper
+            .findAllComponents({ name: 'PortalMetaRow' })
+            .find((row) => row.props('rowKey') === key)
+            ?.props('icon');
+        expect(iconOf('your-reference')).toBe(Hash);
+        expect(iconOf('desired-date')).toBe(Truck);
+        expect(iconOf('goods-label')).toBe(Tag);
+        expect(iconOf('comment')).toBe(MessageSquare);
+      });
+
+      it('shows only the ones that are set', async () => {
+        const wrapper = await mountWith(
+          makeQuote({
+            status: 'requested',
+            request: { desiredDeliveryDate: '2026-12-09', comment: 'Hej' },
+          }),
+        );
+
+        expect(metaKeys(wrapper)).toEqual([
+          'reference',
+          'created',
+          'status',
+          'desired-date',
+          'comment',
+          'expires',
+          'terms',
+        ]);
+      });
+
+      it.each([
+        ['no request', undefined],
+        ['an empty request', {}],
+      ])('adds none with %s', async (_label, request) => {
+        const wrapper = await mountWith(
+          makeQuote({ status: 'requested', request }),
+        );
+
+        expect(metaKeys(wrapper)).toEqual([
+          'reference',
+          'created',
+          'status',
+          'expires',
+          'terms',
+        ]);
+      });
+
+      it('adds none on a request draft', async () => {
+        const wrapper = await mountWith(
+          makeQuote({ status: 'request_draft', request: SENT }),
+        );
+
+        for (const id of [
+          'your-reference',
+          'desired-date',
+          'goods-label',
+          'comment',
+        ]) {
+          expect(row(wrapper, id).exists()).toBe(false);
+        }
+      });
     });
   });
 

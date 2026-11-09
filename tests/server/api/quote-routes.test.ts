@@ -856,7 +856,7 @@ describe('Quote API Routes', () => {
           customerOrderNumber: ' PO-7781 ',
           customerReference: 'not passed on',
           items: [{ skuId: 1, quantity: 1 }],
-          goodsLabel: 'not live yet',
+          goodsLabel: ' Lastbrygga B ',
         });
 
         const handler = await load('update');
@@ -868,6 +868,7 @@ describe('Quote API Routes', () => {
             comment: 'Leverans till lager B',
             desiredDeliveryDate: '2026-12-15',
             customerOrderNumber: 'PO-7781',
+            goodsLabel: 'Lastbrygga B',
           },
           withId,
         );
@@ -892,6 +893,7 @@ describe('Quote API Routes', () => {
           'a PO number over 30 characters',
           { customerOrderNumber: 'x'.repeat(31) },
         ],
+        ['a goods label over 500 characters', { goodsLabel: 'x'.repeat(501) }],
         ['a date in another format', { desiredDeliveryDate: '15/12/2026' }],
         ['a date that does not exist', { desiredDeliveryDate: '2026-02-30' }],
         ['a date with a time', { desiredDeliveryDate: '2026-12-15T10:00:00Z' }],
@@ -902,10 +904,11 @@ describe('Quote API Routes', () => {
         expect(mockUpdateQuoteRequest).not.toHaveBeenCalled();
       });
 
-      it('takes a comment of 2000 and a PO number of 30 characters', async () => {
+      it('takes a comment of 2000, a PO number of 30 and a goods label of 500 characters', async () => {
         const body = {
           comment: 'x'.repeat(2000),
           customerOrderNumber: 'y'.repeat(30),
+          goodsLabel: 'z'.repeat(500),
         };
         readBodyMock.mockReturnValue(body);
 

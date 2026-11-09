@@ -129,7 +129,7 @@ interface RawQuotation {
       }[]
     | null;
   orderDetails?: RawOrderDetails | null;
-  request?: RawOrderDetails | null;
+  request?: RawQuotationRequest | null;
   /** The seller's discount; the amount it comes to is on the cart summary. */
   discount?: {
     type?: string | null;
@@ -143,6 +143,11 @@ interface RawOrderDetails {
   customerReference?: string | null;
   desiredDeliveryDate?: string | null;
   goodsLabel?: string | null;
+}
+
+/** `QuotationRequestType`: what the buyer sent */
+interface RawQuotationRequest extends RawOrderDetails {
+  comment?: string | null;
 }
 
 interface RawCartSummary {
@@ -345,15 +350,37 @@ function mapOrderDetails(
   if (!source) return undefined;
   const poNumber = q.orderDetails
     ? source.customerOrderNumber
-    : source.customerOrderNumber || source.customerReference;
+    : requestPoNumber(source);
   const details: QuoteOrderDetails = {
     customerOrderNumber: poNumber || undefined,
-    // Geins answers an instant; the day is the one it was written for.
-    desiredDeliveryDate:
-      source.desiredDeliveryDate?.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? undefined,
+    desiredDeliveryDate: calendarDay(source.desiredDeliveryDate),
     goodsLabel: source.goodsLabel || undefined,
   };
   return Object.values(details).some(Boolean) ? details : undefined;
+}
+
+/** What the buyer sent with the request, as it was sent. */
+function mapRequest(
+  request: RawQuotation['request'],
+): QuoteRequestDetails | undefined {
+  if (!request) return undefined;
+  const details: QuoteRequestDetails = {
+    comment: request.comment || undefined,
+    customerOrderNumber: requestPoNumber(request) || undefined,
+    desiredDeliveryDate: calendarDay(request.desiredDeliveryDate),
+    goodsLabel: request.goodsLabel || undefined,
+  };
+  return Object.values(details).some(Boolean) ? details : undefined;
+}
+
+/** An older request carried the PO number as its reference. */
+function requestPoNumber(request: RawOrderDetails) {
+  return request.customerOrderNumber || request.customerReference;
+}
+
+/** Geins answers an instant; the day is the one it was written for. */
+function calendarDay(instant: string | null | undefined) {
+  return instant?.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? undefined;
 }
 
 /** Linked only when the reference carries a value; the API may send empty strings. */
@@ -451,6 +478,7 @@ function mapQuotationCartToQuote(
     paymentMethods: mapPaymentMethods(q.validPaymentMethods),
     ...(q.orderPublicId ? { orderPublicId: q.orderPublicId } : {}),
     orderDetails: mapOrderDetails(q),
+    request: mapRequest(q.request),
   };
 }
 

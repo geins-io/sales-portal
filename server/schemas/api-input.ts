@@ -355,6 +355,8 @@ export const UpdateQuoteRequestSchema = z.object({
   comment: z.string().max(2000).optional(),
   desiredDeliveryDate: z.iso.date().optional(),
   customerOrderNumber: z.string().trim().max(30).optional(),
+  // Geins' own limit, the same as the checkout's goods label.
+  goodsLabel: z.string().trim().max(500).optional(),
 });
 export type UpdateQuoteRequestInput = z.infer<typeof UpdateQuoteRequestSchema>;
 

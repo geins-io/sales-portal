@@ -7,8 +7,12 @@ import {
   CircleCheck,
   Clock,
   FileText,
+  Hash,
   Info,
+  MessageSquare,
   ShoppingBag,
+  Tag,
+  Truck,
   User,
 } from 'lucide-vue-next';
 import { Badge } from '~/components/ui/badge';
@@ -164,6 +168,16 @@ function formatDate(iso: string): string {
   });
 }
 
+/** A calendar day (`YYYY-MM-DD`) read in UTC, so no timezone moves it. */
+function formatDay(day: string): string {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString(formatLocale.value, {
+    timeZone: 'UTC',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
 interface MetaRow {
   key: string;
   testId: string;
@@ -204,6 +218,38 @@ const metaRows = computed<MetaRow[]>(() => {
     icon: Info,
     label: t('portal.quotations.status_label'),
     lines: infoKey ? [t(infoKey)] : [],
+  });
+  // What the buyer sent; a draft has sent nothing yet.
+  const sent = q.status === 'request_draft' ? undefined : q.request;
+  add({
+    key: 'your-reference',
+    testId: 'quote-meta-your-reference',
+    icon: Hash,
+    label: t('portal.quotations.your_reference'),
+    lines: [sent?.customerOrderNumber ?? ''],
+  });
+  add({
+    key: 'desired-date',
+    testId: 'quote-meta-desired-date',
+    icon: Truck,
+    label: t('portal.quotations.desired_date'),
+    lines: sent?.desiredDeliveryDate
+      ? [formatDay(sent.desiredDeliveryDate)]
+      : [],
+  });
+  add({
+    key: 'goods-label',
+    testId: 'quote-meta-goods-label',
+    icon: Tag,
+    label: t('portal.quotations.goods_label'),
+    lines: [sent?.goodsLabel ?? ''],
+  });
+  add({
+    key: 'comment',
+    testId: 'quote-meta-comment',
+    icon: MessageSquare,
+    label: t('portal.quotations.comment'),
+    lines: [sent?.comment ?? ''],
   });
   add({
     key: 'expires',
