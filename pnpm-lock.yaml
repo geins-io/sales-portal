@@ -169,8 +169,8 @@ importers:
         specifier: ^5.5.4
         version: 5.5.7(eslint-config-prettier@10.1.8(eslint@9.39.5(jiti@2.7.0)))(eslint@9.39.5(jiti@2.7.0))(prettier@3.9.10)
       eslint-plugin-tailwindcss:
-        specifier: 4.0.0-beta.0
-        version: 4.0.0-beta.0(tailwindcss@4.3.4)
+        specifier: 4.4.0
+        version: 4.4.0(eslint@9.39.5(jiti@2.7.0))(tailwindcss@4.3.4)(typescript@5.9.3)
       happy-dom:
         specifier: ^21.0.4
         version: 21.0.4
@@ -5796,11 +5796,16 @@ packages:
     peerDependencies:
       eslint: '>=9.38.0'
 
-  eslint-plugin-tailwindcss@4.0.0-beta.0:
-    resolution: {integrity: sha512-WWCajZgQu38Sd67ZCl2W6i3MRzqB0d+H8s4qV9iB6lBJbsDOIpIlj6R1Fj2FXkoWErbo05pZnZYbCGIU9o/DsA==}
-    engines: {node: '>=18.12.0'}
+  eslint-plugin-tailwindcss@4.4.0:
+    resolution: {integrity: sha512-cPyEIeBTVbPU30oQTm7pOqOYurb5vtGaGhRCajYsSUwpUS9fvswB13dOLDUjGJJ+Rt8ylXf4L0hrhLA7Hf7WTQ==}
+    engines: {node: '>=20.19.0'}
     peerDependencies:
-      tailwindcss: ^3.4.0 || ^4.0.0
+      eslint: ^9.0.0 || ^10.0.0
+      tailwindcss: ^4.0.0
+      typescript: '*'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
 
   eslint-plugin-unicorn@73.0.0:
     resolution: {integrity: sha512-V0YatLe9nkGhXEXKe2Qljb1EY0sJHwDV0HUF1NKFwtsHh/fU7qGHDgv+6fchzZcgU2/7noHo2gdjnmo0P2uDPw==}
@@ -7753,6 +7758,12 @@ packages:
     engines: {node: '>=12'}
     peerDependencies:
       postcss: ^8.3.5
+
+  postcss-nested@7.0.2:
+    resolution: {integrity: sha512-5osppouFc0VR9/VYzYxO03VaDa3e8F23Kfd6/9qcZTUI8P58GIYlArOET2Wq0ywSl2o2PjELhYOFI4W7l5QHKw==}
+    engines: {node: '>=18.0'}
+    peerDependencies:
+      postcss: ^8.2.14
 
   postcss-sass@0.5.0:
     resolution: {integrity: sha512-qtu8awh1NMF3o9j/x9j3EZnd+BlF66X6NZYl12BdKoG2Z4hmydOt/dZj2Nq+g0kfk2pQy3jeYFBmvG9DBwynGQ==}
@@ -15481,13 +15492,19 @@ snapshots:
       regexp-ast-analysis: 0.7.1
       scslre: 0.3.0
 
-  eslint-plugin-tailwindcss@4.0.0-beta.0(tailwindcss@4.3.4):
+  eslint-plugin-tailwindcss@4.4.0(eslint@9.39.5(jiti@2.7.0))(tailwindcss@4.3.4)(typescript@5.9.3):
     dependencies:
-      fast-glob: 3.3.3
+      '@typescript-eslint/utils': 8.72.1(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+      eslint: 9.39.5(jiti@2.7.0)
       postcss: 8.5.32
+      postcss-nested: 7.0.2(postcss@8.5.32)
       synckit: 0.11.13
       tailwind-api-utils: 1.0.3(tailwindcss@4.3.4)
       tailwindcss: 4.3.4
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - supports-color
 
   eslint-plugin-unicorn@73.0.0(eslint@9.39.5(jiti@2.7.0)):
     dependencies:
@@ -18098,6 +18115,11 @@ snapshots:
   postcss-less@6.0.0(postcss@8.5.32):
     dependencies:
       postcss: 8.5.32
+
+  postcss-nested@7.0.2(postcss@8.5.32):
+    dependencies:
+      postcss: 8.5.32
+      postcss-selector-parser: 7.1.7
 
   postcss-sass@0.5.0:
     dependencies:

@@ -7,14 +7,23 @@ const { eslintPluginPrettierRecommended } = prettierPlugin;
 
 export default createConfigForNuxt()
   .append(eslintPluginPrettierRecommended)
-  .append(tailwind.configs['flat/recommended'])
+  .append(tailwind.configs.recommended)
   .append({
+    // The plugin is registered only for the files its recommended config
+    // lists; a Tailwind rule set outside that scope crashes ESLint.
+    files: tailwind.configs.recommended.files,
     settings: {
       tailwindcss: {
-        // Tailwind v4 uses inline config, so provide an empty object to silence path warnings.
-        config: {},
+        cssConfigPath: 'app/assets/css/tailwind.css',
       },
     },
+    rules: {
+      // prettier-plugin-tailwindcss owns class order.
+      'tailwindcss/classnames-order': 'off',
+      'tailwindcss/no-custom-classname': 'off',
+    },
+  })
+  .append({
     rules: {
       'vue/require-default-prop': 'off',
       'vue/no-multiple-template-root': 'off',
@@ -31,7 +40,6 @@ export default createConfigForNuxt()
           math: 'always',
         },
       ],
-      'tailwindcss/no-custom-classname': 'off',
       // Types are the contract with @geins/types and the tenant config schema.
       // Silencing the compiler hides drift instead of fixing it: extend the type
       // (e.g. shared/types/commerce.ts) rather than casting. The few legitimate
