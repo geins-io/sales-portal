@@ -232,7 +232,7 @@ test.describe('Send a quote request', () => {
     expect(calls.patch).toEqual([
       {
         desiredDeliveryDate: desired,
-        customerReference: 'PO-E2E-77',
+        customerOrderNumber: 'PO-E2E-77',
         comment: 'Leverans till lager 2',
       },
     ]);
