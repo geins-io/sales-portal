@@ -100,31 +100,25 @@ export function quoteRows(
   }));
 }
 
-/** What accepting means: Monitor places the order, or the seller confirms first, or neither. */
-export type QuoteAcceptKind = 'monitor' | 'confirm' | 'plain';
+/** What accepting means: the seller confirms first, or not. */
+export type QuoteAcceptKind = 'confirm' | 'plain';
 
 export function quoteAcceptKind(
-  quote: Pick<Quote, 'externalReference' | 'requiresConfirmation'>,
+  quote: Pick<Quote, 'requiresConfirmation'>,
 ): QuoteAcceptKind {
-  if (quote.externalReference) return 'monitor';
   return quote.requiresConfirmation ? 'confirm' : 'plain';
 }
 
 /**
- * Whether the buyer may place the order now. Monitor places its own; a
- * quotation that needs confirmation waits for the seller's.
+ * Whether the buyer may place the order now. A quotation that needs
+ * confirmation waits for the seller's.
  */
 export function quoteCanOrder(
-  quote: Pick<Quote, 'status' | 'externalReference' | 'requiresConfirmation'>,
+  quote: Pick<Quote, 'status' | 'requiresConfirmation'>,
 ): boolean {
-  switch (quoteAcceptKind(quote)) {
-    case 'monitor':
-      return false;
-    case 'confirm':
-      return quote.status === 'confirmed';
-    default:
-      return quote.status === 'pending' || quote.status === 'accepted';
-  }
+  return quoteAcceptKind(quote) === 'confirm'
+    ? quote.status === 'confirmed'
+    : quote.status === 'pending' || quote.status === 'accepted';
 }
 
 /** What the summary card offers the buyer. */
@@ -148,7 +142,7 @@ const K = 'portal.quotations.';
  * else in, so without it nothing leads to the order page and no text offers it.
  */
 export function quoteResponses(
-  quote: Pick<Quote, 'status' | 'externalReference' | 'requiresConfirmation'>,
+  quote: Pick<Quote, 'status' | 'requiresConfirmation'>,
   canPlaceOrders: boolean,
 ): QuoteResponses {
   const pending = quote.status === 'pending';
@@ -164,7 +158,7 @@ export function quoteResponses(
   if (kind === 'plain' && canPlaceOrders) {
     return { ...responses, accept: 'order', noteKey: `${K}note_order` };
   }
-  const order = kind === 'confirm' && canPlaceOrders ? '_order' : '';
+  const order = canPlaceOrders ? '_order' : '';
   return {
     ...responses,
     accept: kind,
@@ -185,7 +179,7 @@ const STATUSES_WITH_INFO = new Set<QuoteStatus>([
 
 /** The details card's status text; none for a draft or an unknown status. */
 export function quoteStatusInfoKey(
-  quote: Pick<Quote, 'status' | 'externalReference' | 'requiresConfirmation'>,
+  quote: Pick<Quote, 'status' | 'requiresConfirmation'>,
   canPlaceOrders: boolean,
 ): string | undefined {
   // Pending keeps its own text; its card offers the response.

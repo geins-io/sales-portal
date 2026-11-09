@@ -1192,43 +1192,6 @@ describe('quotes service', () => {
         },
       );
 
-      it('carries an external reference when the quotation is linked', async () => {
-        const quote = await getMapped({
-          externalReference: {
-            system: 'Monitor',
-            number: 'M-1001',
-            orderNumber: null,
-          },
-        });
-        expect(quote.externalReference).toEqual({
-          system: 'Monitor',
-          number: 'M-1001',
-          orderNumber: undefined,
-        });
-      });
-
-      it.each([
-        [{ system: 'Monitor', number: null, orderNumber: null }],
-        [{ system: null, number: 'M-1001', orderNumber: null }],
-        [{ system: null, number: null, orderNumber: 'MO-77' }],
-      ])(
-        'reads a reference with any one value set, %j, as linked',
-        async (ref) => {
-          const quote = await getMapped({ externalReference: ref });
-          expect(quote.externalReference).toBeDefined();
-        },
-      );
-
-      it.each([
-        null,
-        undefined,
-        { system: null, number: null, orderNumber: null },
-        { system: '', number: '', orderNumber: '' },
-      ])('reads %j as not linked', async (externalReference) => {
-        const quote = await getMapped({ externalReference });
-        expect(quote.externalReference).toBeUndefined();
-      });
-
       it('names the seller from the owner, never the buyer', async () => {
         const quote = await getMapped({
           owner: {

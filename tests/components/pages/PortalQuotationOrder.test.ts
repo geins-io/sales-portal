@@ -245,12 +245,6 @@ describe('PortalQuotationOrder', () => {
       );
     });
 
-    it('sends a Monitor-linked quotation back to the quotation view', async () => {
-      await mountWith(orderable({ externalReference: { number: 'M-1' } }));
-
-      expect(mockNavigateTo).toHaveBeenCalledWith(VIEW_PATH, { replace: true });
-    });
-
     it('sends the buyer back when orderPlacement access is denied', async () => {
       mockCanAccess.mockImplementation((name) => name !== 'orderPlacement');
 
