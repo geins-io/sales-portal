@@ -13,6 +13,7 @@ mutation createQuotationRequest(
     id
     items {
       ...QuotationCartItem
+      ...QuotationLineConfiguration
     }
     summary {
       ...QuotationCartSummary

@@ -26,7 +26,65 @@ const QUOTE_ID = 'e2e-request-draft';
 const LIST_PATH = '/se/sv/portal/quotations';
 const VIEW_PATH = `${LIST_PATH}/${QUOTE_ID}`;
 
-function makeQuote(status: string) {
+const SEK = { code: 'SEK' };
+const CONFIGURED_PRICE = {
+  sellingPriceIncVat: 29256.7,
+  sellingPriceExVat: 23405.36,
+  vat: 5851.34,
+  currency: SEK,
+};
+
+/** A line brought over from a configured cart line, as the API maps it. */
+const CONFIGURED_LINE = {
+  productId: 1001,
+  sku: '1001-1',
+  name: 'E2E Configured Display',
+  articleNumber: 'CFG-001',
+  quantity: 1,
+  unitPrice: 29256.7,
+  unitPriceFormatted: '29 256,70 kr',
+  totalPrice: 29256.7,
+  totalPriceFormatted: '29 256,70 kr',
+  unitPriceExVat: 23405.36,
+  unitPriceExVatFormatted: '23 405,36 kr',
+  totalPriceExVat: 23405.36,
+  totalPriceExVatFormatted: '23 405,36 kr',
+  configuration: {
+    configurationId: 'e2e-configuration',
+    summary: [{ label: 'Panel', value: 'E2E 55" panel' }],
+    sections: [
+      {
+        name: 'Configuration',
+        sortIndex: 1,
+        variables: [],
+        optionGroups: [
+          {
+            id: 'e2e-group',
+            name: 'Panel',
+            sortIndex: 1,
+            options: [
+              {
+                name: 'E2E 55" panel',
+                quantity: 1,
+                unitPrice: {
+                  sellingPriceIncVat: 1250,
+                  sellingPriceExVat: 1000,
+                  vat: 250,
+                  currency: SEK,
+                },
+              },
+            ],
+            optionGroups: [],
+          },
+        ],
+        sections: [],
+      },
+    ],
+  },
+  linePrices: { unit: CONFIGURED_PRICE, total: CONFIGURED_PRICE },
+};
+
+function makeQuote(status: string, extraLines: object[] = []) {
   return {
     id: QUOTE_ID,
     quoteNumber: '2611-2-0099-00',
@@ -51,6 +109,7 @@ function makeQuote(status: string) {
         totalPriceExVat: 350,
         totalPriceExVatFormatted: '350,00 kr',
       },
+      ...extraLines,
     ],
     subtotal: 437.5,
     subtotalFormatted: '437,50 kr',
@@ -78,7 +137,11 @@ interface Calls {
 }
 
 /** Answers the quotation's read, details write and release. */
-async function answerQuotation(page: Page, initialStatus: string) {
+async function answerQuotation(
+  page: Page,
+  initialStatus: string,
+  extraLines: object[] = [],
+) {
   const calls: Calls = { patch: [], release: 0 };
   let status = initialStatus;
   await page.route(`**/api/quotes/${QUOTE_ID}**`, async (route: Route) => {
@@ -86,15 +149,15 @@ async function answerQuotation(page: Page, initialStatus: string) {
     const path = new URL(request.url()).pathname;
     if (path.endsWith('/request') && request.method() === 'PATCH') {
       calls.patch.push(request.postDataJSON());
-      return route.fulfill({ json: { quote: makeQuote(status) } });
+      return route.fulfill({ json: { quote: makeQuote(status, extraLines) } });
     }
     if (path.endsWith('/release') && request.method() === 'POST') {
       calls.release += 1;
       status = 'requested';
-      return route.fulfill({ json: { quote: makeQuote(status) } });
+      return route.fulfill({ json: { quote: makeQuote(status, extraLines) } });
     }
     if (request.method() === 'GET') {
-      return route.fulfill({ json: { quote: makeQuote(status) } });
+      return route.fulfill({ json: { quote: makeQuote(status, extraLines) } });
     }
     return route.fallback();
   });
@@ -191,6 +254,46 @@ test.describe('Send a quote request', () => {
     await expect(page.locator('[data-testid="quote-detail"]')).toBeVisible({
       timeout: PAGE_TIMEOUT,
     });
+  });
+
+  test('shows a configured line with its configuration', async ({ page }) => {
+    await answerQuotation(page, 'request_draft', [CONFIGURED_LINE]);
+
+    await openInApp(page, `${VIEW_PATH}/request`);
+    await expect(
+      page.locator('[data-testid="quote-request-page"]'),
+    ).toBeVisible({ timeout: PAGE_TIMEOUT });
+
+    // A table from md up, cards below it: the visible one carries the line.
+    const line = page
+      .locator(
+        '[data-testid="line-item-row"]:visible, [data-testid="line-item-card"]:visible',
+      )
+      .nth(1);
+    await expect(line).toContainText('E2E Configured Display');
+    await expect(line.getByTestId('line-item-configured')).toBeVisible();
+    // On the side of the buyer's VAT choice.
+    await expect(line).toContainText(/23 405,36 kr|29 256,70 kr/);
+    await expect(
+      page
+        .locator(
+          '[data-testid="line-item-row"]:visible, [data-testid="line-item-card"]:visible',
+        )
+        .first()
+        .getByTestId('line-specification-open'),
+    ).toHaveCount(0);
+
+    await line.getByTestId('line-specification-open').click();
+    const specification = page.getByTestId('line-specification-sheet');
+    await expect(specification).toBeInViewport({ ratio: 1 });
+    await expect(specification).toContainText('Panel');
+    await expect(specification).toContainText('E2E 55" panel');
+    await expect(
+      specification.getByTestId('line-specification-net'),
+    ).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(specification).toBeHidden();
   });
 
   test('opens the estimate note on click and keeps it open until dismissed', async ({

@@ -92,6 +92,11 @@ export function quoteRows(
     imageFileName: item.imageFileName ?? null,
     imageUrl: item.imageUrl ?? null,
     alias: item.alias ?? null,
+    ...(item.configuration && {
+      configuration: item.configuration,
+      unitPrice: item.linePrices?.unit,
+      totalPrice: item.linePrices?.total,
+    }),
   }));
 }
 

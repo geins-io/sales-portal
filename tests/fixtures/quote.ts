@@ -1,4 +1,4 @@
-import type { Quote, QuoteListItem } from '#shared/types/quote';
+import type { Quote, QuoteLineItem, QuoteListItem } from '#shared/types/quote';
 
 // ---------------------------------------------------------------------------
 // Shared quote test fixtures.
@@ -65,6 +65,73 @@ export function makeQuote(overrides: Partial<Quote> = {}): Quote {
     expiresAt: '2026-04-01T00:00:00Z',
     createdAt: '2026-03-01T00:00:00Z',
     updatedAt: '2026-03-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+/**
+ * A configured quotation line as the API returns it: its configuration with
+ * summary and sections, and the line's own prices for the specification.
+ */
+export function makeConfiguredQuoteLine(
+  overrides: Partial<QuoteLineItem> = {},
+): QuoteLineItem {
+  const price = {
+    sellingPriceIncVat: 29256.7,
+    sellingPriceIncVatFormatted: '29 256,70 kr',
+    sellingPriceExVat: 23405.36,
+    sellingPriceExVatFormatted: '23 405,36 kr',
+    vat: 5851.34,
+    currency: { code: 'SEK' },
+  };
+  return {
+    productId: 1001,
+    sku: '1001-1',
+    name: 'Configured Display',
+    articleNumber: 'CFG-001',
+    quantity: 1,
+    unitPrice: 29256.7,
+    unitPriceFormatted: '29 256,70 kr',
+    totalPrice: 29256.7,
+    totalPriceFormatted: '29 256,70 kr',
+    unitPriceExVat: 23405.36,
+    unitPriceExVatFormatted: '23 405,36 kr',
+    totalPriceExVat: 23405.36,
+    totalPriceExVatFormatted: '23 405,36 kr',
+    imageUrl: null,
+    configuration: {
+      configurationId: 'config-1',
+      summary: [{ label: 'Display', value: '55"' }],
+      sections: [
+        {
+          name: 'Configuration',
+          sortIndex: 1,
+          variables: [],
+          optionGroups: [
+            {
+              id: 'group-1',
+              name: 'Display',
+              sortIndex: 1,
+              options: [
+                {
+                  name: '55" panel',
+                  quantity: 1,
+                  unitPrice: {
+                    sellingPriceIncVat: 1250,
+                    sellingPriceExVat: 1000,
+                    vat: 250,
+                    currency: { code: 'SEK' },
+                  },
+                },
+              ],
+              optionGroups: [],
+            },
+          ],
+          sections: [],
+        },
+      ],
+    },
+    linePrices: { unit: price, total: price },
     ...overrides,
   };
 }
