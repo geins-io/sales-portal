@@ -1,4 +1,6 @@
 import type { H3Event } from 'h3';
+import type { CartItemConfigurationType } from '@geins/types';
+import type { PriceType } from '#shared/types/commerce';
 import type {
   Quote,
   QuoteAddress,
@@ -17,6 +19,7 @@ import {
   getRequestChannelVariables,
 } from './_sdk';
 import { findOrderPublicId } from './orders';
+import { cartLineConfiguration } from './line-configuration';
 import { amountWriter } from './amount';
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
@@ -36,8 +39,13 @@ interface RawCartItem {
   id?: string;
   skuId?: number;
   quantity: number;
-  unitPrice?: RawPrice;
-  totalPrice?: RawPrice;
+  unitPrice?: PriceType;
+  totalPrice?: PriceType;
+  configurationId?: string | null;
+  configuration?: Pick<
+    CartItemConfigurationType,
+    'summary' | 'sections'
+  > | null;
   product?: {
     productId?: number;
     alias?: string;
@@ -201,6 +209,7 @@ function quoteAmount(
 
 function mapLineItem(item: RawCartItem, amount: QuoteAmount): QuoteLineItem {
   const { unitPrice, totalPrice } = item;
+  const configuration = cartLineConfiguration(item);
   return {
     productId: item.product?.productId ?? 0,
     alias: item.product?.alias ?? null,
@@ -230,6 +239,10 @@ function mapLineItem(item: RawCartItem, amount: QuoteAmount): QuoteLineItem {
     ),
     imageFileName: item.product?.productImages?.[0]?.fileName ?? undefined,
     imageUrl: item.product?.productImages?.[0]?.url ?? null,
+    ...(configuration && {
+      configuration,
+      linePrices: { unit: unitPrice, total: totalPrice },
+    }),
   };
 }
 

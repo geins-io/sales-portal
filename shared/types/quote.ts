@@ -1,3 +1,5 @@
+import type { CartLineConfiguration, PriceType } from './commerce';
+
 // ---------------------------------------------------------------------------
 // Quote Status
 // ---------------------------------------------------------------------------
@@ -33,6 +35,10 @@ export interface QuoteLineItem {
   totalPriceExVatFormatted: string;
   imageFileName?: string;
   imageUrl?: string | null;
+  /** Set on a configured line: what it was committed with. */
+  configuration?: CartLineConfiguration;
+  /** A configured line's prices, which its specification totals. */
+  linePrices?: { unit?: PriceType; total?: PriceType };
 }
 
 // ---------------------------------------------------------------------------

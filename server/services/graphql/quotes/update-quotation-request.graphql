@@ -11,6 +11,7 @@ mutation updateQuotationRequest(
     id
     items {
       ...QuotationCartItem
+      ...QuotationLineConfiguration
     }
     summary {
       ...QuotationCartSummary

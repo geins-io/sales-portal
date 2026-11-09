@@ -399,6 +399,145 @@ describe('quotes service', () => {
       expect(result.lineItems[3]!.imageFileName).toBe('old.jpg');
     });
 
+    describe('a configured line', () => {
+      const unitPrice = {
+        sellingPriceIncVat: 29256.7,
+        sellingPriceIncVatFormatted: '29 256,70 kr',
+        sellingPriceExVat: 23405.36,
+        sellingPriceExVatFormatted: '23 405,36 kr',
+        vat: 5851.34,
+        currency: { code: 'SEK' },
+      };
+      const optionPrice = {
+        sellingPriceIncVat: 1250,
+        sellingPriceExVat: 1000,
+        vat: 250,
+        currency: { code: 'SEK' },
+      };
+      const configuration = {
+        committedConfigurationId: 'committed-1',
+        summary: [
+          { label: 'Display', value: '55"' },
+          { label: 'Warranty', value: null },
+        ],
+        sections: [
+          {
+            id: 'section-1',
+            name: 'Configuration',
+            sortIndex: 1,
+            variables: [],
+            optionGroups: [
+              {
+                id: 'group-1',
+                code: 'DISPLAY',
+                name: 'Display',
+                sortIndex: 1,
+                options: [
+                  {
+                    id: 'option-1',
+                    instanceId: 'instance-1',
+                    articleNumber: 'D55',
+                    name: '55" panel',
+                    quantity: 1,
+                    unitPrice: optionPrice,
+                    discountPercent: 0,
+                  },
+                ],
+                optionGroups: [],
+              },
+            ],
+            sections: [],
+          },
+        ],
+      };
+
+      async function readLines(...items: Record<string, unknown>[]) {
+        const cart = makeRawQuotationCart();
+        const [item] = cart.items as Record<string, unknown>[];
+        cart.items = items.map((overrides) => ({ ...item, ...overrides }));
+        mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+        return (await quotesService.getQuote('cart-001', mockEvent)).lineItems;
+      }
+
+      it('carries the configuration it was committed with and its prices', async () => {
+        const [line] = await readLines({
+          configurationId: 'config-1',
+          configuration,
+          unitPrice,
+          totalPrice: unitPrice,
+        });
+
+        expect(line!.configuration).toEqual({
+          configurationId: 'config-1',
+          summary: [
+            { label: 'Display', value: '55"' },
+            { label: 'Warranty', value: '' },
+          ],
+          sections: [
+            {
+              name: 'Configuration',
+              sortIndex: 1,
+              variables: [],
+              optionGroups: [
+                {
+                  id: 'group-1',
+                  name: 'Display',
+                  sortIndex: 1,
+                  options: [
+                    { name: '55" panel', quantity: 1, unitPrice: optionPrice },
+                  ],
+                  optionGroups: [],
+                },
+              ],
+              sections: [],
+            },
+          ],
+        });
+        expect(line!.linePrices).toEqual({
+          unit: unitPrice,
+          total: unitPrice,
+        });
+      });
+
+      it('is still configured when Geins sends the id without the configuration', async () => {
+        const [line] = await readLines({
+          configurationId: 'config-1',
+          configuration: null,
+        });
+
+        expect(line!.configuration).toEqual({
+          configurationId: 'config-1',
+          summary: [],
+        });
+      });
+
+      it('leaves an ordinary line without a configuration or line prices', async () => {
+        const [plain, nullId] = await readLines(
+          {},
+          { configurationId: null, configuration: null },
+        );
+
+        for (const line of [plain!, nullId!]) {
+          expect(line).not.toHaveProperty('configuration');
+          expect(line).not.toHaveProperty('linePrices');
+        }
+      });
+
+      it('keeps two configurations of one SKU as two lines', async () => {
+        const lines = await readLines(
+          { configurationId: 'config-1', configuration },
+          { configurationId: 'config-2', configuration },
+        );
+
+        expect(
+          lines.map((line) => [line.sku, line.configuration?.configurationId]),
+        ).toEqual([
+          ['501', 'config-1'],
+          ['501', 'config-2'],
+        ]);
+      });
+    });
+
     it('calls graphql.query with getQuotationCart and maps to Quote type', async () => {
       const cart = makeRawQuotationCart();
       mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });

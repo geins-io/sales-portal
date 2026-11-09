@@ -7,12 +7,20 @@ fragment QuotationCartItem on CartItemType {
     sellingPriceIncVatFormatted
     sellingPriceExVat
     sellingPriceExVatFormatted
+    vat
+    currency {
+      code
+    }
   }
   totalPrice {
     sellingPriceIncVat
     sellingPriceIncVatFormatted
     sellingPriceExVat
     sellingPriceExVatFormatted
+    vat
+    currency {
+      code
+    }
   }
   product {
     productId

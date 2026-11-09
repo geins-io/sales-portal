@@ -102,6 +102,43 @@ describe('GraphQL loader', () => {
     });
 
     it.each([
+      'quotes/get-quotation.graphql',
+      'quotes/create-quotation-request.graphql',
+      'quotes/update-quotation-request.graphql',
+      'quotes/release-quotation-request.graphql',
+    ])("reads each line's configuration and price on %s", (file) => {
+      const query = loadQuery(file);
+
+      expect(query).toContain('...QuotationLineConfiguration');
+      expect(query.match(/fragment QuotationLineConfiguration /g)).toHaveLength(
+        1,
+      );
+      expect(query).toMatch(/^\s*configurationId$/m);
+      expect(query).toMatch(/summary \{\s*label\s*value\s*\}/);
+      // Fragments cannot recurse: the read goes four sections deep.
+      expect(query.match(/\.\.\.QuotationCommittedSection\b/g)).toHaveLength(4);
+      // The specification reads the line's VAT and currency.
+      for (const price of ['unitPrice', 'totalPrice']) {
+        expect(query).toMatch(
+          new RegExp(
+            `${price} \\{[^}]*\\svat\\s[^}]*currency \\{\\s*code\\s*\\}`,
+          ),
+        );
+      }
+      expect(query.match(/fragment Price on PriceType/g)).toHaveLength(1);
+      // Prod fails the whole line's product on `alias` until the platform
+      // fills quotation lines in from the catalogue.
+      expect(query).not.toMatch(/^\s*alias$/m);
+    });
+
+    it('reads no configuration for the list, which only counts the lines', () => {
+      const query = loadQuery('quotes/list-quotations.graphql');
+
+      expect(query).not.toContain('QuotationLineConfiguration');
+      expect(query).not.toContain('configuration');
+    });
+
+    it.each([
       ['quotes/accept-quotation.graphql', 'acceptQuotation'],
       ['quotes/reject-quotation.graphql', 'rejectQuotation'],
       ['quotes/finalize-quotation.graphql', 'finalizeQuotation'],

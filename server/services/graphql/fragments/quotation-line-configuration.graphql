@@ -1,0 +1,66 @@
+fragment QuotationLineConfiguration on CartItemType {
+  configurationId
+  configuration {
+    committedConfigurationId
+    summary {
+      label
+      value
+    }
+    sections {
+      ...QuotationCommittedSection
+      sections {
+        ...QuotationCommittedSection
+        sections {
+          ...QuotationCommittedSection
+          sections {
+            ...QuotationCommittedSection
+          }
+        }
+      }
+    }
+  }
+}
+
+# Fragments cannot recurse: sections are read four levels deep and option
+# groups three, as the SDK reads a cart line's.
+fragment QuotationCommittedSection on CpqCommittedSectionType {
+  id
+  name
+  sortIndex
+  variables {
+    id
+    name
+    sortIndex
+    valueType
+    value
+    unit
+    decimals
+  }
+  optionGroups {
+    ...QuotationCommittedGroup
+    optionGroups {
+      ...QuotationCommittedGroup
+      optionGroups {
+        ...QuotationCommittedGroup
+      }
+    }
+  }
+}
+
+fragment QuotationCommittedGroup on CpqCommittedOptionGroupType {
+  id
+  code
+  name
+  sortIndex
+  options {
+    id
+    instanceId
+    articleNumber
+    name
+    quantity
+    unitPrice {
+      ...Price
+    }
+    discountPercent
+  }
+}

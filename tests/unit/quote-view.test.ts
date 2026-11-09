@@ -10,7 +10,7 @@ import {
   quoteRows,
 } from '../../app/utils/quote-view';
 import type { QuoteStatus } from '../../shared/types/quote';
-import { makeQuote } from '../fixtures/quote';
+import { makeConfiguredQuoteLine, makeQuote } from '../fixtures/quote';
 
 // The two sonoralab quotations the ticket measured, as the API gives them.
 const percentOff = () =>
@@ -216,6 +216,38 @@ describe('quoteRows', () => {
       ['80,00 kr', '160,00 kr'],
       ['40,00 kr', '40,00 kr'],
     ]);
+  });
+
+  it('gives a configured line its configuration and its prices', () => {
+    const line = makeConfiguredQuoteLine();
+    const [row] = quoteRows(makeQuote({ lineItems: [line] }), false);
+
+    expect(row).toMatchObject({
+      name: 'Configured Display',
+      configuration: line.configuration,
+      unitPrice: line.linePrices!.unit,
+      totalPrice: line.linePrices!.total,
+      unitPriceFormatted: '23 405,36 kr',
+      totalPriceFormatted: '23 405,36 kr',
+    });
+    expect(row).not.toHaveProperty('href');
+  });
+
+  it('gives a configured line without its prices no price objects', () => {
+    const line = makeConfiguredQuoteLine({ linePrices: undefined });
+    const [row] = quoteRows(makeQuote({ lineItems: [line] }), true);
+
+    expect(row!.configuration).toEqual(line.configuration);
+    expect(row!.unitPrice).toBeUndefined();
+    expect(row!.totalPrice).toBeUndefined();
+  });
+
+  it('gives an ordinary line no configuration and no price objects', () => {
+    const [row] = quoteRows(makeQuote(), true);
+
+    expect(row).not.toHaveProperty('configuration');
+    expect(row).not.toHaveProperty('unitPrice');
+    expect(row).not.toHaveProperty('totalPrice');
   });
 
   it('keys two lines of one SKU apart', () => {

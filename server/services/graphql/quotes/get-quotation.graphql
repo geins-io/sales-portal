@@ -3,6 +3,7 @@ query getQuotationCart($quotationId: Guid!, $languageId: String) {
     id
     items {
       ...QuotationCartItem
+      ...QuotationLineConfiguration
     }
     summary {
       ...QuotationCartSummary

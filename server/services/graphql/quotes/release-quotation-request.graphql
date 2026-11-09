@@ -3,6 +3,7 @@ mutation releaseQuotationRequest($quotationId: Guid!, $languageId: String) {
     id
     items {
       ...QuotationCartItem
+      ...QuotationLineConfiguration
     }
     summary {
       ...QuotationCartSummary

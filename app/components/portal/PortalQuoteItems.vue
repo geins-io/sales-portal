@@ -46,7 +46,13 @@ function totalPriceOf(item: QuoteLineItem): string {
           </tr>
         </thead>
         <tbody class="divide-border border-border divide-y border-b">
-          <tr v-for="item in items" :key="item.sku" data-testid="line-item-row">
+          <!-- By position: two configurations of one SKU are two lines. -->
+          <tr
+            v-for="(item, index) in items"
+            :key="index"
+            :class="{ 'align-top': item.configuration }"
+            data-testid="line-item-row"
+          >
             <td class="px-3 py-3">
               <div class="flex items-center gap-3">
                 <ProductThumbnail
@@ -54,17 +60,39 @@ function totalPriceOf(item: QuoteLineItem): string {
                   :url="item.imageUrl"
                   :alt="item.name"
                 />
-                <NuxtLink
-                  v-if="item.alias"
-                  :to="localePath(productPath(item.alias))"
-                  data-testid="line-item-name-link"
-                  class="font-medium hover:underline"
-                >
-                  {{ item.name }}
-                </NuxtLink>
-                <span v-else data-testid="line-item-name" class="font-medium">{{
-                  item.name
-                }}</span>
+                <div>
+                  <NuxtLink
+                    v-if="item.alias"
+                    :to="localePath(productPath(item.alias))"
+                    data-testid="line-item-name-link"
+                    class="font-medium hover:underline"
+                  >
+                    {{ item.name }}
+                  </NuxtLink>
+                  <span
+                    v-else
+                    data-testid="line-item-name"
+                    class="font-medium"
+                    >{{ item.name }}</span
+                  >
+                  <p
+                    v-if="item.configuration"
+                    data-testid="line-item-configured"
+                    class="text-muted-foreground text-xs"
+                  >
+                    {{ t('cart.configured_product') }}
+                  </p>
+                </div>
+              </div>
+              <div v-if="item.configuration" class="mt-2 pl-13">
+                <LineSpecification
+                  :id="`quote-item-configuration-${index}`"
+                  :product-name="item.name"
+                  :quantity="item.quantity"
+                  :configuration="item.configuration"
+                  :unit-price="item.linePrices?.unit"
+                  :total-price="item.linePrices?.total"
+                />
               </div>
             </td>
             <td class="text-muted-foreground px-3 py-3 whitespace-nowrap">
@@ -98,8 +126,8 @@ function totalPriceOf(item: QuoteLineItem): string {
       class="divide-border border-border divide-y border-b md:hidden"
     >
       <li
-        v-for="item in items"
-        :key="item.sku"
+        v-for="(item, index) in items"
+        :key="index"
         data-testid="line-item-card"
         class="flex gap-3 py-4"
       >
@@ -125,9 +153,26 @@ function totalPriceOf(item: QuoteLineItem): string {
               class="text-sm font-medium"
               >{{ item.name }}</span
             >
+            <p
+              v-if="item.configuration"
+              data-testid="line-item-configured"
+              class="text-muted-foreground text-xs"
+            >
+              {{ t('cart.configured_product') }}
+            </p>
             <p v-if="item.articleNumber" class="text-muted-foreground text-xs">
               {{ item.articleNumber }}
             </p>
+            <div v-if="item.configuration" class="mt-2">
+              <LineSpecification
+                :id="`quote-item-configuration-m-${index}`"
+                :product-name="item.name"
+                :quantity="item.quantity"
+                :configuration="item.configuration"
+                :unit-price="item.linePrices?.unit"
+                :total-price="item.linePrices?.total"
+              />
+            </div>
           </div>
           <div class="flex items-center justify-between gap-3">
             <span class="text-muted-foreground text-sm tabular-nums">
