@@ -39,7 +39,7 @@ type FullQuote = Record<string, unknown> & {
   orderDetails?: { customerOrderNumber?: string };
 };
 
-/** The first quotation in `status` that is not Monitor-linked and matches. */
+/** The first quotation in `status` that matches. */
 async function findQuote(
   page: Page,
   status: string,
@@ -50,17 +50,12 @@ async function findQuote(
     const response = await page.request.get(`/api/quotes/${listed.id}`);
     if (!response.ok()) continue;
     const { quote } = (await response.json()) as { quote: FullQuote };
-    if (
-      !!quote.requiresConfirmation === requiresConfirmation &&
-      !quote.externalReference
-    ) {
-      return quote;
-    }
+    if (!!quote.requiresConfirmation === requiresConfirmation) return quote;
   }
   return undefined;
 }
 
-/** A pending quotation that needs no confirmation and is not Monitor-linked. */
+/** A pending quotation that needs no confirmation. */
 const findOrderable = (page: Page) => findQuote(page, 'pending', false);
 
 /**
