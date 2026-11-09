@@ -223,7 +223,7 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
       <div ref="bar" class="flex min-w-0 flex-1 items-center">
         <NavigationMenu
           :viewport="false"
-          class="static max-w-none min-w-0 flex-1 justify-start [&>div]:!static [&>div]:min-w-0 [&>div]:flex-1"
+          class="static max-w-none min-w-0 flex-1 justify-start [&>div]:static! [&>div]:min-w-0 [&>div]:flex-1"
         >
           <!--
             Scrolls sideways when the items do not fit even with two-line labels.
@@ -233,12 +233,12 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
             the negative margin keeps the items where they were.
           -->
           <NavigationMenuList
-            class="mx-[-3px] scrollbar-none justify-start gap-2 overflow-x-auto overflow-y-hidden px-[3px] py-[3px]"
+            class="mx-[-3px] scrollbar-none justify-start gap-2 overflow-x-auto overflow-y-hidden p-[3px]"
           >
             <NavigationMenuItem
               v-for="item in visibleItems"
               :key="item.id"
-              :class="visibleChildren(item).length ? '!static' : ''"
+              :class="visibleChildren(item).length ? 'static!' : ''"
             >
               <!-- Item with children: trigger + mega menu -->
               <template v-if="visibleChildren(item).length">
@@ -248,7 +248,7 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
                   {{ getMenuLabel(item) }}
                 </NavigationMenuTrigger>
                 <NavigationMenuContent
-                  class="!absolute !top-full !left-0 !mt-0 !w-screen !max-w-none !rounded-none !border-x-0 !border-t-0"
+                  class="absolute! top-full! left-0! mt-0! w-screen! max-w-none! rounded-none! border-x-0! border-t-0!"
                 >
                   <!--
                   Cap the open mega menu and scroll its contents internally so a
@@ -259,7 +259,7 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
                   stays inside the viewport on short screens too.
                 -->
                   <div
-                    class="mx-auto max-h-[min(500px,calc(100vh_-_11rem))] max-w-7xl overflow-y-auto px-4 py-6 lg:px-6"
+                    class="mx-auto max-h-[min(500px,calc(100vh-11rem))] max-w-7xl overflow-y-auto px-4 py-6 lg:px-6"
                   >
                     <div class="grid grid-cols-4 gap-x-8 gap-y-4">
                       <div

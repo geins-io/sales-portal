@@ -37,7 +37,7 @@ withDefaults(
       data-testid="skeleton-row"
       class="flex gap-4 rounded-lg border p-3"
     >
-      <Skeleton class="h-20 w-20 shrink-0 rounded-md" />
+      <Skeleton class="size-20 shrink-0 rounded-md" />
       <div class="flex flex-1 flex-col gap-2">
         <Skeleton class="h-3 w-1/4" />
         <Skeleton class="h-4 w-2/3" />

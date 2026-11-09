@@ -90,7 +90,7 @@ const lines = computed(() => {
         data-testid="line-specification-summary-row"
       >
         <dt class="text-muted-foreground text-sm">{{ row.label }}</dt>
-        <dd class="text-sm leading-snug break-words hyphens-auto">
+        <dd class="text-sm leading-snug wrap-break-word hyphens-auto">
           {{ row.value }}
         </dd>
       </div>

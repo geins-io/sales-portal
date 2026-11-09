@@ -22,10 +22,10 @@ const { t } = useI18n();
       <table class="w-full text-sm">
         <thead class="border-border border-b">
           <tr class="text-left">
-            <th scope="col" class="px-4 py-4 font-medium">
+            <th scope="col" class="p-4 font-medium">
               {{ t('portal.org.persons.col_id') }}
             </th>
-            <th scope="col" class="px-4 py-4 font-medium">
+            <th scope="col" class="p-4 font-medium">
               {{ t('portal.org.persons.col_email') }}
             </th>
           </tr>
@@ -35,7 +35,7 @@ const { t } = useI18n();
             v-for="buyer in buyers"
             :key="buyer.id"
             data-testid="buyer-row"
-            class="border-border [&:not(:last-child)]:border-b"
+            class="border-border not-last:border-b"
           >
             <td class="px-4 py-5">{{ buyer.internalId ?? '-' }}</td>
             <td class="px-4 py-5">{{ buyer.id }}</td>

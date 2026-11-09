@@ -81,7 +81,7 @@ const isOpen = computed({
         </div>
 
         <!-- Navigation -->
-        <div class="flex-1 overflow-y-auto px-4 py-4">
+        <div class="flex-1 overflow-y-auto p-4">
           <Accordion v-if="visibleItems.length" type="multiple" class="w-full">
             <template v-for="item in visibleItems" :key="item.id">
               <!-- Item with children: accordion -->
@@ -157,7 +157,7 @@ const isOpen = computed({
           centered CTA with a larger touch target so login, portal and logout
           read as consistent buttons.
         -->
-        <div class="space-y-3 border-t px-4 py-4">
+        <div class="space-y-3 border-t p-4">
           <button
             v-if="!authStore.isAuthenticated"
             type="button"

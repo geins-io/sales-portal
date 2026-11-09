@@ -128,7 +128,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
               >
               <a
                 :href="`mailto:${contact.email}`"
-                class="text-footer-text/70 hover:text-footer-text block text-sm break-words transition-colors"
+                class="text-footer-text/70 hover:text-footer-text block text-sm wrap-break-word transition-colors"
                 >{{ contact.email }}</a
               >
             </li>

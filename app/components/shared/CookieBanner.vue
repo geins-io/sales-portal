@@ -17,7 +17,7 @@ const visible = computed(() => !hasInteracted.value && hasFeature('analytics'));
         class="bg-card text-card-foreground fixed inset-x-0 bottom-0 z-50 rounded-t shadow-lg"
       >
         <div
-          class="mx-auto flex max-w-screen-lg flex-col items-center gap-4 px-6 py-4 sm:flex-row sm:justify-between"
+          class="mx-auto flex max-w-5xl flex-col items-center gap-4 px-6 py-4 sm:flex-row sm:justify-between"
         >
           <p class="text-sm">
             {{ $t('cookies.banner_text') }}

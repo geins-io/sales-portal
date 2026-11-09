@@ -475,7 +475,7 @@ function selectPlaceholderFor(field: FormWidgetField): string {
           <textarea
             :id="`form-field-input-${entry.field.name}`"
             v-model="formValues[entry.field.name]"
-            class="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex min-h-[80px] w-full rounded-md border bg-white px-3 py-2 text-sm shadow-xs focus-visible:ring-[3px] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            class="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex min-h-20 w-full rounded-md border bg-white px-3 py-2 text-sm shadow-xs focus-visible:ring-[3px] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             :aria-invalid="
               touched[entry.field.name] && !!fieldErrors[entry.field.name]
                 ? 'true'

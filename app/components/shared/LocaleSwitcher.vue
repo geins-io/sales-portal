@@ -100,7 +100,7 @@ const showSwitcher = computed(() => availableLocales.value.length > 1);
         class="h-auto py-2"
         :aria-label="t('common.change_language')"
       >
-        <Globe class="mr-2 hidden h-4 w-4 sm:block" />
+        <Globe class="mr-2 hidden size-4 sm:block" />
         {{ currentLocaleAbbr }}
       </Button>
       <Button
@@ -109,7 +109,7 @@ const showSwitcher = computed(() => availableLocales.value.length > 1);
         size="icon"
         :aria-label="t('common.change_language')"
       >
-        <Globe class="h-4 w-4" />
+        <Globe class="size-4" />
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent

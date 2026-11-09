@@ -220,7 +220,7 @@ function isActiveTab(tab: PortalTab): boolean {
             v-for="tab in visibleTabs"
             :key="tab.key"
             :to="localePath(tab.to)"
-            class="flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium whitespace-nowrap transition-colors md:px-4"
+            class="flex items-center gap-2 border-b-2 p-3 text-sm font-medium whitespace-nowrap transition-colors md:px-4"
             :class="
               isActiveTab(tab)
                 ? 'border-primary text-foreground'
@@ -233,7 +233,7 @@ function isActiveTab(tab: PortalTab): boolean {
         </nav>
         <!-- Scroll hint fade on mobile -->
         <div
-          class="from-background pointer-events-none absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-l md:hidden"
+          class="from-background pointer-events-none absolute inset-y-0 right-0 w-8 bg-linear-to-l md:hidden"
         />
       </div>
 

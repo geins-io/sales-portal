@@ -82,7 +82,11 @@ const navStubs = {
   NavigationMenuList: {
     template: '<div data-slot="navigation-menu-list"><slot /></div>',
   },
-  NavigationMenuItem: { template: '<div><slot /></div>' },
+  // `relative` as in ui/navigation-menu/NavigationMenuItem.vue
+  NavigationMenuItem: {
+    template:
+      '<div data-slot="navigation-menu-item" class="relative"><slot /></div>',
+  },
   NavigationMenuTrigger: { template: '<button><slot /></button>' },
   NavigationMenuContent: {
     template: '<div data-slot="navigation-menu-content"><slot /></div>',
@@ -415,7 +419,7 @@ describe('LayoutHeaderNav', () => {
       mockMenu.value = manyItems();
       const wrapper = shallowMountComponent(LayoutHeaderNav, mountOptions);
       const classes = scrollContainer(wrapper).classes();
-      expect(classes).toContain('px-[3px]');
+      expect(classes).toContain('p-[3px]');
       expect(classes).toContain('mx-[-3px]');
     });
 
@@ -444,13 +448,18 @@ describe('LayoutHeaderNav', () => {
 
       // reka-ui's list wrapper div sets an inline position: relative; the root
       // overrides it, and the stubs do not render that div.
-      expect(root(wrapper).classes()).toContain('[&>div]:!static');
+      expect(root(wrapper).classes()).toContain('[&>div]:static!');
+      // The item wrapper is `relative`, like the real one; its override is
+      // what lets the dropdown reach the nav.
+      const item = dropdown.closest('[data-slot="navigation-menu-item"]');
+      expect(item?.classList.contains('relative')).toBe(true);
+      expect(item?.classList.contains('static!')).toBe(true);
 
       const isPositioned = (el: Element) => {
         const c = el.classList;
-        if (c.contains('!static')) return false;
+        if (c.contains('static!')) return false;
         return ['relative', 'absolute', 'fixed', 'sticky'].some(
-          (p) => c.contains(p) || c.contains(`!${p}`),
+          (p) => c.contains(p) || c.contains(`${p}!`),
         );
       };
       let anchor = dropdown.parentElement;

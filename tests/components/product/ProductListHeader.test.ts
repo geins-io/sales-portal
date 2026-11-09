@@ -41,7 +41,7 @@ describe('ProductListHeader title', () => {
 
   it('allows long single words to wrap so the title never overflows', () => {
     expect(mountHeader(makePageInfo()).find('h1').classes()).toContain(
-      'break-words',
+      'wrap-break-word',
     );
   });
 

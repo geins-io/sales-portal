@@ -139,7 +139,7 @@ async function send() {
       </div>
 
       <h1
-        class="mb-6 text-2xl font-semibold break-words"
+        class="mb-6 text-2xl font-semibold wrap-break-word"
         data-testid="quote-request-title"
       >
         {{ title }}
@@ -211,7 +211,7 @@ async function send() {
                 :maxlength="COMMENT_MAX_LENGTH"
                 :disabled="sending"
                 rows="4"
-                class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[80px] w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-20 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                 data-testid="quote-request-message"
               />
               <p

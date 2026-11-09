@@ -251,7 +251,7 @@ function addToCart(product: ListProduct) {
     <ClientOnly>
       <template #fallback>
         <div
-          class="border-border min-h-[420px] animate-pulse rounded-lg border"
+          class="border-border min-h-105 animate-pulse rounded-lg border"
           data-testid="list-detail-skeleton"
         />
       </template>

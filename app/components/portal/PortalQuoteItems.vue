@@ -28,19 +28,19 @@ function totalPriceOf(item: QuoteLineItem): string {
       <table data-testid="line-items-table" class="w-full text-sm">
         <thead class="bg-muted/50">
           <tr>
-            <th class="px-3 py-3 text-left font-medium whitespace-nowrap">
+            <th class="p-3 text-left font-medium whitespace-nowrap">
               {{ t('portal.quotations.col_item') }}
             </th>
-            <th class="px-3 py-3 text-left font-medium whitespace-nowrap">
+            <th class="p-3 text-left font-medium whitespace-nowrap">
               {{ t('portal.quotations.col_article') }}
             </th>
-            <th class="px-3 py-3 text-right font-medium whitespace-nowrap">
+            <th class="p-3 text-right font-medium whitespace-nowrap">
               {{ t('portal.quotations.quantity') }}
             </th>
-            <th class="px-3 py-3 text-right font-medium whitespace-nowrap">
+            <th class="p-3 text-right font-medium whitespace-nowrap">
               {{ t('portal.quotations.col_unit_price') }}
             </th>
-            <th class="px-3 py-3 text-right font-medium whitespace-nowrap">
+            <th class="p-3 text-right font-medium whitespace-nowrap">
               {{ t('portal.quotations.line_total') }}
             </th>
           </tr>
@@ -53,7 +53,7 @@ function totalPriceOf(item: QuoteLineItem): string {
             :class="{ 'align-top': item.configuration }"
             data-testid="line-item-row"
           >
-            <td class="px-3 py-3">
+            <td class="p-3">
               <div class="flex items-center gap-3">
                 <ProductThumbnail
                   :file-name="item.imageFileName"
@@ -95,24 +95,24 @@ function totalPriceOf(item: QuoteLineItem): string {
                 />
               </div>
             </td>
-            <td class="text-muted-foreground px-3 py-3 whitespace-nowrap">
+            <td class="text-muted-foreground p-3 whitespace-nowrap">
               {{ item.articleNumber }}
             </td>
             <td
               data-testid="line-item-quantity"
-              class="px-3 py-3 text-right whitespace-nowrap tabular-nums"
+              class="p-3 text-right whitespace-nowrap tabular-nums"
             >
               {{ item.quantity }}
             </td>
             <td
               data-testid="line-item-unit-price"
-              class="px-3 py-3 text-right whitespace-nowrap tabular-nums"
+              class="p-3 text-right whitespace-nowrap tabular-nums"
             >
               {{ unitPriceOf(item) }}
             </td>
             <td
               data-testid="line-item-total-price"
-              class="px-3 py-3 text-right font-medium whitespace-nowrap tabular-nums"
+              class="p-3 text-right font-medium whitespace-nowrap tabular-nums"
             >
               {{ totalPriceOf(item) }}
             </td>

@@ -32,7 +32,7 @@ const description = computed(() => {
     <div class="space-y-6 py-4">
       <h1
         v-if="!pageInfo.hideTitle"
-        class="font-heading text-3xl font-bold tracking-tight break-words md:text-5xl"
+        class="font-heading text-3xl font-bold tracking-tight wrap-break-word md:text-5xl"
       >
         {{ pageInfo.name }}
       </h1>

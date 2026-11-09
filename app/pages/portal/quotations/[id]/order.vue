@@ -162,7 +162,7 @@ function formatDate(iso: string): string {
       </div>
 
       <h1
-        class="mb-6 text-2xl font-semibold break-words"
+        class="mb-6 text-2xl font-semibold wrap-break-word"
         data-testid="quote-order-title"
       >
         {{ title }}

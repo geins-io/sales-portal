@@ -96,12 +96,12 @@ const handleBack = () => {
         v-if="!is418"
         class="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center"
       >
-        <Button class="min-w-[140px]" @click="handleError">
+        <Button class="min-w-35" @click="handleError">
           <Home class="mr-2 size-4" />
           {{ t('errors.go_home') }}
         </Button>
 
-        <Button variant="outline" class="min-w-[140px]" @click="handleBack">
+        <Button variant="outline" class="min-w-35" @click="handleBack">
           <ArrowLeft class="mr-2 size-4" />
           {{ t('errors.go_back') }}
         </Button>

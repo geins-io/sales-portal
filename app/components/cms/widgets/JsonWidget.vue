@@ -175,12 +175,14 @@ function bannerPlacementClasses(placement?: string): string {
       class="mx-auto max-w-[670px] space-y-2"
       :class="header?.textAlign === 'center' ? 'text-center' : ''"
     >
+      <!-- eslint-disable tailwindcss/no-unnecessary-arbitrary-value -- leading-1.1 is not a Tailwind 4 class, so the fix would drop line-height 1.1 -->
       <h2
         v-if="header?.heading"
         class="font-heading text-[32px] leading-[1.1] font-bold md:text-[40px]"
       >
         {{ header.heading }}
       </h2>
+      <!-- eslint-enable tailwindcss/no-unnecessary-arbitrary-value -->
       <p v-if="header?.description" class="text-muted-foreground text-sm">
         {{ header.description }}
       </p>
@@ -366,12 +368,14 @@ function bannerPlacementClasses(placement?: string): string {
     v-else-if="templateId === 'text-+-cta'"
     class="mx-auto max-w-[670px] space-y-4 py-8 text-center"
   >
+    <!-- eslint-disable tailwindcss/no-unnecessary-arbitrary-value -- leading-1.1 is not a Tailwind 4 class, so the fix would drop line-height 1.1 -->
     <h2
       v-if="textBlock?.header"
       class="font-heading text-[32px] leading-[1.1] font-bold md:text-[40px]"
     >
       {{ textBlock.header }}
     </h2>
+    <!-- eslint-enable tailwindcss/no-unnecessary-arbitrary-value -->
     <p
       v-if="textBlock?.description"
       class="text-muted-foreground text-sm leading-normal"
@@ -409,15 +413,17 @@ function bannerPlacementClasses(placement?: string): string {
         aspect-ratio="16/9"
       />
       <div
-        class="absolute inset-0 flex flex-col bg-gradient-to-t from-black/60 to-transparent p-6"
+        class="absolute inset-0 flex flex-col bg-linear-to-t from-black/60 to-transparent p-6"
         :class="bannerPlacementClasses(banner.cta?.placement)"
       >
+        <!-- eslint-disable tailwindcss/no-unnecessary-arbitrary-value -- leading-1.1 is not a Tailwind 4 class, so the fix would drop line-height 1.1 -->
         <h3
           v-if="banner.text?.title"
           class="font-heading text-[32px] leading-[1.1] font-bold text-white md:text-[40px]"
         >
           {{ banner.text.title }}
         </h3>
+        <!-- eslint-enable tailwindcss/no-unnecessary-arbitrary-value -->
         <p v-if="banner.text?.byline" class="mt-1 text-sm text-white/80">
           {{ banner.text.byline }}
         </p>

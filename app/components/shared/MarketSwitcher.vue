@@ -85,7 +85,7 @@ const showSwitcher = computed(() => availableMarkets.value.length > 1);
         :aria-label="t('common.change_market')"
         data-testid="market-switcher-trigger"
       >
-        <MapPin class="mr-2 hidden h-4 w-4 sm:block" />
+        <MapPin class="mr-2 hidden size-4 sm:block" />
         {{ marketShortLabel(currentMarket) }}
       </Button>
       <Button
@@ -94,7 +94,7 @@ const showSwitcher = computed(() => availableMarkets.value.length > 1);
         size="icon"
         :aria-label="t('common.change_market')"
       >
-        <MapPin class="h-4 w-4" />
+        <MapPin class="size-4" />
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent

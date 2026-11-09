@@ -44,7 +44,7 @@ const { showPrice } = usePriceVisibility();
           class="h-auto py-2"
           :aria-label="t('common.change_vat_display')"
         >
-          <Receipt class="mr-2 hidden h-4 w-4 sm:block" />
+          <Receipt class="mr-2 hidden size-4 sm:block" />
           {{ showIncVat ? t('common.vat_incl') : t('common.vat_excl') }}
         </Button>
         <Button
@@ -53,7 +53,7 @@ const { showPrice } = usePriceVisibility();
           size="icon"
           :aria-label="t('common.change_vat_display')"
         >
-          <Receipt class="h-4 w-4" />
+          <Receipt class="size-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
