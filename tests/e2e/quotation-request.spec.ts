@@ -144,20 +144,27 @@ async function answerQuotation(
 ) {
   const calls: Calls = { patch: [], release: 0 };
   let status = initialStatus;
+  // Once sent, the quotation reads back what the details write carried.
+  let sent: object | undefined;
+  const quote = () => ({
+    ...makeQuote(status, extraLines),
+    ...(status === 'request_draft' || !sent ? {} : { request: sent }),
+  });
   await page.route(`**/api/quotes/${QUOTE_ID}**`, async (route: Route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     if (path.endsWith('/request') && request.method() === 'PATCH') {
-      calls.patch.push(request.postDataJSON());
-      return route.fulfill({ json: { quote: makeQuote(status, extraLines) } });
+      sent = request.postDataJSON();
+      calls.patch.push(sent);
+      return route.fulfill({ json: { quote: quote() } });
     }
     if (path.endsWith('/release') && request.method() === 'POST') {
       calls.release += 1;
       status = 'requested';
-      return route.fulfill({ json: { quote: makeQuote(status, extraLines) } });
+      return route.fulfill({ json: { quote: quote() } });
     }
     if (request.method() === 'GET') {
-      return route.fulfill({ json: { quote: makeQuote(status, extraLines) } });
+      return route.fulfill({ json: { quote: quote() } });
     }
     return route.fallback();
   });
@@ -184,7 +191,7 @@ async function openInApp(page: Page, to: string) {
 }
 
 test.describe('Send a quote request', () => {
-  test('sends the entered details, then the request, and lands on the sent page', async ({
+  test('sends the entered details, then the request, and shows them on the sent page and in the view', async ({
     page,
   }) => {
     const calls = await answerQuotation(page, 'request_draft');
@@ -206,9 +213,6 @@ test.describe('Send a quote request', () => {
     await expect(
       page.locator('[data-testid="quote-articles"] input'),
     ).toHaveCount(0);
-    await expect(
-      page.locator('[data-testid="checkout-goods-label"]'),
-    ).toHaveCount(0);
     await expect(page.locator('#checkout-terms-checkbox')).toHaveCount(0);
 
     const date = new Date();
@@ -220,6 +224,9 @@ test.describe('Send a quote request', () => {
     await page
       .locator('[data-testid="checkout-customer-order-number"]')
       .fill('PO-E2E-77');
+    await page
+      .locator('[data-testid="checkout-goods-label"]')
+      .fill('Lastbrygga B');
     await page
       .locator('[data-testid="quote-request-message"]')
       .fill('Leverans till lager 2');
@@ -233,6 +240,7 @@ test.describe('Send a quote request', () => {
       {
         desiredDeliveryDate: desired,
         customerOrderNumber: 'PO-E2E-77',
+        goodsLabel: 'Lastbrygga B',
         comment: 'Leverans till lager 2',
       },
     ]);
@@ -246,6 +254,20 @@ test.describe('Send a quote request', () => {
     await expect(
       page.locator('[data-testid="quote-thanks-contents"]'),
     ).toBeVisible();
+    const sentInfo = page.locator('[data-testid="quote-thanks-request"]');
+    await expect(sentInfo).toBeVisible();
+    await expect(
+      sentInfo.locator('[data-testid="quote-thanks-your-reference"]'),
+    ).toContainText('PO-E2E-77');
+    await expect(
+      sentInfo.locator('[data-testid="quote-thanks-desired-date"]'),
+    ).toContainText(desired);
+    await expect(
+      sentInfo.locator('[data-testid="quote-thanks-goods-label"]'),
+    ).toContainText('Lastbrygga B');
+    await expect(
+      sentInfo.locator('[data-testid="quote-thanks-comment"]'),
+    ).toHaveText('Ditt meddelande: Leverans till lager 2');
 
     await page.locator('[data-testid="quote-thanks-portal"]').click();
     await page.waitForURL(new RegExp(`${VIEW_PATH}$`), {
@@ -254,6 +276,19 @@ test.describe('Send a quote request', () => {
     await expect(page.locator('[data-testid="quote-detail"]')).toBeVisible({
       timeout: PAGE_TIMEOUT,
     });
+    const meta = page.locator('[data-testid="quote-meta"]');
+    await expect(
+      meta.locator('[data-testid="quote-meta-your-reference"]'),
+    ).toContainText('PO-E2E-77');
+    await expect(
+      meta.locator('[data-testid="quote-meta-desired-date"]'),
+    ).toContainText(String(date.getFullYear()));
+    await expect(
+      meta.locator('[data-testid="quote-meta-goods-label"]'),
+    ).toContainText('Lastbrygga B');
+    await expect(
+      meta.locator('[data-testid="quote-meta-comment"]'),
+    ).toContainText('Leverans till lager 2');
   });
 
   test('shows a configured line with its configuration', async ({ page }) => {
