@@ -25,7 +25,6 @@ import {
   getQuoteStatusVariant,
 } from '~/utils/quote-status';
 import {
-  quoteAcceptKind,
   quoteAmounts,
   quoteDiscountLabel,
   quoteKindLabelKey,
@@ -80,15 +79,23 @@ useHead({
 });
 
 // ------------------------------------------------------- buyer responses
+const canPlaceOrders = computed(() => canAccess('orderPlacement'));
 const responses = computed(() =>
-  quoteResponses(quote.value?.status ?? 'unknown'),
+  quoteResponses(
+    quote.value ?? { status: 'unknown', requiresConfirmation: false },
+    canPlaceOrders.value,
+  ),
 );
-const acceptKind = computed(() =>
-  quote.value ? quoteAcceptKind(quote.value) : 'plain',
+const orderPath = computed(() =>
+  localePath(`/portal/quotations/${quoteId.value}/order`),
 );
 
 const hasResponses = computed(
-  () => !!store.error || responses.value.withdraw || responses.value.accept,
+  () =>
+    !!store.error ||
+    responses.value.withdraw ||
+    !!responses.value.accept ||
+    responses.value.placeOrder,
 );
 
 type QuoteAction = 'withdraw' | 'decline' | 'accept';
@@ -103,10 +110,13 @@ const actionOpen = computed({
 const actionCopy = computed(() => {
   const action = pendingAction.value;
   if (!action) return null;
-  const key = action === 'accept' ? `accept_${acceptKind.value}` : action;
+  const key = action === 'accept' ? `accept_${responses.value.accept}` : action;
   return {
     title: t(`portal.quotations.${key}_title`),
-    description: t(`portal.quotations.${key}_body`),
+    description: t(
+      (action === 'accept' && responses.value.acceptBodyKey) ||
+        `portal.quotations.${key}_body`,
+    ),
     confirm: t(`portal.quotations.${key}`),
     destructive: action !== 'accept',
   };
@@ -187,7 +197,7 @@ const metaRows = computed<MetaRow[]>(() => {
     label: t('portal.quotations.created_at'),
     lines: q.createdAt ? [formatDate(q.createdAt)] : [],
   });
-  const infoKey = quoteStatusInfoKey(q);
+  const infoKey = quoteStatusInfoKey(q, canPlaceOrders.value);
   add({
     key: 'status',
     testId: 'quote-meta-status',
@@ -363,22 +373,43 @@ const customerSummary = computed(() => {
                     {{ t('portal.quotations.decline') }}
                   </Button>
                   <Button
+                    v-if="responses.accept === 'order'"
+                    as-child
+                    data-testid="accept-btn"
+                    class="h-auto flex-1 py-2 whitespace-normal"
+                  >
+                    <NuxtLink :to="orderPath">
+                      {{ t('portal.quotations.accept_and_order') }}
+                    </NuxtLink>
+                  </Button>
+                  <Button
+                    v-else
                     data-testid="accept-btn"
                     class="h-auto flex-1 py-2 whitespace-normal"
                     @click="pendingAction = 'accept'"
                   >
-                    {{ t(`portal.quotations.accept_${acceptKind}`) }}
+                    {{ t(`portal.quotations.accept_${responses.accept}`) }}
                   </Button>
                 </div>
-                <!-- No note without confirmation: nothing follows the accept until ordering exists. -->
                 <p
-                  v-if="acceptKind !== 'plain'"
+                  v-if="responses.noteKey"
                   data-testid="quote-accept-note"
                   class="text-muted-foreground text-xs"
                 >
-                  {{ t(`portal.quotations.note_${acceptKind}`) }}
+                  {{ t(responses.noteKey) }}
                 </p>
               </template>
+
+              <Button
+                v-if="responses.placeOrder"
+                as-child
+                data-testid="quote-place-order"
+                class="w-full"
+              >
+                <NuxtLink :to="orderPath">
+                  {{ t('checkout.place_order') }}
+                </NuxtLink>
+              </Button>
             </template>
           </OrderSummaryCard>
 

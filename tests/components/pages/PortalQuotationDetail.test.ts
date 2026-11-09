@@ -763,11 +763,17 @@ describe('PortalQuotationDetail', () => {
         wrapper.find('[data-testid="order-summary"] > div.mt-4.space-y-4');
 
       expect(actions(await mountWith(pending())).exists()).toBe(true);
-      for (const status of ['accepted', 'confirmed', 'finalized'] as const) {
-        expect(
-          actions(await mountWith(makeQuote({ status }))).exists(),
-          status,
-        ).toBe(false);
+      expect(
+        actions(await mountWith(makeQuote({ status: 'accepted' }))).exists(),
+      ).toBe(true);
+      for (const quote of [
+        makeQuote({ status: 'accepted', requiresConfirmation: true }),
+        makeQuote({ status: 'confirmed' }),
+        makeQuote({ status: 'finalized' }),
+      ]) {
+        expect(actions(await mountWith(quote)).exists(), quote.status).toBe(
+          false,
+        );
       }
     });
 
@@ -792,52 +798,170 @@ describe('PortalQuotationDetail', () => {
       expect(wrapper.find('[data-testid="decline-btn"]').exists()).toBe(false);
     });
 
-    it.each([
-      ['no confirmation', {}, 'portal.quotations.accept_plain', undefined],
-      [
-        'confirmation',
-        { requiresConfirmation: true },
-        'portal.quotations.accept_confirm',
-        'portal.quotations.note_confirm',
-      ],
-      [
-        'Monitor-linked',
-        { externalReference: monitorLinked },
-        'portal.quotations.accept_monitor',
-        'portal.quotations.note_monitor',
-      ],
-    ])(
-      'offers decline and accept on a pending quotation (%s)',
-      async (_, overrides, acceptLabel, note) => {
-        const wrapper = await mountWith(pending(overrides));
+    const confirm = { requiresConfirmation: true };
+    const IDS = [
+      'quote-withdraw',
+      'decline-btn',
+      'accept-btn',
+      'quote-place-order',
+      'quote-accept-note',
+    ];
 
-        expect(wrapper.find('[data-testid="decline-btn"]').text()).toBe(
-          'portal.quotations.decline',
+    // Per status, exactly these controls, with this label and note.
+    it.each([
+      [
+        'pending, no confirmation',
+        pending(),
+        true,
+        {
+          'decline-btn': 'portal.quotations.decline',
+          'accept-btn': 'portal.quotations.accept_and_order',
+          'quote-accept-note': 'portal.quotations.note_order',
+        },
+      ],
+      [
+        'pending, no confirmation, no order rights',
+        pending(),
+        false,
+        {
+          'decline-btn': 'portal.quotations.decline',
+          'accept-btn': 'portal.quotations.accept_plain',
+        },
+      ],
+      [
+        'pending, confirmation',
+        pending(confirm),
+        true,
+        {
+          'decline-btn': 'portal.quotations.decline',
+          'accept-btn': 'portal.quotations.accept_confirm',
+          'quote-accept-note': 'portal.quotations.note_confirm_order',
+        },
+      ],
+      [
+        'pending, confirmation, no order rights',
+        pending(confirm),
+        false,
+        {
+          'decline-btn': 'portal.quotations.decline',
+          'accept-btn': 'portal.quotations.accept_confirm',
+          'quote-accept-note': 'portal.quotations.note_confirm',
+        },
+      ],
+      [
+        'pending, Monitor-linked',
+        pending({ externalReference: monitorLinked }),
+        true,
+        {
+          'decline-btn': 'portal.quotations.decline',
+          'accept-btn': 'portal.quotations.accept_monitor',
+          'quote-accept-note': 'portal.quotations.note_monitor',
+        },
+      ],
+      [
+        'accepted, no confirmation',
+        makeQuote({ status: 'accepted' }),
+        true,
+        { 'quote-place-order': 'checkout.place_order' },
+      ],
+      [
+        'accepted, no confirmation, no order rights',
+        makeQuote({ status: 'accepted' }),
+        false,
+        {},
+      ],
+      [
+        'accepted, waiting for confirmation',
+        makeQuote({ status: 'accepted', ...confirm }),
+        true,
+        {},
+      ],
+      [
+        'accepted, Monitor-linked',
+        makeQuote({ status: 'accepted', externalReference: monitorLinked }),
+        true,
+        {},
+      ],
+      [
+        'confirmed',
+        makeQuote({ status: 'confirmed', ...confirm }),
+        true,
+        { 'quote-place-order': 'checkout.place_order' },
+      ],
+      [
+        'confirmed, no order rights',
+        makeQuote({ status: 'confirmed', ...confirm }),
+        false,
+        {},
+      ],
+      [
+        'confirmed without needing it',
+        makeQuote({ status: 'confirmed' }),
+        true,
+        {},
+      ],
+      [
+        'finalized',
+        makeQuote({ status: 'finalized', orderId: '1155' }),
+        true,
+        {},
+      ],
+    ] as const)(
+      'shows exactly its controls: %s',
+      async (_, quote, canOrder, expected) => {
+        mockCanAccess.mockImplementation(
+          (name) => name !== 'orderPlacement' || canOrder,
         );
-        expect(wrapper.find('[data-testid="accept-btn"]').text()).toBe(
-          acceptLabel,
+        const wrapper = await mountWith(quote);
+
+        const shown = Object.fromEntries(
+          IDS.filter((id) =>
+            wrapper.find(`[data-testid="${id}"]`).exists(),
+          ).map((id) => [id, wrapper.find(`[data-testid="${id}"]`).text()]),
         );
-        const noteEl = wrapper.find('[data-testid="quote-accept-note"]');
-        expect(noteEl.exists() ? noteEl.text() : undefined).toBe(note);
-        expect(wrapper.find('[data-testid="quote-withdraw"]').exists()).toBe(
-          false,
-        );
+        expect(shown).toEqual(expected);
+        expect(mockCanAccess).toHaveBeenCalledWith('orderPlacement');
       },
     );
 
-    it('never promises an order on the accept button', async () => {
+    it('"accept and place order" is a link to the order page: no dialog, no accept', async () => {
       const wrapper = await mountWith(pending());
+      const accept = wrapper.find('[data-testid="accept-btn"]');
 
-      expect(wrapper.text()).not.toContain(
-        'portal.quotations.accept_and_order',
+      expect(accept.find('a').attributes('href')).toBe(
+        '/se/en/portal/quotations/q-001/order',
       );
+      await accept.trigger('click');
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="quote-action-dialog"]').exists()).toBe(
+        false,
+      );
+      expect(mockAcceptQuote).not.toHaveBeenCalled();
     });
+
+    it.each([
+      ['accepted', makeQuote({ status: 'accepted' })],
+      ['confirmed', makeQuote({ status: 'confirmed', ...confirm })],
+    ])(
+      '"place order" on a %s quotation links to the order page',
+      async (_, quote) => {
+        const wrapper = await mountWith(quote);
+        const place = wrapper.find('[data-testid="quote-place-order"]');
+
+        expect(place.find('a').attributes('href')).toBe(
+          '/se/en/portal/quotations/q-001/order',
+        );
+        expect(
+          wrapper
+            .find('[data-testid="order-summary"]')
+            .element.contains(place.element),
+        ).toBe(true);
+      },
+    );
 
     it.each<QuoteStatus>([
       'request_draft',
-      'accepted',
-      'confirmed',
-      'finalized',
       'rejected',
       'canceled',
       'expired',
@@ -845,7 +969,7 @@ describe('PortalQuotationDetail', () => {
     ])('offers no response on %s', async (status) => {
       const wrapper = await mountWith(makeQuote({ status }));
 
-      for (const id of ['quote-withdraw', 'decline-btn', 'accept-btn']) {
+      for (const id of IDS) {
         expect(wrapper.find(`[data-testid="${id}"]`).exists()).toBe(false);
       }
     });
@@ -859,12 +983,29 @@ describe('PortalQuotationDetail', () => {
         true,
       ],
       ['decline', pending(), 'decline-btn', 'decline', true],
-      ['plain accept', pending(), 'accept-btn', 'accept_plain', false],
+      [
+        'plain accept without order rights',
+        pending(),
+        'accept-btn',
+        'accept_plain',
+        false,
+        false,
+      ],
       [
         'accept with confirmation',
         pending({ requiresConfirmation: true }),
         'accept-btn',
         'accept_confirm',
+        false,
+        true,
+        'accept_confirm_order_body',
+      ],
+      [
+        'accept with confirmation, without order rights',
+        pending({ requiresConfirmation: true }),
+        'accept-btn',
+        'accept_confirm',
+        false,
         false,
       ],
       [
@@ -876,7 +1017,10 @@ describe('PortalQuotationDetail', () => {
       ],
     ])(
       'asks first before a %s, and does nothing yet',
-      async (_, quote, button, copy, destructive) => {
+      async (_, quote, button, copy, destructive, canOrder = true, body?) => {
+        mockCanAccess.mockImplementation(
+          (name) => name !== 'orderPlacement' || canOrder,
+        );
         const wrapper = await mountWith(quote);
         expect(
           wrapper.find('[data-testid="quote-action-dialog"]').exists(),
@@ -893,7 +1037,7 @@ describe('PortalQuotationDetail', () => {
           destructive: dialog.attributes('data-destructive'),
         }).toEqual({
           title: k(`${copy}_title`),
-          description: k(`${copy}_body`),
+          description: k(body ?? `${copy}_body`),
           confirm: k(copy),
           destructive: String(destructive),
         });
@@ -919,13 +1063,23 @@ describe('PortalQuotationDetail', () => {
     });
 
     it.each([
-      ['withdraw', 'requested' as const, 'quote-withdraw', 'reject'],
-      ['decline', 'pending' as const, 'decline-btn', 'reject'],
-      ['accept', 'pending' as const, 'accept-btn', 'accept'],
+      [
+        'withdraw',
+        makeQuote({ status: 'requested' }),
+        'quote-withdraw',
+        'reject',
+      ],
+      ['decline', pending(), 'decline-btn', 'reject'],
+      [
+        'accept',
+        pending({ requiresConfirmation: true }),
+        'accept-btn',
+        'accept',
+      ],
     ])(
       'sends a confirmed %s once, with the id only',
-      async (_, status, button, call) => {
-        const wrapper = await mountWith(makeQuote({ status }));
+      async (_, quote, button, call) => {
+        const wrapper = await mountWith(quote);
 
         await answer(wrapper, button);
 
@@ -941,7 +1095,7 @@ describe('PortalQuotationDetail', () => {
 
     it('disables the confirm while the answer is on its way', async () => {
       mockIsActionLoading.value = true;
-      const wrapper = await mountWith(pending());
+      const wrapper = await mountWith(pending({ requiresConfirmation: true }));
 
       await wrapper.find('[data-testid="accept-btn"]').trigger('click');
 
@@ -958,8 +1112,12 @@ describe('PortalQuotationDetail', () => {
     ])(
       'after %s succeeds: shows %s, closes the dialog, drops the buttons',
       async (button, status, call) => {
-        call.mockResolvedValueOnce(makeQuote({ status }));
-        const wrapper = await mountWith(pending());
+        call.mockResolvedValueOnce(
+          makeQuote({ status, requiresConfirmation: true }),
+        );
+        const wrapper = await mountWith(
+          pending({ requiresConfirmation: true }),
+        );
 
         await answer(wrapper, button);
 
@@ -1000,7 +1158,9 @@ describe('PortalQuotationDetail', () => {
           mockStoreError.value = key;
           return Promise.resolve(null);
         });
-        const wrapper = await mountWith(pending());
+        const wrapper = await mountWith(
+          pending({ requiresConfirmation: true }),
+        );
 
         await answer(wrapper, button);
 
@@ -1027,7 +1187,7 @@ describe('PortalQuotationDetail', () => {
         mockStoreError.value = 'portal.quotations.accept_failed';
         return Promise.resolve(null);
       });
-      const wrapper = await mountWith(pending());
+      const wrapper = await mountWith(pending({ requiresConfirmation: true }));
 
       await answer(wrapper, 'accept-btn');
       expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(true);
@@ -1174,7 +1334,7 @@ describe('PortalQuotationDetail', () => {
     it.each([
       ['pending', {}, 'status_info_pending'],
       ['requested', {}, 'status_info_requested'],
-      ['accepted', {}, 'status_info_accepted_plain'],
+      ['accepted', {}, 'status_info_accepted_plain_order'],
       [
         'accepted',
         { requiresConfirmation: true },
@@ -1193,7 +1353,29 @@ describe('PortalQuotationDetail', () => {
 
         const row = wrapper.find('[data-testid="quote-meta-status"]');
         expect(row.text()).toContain('portal.quotations.status_label');
-        expect(row.text()).toContain(`portal.quotations.${key}`);
+        expect(row.findAll('p')[1]!.text()).toBe(`portal.quotations.${key}`);
+      },
+    );
+
+    it.each([
+      ['accepted', {}, 'status_info_accepted_plain'],
+      ['confirmed', { requiresConfirmation: true }, 'status_info_confirmed'],
+    ] as const)(
+      'tells a buyer who can order a %s quotation that they can, and no one else',
+      async (status, overrides, key) => {
+        const text = async (canOrder: boolean) => {
+          mockCanAccess.mockImplementation(
+            (name) => name !== 'orderPlacement' || canOrder,
+          );
+          const wrapper = await mountWith(makeQuote({ status, ...overrides }));
+          return wrapper
+            .find('[data-testid="quote-meta-status"]')
+            .findAll('p')[1]!
+            .text();
+        };
+
+        expect(await text(true)).toBe(`portal.quotations.${key}_order`);
+        expect(await text(false)).toBe(`portal.quotations.${key}`);
       },
     );
 

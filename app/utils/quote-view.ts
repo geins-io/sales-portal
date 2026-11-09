@@ -127,18 +127,49 @@ export function quoteCanOrder(
   }
 }
 
-/** The answers the buyer can give in a status. */
+/** What the summary card offers the buyer. */
 export interface QuoteResponses {
   withdraw: boolean;
   decline: boolean;
-  accept: boolean;
+  /** `order` links to the order page; the others accept in a dialog. */
+  accept: 'order' | QuoteAcceptKind | null;
+  /** The dialog's body for an accept in a dialog. */
+  acceptBodyKey?: string;
+  /** "Place order" on a quotation that is answered and may be ordered now. */
+  placeOrder: boolean;
+  /** The note under accept. */
+  noteKey?: string;
 }
 
-export function quoteResponses(status: QuoteStatus): QuoteResponses {
+const K = 'portal.quotations.';
+
+/**
+ * `canPlaceOrders` is the buyer's `orderPlacement`: the order page lets no one
+ * else in, so without it nothing leads to the order page and no text offers it.
+ */
+export function quoteResponses(
+  quote: Pick<Quote, 'status' | 'externalReference' | 'requiresConfirmation'>,
+  canPlaceOrders: boolean,
+): QuoteResponses {
+  const pending = quote.status === 'pending';
+  const responses: QuoteResponses = {
+    withdraw: quote.status === 'requested',
+    decline: pending,
+    accept: null,
+    placeOrder: !pending && canPlaceOrders && quoteCanOrder(quote),
+  };
+  if (!pending) return responses;
+
+  const kind = quoteAcceptKind(quote);
+  if (kind === 'plain' && canPlaceOrders) {
+    return { ...responses, accept: 'order', noteKey: `${K}note_order` };
+  }
+  const order = kind === 'confirm' && canPlaceOrders ? '_order' : '';
   return {
-    withdraw: status === 'requested',
-    decline: status === 'pending',
-    accept: status === 'pending',
+    ...responses,
+    accept: kind,
+    acceptBodyKey: `${K}accept_${kind}${order}_body`,
+    noteKey: kind === 'plain' ? undefined : `${K}note_${kind}${order}`,
   };
 }
 
@@ -155,12 +186,18 @@ const STATUSES_WITH_INFO = new Set<QuoteStatus>([
 /** The details card's status text; none for a draft or an unknown status. */
 export function quoteStatusInfoKey(
   quote: Pick<Quote, 'status' | 'externalReference' | 'requiresConfirmation'>,
+  canPlaceOrders: boolean,
 ): string | undefined {
+  // Pending keeps its own text; its card offers the response.
+  const order =
+    quote.status !== 'pending' && canPlaceOrders && quoteCanOrder(quote)
+      ? '_order'
+      : '';
   if (quote.status === 'accepted') {
-    return `portal.quotations.status_info_accepted_${quoteAcceptKind(quote)}`;
+    return `${K}status_info_accepted_${quoteAcceptKind(quote)}${order}`;
   }
   return STATUSES_WITH_INFO.has(quote.status)
-    ? `portal.quotations.status_info_${quote.status}`
+    ? `${K}status_info_${quote.status}${order}`
     : undefined;
 }
 

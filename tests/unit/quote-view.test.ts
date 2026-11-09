@@ -353,35 +353,123 @@ describe('quoteCanOrder', () => {
 });
 
 describe('quoteResponses', () => {
-  const none = { withdraw: false, decline: false, accept: false };
+  const k = (key: string) => `portal.quotations.${key}`;
+  const none = {
+    withdraw: false,
+    decline: false,
+    accept: null,
+    placeOrder: false,
+  };
+  const confirm = { requiresConfirmation: true };
+  const monitor = { externalReference: { number: 'M-1' } };
 
-  it('lets a sent request be withdrawn, nothing else', () => {
-    expect(quoteResponses('requested')).toEqual({
-      withdraw: true,
-      decline: false,
-      accept: false,
+  it.each([true, false])(
+    'lets a sent request be withdrawn, nothing else (orders: %s)',
+    (canPlaceOrders) => {
+      expect(
+        quoteResponses(makeQuote({ status: 'requested' }), canPlaceOrders),
+      ).toEqual({ ...none, withdraw: true });
+    },
+  );
+
+  describe('pending', () => {
+    it('without confirmation, accepting is ordering: it goes to the order page', () => {
+      expect(quoteResponses(makeQuote({ status: 'pending' }), true)).toEqual({
+        ...none,
+        decline: true,
+        accept: 'order',
+        noteKey: k('note_order'),
+      });
     });
+
+    it('without confirmation and without order rights, only accepts, in a dialog', () => {
+      expect(quoteResponses(makeQuote({ status: 'pending' }), false)).toEqual({
+        ...none,
+        decline: true,
+        accept: 'plain',
+        acceptBodyKey: k('accept_plain_body'),
+      });
+    });
+
+    it('with confirmation, says the order follows the seller', () => {
+      expect(
+        quoteResponses(makeQuote({ status: 'pending', ...confirm }), true),
+      ).toEqual({
+        ...none,
+        decline: true,
+        accept: 'confirm',
+        acceptBodyKey: k('accept_confirm_order_body'),
+        noteKey: k('note_confirm_order'),
+      });
+    });
+
+    it('with confirmation and without order rights, promises no order', () => {
+      expect(
+        quoteResponses(makeQuote({ status: 'pending', ...confirm }), false),
+      ).toEqual({
+        ...none,
+        decline: true,
+        accept: 'confirm',
+        acceptBodyKey: k('accept_confirm_body'),
+        noteKey: k('note_confirm'),
+      });
+    });
+
+    it.each([true, false])(
+      'Monitor-linked, accepting places the order in Monitor (orders: %s)',
+      (canPlaceOrders) => {
+        expect(
+          quoteResponses(
+            makeQuote({ status: 'pending', ...monitor, ...confirm }),
+            canPlaceOrders,
+          ),
+        ).toEqual({
+          ...none,
+          decline: true,
+          accept: 'monitor',
+          acceptBodyKey: k('accept_monitor_body'),
+          noteKey: k('note_monitor'),
+        });
+      },
+    );
   });
 
-  it('lets a pending quotation be declined or accepted', () => {
-    expect(quoteResponses('pending')).toEqual({
-      withdraw: false,
-      decline: true,
-      accept: true,
+  it.each([
+    ['accepted without confirmation', { status: 'accepted' }],
+    ['confirmed', { status: 'confirmed', ...confirm }],
+  ] as const)('offers "place order" on %s', (_, overrides) => {
+    expect(quoteResponses(makeQuote(overrides), true)).toEqual({
+      ...none,
+      placeOrder: true,
     });
+    expect(quoteResponses(makeQuote(overrides), false)).toEqual(none);
+  });
+
+  it.each([
+    ['accepted, waiting for the seller', { status: 'accepted', ...confirm }],
+    ['confirmed without needing it', { status: 'confirmed' }],
+    ['accepted, Monitor-linked', { status: 'accepted', ...monitor }],
+    [
+      'confirmed, Monitor-linked',
+      { status: 'confirmed', ...monitor, ...confirm },
+    ],
+  ] as const)('offers nothing on %s', (_, overrides) => {
+    expect(quoteResponses(makeQuote(overrides), true)).toEqual(none);
   });
 
   it.each<QuoteStatus>([
     'request_draft',
-    'accepted',
-    'confirmed',
     'finalized',
     'rejected',
     'canceled',
     'expired',
     'unknown',
   ])('offers no response on %s', (status) => {
-    expect(quoteResponses(status)).toEqual(none);
+    for (const canPlaceOrders of [true, false]) {
+      expect(quoteResponses(makeQuote({ status }), canPlaceOrders)).toEqual(
+        none,
+      );
+    }
   });
 });
 
@@ -395,8 +483,25 @@ describe('quoteStatusInfoKey', () => {
     ['canceled', 'portal.quotations.status_info_canceled'],
     ['expired', 'portal.quotations.status_info_expired'],
   ])('explains %s', (status, key) => {
-    expect(quoteStatusInfoKey(makeQuote({ status }))).toBe(key);
+    expect(quoteStatusInfoKey(makeQuote({ status }), false)).toBe(key);
   });
+
+  it.each<QuoteStatus>([
+    'requested',
+    'pending',
+    'confirmed',
+    'finalized',
+    'rejected',
+    'canceled',
+    'expired',
+  ])(
+    'says nothing about ordering on %s when the quotation cannot be ordered',
+    (status) => {
+      expect(quoteStatusInfoKey(makeQuote({ status }), true)).toBe(
+        `portal.quotations.status_info_${status}`,
+      );
+    },
+  );
 
   it.each([
     [{}, 'portal.quotations.status_info_accepted_plain'],
@@ -409,15 +514,43 @@ describe('quoteStatusInfoKey', () => {
       'portal.quotations.status_info_accepted_monitor',
     ],
   ])('explains an accepted quotation by how it was accepted (%j)', (o, key) => {
-    expect(quoteStatusInfoKey(makeQuote({ status: 'accepted', ...o }))).toBe(
-      key,
-    );
+    expect(
+      quoteStatusInfoKey(makeQuote({ status: 'accepted', ...o }), false),
+    ).toBe(key);
   });
+
+  it.each([
+    ['accepted', {}, 'portal.quotations.status_info_accepted_plain_order'],
+    [
+      'confirmed',
+      { requiresConfirmation: true },
+      'portal.quotations.status_info_confirmed_order',
+    ],
+  ] as const)(
+    'tells a buyer who can order that they can, on %s',
+    (status, o, key) => {
+      const quote = makeQuote({ status, ...o });
+      expect(quoteStatusInfoKey(quote, true)).toBe(key);
+      expect(quoteStatusInfoKey(quote, false)).toBe(key.replace('_order', ''));
+    },
+  );
+
+  it.each([
+    [{ requiresConfirmation: true }, 'status_info_accepted_confirm'],
+    [{ externalReference: { number: 'M-1' } }, 'status_info_accepted_monitor'],
+  ])(
+    'promises no order on an accepted quotation that cannot be ordered (%j)',
+    (o, key) => {
+      expect(
+        quoteStatusInfoKey(makeQuote({ status: 'accepted', ...o }), true),
+      ).toBe(`portal.quotations.${key}`);
+    },
+  );
 
   it.each<QuoteStatus>(['request_draft', 'unknown'])(
     'has no text for %s',
     (status) => {
-      expect(quoteStatusInfoKey(makeQuote({ status }))).toBeUndefined();
+      expect(quoteStatusInfoKey(makeQuote({ status }), true)).toBeUndefined();
     },
   );
 });
