@@ -9,20 +9,20 @@ importers:
   .:
     dependencies:
       '@geins/cms':
-        specifier: 0.12.2
-        version: 0.12.2(@geins/core@0.12.2(graphql@16.14.2))
+        specifier: 0.13.0
+        version: 0.13.0(@geins/core@0.13.0(graphql@16.14.2))
       '@geins/core':
-        specifier: 0.12.2
-        version: 0.12.2(graphql@16.14.2)
+        specifier: 0.13.0
+        version: 0.13.0(graphql@16.14.2)
       '@geins/crm':
-        specifier: 0.12.2
-        version: 0.12.2(@geins/core@0.12.2(graphql@16.14.2))
+        specifier: 0.13.0
+        version: 0.13.0(@geins/core@0.13.0(graphql@16.14.2))
       '@geins/oms':
-        specifier: 0.12.2
-        version: 0.12.2(@geins/core@0.12.2(graphql@16.14.2))
+        specifier: 0.13.0
+        version: 0.13.0(@geins/core@0.13.0(graphql@16.14.2))
       '@geins/types':
-        specifier: 0.12.2
-        version: 0.12.2
+        specifier: 0.13.0
+        version: 0.13.0
       '@nuxt/fonts':
         specifier: 0.14.0
         version: 0.14.0(@nuxt/schema@4.6.4)(confbox@0.3.2)(db0@0.3.4)(dotenv@17.4.2)(esbuild@0.28.2)(giget@3.3.1)(ioredis@5.11.1)(jiti@2.7.0)(magic-string@1.4.5)(mlly@1.8.2)(oxc-parser@0.153.0)(rolldown@1.2.16)(rollup@4.67.5)(vite@8.3.6(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(stylus@0.57.0)(terser@5.51.2)(yaml@2.9.1))
@@ -1582,26 +1582,26 @@ packages:
     peerDependencies:
       vue: '>=3.3.0'
 
-  '@geins/cms@0.12.2':
-    resolution: {integrity: sha512-ZhThkeZCFgwWzMX5HROQJ6ZJqqSvYlwypW1F8W1gXuRtkRByfFY+/wTulF1akL63rU+1W2JVCPxavW0iMcS//g==}
+  '@geins/cms@0.13.0':
+    resolution: {integrity: sha512-XUT3VanFW+yEZNfpKH2QBfPTwvwwRkZNeQUFscGimkEztN2SXSaT1qDrQ+iXLMsYZUnku9xwHiSd8kJJKLz47A==}
     peerDependencies:
       '@geins/core': '*'
 
-  '@geins/core@0.12.2':
-    resolution: {integrity: sha512-ADPABhXpGDsVhiFpmg1Ne+0ZuO0ofthVoPcyCk4BOq9BiupsogIw/laPr9/sfuflQR5OlzsnV07wiuX59SxasQ==}
+  '@geins/core@0.13.0':
+    resolution: {integrity: sha512-POrqEXFxenXtFkZJ4SR9kW51FKUEPa0sGjdJkVAkFNeLz1CSY+s6cRUTvWEVfu4qPw58reBsK+aq4ZnsRORYgQ==}
 
-  '@geins/crm@0.12.2':
-    resolution: {integrity: sha512-ZNlom2hd430+Un//gzgc0MyyRQzF5O/j+3YPBmJQzwmczHKg20LnyzpBSmifOSm7GqZyrvpDAt6AV52brgke9Q==}
+  '@geins/crm@0.13.0':
+    resolution: {integrity: sha512-VhAhw6xmA7YFLf7vOp+4lsX/12QfS2SIla5pXLCyPmDYOkjEOpLtgWyPDctpYYaZvqpxtQccT4kBYEq/TsGAtg==}
     peerDependencies:
       '@geins/core': '*'
 
-  '@geins/oms@0.12.2':
-    resolution: {integrity: sha512-DIeDkjpTmbop+Y/5eimhtJ3ijQmDte9gvKwrVvnM/O3YBCAr+VGrYALctIbKK90ucIs+H3fqzOn1vYyOHpnRsw==}
+  '@geins/oms@0.13.0':
+    resolution: {integrity: sha512-0h5GHkY4Djrltdex9PD1umveZraDRUzuY6FCl3jAY5W0yrNLoKUC3CZOz4h/V87O/DNSWcwa9mdX3UiOhitxzg==}
     peerDependencies:
       '@geins/core': '*'
 
-  '@geins/types@0.12.2':
-    resolution: {integrity: sha512-fp5/Vb063JHem0w11H2MOkoeqmUka2fNs+ryydDsxbNt/wDiq+hPofsyDd9hbpWgKO6WS7K29BIVWWB6ILQx6Q==}
+  '@geins/types@0.13.0':
+    resolution: {integrity: sha512-xZ+5IGyuRlETS4svQvnHh3co6n0pFv8TX0MGAKnEHp8NCtFrZZ5E5p6oMLJpVuo0RTYVxm7SnNo6SdWUCvS/8w==}
 
   '@graphql-typed-document-node/core@3.2.0':
     resolution: {integrity: sha512-mB9oAsNCm9aM3/SOv4YtBMqZbYj10R7dkq8byBqxGY/ncFwhf2oQzMV+LCRlWoDSEBJ3COiR1yeDvMtsoOsuFQ==}
@@ -3923,9 +3923,6 @@ packages:
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
 
-  '@types/cookie@0.3.3':
-    resolution: {integrity: sha512-LKVP3cgXBT9RYj+t+9FDKwS5tdI+rPBXaNSkma7hvqy35lc7mAokC2zsqWJH0LaqIt3B962nuYI77hsJoT1gow==}
-
   '@types/culori@4.0.1':
     resolution: {integrity: sha512-43M51r/22CjhbOXyGT361GZ9vncSVQ39u62x5eJdBQFviI8zWp2X5jzqg7k4M6PVgDQAClpy2bUe2dtwEgEDVQ==}
 
@@ -5133,16 +5130,13 @@ packages:
     resolution: {integrity: sha512-D76uU73ulSXrD1UXF4KE2TMxVVwhsnCgfAyTg9k8P6KGZjlXKrOLe4dJQKI3Bxi5wjesZoFXJWElNWBjPZMbhg==}
     engines: {node: '>=6.6.0'}
 
-  cookie-universal@2.2.2:
-    resolution: {integrity: sha512-nUXF6HH2YKbn8vGcdSzWJhjRkDHbnbekuVu2nsRu00zYsX7o/H3xGJRlPVoM4wX/8cpJYpyi9nDt+boER0Wjug==}
-
-  cookie@0.4.2:
-    resolution: {integrity: sha512-aSWTXFzaKWkvHO1Ny/s+ePFpvKsPnjc551iI41v3ny/ow6tBG5Vd+FuqGNhh1LxOmVzOlGUriIlOaokOvhaStA==}
-    engines: {node: '>= 0.6'}
-
   cookie@0.7.2:
     resolution: {integrity: sha512-yki5XnKuf750l50uGTllt6kKILY4nQ1eNIQatoXEByZ5dWgnKqbnqmTrBE5B4N7lrMJKQ2ytWMiTO2o0v6Ew/w==}
     engines: {node: '>= 0.6'}
+
+  cookie@1.1.1:
+    resolution: {integrity: sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ==}
+    engines: {node: '>=18'}
 
   copy-anything@4.1.5:
     resolution: {integrity: sha512-vePst2VLTSqPglW7Q98VwFpGiGpOHTyXIo81MO5VyLecA5zMbZw/P/V1vmwD1jksa2iJpn/YkDrJ3XhTfzUyhQ==}
@@ -10750,16 +10744,16 @@ snapshots:
       '@floating-ui/utils': 0.2.12
       vue: 3.5.45(typescript@5.9.3)
 
-  '@geins/cms@0.12.2(@geins/core@0.12.2(graphql@16.14.2))':
+  '@geins/cms@0.13.0(@geins/core@0.13.0(graphql@16.14.2))':
     dependencies:
-      '@geins/core': 0.12.2(graphql@16.14.2)
+      '@geins/core': 0.13.0(graphql@16.14.2)
 
-  '@geins/core@0.12.2(graphql@16.14.2)':
+  '@geins/core@0.13.0(graphql@16.14.2)':
     dependencies:
       '@apollo/client': 3.14.1(graphql@16.14.2)
       '@cacheable/node-cache': 1.7.6
       broadcast-channel: 7.4.0
-      cookie-universal: 2.2.2
+      cookie: 1.1.1
     transitivePeerDependencies:
       - '@types/react'
       - graphql
@@ -10768,15 +10762,15 @@ snapshots:
       - react-dom
       - subscriptions-transport-ws
 
-  '@geins/crm@0.12.2(@geins/core@0.12.2(graphql@16.14.2))':
+  '@geins/crm@0.13.0(@geins/core@0.13.0(graphql@16.14.2))':
     dependencies:
-      '@geins/core': 0.12.2(graphql@16.14.2)
+      '@geins/core': 0.13.0(graphql@16.14.2)
 
-  '@geins/oms@0.12.2(@geins/core@0.12.2(graphql@16.14.2))':
+  '@geins/oms@0.13.0(@geins/core@0.13.0(graphql@16.14.2))':
     dependencies:
-      '@geins/core': 0.12.2(graphql@16.14.2)
+      '@geins/core': 0.13.0(graphql@16.14.2)
 
-  '@geins/types@0.12.2': {}
+  '@geins/types@0.13.0': {}
 
   '@graphql-typed-document-node/core@3.2.0(graphql@16.14.2)':
     dependencies:
@@ -13503,8 +13497,6 @@ snapshots:
       '@types/deep-eql': 4.0.2
       assertion-error: 2.0.1
 
-  '@types/cookie@0.3.3': {}
-
   '@types/culori@4.0.1': {}
 
   '@types/d3-array@3.2.2': {}
@@ -14780,14 +14772,9 @@ snapshots:
 
   cookie-signature@1.2.2: {}
 
-  cookie-universal@2.2.2:
-    dependencies:
-      '@types/cookie': 0.3.3
-      cookie: 0.4.2
-
-  cookie@0.4.2: {}
-
   cookie@0.7.2: {}
+
+  cookie@1.1.1: {}
 
   copy-anything@4.1.5: {}
 
