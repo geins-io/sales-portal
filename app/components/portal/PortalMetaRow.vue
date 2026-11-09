@@ -30,7 +30,7 @@ defineProps<{
       <p
         v-for="(line, l) in lines"
         :key="line"
-        class="text-muted-foreground text-sm break-words whitespace-pre-line"
+        class="text-muted-foreground text-sm wrap-break-word whitespace-pre-line"
       >
         <NuxtLink
           v-if="href && l === 0"
