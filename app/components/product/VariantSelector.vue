@@ -851,11 +851,13 @@ const { showPrice } = usePriceVisibility();
         <!-- The step lies on top of the list as a narrower sheet, so a strip
              of the list stays in view; on a phone the strip is 1.5rem. -->
         <Sheet :open="stepOpen" @update:open="(v) => !v && closeStep()">
+          <!-- eslint-disable tailwindcss/no-unnecessary-arbitrary-value -- px, so it stays narrower than the outer sheet's 670px at any font size -->
           <SheetContent
             side="right"
             class="flex h-screen w-[calc(100%-1.5rem)] flex-col p-0 sm:max-w-[600px]"
             data-testid="variant-pick-sheet"
           >
+            <!-- eslint-enable tailwindcss/no-unnecessary-arbitrary-value -->
             <SheetHeader class="border-b px-6 py-4">
               <SheetTitle class="text-lg">{{
                 $t('product.variant_pick_heading', { value: pickValueLabel })

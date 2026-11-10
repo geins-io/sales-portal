@@ -27,7 +27,7 @@ const key = (name: string) => `portal.quotations.confirm.${name}`;
 <template>
   <div data-testid="quote-thanks" :data-kind="kind">
     <article
-      class="border-border bg-card mx-auto max-w-3xl rounded-xl border px-8 py-10 sm:px-12 sm:py-12"
+      class="border-border bg-card mx-auto max-w-3xl rounded-xl border px-8 py-10 sm:p-12"
     >
       <header class="flex flex-col items-center gap-3 text-center">
         <CircleCheck class="text-primary size-12" aria-hidden="true" />

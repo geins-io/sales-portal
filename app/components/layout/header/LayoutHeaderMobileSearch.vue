@@ -56,7 +56,7 @@ watch(
     <div
       v-if="appStore.mobileSearchOpen"
       data-testid="mobile-search-panel"
-      class="absolute top-full right-0 left-0 z-50 border-b bg-white shadow-lg"
+      class="absolute inset-x-0 top-full z-50 border-b bg-white shadow-lg"
       style="padding: 10px 20px"
     >
       <SearchBar autofocus />

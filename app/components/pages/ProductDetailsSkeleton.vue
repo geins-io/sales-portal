@@ -4,9 +4,9 @@
       <!-- Breadcrumb skeleton -->
       <div class="flex items-center gap-2">
         <Skeleton class="h-4 w-12" />
-        <Skeleton class="h-4 w-4" />
+        <Skeleton class="size-4" />
         <Skeleton class="h-4 w-20" />
-        <Skeleton class="h-4 w-4" />
+        <Skeleton class="size-4" />
         <Skeleton class="h-4 w-32" />
       </div>
 

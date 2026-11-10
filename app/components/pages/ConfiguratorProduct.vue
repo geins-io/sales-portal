@@ -908,7 +908,7 @@ function onRetryOpen(): void {
                            the tree goes. -->
                         <button
                           type="button"
-                          class="focus-visible:ring-ring flex w-full items-center justify-between gap-2 rounded-md border-l-2 py-1.5 pr-2 pl-2 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
+                          class="focus-visible:ring-ring flex w-full items-center justify-between gap-2 rounded-md border-l-2 px-2 py-1.5 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
                           :class="
                             entry.section.id === activeSectionId
                               ? 'border-primary bg-muted text-foreground font-medium'

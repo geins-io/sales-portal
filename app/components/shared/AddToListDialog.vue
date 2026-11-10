@@ -112,7 +112,7 @@ function close() {
           :for="`add-to-list-row-${row.id}`"
           data-testid="add-to-list-row"
           :data-list-id="row.id"
-          class="hover:bg-muted flex cursor-pointer items-center gap-3 rounded-md px-2 py-2"
+          class="hover:bg-muted flex cursor-pointer items-center gap-3 rounded-md p-2"
         >
           <Checkbox
             :id="`add-to-list-row-${row.id}`"

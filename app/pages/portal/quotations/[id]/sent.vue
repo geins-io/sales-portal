@@ -155,7 +155,7 @@ useHead({
               <p
                 v-if="sentDetails.customerOrderNumber"
                 data-testid="quote-thanks-your-reference"
-                class="text-muted-foreground break-words"
+                class="text-muted-foreground wrap-break-word"
               >
                 {{ t('portal.orders.detail.additional_info.your_reference') }}:
                 {{ sentDetails.customerOrderNumber }}
@@ -175,7 +175,7 @@ useHead({
               <p
                 v-if="sentDetails.goodsLabel"
                 data-testid="quote-thanks-goods-label"
-                class="text-muted-foreground break-words"
+                class="text-muted-foreground wrap-break-word"
               >
                 {{ t('portal.orders.detail.additional_info.goods_label') }}:
                 {{ sentDetails.goodsLabel }}
@@ -183,7 +183,7 @@ useHead({
               <p
                 v-if="sentDetails.comment"
                 data-testid="quote-thanks-comment"
-                class="text-muted-foreground break-words whitespace-pre-line"
+                class="text-muted-foreground wrap-break-word whitespace-pre-line"
               >
                 {{ t('portal.quotations.comment') }}: {{ sentDetails.comment }}
               </p>

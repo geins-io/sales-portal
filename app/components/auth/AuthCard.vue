@@ -87,7 +87,7 @@ defineExpose({ switchToForgot });
             <div class="relative my-6">
               <Separator />
               <span
-                class="text-muted-foreground bg-card absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-2 text-xs"
+                class="text-muted-foreground bg-card absolute top-1/2 left-1/2 -translate-1/2 px-2 text-xs"
                 data-testid="auth-divider"
               >
                 {{ $t('auth.no_account') }}

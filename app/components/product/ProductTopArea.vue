@@ -34,7 +34,7 @@ const { t } = useI18n();
         v-if="product.productImages?.length"
         :images="product.productImages"
         :product-name="product.name ?? ''"
-        class="w-full max-w-[400px]"
+        class="w-full max-w-100"
       />
     </ErrorBoundary>
 

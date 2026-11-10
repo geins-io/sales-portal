@@ -34,10 +34,10 @@ defineProps<{ groups: ParameterGroupType[] }>();
             :key="param.identifier ?? param.name ?? idx"
             class="border-border odd:bg-muted/40 border-b"
           >
-            <td class="text-muted-foreground px-3 py-3 pr-4">
+            <td class="text-muted-foreground p-3 pr-4">
               {{ param.label || param.name || '' }}
             </td>
-            <td class="px-3 py-3 text-right">{{ param.value }}</td>
+            <td class="p-3 text-right">{{ param.value }}</td>
           </tr>
         </tbody>
       </table>

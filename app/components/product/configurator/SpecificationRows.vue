@@ -84,7 +84,7 @@ const grouped = computed(() => groupSpecificationRows(rows));
                their own, and an unbreakable word would spill out of the
                column. -->
           <span
-            class="leading-snug break-words hyphens-auto"
+            class="leading-snug wrap-break-word hyphens-auto"
             :class="large ? 'text-sm' : 'text-[13px]'"
           >
             {{ valueText(value) }}

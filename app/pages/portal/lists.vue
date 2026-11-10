@@ -103,7 +103,7 @@ function handleCreateList() {
           }}</SheetDescription>
         </SheetHeader>
 
-        <div class="space-y-4 px-4 py-4">
+        <div class="space-y-4 p-4">
           <div class="space-y-2">
             <label for="list-name" class="text-sm font-medium">
               {{ t('portal.saved_lists.create_dialog.name_label') }}

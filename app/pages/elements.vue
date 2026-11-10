@@ -207,7 +207,7 @@ const mockProductOutOfStock = {
                 v-if="tenant?.branding?.logoUrl"
                 :src="tenant.branding.logoUrl"
                 alt="Tenant logo"
-                class="h-6 max-w-[120px] object-contain"
+                class="h-6 max-w-30 object-contain"
               />
               <span v-else class="text-xs italic">None</span>
             </div>
@@ -234,7 +234,7 @@ const mockProductOutOfStock = {
                 class="flex flex-col items-center gap-1"
               >
                 <div
-                  class="h-8 w-8 rounded-full border"
+                  class="size-8 rounded-full border"
                   :class="`swatch-${name}`"
                 />
                 <span class="text-muted-foreground text-xs">{{ name }}</span>
@@ -571,9 +571,7 @@ const mockProductOutOfStock = {
                     {{ item.label }}
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
-                    <div
-                      class="grid w-[400px] grid-cols-2 gap-1 p-2 md:w-[500px]"
-                    >
+                    <div class="grid w-100 grid-cols-2 gap-1 p-2 md:w-125">
                       <NavigationMenuLink
                         v-for="child in item.children"
                         :key="child.id"

@@ -32,7 +32,7 @@ const forwardedProps = useForwardProps(delegatedProps);
     >
       <slot>
         <Circle
-          class="fill-primary absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2"
+          class="fill-primary absolute top-1/2 left-1/2 size-2 -translate-1/2"
         />
       </slot>
     </RadioGroupIndicator>
