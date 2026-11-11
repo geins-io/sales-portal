@@ -175,14 +175,20 @@ describe('useQuoteDraftEditing', () => {
       expect(editing.saving.value).toBe(false);
     });
 
-    it('never changes the amount of a configured line', async () => {
+    it('saves a configured line at its new amount, with its configuration, as a plain one', async () => {
       const editing = setup([configured, line('line-a', 11, 1)]);
 
       editing.setQuantity(configured, 5);
-      await vi.advanceTimersByTimeAsync(AMOUNT_SAVE_DELAY_MS);
-
+      expect(editing.lines.value[0]!.quantity).toBe(5);
+      await vi.advanceTimersByTimeAsync(AMOUNT_SAVE_DELAY_MS - 1);
       expect(save).not.toHaveBeenCalled();
-      expect(editing.lines.value[0]!.quantity).toBe(2);
+      await vi.advanceTimersByTimeAsync(1);
+
+      expect(save).toHaveBeenCalledOnce();
+      expect(save.mock.calls[0]![0].items).toEqual([
+        { id: 'line-c', skuId: 900, quantity: 5, configurationId: 'cfg-1' },
+        { id: 'line-a', skuId: 11, quantity: 1 },
+      ]);
     });
   });
 

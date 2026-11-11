@@ -11,17 +11,14 @@ import type {
   ValueSource,
 } from '#shared/types/configurator';
 import { logger } from '../../utils/logger';
+import { camel, VALUE_TYPES, valueOf } from '../configuration-value';
 import {
-  camel,
-  committedValue,
-  VALUE_TYPES,
-  valueOf,
-} from '../configuration-value';
-import { cartLineConfiguration, summaryRows } from '../line-configuration';
+  cartLineConfiguration,
+  committedChoices,
+  summaryRows,
+} from '../line-configuration';
 import type { OrderLineChoices } from '../configurator';
 import type {
-  CommittedConfigurationOptionGroupType,
-  CommittedConfigurationSectionType,
   CommittedConfigurationType,
   CommittedOrderLinesType,
   ConfigurationMessageType,
@@ -270,37 +267,6 @@ export function mapCartLineConfigurations(
   return lines;
 }
 
-function committedOptions(
-  groups: CommittedConfigurationOptionGroupType['optionGroups'],
-  into: OrderLineChoices['options'],
-): void {
-  for (const group of groups) {
-    for (const option of group.options) {
-      if (option.id === null) continue;
-      into.push({
-        id: option.id,
-        instanceId: option.instanceId ?? '',
-        quantity: Number(option.quantity),
-      });
-    }
-    committedOptions(group.optionGroups, into);
-  }
-}
-
-function committedChoices(
-  sections: CommittedConfigurationSectionType['sections'],
-  into: Pick<OrderLineChoices, 'variables' | 'options'>,
-): void {
-  for (const section of sections) {
-    for (const variable of section.variables) {
-      if (variable.id === null) continue;
-      into.variables.push({ id: variable.id, value: committedValue(variable) });
-    }
-    committedOptions(section.optionGroups, into.options);
-    committedChoices(section.sections, into);
-  }
-}
-
 /**
  * The choices the order row at a position was committed with, flattened; null
  * for a plain row and for one committed before the structure was recorded.
@@ -313,11 +279,8 @@ export function mapOrderLineChoices(
   const sections = line?.configuration?.sections;
   if (!line || !sections) return null;
 
-  const choices: OrderLineChoices = {
+  return {
     productId: line.product?.productId ?? null,
-    variables: [],
-    options: [],
+    ...committedChoices(sections),
   };
-  committedChoices(sections, choices);
-  return choices;
 }

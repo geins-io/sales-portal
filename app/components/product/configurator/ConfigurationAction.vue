@@ -9,6 +9,8 @@ import type { StockBlock } from '~/utils/stock-in-cart';
  * put it in the cart, which commits it and adds the committed line. While a
  * configured cart line is being edited the same press updates that line, and
  * the buyer can also go back to the line's own choices or leave it as it was.
+ * A quotation draft line is edited the same way, and the press updates the
+ * draft.
  */
 const {
   canCommit,
@@ -16,6 +18,7 @@ const {
   incomplete,
   error = null,
   editing = false,
+  quoteEditing = false,
   stockBlock = null,
 } = defineProps<{
   canCommit: boolean;
@@ -26,6 +29,8 @@ const {
   error?: string | null;
   /** A configured cart line is being edited: the action updates it. */
   editing?: boolean;
+  /** A configured quotation draft line is being edited: the action updates it. */
+  quoteEditing?: boolean;
   /** The stock stops the action, as on the ordinary product page. */
   stockBlock?: StockBlock | null;
 }>();
@@ -79,9 +84,11 @@ const auth = useAuthStore();
               ? 'product.max_in_cart'
               : incomplete
                 ? 'configurator.commit_incomplete'
-                : editing
-                  ? 'configurator.edit.update'
-                  : 'product.add_to_cart',
+                : quoteEditing
+                  ? 'configurator.quote.update'
+                  : editing
+                    ? 'configurator.edit.update'
+                    : 'product.add_to_cart',
         )
       }}
     </Button>
@@ -93,7 +100,7 @@ const auth = useAuthStore();
       {{ t('product.max_quantity_info') }}
     </p>
 
-    <div v-if="editing" class="mt-2 flex gap-2">
+    <div v-if="editing || quoteEditing" class="mt-2 flex gap-2">
       <Button
         variant="outline"
         class="flex-1"

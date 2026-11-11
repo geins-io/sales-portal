@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Tag, X } from 'lucide-vue-next';
+import { useElementSize } from '@vueuse/core';
 import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
 import { formatPrice } from '#shared/types/commerce';
@@ -16,6 +17,23 @@ onMounted(() => {
   if (cartStore.cartId && !cartStore.cart && !cartStore.needsSignIn) {
     cartStore.fetchCart();
   }
+});
+
+// The summary is pinned to the bottom of the window, over the lines. Its height
+// is kept free there, so a line scrolled to or focused (its "Ändra" on a phone)
+// lands above it rather than under it.
+const summary = useTemplateRef<HTMLElement>('summary');
+const { height: summaryHeight } = useElementSize(summary, undefined, {
+  box: 'border-box',
+});
+watchEffect(() => {
+  if (!isBrowser()) return;
+  document.documentElement.style.scrollPaddingBottom = summaryHeight.value
+    ? `${summaryHeight.value}px`
+    : '';
+});
+onBeforeUnmount(() => {
+  if (isBrowser()) document.documentElement.style.scrollPaddingBottom = '';
 });
 
 // Summary amounts on the side of the buyer's VAT choice; a missing one stays
@@ -170,6 +188,7 @@ function goToCheckout() {
 
         <ErrorBoundary section="order-summary">
           <aside
+            ref="summary"
             class="bg-muted border-border sticky bottom-0 z-10 flex flex-col gap-4 border-t px-6 py-5"
             data-testid="cart-order-summary"
           >

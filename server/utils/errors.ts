@@ -24,6 +24,8 @@ export enum ErrorCode {
   GONE = 'GONE',
   /** A cart line named for an edit is not in the cart, or carries no configuration. */
   CART_LINE_GONE = 'CART_LINE_GONE',
+  /** A quote line named for a change is not on a draft, or carries no configuration. */
+  QUOTE_LINE_GONE = 'QUOTE_LINE_GONE',
   /** The cart named is another company's. */
   CART_NOT_OWN = 'CART_NOT_OWN',
   /** The cart is read only with the buyer signed in. */
@@ -65,6 +67,7 @@ const ERROR_STATUS_CODES: Record<ErrorCode, number> = {
   // Their own codes rather than 404 and 403: the page tells a line it cannot
   // edit from an unknown configuration or a buyer the provider refuses by code.
   [ErrorCode.CART_LINE_GONE]: 404,
+  [ErrorCode.QUOTE_LINE_GONE]: 404,
   [ErrorCode.CART_NOT_OWN]: 403,
   // Not UNAUTHORIZED: the client keeps the cart id for this code alone.
   [ErrorCode.CART_LOGIN_REQUIRED]: 401,
@@ -99,6 +102,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.VALIDATION_ERROR]: 'Validation failed',
   [ErrorCode.GONE]: 'Resource is no longer available',
   [ErrorCode.CART_LINE_GONE]: 'Cart line not found',
+  [ErrorCode.QUOTE_LINE_GONE]: 'Quote draft line not found',
   [ErrorCode.CART_NOT_OWN]: 'Cart belongs to another company',
   [ErrorCode.CART_LOGIN_REQUIRED]: 'Sign in to read this cart',
   [ErrorCode.CONFIGURATOR_NOT_AVAILABLE]: 'The configurator is not available',

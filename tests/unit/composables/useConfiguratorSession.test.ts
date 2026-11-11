@@ -3039,3 +3039,516 @@ describe('useConfiguratorSession', () => {
     });
   });
 });
+
+describe('useConfiguratorSession editing a quotation draft line', () => {
+  const LINE = {
+    quoteId: '01a1cae6-ce08-7ea7-859d-4af6b1cb6832',
+    lineId: 'line-1',
+  };
+  const QUOTE = { id: LINE.quoteId, lineItems: [] };
+  const GONE = () => fetchError(404, 'gone', 'QUOTE_LINE_GONE');
+
+  function openOnQuote() {
+    const saved = vi.fn();
+    const scope = effectScope();
+    const session = scope.run(() =>
+      useConfiguratorSession({
+        addLine: vi.fn(async () => {
+          throw new Error('no cart add on a draft line');
+        }),
+        onQuoteSaved: saved,
+      }),
+    );
+    if (!session) throw new Error('The scope produced no session');
+    scopes.push(scope);
+    return { session, saved };
+  }
+
+  /** A session open on the line's own choices. */
+  async function editingLine(document = makeValidConfiguration()) {
+    const opened = openOnQuote();
+    mockFetch.mockResolvedValueOnce({
+      configuration: document,
+      replayed: true,
+    });
+    await opened.session.editQuoteLine(PRODUCT_ID, LINE);
+    mockFetch.mockReset();
+    return opened;
+  }
+
+  /** The same, after a save that failed. */
+  async function afterFailedSave(document = makeValidConfiguration()) {
+    const opened = await editingLine(document);
+    mockFetch.mockRejectedValueOnce(fetchError(502, 'Geins down'));
+    await opened.session.commit();
+    await Promise.resolve();
+    mockFetch.mockReset();
+    return opened;
+  }
+
+  const methods = () =>
+    mockFetch.mock.calls.map(([url, options]) => `${options?.method} ${url}`);
+
+  describe('opening the line', () => {
+    it('opens no session on the server', async () => {
+      browser.value = false;
+      const { session } = openOnQuote();
+
+      await session.editQuoteLine(PRODUCT_ID, LINE);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(session.quoteLine.value).toBeNull();
+    });
+
+    it("asks the server for a session on the line's choices, and holds it and the line", async () => {
+      const document = makeCascadedConfiguration();
+      mockFetch.mockResolvedValue({ configuration: document, replayed: true });
+      const { session } = openOnQuote();
+
+      await session.editQuoteLine(PRODUCT_ID, LINE);
+
+      const { url, options } = lastRequest();
+      expect(url).toBe('/api/configurations/from-quote');
+      expect(options.method).toBe('POST');
+      expect(options.body).toEqual({ productId: PRODUCT_ID, ...LINE });
+      expect(session.configuration.value).toEqual(document);
+      expect(session.status.value).toBe('active');
+      expect(session.quoteLine.value).toEqual(LINE);
+      expect(session.editNotice.value).toBeNull();
+      expect(session.editing.value).toBeNull();
+      expect(session.source.value).toBeNull();
+      expect(session.notReplayed.value).toBe(false);
+    });
+
+    it("says the line cannot be opened again when its choices did not land, on the server's defaults", async () => {
+      const defaults = makeInitialConfiguration();
+      mockFetch.mockResolvedValue({ configuration: defaults, replayed: false });
+      const { session } = openOnQuote();
+
+      await session.editQuoteLine(PRODUCT_ID, LINE);
+
+      expect(mockFetch).toHaveBeenCalledOnce();
+      expect(session.editNotice.value).toBe('not_reopenable');
+      expect(session.configuration.value).toEqual(defaults);
+      expect(session.status.value).toBe('active');
+      expect(session.quoteLine.value).toEqual(LINE);
+      expect(session.notReplayed.value).toBe(false);
+    });
+
+    it('says the line is gone, keeps the line for the way back and starts nothing', async () => {
+      mockFetch.mockRejectedValue(GONE());
+      const { session } = openOnQuote();
+
+      await session.editQuoteLine(PRODUCT_ID, LINE);
+
+      expect(mockFetch).toHaveBeenCalledOnce();
+      expect(session.editNotice.value).toBe('line_gone');
+      expect(session.quoteLine.value).toEqual(LINE);
+      expect(session.configuration.value).toBeNull();
+      expect(session.status.value).toBe('idle');
+      expect(session.error.value).toBeNull();
+    });
+
+    it('fails, still on the line, when the line could not be read, and opens on the retry', async () => {
+      mockFetch.mockRejectedValueOnce(fetchError(502, 'Geins down'));
+      const { session } = openOnQuote();
+
+      await session.editQuoteLine(PRODUCT_ID, LINE);
+
+      expect(session.error.value).toEqual({
+        status: 502,
+        message: 'Geins down',
+      });
+      expect(session.status.value).toBe('idle');
+      expect(session.editNotice.value).toBeNull();
+      expect(session.quoteLine.value).toEqual(LINE);
+
+      const document = makeValidConfiguration();
+      mockFetch.mockResolvedValueOnce({
+        configuration: document,
+        replayed: true,
+      });
+      await session.reopenLine();
+
+      expect(lastRequest().url).toBe('/api/configurations/from-quote');
+      expect(lastRequest().options.body).toEqual({
+        productId: PRODUCT_ID,
+        ...LINE,
+      });
+      expect(session.error.value).toBeNull();
+      expect(session.configuration.value).toEqual(document);
+      expect(session.status.value).toBe('active');
+    });
+
+    it('opens nothing, and does not fail, before any line was named', async () => {
+      const { session } = openOnQuote();
+
+      await expect(session.reopenLine()).resolves.toBeUndefined();
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('opens nothing while a session is active', async () => {
+      const { session } = await editingLine();
+
+      await session.editQuoteLine(PRODUCT_ID, LINE);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('clears an earlier notice when the line opens on its choices', async () => {
+      mockFetch.mockResolvedValueOnce({
+        configuration: makeInitialConfiguration(),
+        replayed: false,
+      });
+      const { session } = openOnQuote();
+      await session.editQuoteLine(PRODUCT_ID, LINE);
+      mockFetch.mockReset();
+      mockFetch.mockImplementation(async (url) =>
+        url === '/api/configurations/from-quote'
+          ? { configuration: makeValidConfiguration(), replayed: true }
+          : null,
+      );
+
+      await session.revertEdit();
+
+      expect(session.editNotice.value).toBeNull();
+    });
+  });
+
+  describe('reverting', () => {
+    it("releases the session and opens the line's own choices again, still on the line", async () => {
+      const document = makeValidConfiguration();
+      const { session } = await editingLine(document);
+      const own = { ...makeCascadedConfiguration(), configurationId: 'own-2' };
+      mockFetch.mockImplementation(async (url) =>
+        url === '/api/configurations/from-quote'
+          ? { configuration: own, replayed: true }
+          : null,
+      );
+
+      await session.revertEdit();
+
+      expect(methods()).toEqual([
+        `DELETE /api/configurations/${document.configurationId}`,
+        'POST /api/configurations/from-quote',
+      ]);
+      expect(session.configuration.value).toEqual(own);
+      expect(session.quoteLine.value).toEqual(LINE);
+      expect(session.changed.value).toBe(false);
+    });
+
+    it('keeps the session when it cannot be let go', async () => {
+      const document = makeValidConfiguration();
+      const { session } = await editingLine(document);
+      mockFetch.mockRejectedValue(fetchError(502, 'Geins down'));
+
+      await session.revertEdit();
+
+      expect(methods()).toEqual([
+        `DELETE /api/configurations/${document.configurationId}`,
+      ]);
+      expect(session.configuration.value).toEqual(document);
+      expect(session.status.value).toBe('active');
+    });
+  });
+
+  describe('expiry', () => {
+    it("opens the line's saved choices again, not the ones the expired session held", async () => {
+      const { session } = await editingLine();
+      mockFetch.mockRejectedValueOnce(fetchError(410, 'expired'));
+      await session.applyChanges([
+        { type: 'variable', variableId: 'width', value: 900 },
+      ]);
+      expect(session.status.value).toBe('expired');
+      mockFetch.mockReset();
+      const saved = { ...makeValidConfiguration(), configurationId: 'saved-2' };
+      mockFetch.mockResolvedValue({ configuration: saved, replayed: true });
+
+      await session.release();
+      await session.reopenLine();
+
+      expect(methods()).toEqual(['POST /api/configurations/from-quote']);
+      expect(session.configuration.value).toEqual(saved);
+      expect(session.status.value).toBe('active');
+      expect(session.changed.value).toBe(false);
+    });
+
+    it('shows loading, not the expired face, while the line opens again', async () => {
+      const { session } = await editingLine();
+      mockFetch.mockRejectedValueOnce(fetchError(410, 'expired'));
+      await session.applyChanges([
+        { type: 'variable', variableId: 'width', value: 900 },
+      ]);
+      mockFetch.mockReturnValue(deferred<unknown>().promise);
+
+      void session.reopenLine();
+
+      expect(session.status.value).toBe('closed');
+    });
+  });
+
+  describe('saving', () => {
+    it('commits onto the draft line on the server, never through the cart, and hands over the draft', async () => {
+      const document = makeValidConfiguration();
+      const { session, saved } = await editingLine(document);
+      mockFetch.mockResolvedValue({ quote: QUOTE });
+
+      await session.commit();
+
+      expect(mockFetch).toHaveBeenCalledOnce();
+      const { url, options } = lastRequest();
+      expect(url).toBe(
+        `/api/configurations/${document.configurationId}/quote-line`,
+      );
+      expect(options.method).toBe('POST');
+      // The product the page shows, which the server holds against the line's.
+      expect(options.body).toEqual({ productId: PRODUCT_ID, ...LINE });
+      expect(saved).toHaveBeenCalledWith(QUOTE);
+      expect(session.status.value).toBe('closed');
+      expect(session.committed.value).toBeNull();
+      expect(session.error.value).toBeNull();
+    });
+
+    it('sends no delete for the committed session when the page goes', async () => {
+      const { session } = await editingLine();
+      mockFetch.mockResolvedValue({ quote: QUOTE });
+      await session.commit();
+      mockFetch.mockReset();
+
+      for (const scope of scopes) scope.stop();
+      scopes = [];
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('saves without a callback given', async () => {
+      const scope = effectScope();
+      const session = scope.run(() => useConfiguratorSession());
+      if (!session) throw new Error('The scope produced no session');
+      scopes.push(scope);
+      mockFetch.mockResolvedValueOnce({
+        configuration: makeValidConfiguration(),
+        replayed: true,
+      });
+      await session.editQuoteLine(PRODUCT_ID, LINE);
+      mockFetch.mockResolvedValue({ quote: QUOTE });
+
+      await expect(session.commit()).resolves.toBeUndefined();
+      expect(session.status.value).toBe('closed');
+    });
+
+    it('sends no delete when the page goes while the save is under way: the server may have committed it', async () => {
+      const { session } = await editingLine();
+      const save = deferred<unknown>();
+      mockFetch.mockReturnValueOnce(save.promise);
+      const pending = session.commit();
+      mockFetch.mockClear();
+
+      for (const scope of scopes) scope.stop();
+      scopes = [];
+      save.resolve({ quote: QUOTE });
+      await pending;
+
+      expect(
+        mockFetch.mock.calls.filter(
+          ([, options]) => options?.method === 'DELETE',
+        ),
+      ).toEqual([]);
+    });
+
+    it('closes the session behind a failed save, keeping the choices and the line for the retry', async () => {
+      const document = makeValidConfiguration();
+      const { session, saved } = await editingLine(document);
+      mockFetch.mockImplementation(async (url) => {
+        if (url.endsWith('/quote-line')) throw fetchError(502, 'Geins down');
+        return null;
+      });
+
+      await session.commit();
+
+      expect(saved).not.toHaveBeenCalled();
+      expect(session.error.value).toEqual({
+        status: 502,
+        message: 'Geins down',
+      });
+      expect(session.status.value).toBe('closed');
+      expect(session.configuration.value).toEqual(document);
+      expect(session.quoteLine.value).toEqual(LINE);
+      expect(session.editNotice.value).toBeNull();
+      // Quietly: the session may be committed already, and then answers 410.
+      expect(methods()).toEqual([
+        `POST /api/configurations/${document.configurationId}/quote-line`,
+        `DELETE /api/configurations/${document.configurationId}`,
+      ]);
+      expect(lastRequest().options.keepalive).toBe(true);
+    });
+
+    it('tells nothing of a session that would not be deleted behind a failed save', async () => {
+      const { session } = await editingLine();
+      mockFetch.mockImplementation(async (url) => {
+        throw url.endsWith('/quote-line')
+          ? fetchError(502, 'Geins down')
+          : fetchError(410, 'finished');
+      });
+
+      await session.commit();
+      await Promise.resolve();
+
+      expect(session.status.value).toBe('closed');
+      expect(session.error.value).toEqual({
+        status: 502,
+        message: 'Geins down',
+      });
+    });
+
+    it('sends no second delete for that session when the page goes', async () => {
+      const { session } = await afterFailedSave();
+
+      for (const scope of scopes) scope.stop();
+      scopes = [];
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(session.status.value).toBe('closed');
+    });
+
+    it('says the line is gone when the draft refuses it, with nothing to retry', async () => {
+      const { session, saved } = await editingLine();
+      mockFetch.mockImplementation(async (url) => {
+        if (url.endsWith('/quote-line')) throw GONE();
+        return null;
+      });
+
+      await session.commit();
+
+      expect(saved).not.toHaveBeenCalled();
+      expect(session.editNotice.value).toBe('line_gone');
+      expect(session.status.value).toBe('closed');
+      expect(session.quoteLine.value).toEqual(LINE);
+    });
+
+    it('is the expired state, with nothing deleted, when the session ran out before the save', async () => {
+      const { session } = await editingLine();
+      mockFetch.mockRejectedValue(fetchError(410, 'expired'));
+
+      await session.commit();
+
+      expect(session.status.value).toBe('expired');
+      expect(session.error.value).toBeNull();
+      expect(mockFetch).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('saving again after a failed save', () => {
+    it('puts the choices on screen into a new session and commits that onto the line', async () => {
+      const document = makeValidConfiguration();
+      const { session, saved } = await afterFailedSave(document);
+      const fresh = { ...makeValidConfiguration(), configurationId: 'fresh-2' };
+      mockFetch.mockImplementation(async (url) => {
+        if (url === '/api/configurations/restore') {
+          return { configuration: fresh, replayed: true };
+        }
+        if (url === '/api/configurations/fresh-2/quote-line') {
+          return { quote: QUOTE };
+        }
+        throw new Error(`unexpected request to ${url}`);
+      });
+
+      await session.retryQuoteSave();
+
+      expect(methods()).toEqual([
+        'POST /api/configurations/restore',
+        'POST /api/configurations/fresh-2/quote-line',
+      ]);
+      expect(mockFetch.mock.calls[0]![1]!.body).toEqual({
+        productId: PRODUCT_ID,
+        quantity: document.quantity,
+        ...choicesOf(document),
+      });
+      expect(mockFetch.mock.calls[1]![1]!.body).toEqual({
+        productId: PRODUCT_ID,
+        ...LINE,
+      });
+      expect(saved).toHaveBeenCalledWith(QUOTE);
+      expect(session.error.value).toBeNull();
+    });
+
+    it('saves nothing when the new session is on the defaults, and says the choices did not come back', async () => {
+      const { session, saved } = await afterFailedSave();
+      mockFetch.mockImplementation(async (url) => {
+        if (url === '/api/configurations/restore') {
+          return { configuration: makeInitialConfiguration(), replayed: false };
+        }
+        return null;
+      });
+
+      await session.retryQuoteSave();
+
+      expect(methods()).toEqual(['POST /api/configurations/restore']);
+      expect(session.notRestored.value).toBe(true);
+      expect(session.status.value).toBe('active');
+      expect(session.quoteLine.value).toEqual(LINE);
+      expect(saved).not.toHaveBeenCalled();
+    });
+
+    it('fails again, still closed on the same choices, when no new session could be made', async () => {
+      const document = makeValidConfiguration();
+      const { session, saved } = await afterFailedSave(document);
+      mockFetch.mockRejectedValue(fetchError(502, 'still down'));
+
+      await session.retryQuoteSave();
+
+      expect(methods()).toEqual(['POST /api/configurations/restore']);
+      expect(session.status.value).toBe('closed');
+      expect(session.error.value).toEqual({
+        status: 502,
+        message: 'still down',
+      });
+      expect(session.configuration.value).toEqual(document);
+      expect(saved).not.toHaveBeenCalled();
+    });
+
+    it('does nothing while the session is live: there is no failed save to send again', async () => {
+      const { session } = await editingLine();
+
+      await session.retryQuoteSave();
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('does nothing outside a draft line', async () => {
+      mockFetch.mockResolvedValue(makeValidConfiguration());
+      const session = open();
+      await session.start(PRODUCT_ID);
+      await session.release();
+      mockFetch.mockReset();
+
+      await session.retryQuoteSave();
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('does nothing for a line that never opened', async () => {
+      mockFetch.mockRejectedValueOnce(fetchError(502, 'Geins down'));
+      const { session } = openOnQuote();
+      await session.editQuoteLine(PRODUCT_ID, LINE);
+      mockFetch.mockReset();
+
+      await session.retryQuoteSave();
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("another line's code", () => {
+    it("is a failure worth another try, not a draft line that is gone: the cart's code", async () => {
+      mockFetch.mockRejectedValue(fetchError(404, 'gone', 'CART_LINE_GONE'));
+      const { session } = openOnQuote();
+
+      await session.editQuoteLine(PRODUCT_ID, LINE);
+
+      expect(session.editNotice.value).toBeNull();
+      expect(session.error.value?.code).toBe('CART_LINE_GONE');
+    });
+  });
+});

@@ -66,6 +66,11 @@ import {
 import { editTarget, withoutEdit } from '~/utils/configurator-edit';
 import { replayTarget, withoutReplay } from '~/utils/configurator-replay';
 import {
+  quoteFace,
+  quoteLineTarget,
+  withoutQuoteLine,
+} from '~/utils/configurator-quote';
+import {
   CONFIGURATION_TAB_ID,
   configuratorTabs,
   productDescriptionTexts,
@@ -245,6 +250,7 @@ const {
   notReplayed,
   notRestored,
   editing,
+  quoteLine,
   source,
   changed,
   editNotice,
@@ -254,6 +260,8 @@ const {
   start,
   edit,
   replay,
+  editQuoteLine,
+  retryQuoteSave,
   restore,
   reopenLine,
   revertEdit,
@@ -277,17 +285,21 @@ const {
   replaceLine: (record, line) =>
     cart.replaceConfiguredItem(record.committedConfigurationId, line),
   onReturn: open,
+  onQuoteSaved: () => backToDraft(),
 });
 
 /**
  * The stock rule of the ordinary product page, over every line of the SKU. A
- * line being edited is replaced rather than added to, so it does not count.
+ * line being edited is replaced rather than added to, so it does not count. A
+ * draft line is a request, not a purchase, so stock does not stop it.
  */
 const stock = computed(() =>
-  stockBlock(
-    product.skus?.find((sku) => sku.skuId === skuId.value)?.stock,
-    quantityInCart(cart.cart?.items, skuId.value, editing.value?.itemId),
-  ),
+  quoteLine.value
+    ? null
+    : stockBlock(
+        product.skus?.find((sku) => sku.skuId === skuId.value)?.stock,
+        quantityInCart(cart.cart?.items, skuId.value, editing.value?.itemId),
+      ),
 );
 
 /** Which verb failed last; see `refusedChange`. */
@@ -307,8 +319,16 @@ const router = useRouter();
 /** A link that named a line this page cannot edit. */
 const staleEdit = ref(false);
 
+/** A link that named a draft line this page cannot open. */
+const staleQuote = ref(false);
+
 const shownEditNotice = computed(() =>
-  staleEdit.value ? 'line_gone' : editNotice.value,
+  staleEdit.value || staleQuote.value ? 'line_gone' : editNotice.value,
+);
+
+/** The notice in the words of what is edited: the cart, or a draft. */
+const editNoticeScope = computed(() =>
+  quoteLine.value || staleQuote.value ? 'quote' : 'edit',
 );
 
 function dropEditQuery(): void {
@@ -336,6 +356,38 @@ const staleReplay = ref(false);
 
 const shownNotReplayed = computed(() => staleReplay.value || notReplayed.value);
 
+// ---------------------------------------------------------------------------
+// Editing a configured line of a quotation draft
+//
+// As a cart line, with the draft as where the buyer came from and goes back
+// to: after a save, and on leaving, which leaves the draft as it was. The line
+// is in the URL, as ids only, so a reload keeps editing it.
+// ---------------------------------------------------------------------------
+
+function backToDraft(): void {
+  const line = quoteLine.value;
+  if (line) void router.push(localePath(`/portal/quotations/${line.quoteId}`));
+}
+
+/** What stands in place of the form when the draft line cannot be edited. */
+const draftFace = computed(() =>
+  quoteFace({
+    draft: !!quoteLine.value,
+    notice: editNotice.value,
+    stage: stage.value,
+    lastAction: lastAction.value,
+    error: error.value,
+  }),
+);
+
+/**
+ * The box beside the form. A failure with no document coming has none; a
+ * failed save of a draft line keeps it, with what the buyer tried to save.
+ */
+const boxShown = computed(() =>
+  draftFace.value ? draftFace.value.retry === 'save' : stage.value !== 'error',
+);
+
 function dropReplayQuery(): void {
   const target = replayTarget(route.query);
   if (!target.row && !target.stale) return;
@@ -348,6 +400,12 @@ function dropReplayQuery(): void {
  * page whose session was deleted on leaving, as a reload of the URL would.
  */
 function open(): void {
+  const quote = quoteLineTarget(route.query);
+  if (quote.line) return void editQuoteLine(productId.value, quote.line);
+  if (quote.stale) {
+    staleQuote.value = true;
+    void router.replace({ query: withoutQuoteLine(route.query) });
+  }
   const target = editTarget(route.query, cart.cartId);
   if (target.line) return void edit(productId.value, target.line);
   if (target.stale) {
@@ -477,8 +535,13 @@ const formSlotClass = computed(() => {
     return 'border-border space-y-8 border-l pl-6 lg:min-h-[calc(100vh-16rem)]';
   }
   if (stage.value === 'committed') return 'space-y-6 lg:col-span-2';
-  if (stage.value === 'loading') {
+  if (stage.value === 'loading' && !draftFace.value) {
     return 'border-border min-h-64 border-l pl-6 lg:col-start-2 lg:min-h-[calc(100vh-16rem)]';
+  }
+  // Beside a box the slot holds the form's height: the box is never taller
+  // than the left column, and a short one cuts the specification off.
+  if (draftFace.value && boxShown.value) {
+    return 'space-y-6 lg:col-start-2 lg:min-h-[calc(100vh-16rem)]';
   }
   return 'space-y-6 lg:col-start-2';
 });
@@ -621,7 +684,9 @@ function onChange(changes: ConfigurationChange[]): void {
 
 /** The quantity the held session follows; see `pageQuantity`. */
 const lineQuantity = computed(() =>
-  pageQuantity(editing.value, cart.cartId, cart.cart?.items),
+  quoteLine.value
+    ? null
+    : pageQuantity(editing.value, cart.cartId, cart.cart?.items),
 );
 
 /** The cart is still settling or sending a quantity change of that line. */
@@ -683,6 +748,7 @@ function onSubmit(): void {
   void commit(() => {
     lastAction.value = 'commit';
     staleEdit.value = false;
+    staleQuote.value = false;
     staleReplay.value = false;
   });
 }
@@ -700,27 +766,35 @@ function onRetryAdd(): void {
 async function onReset(): Promise<void> {
   lastAction.value = 'start';
   staleEdit.value = false;
+  staleQuote.value = false;
   staleReplay.value = false;
   dropReplayQuery();
   await release();
+  // A draft line keeps its amount, which nothing on this page can set again.
+  if (quoteLine.value && configuration.value) {
+    return start(productId.value, configuration.value.quantity);
+  }
   await start(productId.value);
 }
 
 /**
- * Starting over after an expiry. While a line is edited the line still holds
- * its choices, and while an order row is named the order does, so they are
- * what comes back. Otherwise the choices the expired session last held do.
+ * Starting over after an expiry. While a line is edited, in the cart or on a
+ * draft, the line still holds its choices, and while an order row is named
+ * the order does, so they are what comes back. Otherwise the choices the
+ * expired session last held do.
  */
 async function onRestart(): Promise<void> {
   const order = replayTarget(route.query).row;
+  const edited = editing.value ?? quoteLine.value;
   lastAction.value = 'start';
-  if (!editing.value && !order) {
+  if (!edited && !order) {
     staleEdit.value = false;
+    staleQuote.value = false;
     staleReplay.value = false;
     dropReplayQuery();
   }
   await release();
-  if (editing.value) await reopenLine();
+  if (edited) await reopenLine();
   else if (order && !configuration.value) await replay(productId.value, order);
   else await restore(productId.value);
 }
@@ -731,6 +805,7 @@ function onRevert(): void {
 }
 
 async function onCancel(): Promise<void> {
+  if (quoteLine.value) return backToDraft();
   lastAction.value = 'start';
   cancelling = true;
   try {
@@ -738,6 +813,11 @@ async function onCancel(): Promise<void> {
   } finally {
     cancelling = false;
   }
+}
+
+function onRetryQuoteSave(): void {
+  lastAction.value = 'commit';
+  void retryQuoteSave();
 }
 
 function onRetryOpen(): void {
@@ -764,7 +844,10 @@ function onRetryOpen(): void {
             data-testid="configurator-cta"
             @click="showConfiguration"
           >
-            <Loader2 v-if="stage === 'loading'" class="size-4 animate-spin" />
+            <Loader2
+              v-if="stage === 'loading' && !draftFace"
+              class="size-4 animate-spin"
+            />
             <SlidersHorizontal v-else class="size-4" />
             {{ t('configurator.configure_product') }}
           </Button>
@@ -852,16 +935,20 @@ function onRetryOpen(): void {
               class="min-w-0"
               data-testid="configurator-left"
             >
+              <!-- Below sm the reset sits under the heading: beside it, the
+                   two are wider than the card at phone width. -->
               <div
-                class="border-border mb-6 flex items-center justify-between gap-3 border-b pb-4"
+                class="border-border mb-6 flex flex-col items-start gap-1 border-b pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                data-testid="configurator-heading"
               >
                 <h3 class="font-heading text-2xl font-bold">
                   {{ t('configurator.product_configuration') }}
                 </h3>
                 <Button
+                  v-if="!draftFace || draftFace.retry"
                   variant="ghost"
                   size="sm"
-                  class="text-muted-foreground shrink-0 gap-1.5"
+                  class="text-muted-foreground -ml-2.5 shrink-0 gap-1.5 sm:ml-0"
                   data-testid="configurator-reset"
                   @click="onReset"
                 >
@@ -968,8 +1055,50 @@ function onRetryOpen(): void {
                   :class="formSlotClass"
                   data-testid="configurator-form-slot"
                 >
+                  <!-- A draft line that cannot be edited: the buyer came from
+                   the draft, so every way on from here leads back to it. -->
+                  <div
+                    v-if="draftFace"
+                    class="space-y-3"
+                    data-testid="configurator-quote-face"
+                  >
+                    <p class="text-danger flex items-start gap-2 text-sm">
+                      <AlertCircle class="mt-0.5 size-4 shrink-0" />
+                      {{ t(draftFace.message) }}
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                      <Button
+                        v-if="draftFace.retry"
+                        variant="outline"
+                        size="sm"
+                        :disabled="busy"
+                        data-testid="configurator-quote-retry"
+                        @click="
+                          draftFace.retry === 'save'
+                            ? onRetryQuoteSave()
+                            : onRetryOpen()
+                        "
+                      >
+                        <RotateCcw class="size-4" />
+                        {{ t('configurator.add_retry') }}
+                      </Button>
+                      <!-- Alone under the message it is outlined, so its edge
+                           sits under the message's; a ghost button's text
+                           would start a padding further in. -->
+                      <Button
+                        :variant="draftFace.retry ? 'ghost' : 'outline'"
+                        size="sm"
+                        :disabled="busy"
+                        data-testid="configurator-quote-leave"
+                        @click="backToDraft"
+                      >
+                        {{ t(draftFace.leave) }}
+                      </Button>
+                    </div>
+                  </div>
+
                   <p
-                    v-if="stage === 'loading'"
+                    v-else-if="stage === 'loading'"
                     class="text-muted-foreground flex items-center gap-2 text-sm"
                     data-testid="configurator-loading"
                   >
@@ -1099,7 +1228,9 @@ function onRetryOpen(): void {
                       data-testid="configurator-edit-notice"
                     >
                       <Info class="mt-0.5 size-4 shrink-0" />
-                      {{ t(`configurator.edit.${shownEditNotice}`) }}
+                      {{
+                        t(`configurator.${editNoticeScope}.${shownEditNotice}`)
+                      }}
                     </p>
                     <p
                       v-if="ownError"
@@ -1109,7 +1240,6 @@ function onRetryOpen(): void {
                       <AlertCircle class="mt-0.5 size-4 shrink-0" />
                       {{ t(failureKey(ownError)) }}
                     </p>
-
                     <!-- Above the header and outside the remount: the trail
                      to the active section, hidden at the top level where it
                      would only repeat the heading below it. -->
@@ -1266,7 +1396,7 @@ function onRetryOpen(): void {
               <!-- While loading the card holds its loaded shape, empty. A start
                    that failed has no document coming, so no card. -->
               <Card
-                v-if="stage !== 'error'"
+                v-if="boxShown"
                 class="divide-border min-h-0 gap-0 divide-y p-0 lg:flex-1"
               >
                 <!-- The prototype's marker for an edit, first in the box. -->
@@ -1278,6 +1408,14 @@ function onRetryOpen(): void {
                   <Pencil class="text-primary size-3.5 shrink-0" />
                   {{ t('configurator.edit.marker') }}
                 </div>
+                <div
+                  v-else-if="quoteLine"
+                  class="bg-primary/5 text-foreground flex shrink-0 items-center gap-2 px-4 py-2 text-xs font-medium"
+                  data-testid="configurator-quote-marker"
+                >
+                  <Pencil class="text-primary size-3.5 shrink-0" />
+                  {{ t('configurator.quote.marker') }}
+                </div>
                 <ConfigurationPanel
                   :configuration="configuration"
                   :status="status"
@@ -1285,6 +1423,7 @@ function onRetryOpen(): void {
                   :product-name="product.name ?? ''"
                   :article-number="product.articleNumber ?? ''"
                   :editing="!!editing"
+                  :quote-editing="!!quoteLine"
                   @restart="onRestart"
                 >
                   <ConfigurationAction
@@ -1295,6 +1434,7 @@ function onRetryOpen(): void {
                     :incomplete="configuration?.isValid === false"
                     :error="actionError"
                     :editing="!!editing"
+                    :quote-editing="!!quoteLine"
                     :stock-block="stock"
                     @submit="onSubmit"
                     @revert="onRevert"

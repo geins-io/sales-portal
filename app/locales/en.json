@@ -430,6 +430,16 @@
       "open_failed": "The product in the cart could not be opened right now.",
       "update_failed": "The product in the cart could not be updated. It keeps its previous choices.",
       "currency_mismatch": "The product in the cart was added in another market and cannot be changed here. It is unchanged."
+    },
+    "quote": {
+      "marker": "Editing a product in the quote draft",
+      "update": "Update in draft",
+      "expired": "The time for your change has run out. The product in the draft is unchanged.",
+      "not_reopenable": "The configuration cannot be opened again. Configure it from the start – the product in the draft stays as it is until you update it.",
+      "line_gone": "The product is no longer in the draft, or the draft has been sent.",
+      "open_failed": "The product in the draft could not be opened right now.",
+      "update_failed": "The product in the draft could not be updated. It keeps its previous choices.",
+      "back": "Back to the draft"
     }
   },
   "account": {
@@ -1033,7 +1043,6 @@
         "removed": "{name} was removed.",
         "undo": "Undo",
         "remove": "Remove",
-        "configured_quantity": "The amount is changed in the configurator",
         "continue": "Continue to quote request",
         "continue_hint": "In the next step you add a message and your wishes, and send it. No order is placed.",
         "updated_at": "Last changed",

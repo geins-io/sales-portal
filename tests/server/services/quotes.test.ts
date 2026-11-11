@@ -63,6 +63,7 @@ vi.stubGlobal(
   }),
 );
 vi.stubGlobal('ErrorCode', {
+  QUOTE_LINE_GONE: 'QUOTE_LINE_GONE',
   BAD_REQUEST: 'BAD_REQUEST',
   UNAUTHORIZED: 'UNAUTHORIZED',
   NOT_FOUND: 'NOT_FOUND',
@@ -308,6 +309,59 @@ describe('quotes service', () => {
   // getQuote
   // -------------------------------------------------------------------------
   describe('getQuote', () => {
+    it('fails as not found when Geins answers no quotation', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: null });
+
+      await expect(
+        quotesService.getQuote('cart-404', mockEvent),
+      ).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+        message: 'Quote cart-404 not found',
+      });
+    });
+
+    it('reads through the quotes service, without a user token when the request carries none', async () => {
+      const sdk = await import('../../../server/services/_sdk');
+      vi.mocked(sdk.buildRequestContext).mockReturnValueOnce(
+        undefined as never,
+      );
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: makeRawQuotationCart(),
+      });
+
+      await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ userToken: undefined }),
+      );
+      expect(vi.mocked(wrapServiceCall).mock.calls.at(-1)?.[1]).toBe('quotes');
+    });
+
+    it("gives a line its product page's canonical path, and none when Geins sends none", async () => {
+      const cart = makeRawQuotationCart();
+      const [item] = cart.items as Record<string, unknown>[];
+      cart.items = [
+        {
+          ...item,
+          product: {
+            ...(item!.product as object),
+            canonicalUrl: '/skopor/digging-bucket',
+          },
+        },
+        {
+          ...item,
+          id: 'item-002',
+          product: { productId: 7, canonicalUrl: null },
+        },
+      ];
+      mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+
+      const { lineItems } = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(lineItems[0]!.canonicalUrl).toBe('/skopor/digging-bucket');
+      expect(lineItems[1]).not.toHaveProperty('canonicalUrl');
+    });
+
     it('gives the order a finalized quotation placed', async () => {
       mockGraphqlQuery.mockResolvedValueOnce({
         getQuotationCart: makeRawQuotationCart({
@@ -1768,17 +1822,38 @@ describe('quotes service', () => {
           ).toEqual({ items });
         });
 
-        it.each([
-          [
-            'a configuration the draft does not hold',
-            { skuId: 900, quantity: 2, configurationId: 'cfg-other' },
-          ],
-          [
-            'its configuration at another amount',
-            { skuId: 900, quantity: 3, configurationId: 'cfg-1' },
-          ],
-        ])('refuses %s and writes nothing', async (_label, line) => {
+        it('is sent at a new amount: the draft holds its configuration', async () => {
           draftWithConfiguredLine();
+          mockGraphqlMutation.mockResolvedValueOnce({
+            updateQuotationRequest: draftCart('REQUEST_DRAFT'),
+          });
+          const items = [
+            {
+              id: 'item-002',
+              skuId: 900,
+              quantity: 5,
+              configurationId: 'cfg-1',
+            },
+          ];
+
+          await quotesService.updateQuoteRequest(
+            'draft-001',
+            { items },
+            mockEvent,
+          );
+
+          expect(
+            mockGraphqlMutation.mock.calls[0]![0].variables.request,
+          ).toEqual({ items });
+        });
+
+        it('refuses a configuration the draft does not hold and writes nothing', async () => {
+          draftWithConfiguredLine();
+          const line = {
+            skuId: 900,
+            quantity: 2,
+            configurationId: 'cfg-other',
+          };
 
           await expect(
             quotesService.updateQuoteRequest(
@@ -1788,7 +1863,7 @@ describe('quotes service', () => {
             ),
           ).rejects.toMatchObject({
             code: 'BAD_REQUEST',
-            message: `Configured line ${line.configurationId} is not on quote draft-001 at that amount`,
+            message: 'Configured line cfg-other is not on quote draft-001',
           });
           expect(mockGraphqlMutation).not.toHaveBeenCalled();
         });
@@ -1804,6 +1879,523 @@ describe('quotes service', () => {
               mockEvent,
             ),
           ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+          expect(mockGraphqlMutation).not.toHaveBeenCalled();
+        });
+      });
+    });
+
+    describe('a configured draft line, replayed and replaced', () => {
+      /** Committed sections as Geins sends them: values as text, the deepest list absent. */
+      const SECTIONS = [
+        {
+          id: 's1',
+          name: 'Mått',
+          variables: [
+            { id: 'width', name: 'Width', valueType: 'NUMBER', value: '500' },
+            { id: null, name: 'Unnamed', valueType: 'NUMBER', value: '1' },
+          ],
+          optionGroups: [
+            {
+              id: 'g1',
+              name: 'Adapter',
+              options: [
+                { id: 'adapter', instanceId: '0', name: 'S50', quantity: 1 },
+                { id: null, instanceId: '0', name: 'Gone', quantity: 1 },
+              ],
+              optionGroups: [
+                {
+                  id: 'g2',
+                  name: 'Steel',
+                  options: [
+                    {
+                      id: 'steel',
+                      instanceId: null,
+                      name: 'Hard',
+                      quantity: 2,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+          sections: [
+            {
+              id: 's2',
+              name: 'Inner',
+              variables: [
+                {
+                  id: 'depth',
+                  name: 'Depth',
+                  valueType: 'NUMBER',
+                  value: '400',
+                },
+              ],
+              optionGroups: [],
+            },
+          ],
+        },
+      ];
+
+      /** A draft with a plain line and a configured line of 2, as Geins holds it. */
+      function draftCartWithLines(status = 'REQUEST_DRAFT') {
+        const cart: Record<string, unknown> = draftCart(status);
+        const [plain] = cart.items as Record<string, unknown>[];
+        cart.items = [
+          { ...plain, message: 'kept' },
+          {
+            ...plain,
+            id: 'item-002',
+            skuId: 900,
+            quantity: 2,
+            message: 'line note',
+            configurationId: 'cfg-1',
+            configuration: { summary: [], sections: SECTIONS },
+            product: {
+              productId: 1358,
+              name: 'Digging bucket',
+              articleNumber: 'DB-001',
+            },
+          },
+        ];
+        return cart;
+      }
+
+      function draftHolds(cart = draftCartWithLines()) {
+        mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+      }
+
+      describe('getQuoteLineChoices', () => {
+        it("answers the line's product, amount and committed choices, values typed", async () => {
+          draftHolds();
+
+          await expect(
+            quotesService.getQuoteLineChoices(
+              'draft-001',
+              'item-002',
+              mockEvent,
+            ),
+          ).resolves.toEqual({
+            productId: 1358,
+            quantity: 2,
+            choices: {
+              variables: [
+                { id: 'width', value: 500 },
+                { id: 'depth', value: 400 },
+              ],
+              options: [
+                { id: 'adapter', instanceId: '0', quantity: 1 },
+                { id: 'steel', instanceId: '', quantity: 2 },
+              ],
+            },
+          });
+          expect(mockGraphqlQuery).toHaveBeenCalledWith(
+            expect.objectContaining({
+              queryAsString: 'query:quotes/get-quotation.graphql',
+              variables: { quotationId: 'draft-001', languageId: 'sv-SE' },
+              userToken: 'test-user-token',
+            }),
+          );
+        });
+
+        it('reads a configured line in first place, and one without a product names none', async () => {
+          const cart = draftCartWithLines();
+          const items = cart.items as Record<string, unknown>[];
+          const { product: _product, ...withoutProduct } = items[1]!;
+          cart.items = [withoutProduct, items[0]];
+          draftHolds(cart);
+
+          await expect(
+            quotesService.getQuoteLineChoices(
+              'draft-001',
+              'item-002',
+              mockEvent,
+            ),
+          ).resolves.toMatchObject({ productId: null, quantity: 2 });
+        });
+
+        it.each([
+          [
+            'a line committed before its structure was recorded',
+            (() => {
+              const cart = draftCartWithLines();
+              const items = cart.items as Record<string, unknown>[];
+              items[1]!.configuration = { summary: [], sections: null };
+              return cart;
+            })(),
+          ],
+          [
+            'a configured line without its configuration',
+            (() => {
+              const cart = draftCartWithLines();
+              const items = cart.items as Record<string, unknown>[];
+              items[1]!.configuration = null;
+              return cart;
+            })(),
+          ],
+        ])('answers the amount with no choices for %s', async (_case, cart) => {
+          draftHolds(cart);
+
+          await expect(
+            quotesService.getQuoteLineChoices(
+              'draft-001',
+              'item-002',
+              mockEvent,
+            ),
+          ).resolves.toEqual({ productId: 1358, quantity: 2, choices: null });
+        });
+
+        it.each([
+          ['a plain line', 'item-001', draftCartWithLines()],
+          ['a line that is gone', 'item-009', draftCartWithLines()],
+          [
+            'a quotation that is no longer a draft',
+            'item-002',
+            draftCartWithLines('REQUESTED'),
+          ],
+          [
+            'a cart without lines',
+            'item-002',
+            (() => {
+              const cart = draftCartWithLines();
+              delete cart.items;
+              return cart;
+            })(),
+          ],
+          [
+            'a cart without its quotation',
+            'item-002',
+            (() => {
+              const cart = draftCartWithLines();
+              delete cart.quotation;
+              return cart;
+            })(),
+          ],
+          ['a draft that is not found', 'item-002', null],
+        ])('says the line is gone for %s', async (_case, lineId, cart) => {
+          mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+
+          await expect(
+            quotesService.getQuoteLineChoices('draft-001', lineId, mockEvent),
+          ).rejects.toMatchObject({
+            code: 'QUOTE_LINE_GONE',
+            message: `Line ${lineId} is not a configured line of draft draft-001`,
+          });
+        });
+
+        it('passes on a read that failed', async () => {
+          const down = new Error('Geins down');
+          mockGraphqlQuery.mockRejectedValueOnce(down);
+
+          await expect(
+            quotesService.getQuoteLineChoices(
+              'draft-001',
+              'item-002',
+              mockEvent,
+            ),
+          ).rejects.toBe(down);
+        });
+      });
+
+      describe('replaceConfiguredLine', () => {
+        const COMMITTED = { committedConfigurationId: 'cfg-new', quantity: 3 };
+
+        /** The product the page saving the line shows: the line's. */
+        const PRODUCT = '1358';
+
+        it("commits, then sends the whole list with the new configuration in the line's place", async () => {
+          draftHolds();
+          draftHolds();
+          mockGraphqlMutation.mockResolvedValueOnce({
+            updateQuotationRequest: draftCart('REQUEST_DRAFT'),
+          });
+          const commit = vi.fn(async () => COMMITTED);
+
+          const quote = await quotesService.replaceConfiguredLine(
+            'draft-001',
+            'item-002',
+            PRODUCT,
+            commit,
+            mockEvent,
+          );
+
+          expect(commit).toHaveBeenCalledOnce();
+          expect(mockGraphqlMutation).toHaveBeenCalledWith(
+            expect.objectContaining({
+              queryAsString: 'query:quotes/update-quotation-request.graphql',
+              userToken: 'test-user-token',
+              requestOptions: { context: { timeoutMs: 0 } },
+              variables: {
+                quotationId: 'draft-001',
+                languageId: 'sv-SE',
+                request: {
+                  items: [
+                    {
+                      id: 'item-001',
+                      skuId: 501,
+                      quantity: 2,
+                      message: 'kept',
+                    },
+                    {
+                      skuId: 900,
+                      quantity: 3,
+                      configurationId: 'cfg-new',
+                      message: 'line note',
+                    },
+                  ],
+                },
+              },
+            }),
+          );
+          expect(quote.id).toBe('draft-001');
+        });
+
+        it('sends another configured line back by its own configuration', async () => {
+          const cart = draftCartWithLines();
+          const items = cart.items as Record<string, unknown>[];
+          cart.items = [
+            {
+              ...items[1],
+              id: 'item-003',
+              configurationId: 'cfg-2',
+              message: null,
+            },
+            ...items,
+          ];
+          draftHolds(cart);
+          draftHolds(cart);
+          mockGraphqlMutation.mockResolvedValueOnce({
+            updateQuotationRequest: draftCart('REQUEST_DRAFT'),
+          });
+
+          await quotesService.replaceConfiguredLine(
+            'draft-001',
+            'item-002',
+            PRODUCT,
+            async () => COMMITTED,
+            mockEvent,
+          );
+
+          const sent =
+            mockGraphqlMutation.mock.calls[0]![0].variables.request.items;
+          expect(sent[0]).toEqual({
+            id: 'item-003',
+            skuId: 900,
+            quantity: 2,
+            configurationId: 'cfg-2',
+          });
+          expect(sent).toHaveLength(3);
+        });
+
+        it.each([
+          ['a plain line', 'item-001', draftCartWithLines()],
+          ['a line that is gone', 'item-009', draftCartWithLines()],
+          [
+            'a quotation that is no longer a draft',
+            'item-002',
+            draftCartWithLines('REQUESTED'),
+          ],
+          ['a draft that is not found', 'item-002', null],
+        ])(
+          'refuses %s, committing and writing nothing',
+          async (_case, lineId, cart) => {
+            mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+            const commit = vi.fn(async () => COMMITTED);
+
+            await expect(
+              quotesService.replaceConfiguredLine(
+                'draft-001',
+                lineId,
+                PRODUCT,
+                commit,
+                mockEvent,
+              ),
+            ).rejects.toMatchObject({
+              code: 'QUOTE_LINE_GONE',
+              message: `Line ${lineId} is not a configured line of draft draft-001`,
+            });
+            expect(commit).not.toHaveBeenCalled();
+            expect(mockGraphqlMutation).not.toHaveBeenCalled();
+          },
+        );
+
+        it('builds the write from the draft as it is after the commit, keeping a change made meanwhile', async () => {
+          draftHolds();
+          const changed = draftCartWithLines();
+          const items = changed.items as Record<string, unknown>[];
+          // Another tab raised the plain line and moved it behind the configured one.
+          changed.items = [items[1], { ...items[0], quantity: 9 }];
+          draftHolds(changed);
+          mockGraphqlMutation.mockResolvedValueOnce({
+            updateQuotationRequest: draftCart('REQUEST_DRAFT'),
+          });
+
+          await quotesService.replaceConfiguredLine(
+            'draft-001',
+            'item-002',
+            PRODUCT,
+            async () => COMMITTED,
+            mockEvent,
+          );
+
+          expect(mockGraphqlQuery).toHaveBeenCalledTimes(2);
+          expect(
+            mockGraphqlMutation.mock.calls[0]![0].variables.request.items,
+          ).toEqual([
+            {
+              skuId: 900,
+              quantity: 3,
+              configurationId: 'cfg-new',
+              message: 'line note',
+            },
+            { id: 'item-001', skuId: 501, quantity: 9, message: 'kept' },
+          ]);
+        });
+
+        it.each([
+          [
+            'the line was removed',
+            (() => {
+              const cart = draftCartWithLines();
+              cart.items = [(cart.items as unknown[])[0]];
+              return cart;
+            })(),
+          ],
+          ['the draft was sent', draftCartWithLines('REQUESTED')],
+        ])(
+          'refuses the write when %s during the commit',
+          async (_case, after) => {
+            draftHolds();
+            draftHolds(after);
+            const commit = vi.fn(async () => COMMITTED);
+
+            await expect(
+              quotesService.replaceConfiguredLine(
+                'draft-001',
+                'item-002',
+                PRODUCT,
+                commit,
+                mockEvent,
+              ),
+            ).rejects.toMatchObject({
+              code: 'QUOTE_LINE_GONE',
+              message:
+                'Line item-002 is not a configured line of draft draft-001',
+            });
+            expect(commit).toHaveBeenCalledOnce();
+            expect(mockGraphqlMutation).not.toHaveBeenCalled();
+          },
+        );
+
+        it.each([
+          ['another product', '7'],
+          ['no product', ''],
+        ])(
+          'refuses a save from the page of %s, committing and writing nothing',
+          async (_case, productId) => {
+            draftHolds();
+            const commit = vi.fn(async () => COMMITTED);
+
+            await expect(
+              quotesService.replaceConfiguredLine(
+                'draft-001',
+                'item-002',
+                productId,
+                commit,
+                mockEvent,
+              ),
+            ).rejects.toMatchObject({
+              code: 'QUOTE_LINE_GONE',
+              message: `Line item-002 of draft draft-001 is not a line of product ${productId}`,
+            });
+            expect(commit).not.toHaveBeenCalled();
+            expect(mockGraphqlMutation).not.toHaveBeenCalled();
+          },
+        );
+
+        it('refuses a line that names no product, whatever the page shows', async () => {
+          const cart = draftCartWithLines();
+          const items = cart.items as Record<string, unknown>[];
+          delete items[1]!.product;
+          draftHolds(cart);
+          const commit = vi.fn(async () => COMMITTED);
+
+          await expect(
+            quotesService.replaceConfiguredLine(
+              'draft-001',
+              'item-002',
+              'undefined',
+              commit,
+              mockEvent,
+            ),
+          ).rejects.toMatchObject({ code: 'QUOTE_LINE_GONE' });
+          expect(commit).not.toHaveBeenCalled();
+        });
+
+        it('goes by the product id alone: a line saves whatever its article number is', async () => {
+          const cart = draftCartWithLines();
+          const items = cart.items as Record<string, unknown>[];
+          items[1]!.product = {
+            productId: 1358,
+            name: 'Digging bucket',
+            articleNumber: 'ANOTHER-NUMBER',
+          };
+          draftHolds(cart);
+          draftHolds(cart);
+          mockGraphqlMutation.mockResolvedValueOnce({
+            updateQuotationRequest: draftCart('REQUEST_DRAFT'),
+          });
+          const commit = vi.fn(async () => COMMITTED);
+
+          await quotesService.replaceConfiguredLine(
+            'draft-001',
+            'item-002',
+            PRODUCT,
+            commit,
+            mockEvent,
+          );
+
+          expect(commit).toHaveBeenCalledOnce();
+          expect(mockGraphqlMutation).toHaveBeenCalledOnce();
+        });
+
+        it('refuses another product even when its article number is the same', async () => {
+          const cart = draftCartWithLines();
+          const items = cart.items as Record<string, unknown>[];
+          items[1]!.product = {
+            productId: 9999,
+            name: 'Another bucket',
+            articleNumber: 'DB-001',
+          };
+          draftHolds(cart);
+          const commit = vi.fn(async () => COMMITTED);
+
+          await expect(
+            quotesService.replaceConfiguredLine(
+              'draft-001',
+              'item-002',
+              PRODUCT,
+              commit,
+              mockEvent,
+            ),
+          ).rejects.toMatchObject({ code: 'QUOTE_LINE_GONE' });
+          expect(commit).not.toHaveBeenCalled();
+        });
+
+        it('writes nothing when the commit fails', async () => {
+          draftHolds();
+          const refused = new Error('commit refused');
+
+          await expect(
+            quotesService.replaceConfiguredLine(
+              'draft-001',
+              'item-002',
+              PRODUCT,
+              async () => {
+                throw refused;
+              },
+              mockEvent,
+            ),
+          ).rejects.toBe(refused);
           expect(mockGraphqlMutation).not.toHaveBeenCalled();
         });
       });

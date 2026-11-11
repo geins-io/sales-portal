@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3';
 import type { CartItemConfigurationType } from '@geins/types';
 import type { PriceType } from '#shared/types/commerce';
+import type { ConfigurationChoices } from '#shared/types/configurator';
 import type {
   Quote,
   QuoteAddress,
@@ -21,7 +22,7 @@ import {
   getRequestChannelVariables,
 } from './_sdk';
 import { findOrderPublicId } from './orders';
-import { cartLineConfiguration } from './line-configuration';
+import { cartLineConfiguration, committedChoices } from './line-configuration';
 import { amountWriter } from './amount';
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
@@ -52,6 +53,7 @@ interface RawCartItem {
   product?: {
     productId?: number;
     alias?: string;
+    canonicalUrl?: string | null;
     name?: string;
     articleNumber?: string;
     productImages?: { fileName?: string; url?: string | null }[];
@@ -229,6 +231,9 @@ function mapLineItem(item: RawCartItem, amount: QuoteAmount): QuoteLineItem {
     id: item.id ?? '',
     productId: item.product?.productId ?? 0,
     alias: item.product?.alias ?? null,
+    ...(item.product?.canonicalUrl && {
+      canonicalUrl: item.product.canonicalUrl,
+    }),
     skuId: item.skuId ?? 0,
     name: item.product?.name ?? '',
     articleNumber: item.product?.articleNumber ?? '',
@@ -548,11 +553,11 @@ export async function listQuotes(
   return { quotes, total: quotes.length };
 }
 
-/** Get a single quotation cart via Geins GraphQL API */
-export async function getQuote(
+/** The quotation as Geins sends it, before it is mapped; null when it has none. */
+async function findQuotationCart(
   quoteId: string,
   event: H3Event,
-): Promise<Quote> {
+): Promise<{ cart: RawQuotationCart | null; languageId: string }> {
   const sdk = await getTenantSDK(event);
   const requestContext = buildRequestContext(event);
   const { languageId } = getRequestChannelVariables(sdk, event);
@@ -568,7 +573,15 @@ export async function getQuote(
       }),
     'quotes',
   );
-  const cart = unwrapGraphQL(result) as RawQuotationCart | null;
+  return { cart: unwrapGraphQL(result) as RawQuotationCart | null, languageId };
+}
+
+/** Get a single quotation cart via Geins GraphQL API */
+export async function getQuote(
+  quoteId: string,
+  event: H3Event,
+): Promise<Quote> {
+  const { cart, languageId } = await findQuotationCart(quoteId, event);
   if (!cart) {
     throw createAppError(ErrorCode.NOT_FOUND, `Quote ${quoteId} not found`);
   }
@@ -763,8 +776,9 @@ export function createQuoteRequest(
 }
 
 /**
- * A configured line is only ever kept as it is: its amount is set in the
- * configurator, and a configuration the draft does not hold could be anyone's.
+ * A configured line is only ever sent by a configuration the draft holds,
+ * once: a configuration it does not hold could be anyone's. Its amount may
+ * change; Geins prices the line at the new amount.
  */
 async function assertConfiguredLinesKept(
   quoteId: string,
@@ -773,24 +787,134 @@ async function assertConfiguredLinesKept(
 ): Promise<void> {
   const configured = items.filter((item) => item.configurationId);
   if (!configured.length) return;
-  const held = new Map(
+  const held = new Set(
     (await getQuote(quoteId, event)).lineItems.flatMap((line) =>
-      line.configuration
-        ? [[line.configuration.configurationId, line.quantity] as const]
-        : [],
+      line.configuration ? [line.configuration.configurationId] : [],
     ),
   );
   const seen = new Set<string>();
-  for (const { configurationId, quantity } of configured) {
+  for (const { configurationId } of configured) {
     const id = configurationId as string;
-    if (held.get(id) !== quantity || seen.has(id)) {
+    if (!held.has(id) || seen.has(id)) {
       throw createAppError(
         ErrorCode.BAD_REQUEST,
-        `Configured line ${id} is not on quote ${quoteId} at that amount`,
+        `Configured line ${id} is not on quote ${quoteId}`,
       );
     }
     seen.add(id);
   }
+}
+
+/** A configured draft line and what it was committed with, for a replay. */
+export interface QuoteLineChoices {
+  productId: number | null;
+  quantity: number;
+  /** Null for a line committed before its structure was recorded. */
+  choices: ConfigurationChoices | null;
+}
+
+/**
+ * The configured line of a `REQUEST_DRAFT`, by its id, read now. Anything else
+ * — no such quotation, one that has been sent, a line that is gone or plain —
+ * is a line the buyer can no longer change, told by its own code.
+ */
+async function draftConfiguredLine(
+  quoteId: string,
+  lineId: string,
+  event: H3Event,
+) {
+  const { cart } = await findQuotationCart(quoteId, event);
+  const items =
+    cart?.quotation?.status === 'REQUEST_DRAFT' ? (cart.items ?? []) : [];
+  const index = items.findIndex(
+    (item) => item.id === lineId && item.configurationId,
+  );
+  if (index < 0) {
+    throw createAppError(
+      ErrorCode.QUOTE_LINE_GONE,
+      `Line ${lineId} is not a configured line of draft ${quoteId}`,
+    );
+  }
+  return { index, line: items[index]!, items };
+}
+
+/** A configured line of a draft: its product, its amount and its choices. */
+export async function getQuoteLineChoices(
+  quoteId: string,
+  lineId: string,
+  event: H3Event,
+): Promise<QuoteLineChoices> {
+  const { line } = await draftConfiguredLine(quoteId, lineId, event);
+  const sections = line.configuration?.sections;
+  return {
+    productId: line.product?.productId ?? null,
+    quantity: line.quantity,
+    choices: sections ? committedChoices(sections) : null,
+  };
+}
+
+/** A line as the draft holds it, sent back unchanged. */
+function keptLine(item: RawCartItem): QuoteRequestLine {
+  return {
+    ...(item.id && { id: item.id }),
+    skuId: item.skuId ?? 0,
+    quantity: item.quantity,
+    ...(item.configurationId && { configurationId: item.configurationId }),
+    ...(item.message && { message: item.message }),
+  };
+}
+
+/** The part of a commit the draft line takes. */
+export interface CommittedLine {
+  committedConfigurationId: string;
+  quantity: number;
+}
+
+/**
+ * Put a new configuration on a configured draft line, in its place: Geins
+ * takes the whole list, so every other line goes back as the draft holds it.
+ * The line is checked before `commit` runs, so a line that cannot take it, or
+ * one of another product than the page saving it shows, commits nothing. The
+ * list is read again after the commit, so a change saved meanwhile is not put
+ * back. The committed id and amount are the commit's own: Geins takes any
+ * configuration at any amount on a line, so neither comes from the buyer.
+ */
+export async function replaceConfiguredLine(
+  quoteId: string,
+  lineId: string,
+  productId: string,
+  commit: () => Promise<CommittedLine>,
+  event: H3Event,
+): Promise<Quote> {
+  const { line } = await draftConfiguredLine(quoteId, lineId, event);
+  const lineProduct = line.product?.productId;
+  if (lineProduct == null || String(lineProduct) !== productId) {
+    throw createAppError(
+      ErrorCode.QUOTE_LINE_GONE,
+      `Line ${lineId} of draft ${quoteId} is not a line of product ${productId}`,
+    );
+  }
+  const { committedConfigurationId, quantity } = await commit();
+  const found = await draftConfiguredLine(quoteId, lineId, event);
+  const items = found.items.map((item, i) =>
+    i === found.index
+      ? {
+          skuId: found.line.skuId ?? 0,
+          quantity,
+          configurationId: committedConfigurationId,
+          ...(found.line.message && { message: found.line.message }),
+        }
+      : keptLine(item),
+  );
+  return requestMutation(
+    'quotes/update-quotation-request.graphql',
+    ({ languageId }) => ({
+      quotationId: quoteId,
+      request: { items },
+      languageId,
+    }),
+    event,
+  );
 }
 
 /**

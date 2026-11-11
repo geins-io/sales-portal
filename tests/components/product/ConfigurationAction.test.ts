@@ -283,4 +283,54 @@ describe('ConfigurationAction', () => {
       ).toBe(false);
     });
   });
+
+  describe('editing a quotation draft line', () => {
+    const quoteMount = (props: Record<string, unknown> = {}) =>
+      mountAction({ quoteEditing: true, ...props });
+
+    it('updates the draft instead of adding to the cart', async () => {
+      const wrapper = quoteMount();
+      const update = wrapper.find('[data-testid="configurator-commit"]');
+
+      expect(update.text()).toBe('configurator.quote.update');
+      await update.trigger('click');
+      expect(wrapper.emitted('submit')).toHaveLength(1);
+    });
+
+    it('says required choices remain, and stays shut, while the provider says so', () => {
+      const update = quoteMount({ canCommit: false, incomplete: true }).find(
+        '[data-testid="configurator-commit"]',
+      );
+
+      expect(update.text()).toBe('configurator.commit_incomplete');
+      expect(update.attributes('aria-disabled')).toBe('true');
+    });
+
+    it('offers to revert and to cancel under the update, as for a cart line', async () => {
+      const wrapper = quoteMount();
+      const revert = wrapper.find('[data-testid="configurator-edit-revert"]');
+      const cancel = wrapper.find('[data-testid="configurator-edit-cancel"]');
+
+      expect(revert.text()).toBe('configurator.edit.revert');
+      expect(cancel.text()).toBe('configurator.edit.cancel');
+      await revert.trigger('click');
+      await cancel.trigger('click');
+      expect(wrapper.emitted('revert')).toHaveLength(1);
+      expect(wrapper.emitted('cancel')).toHaveLength(1);
+      expect(wrapper.emitted('submit')).toBeUndefined();
+    });
+
+    it('lets neither be pressed while a request is under way', () => {
+      const wrapper = quoteMount({ canCommit: false, busy: true });
+
+      for (const id of [
+        'configurator-edit-revert',
+        'configurator-edit-cancel',
+      ]) {
+        expect(
+          wrapper.find(`[data-testid="${id}"]`).attributes('disabled'),
+        ).toBeDefined();
+      }
+    });
+  });
 });

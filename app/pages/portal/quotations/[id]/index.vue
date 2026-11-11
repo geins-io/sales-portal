@@ -530,6 +530,7 @@ const customerSummary = computed(() => {
           <PortalQuoteDraftTable
             :lines="draftLines"
             :totals="totals"
+            :quote-id="quoteId"
             @quantity="editing.setQuantity"
             @remove="removeLine"
           />

@@ -212,6 +212,59 @@ text a failure shows, and whether it offers a retry, is decided in `app/utils/co
 - `tests/components/pages/ConfiguratorProduct.test.ts`
 - `tests/e2e/configurator-edit.spec.ts`
 
+## Editing from a quote draft
+
+**Where it lives**
+
+- `app/components/portal/PortalQuoteDraftTable.vue`
+- `app/utils/configurator-quote.ts`
+- `editQuoteLine`, `reopenLine`, `revertEdit`, `saveToQuote` and `retryQuoteSave` in
+  `app/composables/useConfiguratorSession.ts`
+- `server/api/configurations/from-quote.post.ts`, `replayQuoteLine` in
+  `server/services/configurator-replay.ts`
+- `server/api/configurations/[id]/quote-line.post.ts`
+- `getQuoteLineChoices` and `replaceConfiguredLine` in `server/services/quotes.ts`
+
+**How it works.** The edit link carries the draft and the line (`quoteLineHref`). A quotation cart
+cannot be reopened as a cart line can, so the server reads the line's committed choices from the
+draft and replays them into a new session at the line's amount. From there the page runs the cart
+edit's paths in the session composable, with `quoteLine` as the line being edited: `reopenLine`
+opens it first, again after a failure, after an expiry and on a revert.
+
+A save is one request. `quote-line.post.ts` takes the session id, the product, the draft and the line. The
+server checks the line and that it is a line of the product the page shows, commits the session
+itself, reads the draft again and sends the whole list
+of lines with the new configuration in the line's place. The client never sends a committed id or
+an amount: both come from the server's own commit. A line that cannot take it, or one of
+another product, is refused before anything is committed. The product comes from the page: a session
+carries no product id.
+
+A failed save may or may not have committed the session, and the page cannot tell. The session is
+deleted and closed, and its document is kept. The retry restores that document's choices into a new
+session and saves that one. A line the draft no longer holds, a draft that is no longer
+`REQUEST_DRAFT` and a line of another product all answer `QUOTE_LINE_GONE`, at the open and at the
+save. What the page shows in place of the form, and which retry it offers, is `quoteFace` in
+`app/utils/configurator-quote.ts`. The stock rule and the quantity follow are off while a draft
+line is edited.
+
+An amount change on the draft itself is not a configurator call. The draft sends the line's same
+`configurationId` at the new amount through the ordinary draft save, which accepts a configured
+line only by a configuration the draft already holds.
+
+**What proves it**
+
+- `tests/unit/configurator-quote.test.ts`
+- `tests/unit/composables/useConfiguratorSession.test.ts`
+- `tests/unit/server/services/configurator-replay.test.ts`
+- `tests/unit/server/api/configurations/from-quote.test.ts`
+- `tests/unit/server/api/configurations/quote-line.test.ts`
+- `tests/server/services/quotes.test.ts`
+- `tests/components/portal/PortalQuoteDraftTable.test.ts`
+- `tests/components/product/ConfigurationAction.test.ts`
+- `tests/components/product/ConfigurationPanel.test.ts`
+- `tests/components/pages/ConfiguratorProduct.test.ts`
+- `tests/e2e/configurator-from-quote.spec.ts`
+
 ## Session time
 
 **Where it lives**
@@ -290,8 +343,8 @@ ordinary one. Provider error codes become the portal's in `knownFailure`, in
 **The session.** `app/composables/useConfiguratorSession.ts` holds one session at a time. Its
 states are `idle`, `active`, `expired` and `closed`. Every request but the silent renew and the
 delete on leaving goes through one gate, so two are never in flight. `source` is the line the
-session was reopened from, `editing` the line being edited, and `changed` whether a choice has
-been sent.
+session was reopened from, `editing` the cart line being edited, `quoteLine` the draft line being
+edited, and `changed` whether a choice has been sent.
 
 **The SDK.** The merchant-API backend calls `oms.configuration` in `@geins/oms`, documented in
 [Configuration](https://sdk.geins.dev/packages/oms/configuration). It uses `create`, `get`,
@@ -317,6 +370,9 @@ a replay. A line's `configurationId` and `configuration` are in
 - No e2e signs in with a configured line in a guest cart, or shows the cart's sign-in prompt.
 - No e2e presses "Undo changes", follows a failed update into its retry, or reopens a line the
   provider says is gone.
+- No e2e saves a draft line: a save would reach the account's external system on every run. The
+  e2e opens a line from a draft and leaves it. The save, its retry, "Undo changes", the expiry and
+  a line that is gone are proven by unit and component tests only.
 - The order-placement spec opens the order and checks the configured row's article number,
   quantity and prices. It does not check the row's marker, "Show configuration" or its link.
 - What the cart shows after a guest-cart copy fails at sign-in is not verified.
