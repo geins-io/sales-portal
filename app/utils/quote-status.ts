@@ -48,3 +48,27 @@ export function getQuoteStatusVariant(status: QuoteStatus): BadgeVariant {
 export function getQuoteStatusLabelKey(status: QuoteStatus): string {
   return QUOTE_STATUS_DISPLAY[status].labelKey;
 }
+
+/** The quotation list's tabs, in the order they show. */
+export const QUOTE_LIST_FILTERS = [
+  'all',
+  'drafts',
+  'requests',
+  'quotations',
+] as const;
+
+export type QuoteListFilter = (typeof QUOTE_LIST_FILTERS)[number];
+
+/** The tab a status belongs to, besides Alla. */
+export function quoteFilterOf(
+  status: QuoteStatus,
+): Exclude<QuoteListFilter, 'all'> {
+  if (status === 'request_draft') return 'drafts';
+  if (status === 'requested') return 'requests';
+  return 'quotations';
+}
+
+/** The sum is the list price until the seller has priced the quotation. */
+export function isQuotePriceEstimate(status: QuoteStatus): boolean {
+  return status === 'request_draft' || status === 'requested';
+}

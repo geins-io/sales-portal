@@ -862,16 +862,31 @@
       }
     },
     "quotations": {
-      "title": "Quotations",
-      "subtitle": "View, accept or reject quotations from your sales team.",
-      "search_placeholder": "Search quotations...",
-      "no_quotations": "No quotations found",
+      "title": "Quotations and requests",
+      "subtitle": "Continue your drafts, follow your submitted requests and respond to quotations.",
+      "search_placeholder": "Search name or quote no…",
+      "filters": {
+        "all": "All",
+        "drafts": "Drafts",
+        "requests": "Requests",
+        "quotations": "Quotations"
+      },
+      "empty": {
+        "all": "You have no quotations yet.",
+        "drafts": "You have no drafts.",
+        "requests": "You have no submitted requests.",
+        "quotations": "You have no quotations from your sales team.",
+        "no_match": "Nothing matches your search."
+      },
       "quote_number": "Quote Nr",
+      "name_number": "Name / no.",
       "created": "Created",
       "contact": "Contact",
       "status": "Status",
       "total": "Sum",
+      "estimate_short": "estimated",
       "view": "View",
+      "continue": "Continue",
       "status_request_draft": "Draft",
       "status_requested": "Submitted",
       "status_pending": "Pending",
@@ -1029,6 +1044,14 @@
         "submit": "Delete draft",
         "last_line_title": "Remove the last item?",
         "last_line_description": "A draft must have at least one item. Removing the last one deletes the whole draft. This cannot be undone."
+      },
+      "rename_dialog": {
+        "title": "Rename",
+        "description": "The name is shown to you, and to your sales contact once the request is sent.",
+        "label": "Name",
+        "placeholder": "E.g. Phase 2 – Linden block",
+        "submit": "Save",
+        "required": "Enter a name."
       }
     },
     "favorites": {

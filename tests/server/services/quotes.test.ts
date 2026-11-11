@@ -146,6 +146,22 @@ describe('quotes service', () => {
       },
     );
 
+    it('carries the name the buyer gave the quotation, none when Geins has none', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        listQuotationCarts: [
+          makeRawQuotationCart({ name: 'Varukorg 11 nov. 2026' }),
+          makeRawQuotationCart({ name: null }),
+        ],
+      });
+
+      const result = await quotesService.listQuotes('org-1', 0, 10, mockEvent);
+
+      expect(result.quotes.map((q) => q.name)).toEqual([
+        'Varukorg 11 nov. 2026',
+        undefined,
+      ]);
+    });
+
     it("keeps Geins' total when the quotation carries no currency", async () => {
       const cart = makeRawQuotationCart({ currency: null });
       mockGraphqlQuery.mockResolvedValueOnce({ listQuotationCarts: [cart] });

@@ -862,16 +862,31 @@
       }
     },
     "quotations": {
-      "title": "Offerter",
-      "subtitle": "Visa, acceptera eller avvisa offerter från ditt säljteam.",
-      "search_placeholder": "Sök offerter...",
-      "no_quotations": "Inga offerter hittades",
+      "title": "Offerter och förfrågningar",
+      "subtitle": "Fortsätt med dina utkast, följ dina skickade förfrågningar och svara på offerter.",
+      "search_placeholder": "Sök namn eller offertnr…",
+      "filters": {
+        "all": "Alla",
+        "drafts": "Utkast",
+        "requests": "Förfrågningar",
+        "quotations": "Offerter"
+      },
+      "empty": {
+        "all": "Du har inga offerter än.",
+        "drafts": "Du har inga utkast.",
+        "requests": "Du har inga skickade förfrågningar.",
+        "quotations": "Du har inga offerter från ditt säljteam.",
+        "no_match": "Inget matchar din sökning."
+      },
       "quote_number": "Offertnr",
+      "name_number": "Namn / nr",
       "created": "Skapad",
       "contact": "Kontakt",
       "status": "Status",
       "total": "Summa",
+      "estimate_short": "uppskattad",
       "view": "Visa",
+      "continue": "Fortsätt",
       "status_request_draft": "Utkast",
       "status_requested": "Skickad",
       "status_pending": "Väntande",
@@ -1029,6 +1044,14 @@
         "submit": "Radera utkast",
         "last_line_title": "Ta bort sista artikeln?",
         "last_line_description": "Ett utkast måste ha minst en artikel. Tar du bort den sista raderas hela utkastet. Det går inte att ångra."
+      },
+      "rename_dialog": {
+        "title": "Byt namn",
+        "description": "Namnet syns för dig och för din säljare när förfrågan skickas.",
+        "label": "Namn",
+        "placeholder": "T.ex. Etapp 2 – Kv. Linden",
+        "submit": "Spara",
+        "required": "Ange ett namn."
       }
     },
     "favorites": {

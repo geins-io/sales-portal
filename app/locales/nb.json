@@ -862,16 +862,31 @@
       }
     },
     "quotations": {
-      "title": "Tilbud",
-      "subtitle": "Se, godta eller avslå tilbud fra selgerteamet ditt.",
-      "search_placeholder": "Søk i tilbud...",
-      "no_quotations": "Ingen tilbud funnet",
+      "title": "Tilbud og forespørsler",
+      "subtitle": "Fortsett med utkastene dine, følg de sendte forespørslene dine og svar på tilbud.",
+      "search_placeholder": "Søk navn eller tilbudsnr.…",
+      "filters": {
+        "all": "Alle",
+        "drafts": "Utkast",
+        "requests": "Forespørsler",
+        "quotations": "Tilbud"
+      },
+      "empty": {
+        "all": "Du har ingen tilbud ennå.",
+        "drafts": "Du har ingen utkast.",
+        "requests": "Du har ingen sendte forespørsler.",
+        "quotations": "Du har ingen tilbud fra salgsteamet ditt.",
+        "no_match": "Ingenting samsvarer med søket ditt."
+      },
       "quote_number": "Tilbudsnr.",
+      "name_number": "Navn / nr.",
       "created": "Opprettet",
       "contact": "Kontakt",
       "status": "Status",
       "total": "Sum",
+      "estimate_short": "anslått",
       "view": "Vis",
+      "continue": "Fortsett",
       "status_request_draft": "Utkast",
       "status_requested": "Sendt",
       "status_pending": "Venter",
@@ -1029,6 +1044,14 @@
         "submit": "Slett utkast",
         "last_line_title": "Fjerne den siste varen?",
         "last_line_description": "Et utkast må ha minst én vare. Fjerner du den siste, slettes hele utkastet. Dette kan ikke angres."
+      },
+      "rename_dialog": {
+        "title": "Gi nytt navn",
+        "description": "Navnet vises for deg og for selgeren din når forespørselen sendes.",
+        "label": "Navn",
+        "placeholder": "F.eks. Etappe 2 – Lindekvartalet",
+        "submit": "Lagre",
+        "required": "Skriv inn et navn."
       }
     },
     "favorites": {

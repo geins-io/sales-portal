@@ -1363,9 +1363,37 @@ export interface ApiQuote {
 /** One quotation as the list endpoint reports it, alongside its rendered row. */
 export interface ApiQuoteListItem {
   id: string;
+  status: string;
   total: number;
   itemCount: number;
 }
+
+/**
+ * Starts the name of Geins data an e2e test creates, so a test that picks its
+ * data from the shared account can skip what another spec is making or
+ * deleting at the same moment.
+ */
+export const E2E_DATA_PREFIX = 'e2e-';
+
+/** Whether a name marks data an e2e test created. */
+export function isE2EData(name: string | null | undefined): boolean {
+  return name?.startsWith(E2E_DATA_PREFIX) ?? false;
+}
+
+/**
+ * The statuses of a quotation the seller has priced and sent. Drafts and
+ * requests are the buyer's, and other specs create and delete them on the
+ * same account while a run reads it.
+ */
+export const SENT_QUOTE_STATUSES = [
+  'pending',
+  'accepted',
+  'confirmed',
+  'finalized',
+  'rejected',
+  'canceled',
+  'expired',
+];
 
 /** One quotation, read through the endpoint the detail page fetches. */
 export async function fetchQuote(
@@ -1423,7 +1451,7 @@ export async function fetchQuote(
 
 /**
  * The quotations the signed-in account can read, as the list endpoint sends
- * them. The list carries a total per quotation but no lines, so it is the
+ * them, less those an e2e spec created for itself. The list carries a total per quotation but no lines, so it is the
  * side to compare a list row against — the detail comes from `fetchQuote`.
  */
 export async function fetchQuoteList(
@@ -1435,14 +1463,18 @@ export async function fetchQuoteList(
 
   const listed: {
     id?: string;
+    name?: string;
+    status?: string;
     total?: number;
     totalExVat?: number;
     itemCount?: number;
   }[] = (await response.json())?.quotes ?? [];
-  const quotes = listed.map((quote) => ({
-    ...quote,
-    total: side === 'inc' ? quote.total : quote.totalExVat,
-  }));
+  const quotes = listed
+    .filter((quote) => !isE2EData(quote.name))
+    .map((quote) => ({
+      ...quote,
+      total: side === 'inc' ? quote.total : quote.totalExVat,
+    }));
   expect(
     quotes.length,
     'the test account can read no quotations, so there is nothing to compare against',
@@ -1459,6 +1491,7 @@ export async function fetchQuoteList(
     ).toBe(true);
     return {
       id: quote.id!,
+      status: quote.status ?? '',
       total: quote.total!,
       itemCount: quote.itemCount ?? 0,
     };
@@ -1466,7 +1499,8 @@ export async function fetchQuoteList(
 }
 
 /**
- * Every quotation the account can read, each read in full.
+ * Every quotation the seller has sent to the account, each read in full. A
+ * draft can be deleted by another spec between the list and its read.
  *
  * Not memoised, and never picked by a fixed id: the account is reseeded from
  * time to time, so a quotation is chosen by what it contains — the line whose
@@ -1479,6 +1513,7 @@ export async function fetchQuotes(
   const list = await fetchQuoteList(page, side);
   const quotes: ApiQuote[] = [];
   for (const item of list) {
+    if (!SENT_QUOTE_STATUSES.includes(item.status)) continue;
     quotes.push(await fetchQuote(page, item.id, side));
   }
   return quotes;

@@ -7,6 +7,8 @@ import {
   fetchOrders,
   fetchQuote,
   fetchQuoteList,
+  isE2EData,
+  SENT_QUOTE_STATUSES,
   fetchQuotes,
   fetchProductCatalogue,
   fetchProductsByAliases,
@@ -40,7 +42,10 @@ test.use({ storageState: signedInState });
 
 const PAGE_TIMEOUT = 20000;
 
-/** The account's quotations, in the order `/api/quotes` and the list show them. */
+/**
+ * The account's quotations, newest first as `/api/quotes` returns them, less
+ * those another spec created for itself.
+ */
 async function fetchListedQuotes(
   page: Page,
 ): Promise<{ id: string; status: string }[]> {
@@ -48,9 +53,9 @@ async function fetchListedQuotes(
   expect(response.ok(), '/api/quotes did not answer 200').toBe(true);
   return (
     (await response.json()) as {
-      quotes: { id: string; status: string }[];
+      quotes: { id: string; status: string; name?: string }[];
     }
-  ).quotes;
+  ).quotes.filter((quote) => !isE2EData(quote.name));
 }
 
 /** Ids of the account's pending quotations, in list order. */
@@ -66,23 +71,25 @@ async function fetchPendingQuoteIds(page: Page): Promise<string[]> {
  * so a test that reads seller data cannot take the first row.
  */
 async function fetchSentQuoteId(page: Page): Promise<string> {
-  const sentStatuses = [
-    'pending',
-    'accepted',
-    'confirmed',
-    'finalized',
-    'rejected',
-    'canceled',
-    'expired',
-  ];
   const sent = (await fetchListedQuotes(page)).find((quote) =>
-    sentStatuses.includes(quote.status),
+    SENT_QUOTE_STATUSES.includes(quote.status),
   );
   expect(
     sent,
     'the test account has no quotation a seller has sent — the fixture is broken',
   ).toBeDefined();
   return sent!.id;
+}
+
+/**
+ * Choose a tab on the quotations list. The newest sent quotation is the first
+ * row on Offerter, while on Alla the drafts come first and can push it past
+ * page 1.
+ */
+async function chooseQuotationsTab(page: Page, filter: string) {
+  const tab = page.locator(`[data-testid="quotations-filter-${filter}"]`);
+  await tab.click();
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
 }
 
 /** One rendered order or quotation line: the three numbers a line shows. */
@@ -768,6 +775,74 @@ test.describe('Portal Quotations', () => {
     }
   });
 
+  test('each tab counts and shows its group of the list the page read', async ({
+    page,
+  }) => {
+    // A direct visit renders the list on the server, so open it from the
+    // overview: the browser then reads `/api/quotes` itself, and the counts
+    // compare with that one read, not with one a parallel spec may have
+    // changed since.
+    await page.goto('/se/sv/portal');
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+
+    // The overview reads the list once, on the server; the URL check keeps a
+    // stray overview read from being taken for the list page's.
+    const listRead = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/quotes' &&
+        response.request().method() === 'GET' &&
+        new URL(page.url()).pathname.endsWith('/portal/quotations'),
+    );
+    await page
+      .locator('[data-testid="portal-tabs"] a[href$="/portal/quotations"]')
+      .click();
+    const read = await listRead;
+    expect(read.ok(), '/api/quotes did not answer 200').toBe(true);
+    const listed = (
+      (await read.json()) as { quotes: { status: string; name?: string }[] }
+    ).quotes;
+    const statuses = listed.map((quote) => quote.status);
+
+    await expect(page.locator('[data-testid="quotations-loading"]')).toBeHidden(
+      { timeout: PAGE_TIMEOUT },
+    );
+
+    const drafts = statuses.filter((s) => s === 'request_draft').length;
+    const requests = statuses.filter((s) => s === 'requested').length;
+    const groups: Record<string, number> = {
+      all: statuses.length,
+      drafts,
+      requests,
+      quotations: statuses.length - drafts - requests,
+    };
+    const table = page.locator('[data-testid="quotations-table"]');
+    for (const [filter, size] of Object.entries(groups)) {
+      await chooseQuotationsTab(page, filter);
+      await expect(
+        page.locator(`[data-testid="quotations-filter-count-${filter}"]`),
+      ).toHaveText(String(size));
+      if (size === 0) {
+        await expect(
+          page.locator('[data-testid="quotations-empty"]'),
+        ).toBeVisible();
+      } else {
+        await expect(
+          table.locator('[data-testid="quotation-row"]:visible'),
+        ).toHaveCount(Math.min(size, 20));
+      }
+    }
+
+    // Alla puts the drafts first, and the row shows the name.
+    const firstDraft = listed.find((quote) => quote.status === 'request_draft');
+    if (firstDraft?.name) {
+      await chooseQuotationsTab(page, 'all');
+      await expect(
+        table.locator('[data-testid="quotation-row"]:visible').first(),
+      ).toContainText(firstDraft.name);
+    }
+  });
+
   test('should navigate from list to populated detail page with all sections', async ({
     page,
   }) => {
@@ -780,6 +855,7 @@ test.describe('Portal Quotations', () => {
     // Wait for loading to finish
     const loading = page.locator('[data-testid="quotations-loading"]');
     await expect(loading).toBeHidden({ timeout: PAGE_TIMEOUT });
+    await chooseQuotationsTab(page, 'quotations');
 
     // Requesting a quotation is the half the platform does not offer; reading
     // one it already holds works, and that is what this test covers. So an
@@ -999,6 +1075,7 @@ test.describe('Portal Quotation Values', () => {
       page.locator('[data-testid="quotations-table"]'),
       'the quotations list rendered its empty state — the test account lost its quotations',
     ).toBeVisible({ timeout: PAGE_TIMEOUT });
+    await chooseQuotationsTab(page, 'quotations');
   }
 
   async function openQuotationDetail(page: Page, id: string) {
