@@ -135,8 +135,11 @@
     "quantity_updating": "Wird aktualisiert…",
     "quantity_change_failed": "Die Menge konnte nicht geändert werden. Das Produkt im Warenkorb ist unverändert.",
     "items_short": "Artikel",
-    "add_to_quote": "Warenkorb ins Angebot legen",
-    "add_to_quote_hint": "Der Warenkorb wird zu einem Entwurf einer Angebotsanfrage und geleert. Es wird keine Bestellung aufgegeben.",
+    "add_to_quote": "Angebotsanfrage aus dem Warenkorb erstellen",
+    "quote_confirm_title": "Angebotsanfrage",
+    "quote_confirm_text": "Der Warenkorb wird geleert und die Produkte gehen in die Angebotsanfrage über, die Sie im nächsten Schritt prüfen können.",
+    "quote_confirm_draft": "Wenn Sie sie später senden möchten, wird sie auch als Entwurf gespeichert.",
+    "quote_confirm_submit": "Weiter zur Anfrage",
     "quote_request_name": "Warenkorb {date}",
     "add_to_quote_failed": "Die Angebotsanfrage konnte nicht erstellt werden. Der Warenkorb ist unverändert.",
     "add_to_quote_rate_limited": "Zu viele Versuche. Bitte warten Sie einen Moment und versuchen Sie es erneut."

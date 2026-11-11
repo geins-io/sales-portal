@@ -135,8 +135,11 @@
     "quantity_updating": "Opdaterer…",
     "quantity_change_failed": "Antallet kunne ikke ændres. Produktet i kurven er uændret.",
     "items_short": "varer",
-    "add_to_quote": "Læg kurven i tilbud",
-    "add_to_quote_hint": "Kurven bliver et udkast til tilbudsforespørgsel og tømmes. Der afgives ingen ordre.",
+    "add_to_quote": "Opret tilbudsforespørgsel fra kurven",
+    "quote_confirm_title": "Tilbudsforespørgsel",
+    "quote_confirm_text": "Kurven tømmes, og produkterne følger med til tilbudsforespørgslen, som du kan gennemgå i næste trin.",
+    "quote_confirm_draft": "Hvis du vil sende den senere, gemmes den også som udkast.",
+    "quote_confirm_submit": "Fortsæt til forespørgslen",
     "quote_request_name": "Kurv {date}",
     "add_to_quote_failed": "Tilbudsforespørgslen kunne ikke oprettes. Kurven er uændret.",
     "add_to_quote_rate_limited": "For mange forsøg. Vent et øjeblik, og prøv igen."

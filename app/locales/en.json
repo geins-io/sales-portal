@@ -135,8 +135,11 @@
     "quantity_updating": "Updating…",
     "quantity_change_failed": "The quantity could not be changed. The product in the cart is unchanged.",
     "items_short": "Items",
-    "add_to_quote": "Add cart to quote",
-    "add_to_quote_hint": "The cart becomes a quote request draft and is emptied. No order is placed.",
+    "add_to_quote": "Create quote request from cart",
+    "quote_confirm_title": "Quote request",
+    "quote_confirm_text": "The cart is emptied and the products come along to the quote request, which you can review in the next step.",
+    "quote_confirm_draft": "If you want to send it later, it is also saved as a draft.",
+    "quote_confirm_submit": "Continue to request",
     "quote_request_name": "Cart {date}",
     "add_to_quote_failed": "The quote request could not be created. Your cart is unchanged.",
     "add_to_quote_rate_limited": "Too many attempts. Wait a moment and try again."

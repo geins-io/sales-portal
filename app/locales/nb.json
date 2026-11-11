@@ -135,8 +135,11 @@
     "quantity_updating": "Oppdaterer…",
     "quantity_change_failed": "Antallet kunne ikke endres. Produktet i handlekurven er uendret.",
     "items_short": "varer",
-    "add_to_quote": "Legg handlekurven i tilbud",
-    "add_to_quote_hint": "Handlekurven blir et utkast til tilbudsforespørsel og tømmes. Ingen ordre legges inn.",
+    "add_to_quote": "Opprett tilbudsforespørsel fra handlekurven",
+    "quote_confirm_title": "Tilbudsforespørsel",
+    "quote_confirm_text": "Handlekurven tømmes, og produktene følger med til tilbudsforespørselen, som du kan se over i neste steg.",
+    "quote_confirm_draft": "Hvis du vil sende den senere, lagres den også som utkast.",
+    "quote_confirm_submit": "Fortsett til forespørselen",
     "quote_request_name": "Handlekurv {date}",
     "add_to_quote_failed": "Tilbudsforespørselen kunne ikke opprettes. Handlekurven er uendret.",
     "add_to_quote_rate_limited": "For mange forsøk. Vent litt og prøv igjen."
