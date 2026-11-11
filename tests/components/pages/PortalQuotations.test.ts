@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ref } from 'vue';
-import { flushPromises } from '@vue/test-utils';
+import { enableAutoUnmount, flushPromises } from '@vue/test-utils';
 import { mountComponent } from '../../utils/component';
 import type { QuoteListItem } from '../../../shared/types/quote';
 import { makeQuoteListItem as makeQuote } from '../../fixtures/quote';
@@ -106,6 +106,9 @@ function counts(wrapper: Wrapper): Record<string, string> {
     ]),
   );
 }
+
+// A page left mounted re-renders on every later `mockData` change.
+enableAutoUnmount(afterEach);
 
 describe('PortalQuotations page', () => {
   beforeEach(() => {
