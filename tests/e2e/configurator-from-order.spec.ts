@@ -15,8 +15,9 @@ import { localeText } from './locale-text';
  *
  * The order was placed for this spec with one choice off the defaults, so a
  * replay and a fresh start look different: the replayed form holds that
- * choice at its price, and the line added from it carries the order row's
- * summary. That line is removed again; no order is placed.
+ * choice, and the line added from it carries the order row's summary. No
+ * price is compared: it follows the account's prices, not the replay. That
+ * line is removed again; no order is placed.
  *
  * The product is the platform side's configured product on the monitor
  * account. Where it is not configurable — the fixture backend, another tenant —
@@ -30,8 +31,6 @@ const ORDER_ID = 'e2fcb466-f242-4188-ba35-9c69fccd3dfe';
 const ROW = 0;
 const GROUP_NAME = 'Steel Quality';
 const ORDERED_OPTION = 'Wear resistant steel';
-/** The configured net price with that choice, as the order was placed at it. */
-const ORDERED_NET = /2\s?647,20/;
 
 outOfScope(
   !hasE2ECredentials(),
@@ -253,7 +252,7 @@ test.describe('Opening a configured order row', () => {
     await expect(sheetRow).toBeInViewport();
   });
 
-  test("opens the configurator holding the row's choices at their price, and the line it adds carries the order's configuration", async ({
+  test("opens the configurator holding the row's choices, and the line it adds carries the order's configuration", async ({
     page,
   }) => {
     const summary = await orderedSummary(page);
@@ -282,9 +281,6 @@ test.describe('Opening a configured order row', () => {
     await expect(chooser).toHaveAttribute('data-option-id', where.orderedId);
     await expect(chooser).toHaveAttribute('data-selected', 'true');
     await expect(chooser).toContainText(ORDERED_OPTION);
-    await expect(page.getByTestId('configurator-panel-net')).toHaveText(
-      ORDERED_NET,
-    );
 
     const commit = page.getByTestId('configurator-commit');
     await expect(commit).toBeEnabled({ timeout: 30_000 });
@@ -438,9 +434,6 @@ test.describe('Opening a configured order row', () => {
     await expect(chooser).not.toHaveAttribute(
       'data-option-id',
       where.orderedId,
-    );
-    await expect(page.getByTestId('configurator-panel-net')).not.toHaveText(
-      ORDERED_NET,
     );
   });
 });
