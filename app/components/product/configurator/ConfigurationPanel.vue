@@ -47,6 +47,7 @@ const {
   productName,
   articleNumber,
   editing = false,
+  quoteEditing = false,
 } = defineProps<{
   configuration: Configuration | null;
   status: ConfiguratorSessionStatus;
@@ -55,6 +56,8 @@ const {
   articleNumber: string;
   /** A cart line is being edited, which an expired session leaves unchanged. */
   editing?: boolean;
+  /** A quotation draft line is being edited, which it leaves unchanged too. */
+  quoteEditing?: boolean;
 }>();
 
 const emit = defineEmits<{ restart: [] }>();
@@ -154,11 +157,17 @@ const quantity = computed(() => configuration?.quantity ?? 1);
   >
     <p class="text-sm">
       {{
-        t(editing ? 'configurator.edit.expired' : 'configurator.panel.expired')
+        t(
+          quoteEditing
+            ? 'configurator.quote.expired'
+            : editing
+              ? 'configurator.edit.expired'
+              : 'configurator.panel.expired',
+        )
       }}
     </p>
     <Button variant="outline" size="sm" @click="emit('restart')">
-      <template v-if="editing">
+      <template v-if="editing || quoteEditing">
         <RotateCcw class="size-4" />
         {{ t('configurator.edit.start_over') }}
       </template>

@@ -430,6 +430,16 @@
       "open_failed": "Produkten i varukorgen kunde inte öppnas just nu.",
       "update_failed": "Produkten i varukorgen kunde inte uppdateras. Den har kvar sina tidigare val.",
       "currency_mismatch": "Produkten i varukorgen lades till på en annan marknad och kan inte ändras här. Den är oförändrad."
+    },
+    "quote": {
+      "marker": "Redigerar en produkt i offertutkastet",
+      "update": "Uppdatera i utkastet",
+      "expired": "Tiden för ändringen har gått ut. Produkten i utkastet är oförändrad.",
+      "not_reopenable": "Konfigurationen kan inte öppnas igen. Gör om den från början – produkten i utkastet är oförändrad tills du uppdaterar.",
+      "line_gone": "Produkten finns inte längre i utkastet, eller så har utkastet skickats.",
+      "open_failed": "Produkten i utkastet kunde inte öppnas just nu.",
+      "update_failed": "Produkten i utkastet kunde inte uppdateras. Den har kvar sina tidigare val.",
+      "back": "Tillbaka till utkastet"
     }
   },
   "account": {
@@ -1033,7 +1043,6 @@
         "removed": "{name} togs bort.",
         "undo": "Ångra",
         "remove": "Ta bort",
-        "configured_quantity": "Antalet ändras i konfiguratorn",
         "continue": "Gå vidare till offertförfrågan",
         "continue_hint": "I nästa steg lägger du till meddelande och önskemål och skickar. Ingen order läggs.",
         "updated_at": "Senast ändrad",

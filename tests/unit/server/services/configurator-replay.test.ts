@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
 import type {
   Configuration,
   ConfigurationOption,
@@ -16,6 +16,7 @@ import {
   landed,
   replayChanges,
   replayOrderLine,
+  replayQuoteLine,
   restoreConfiguration,
 } from '../../../../server/services/configurator-replay';
 
@@ -593,6 +594,133 @@ describe('replayOrderLine', () => {
     await expect(replay()).rejects.toBe(refused);
     expect(backend.applyChanges).not.toHaveBeenCalled();
     expect(backend.release).not.toHaveBeenCalled();
+  });
+});
+
+describe('replayQuoteLine', () => {
+  const { productId: PRODUCT, ...LINE_CHOICES } = CHOICES;
+  const LINE = { productId: PRODUCT, quantity: 2, choices: LINE_CHOICES };
+
+  type Line = {
+    productId: number | null;
+    quantity: number;
+    choices: typeof LINE_CHOICES | null;
+  };
+
+  let backend: Backend;
+  let read: Mock<() => Promise<Line>>;
+
+  beforeEach(() => {
+    backend = backendDouble();
+    read = vi.fn<() => Promise<Line>>(async () => LINE);
+  });
+
+  const replay = (productId = '1359') =>
+    replayQuoteLine(
+      backend as unknown as ConfiguratorBackend,
+      { productId, read },
+      CTX,
+    );
+
+  it("reads the line, then creates a session at the line's amount and applies its choices", async () => {
+    const result = await replay();
+
+    expect(read).toHaveBeenCalledOnce();
+    expect(backend.create).toHaveBeenCalledOnce();
+    expect(backend.create).toHaveBeenCalledWith(
+      { productId: '1359', quantity: 2 },
+      CTX,
+    );
+    expect(backend.applyChanges).toHaveBeenCalledWith(
+      'fresh-1',
+      replayChanges(LINE_CHOICES, freshSession()),
+      CTX,
+    );
+    expect(result).toEqual({ configuration: heldSession(), replayed: true });
+  });
+
+  it('creates nothing before the line has been read', async () => {
+    let answer!: (value: Line) => void;
+    read.mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+
+    const pending = replay();
+    await Promise.resolve();
+    expect(backend.create).not.toHaveBeenCalled();
+
+    answer(LINE);
+    await pending;
+    expect(backend.create).toHaveBeenCalledOnce();
+  });
+
+  it("answers a session on the defaults, still at the line's amount, for a line that holds no choices", async () => {
+    read.mockResolvedValue({ ...LINE, choices: null });
+
+    await expect(replay()).resolves.toEqual({
+      configuration: freshSession(),
+      replayed: false,
+    });
+    expect(backend.create).toHaveBeenCalledWith(
+      { productId: '1359', quantity: 2 },
+      CTX,
+    );
+    expect(backend.applyChanges).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['another product', 7],
+    ['no product', null],
+  ])(
+    'says the line is gone when it names %s, creating nothing',
+    async (_case, productId) => {
+      read.mockResolvedValue({ ...LINE, productId });
+
+      await expect(replay()).rejects.toMatchObject({
+        statusCode: 404,
+        data: { code: 'QUOTE_LINE_GONE' },
+      });
+      expect(backend.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it('says the line is gone for a line with no product, even on a page that names itself null', async () => {
+    read.mockResolvedValue({ ...LINE, productId: null });
+
+    await expect(replay('null')).rejects.toMatchObject({
+      data: { code: 'QUOTE_LINE_GONE' },
+    });
+    expect(backend.create).not.toHaveBeenCalled();
+  });
+
+  it('passes on a line that cannot be read, creating nothing', async () => {
+    const gone = createAppError(ErrorCode.QUOTE_LINE_GONE, 'gone');
+    read.mockRejectedValue(gone);
+
+    await expect(replay()).rejects.toBe(gone);
+    expect(backend.create).not.toHaveBeenCalled();
+  });
+
+  it('answers a new session on the defaults when a choice no longer lands', async () => {
+    backend.applyChanges.mockResolvedValue(
+      heldSession({ adapter: { selected: false } }),
+    );
+
+    await expect(replay()).resolves.toEqual({
+      configuration: DEFAULTS,
+      replayed: false,
+    });
+    expect(backend.release).toHaveBeenCalledWith('fresh-1', CTX);
+  });
+
+  it('fails as a start fails when the session cannot be created', async () => {
+    const refused = createAppError(ErrorCode.FORBIDDEN, 'no customer number');
+    backend.create.mockReset().mockRejectedValue(refused);
+
+    await expect(replay()).rejects.toBe(refused);
+    expect(backend.applyChanges).not.toHaveBeenCalled();
   });
 });
 

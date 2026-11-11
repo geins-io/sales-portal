@@ -136,20 +136,154 @@ describe('PortalQuoteDraftTable', () => {
     ).toBe('portal.quotations.quantity, Widget Pro');
   });
 
-  it('shows a configured line with its specification and its amount locked', () => {
+  it('shows a configured line with its specification and an amount to change, as a plain line', async () => {
     const wrapper = mount([plain, configured]);
     const row = desktopRow(wrapper, 1);
 
-    expect(row.find('[data-testid="quote-quantity"]').exists()).toBe(false);
-    const locked = row.find('[data-testid="quote-item-quantity-locked"]');
-    expect(locked.text()).toBe('3');
-    expect(locked.attributes('title')).toBe(
-      'portal.quotations.draft.configured_quantity',
+    const amount = row.find('[data-testid="quote-quantity"]');
+    expect(amount.attributes('aria-label')).toBe(
+      'portal.quotations.quantity, Display wall',
     );
-    const spec = row.find('[data-testid="line-spec"]');
+    await amount.setValue('7');
+    expect(wrapper.emitted('quantity')).toEqual([[configured, 7]]);
+    const spec = wrapper.find('[data-testid="line-spec"]');
     expect(spec.text()).toBe('55"');
     expect(spec.attributes('data-quantity')).toBe('3');
     expect(spec.attributes('data-total')).toBe('300');
+  });
+
+  describe('opening a configured line in the configurator', () => {
+    const QUOTE_ID = '01a1cae6-ce08-7ea7-859d-4af6b1cb6832';
+    const withPage = { ...configured, canonicalUrl: '/displays/display-wall' };
+    const href = `/se/en/p/displays/display-wall?quote=${QUOTE_ID}&quoteLine=line-c`;
+    const mountOn = (lines: QuoteLineItem[]) =>
+      mountComponent(PortalQuoteDraftTable, {
+        props: { lines, totals, quoteId: QUOTE_ID },
+        global: { stubs },
+      });
+
+    it('links its name and "Ändra konfiguration" to the product\'s configurator, naming the draft and the line', () => {
+      const wrapper = mountOn([plain, withPage]);
+      const row = desktopRow(wrapper, 1);
+
+      expect(
+        row.find('[data-testid="quote-item-name"]').attributes('href'),
+      ).toBe(href);
+      const change = wrapper
+        .find('[data-testid="quote-item-configuration-row"]')
+        .find('[data-testid="quote-item-edit-configuration"]');
+      expect(change.text()).toBe('cart.edit_configuration');
+      expect(change.attributes('href')).toBe(href);
+      const card = wrapper.findAll('[data-testid="quote-item-card"]')[1]!;
+      expect(
+        card
+          .find('[data-testid="quote-item-edit-configuration"]')
+          .attributes('href'),
+      ).toBe(href);
+    });
+
+    it('puts "Visa konfiguration" and "Ändra konfiguration" side by side in one row, as the cart does, in both layouts', () => {
+      const wrapper = mountOn([withPage]);
+      const rows = wrapper.findAll(
+        '[data-testid="quote-item-configuration-actions"]',
+      );
+
+      expect(rows).toHaveLength(2);
+      for (const row of rows) {
+        expect(row.classes()).toEqual(
+          expect.arrayContaining(['flex', 'flex-wrap', 'gap-2']),
+        );
+        const actions = row.element.children;
+        expect(actions).toHaveLength(2);
+        expect(actions[0]!.getAttribute('data-testid')).toBe('line-spec');
+        expect(actions[1]!.getAttribute('data-testid')).toBe(
+          'quote-item-edit-configuration',
+        );
+      }
+    });
+
+    it('puts the row under the image and name, as an order row does, in a row of its own across every column, so it never widens one', () => {
+      const wrapper = mountOn([plain, withPage]);
+      const columns = wrapper.findAll('thead th').length;
+      const line = desktopRow(wrapper, 1);
+      const subRow = wrapper.find(
+        '[data-testid="quote-item-configuration-row"]',
+      );
+
+      expect(line.element.nextElementSibling).toBe(subRow.element);
+      expect(line.classes()).toEqual(
+        expect.arrayContaining(['align-top', 'border-b-0']),
+      );
+      expect(desktopRow(wrapper, 0).classes()).not.toContain('align-top');
+      expect(line.find('td > div').classes()).not.toContain('min-h-20');
+      expect(desktopRow(wrapper, 0).find('td > div').classes()).toContain(
+        'min-h-20',
+      );
+      expect(
+        line.find('[data-testid="quote-item-configuration-actions"]').exists(),
+      ).toBe(false);
+      const cells = subRow.findAll('td');
+      expect(cells).toHaveLength(1);
+      expect(cells[0]!.attributes('colspan')).toBe(String(columns));
+      const actions = subRow.find(
+        '[data-testid="quote-item-configuration-actions"]',
+      );
+      expect(actions.classes()).toContain('pl-13');
+      for (const forcing of [
+        'w-max',
+        'w-fit',
+        'whitespace-nowrap',
+        'flex-nowrap',
+      ]) {
+        expect(actions.classes()).not.toContain(forcing);
+      }
+    });
+
+    it('puts the row last in the card, under the amount, as the cart does', () => {
+      const card = mountOn([withPage]).find('[data-testid="quote-item-card"]');
+
+      expect(card.element.lastElementChild?.getAttribute('data-testid')).toBe(
+        'quote-item-configuration-actions',
+      );
+    });
+
+    it('says a configured line is configured under its name in the card, as the cart does', () => {
+      const card = mountOn([plain, withPage]).findAll(
+        '[data-testid="quote-item-card"]',
+      );
+
+      expect(
+        card[1]!.find('[data-testid="quote-item-configured"]').text(),
+      ).toBe('cart.configured_product');
+      expect(card[1]!.text()).toMatch(/ART-001\s+•\s+cart\.configured_product/);
+      expect(
+        card[0]!.find('[data-testid="quote-item-configured"]').exists(),
+      ).toBe(false);
+    });
+
+    it('offers no change for a plain line', () => {
+      const wrapper = mountOn([plain, withPage]);
+
+      expect(
+        desktopRow(wrapper, 0)
+          .find('[data-testid="quote-item-configuration-actions"]')
+          .exists(),
+      ).toBe(false);
+    });
+
+    it('offers no change without the product page or the draft, and the name is plain text', () => {
+      for (const wrapper of [mountOn([configured]), mount([withPage])]) {
+        const row = desktopRow(wrapper, 0);
+        expect(
+          wrapper
+            .find('[data-testid="quote-item-edit-configuration"]')
+            .exists(),
+        ).toBe(false);
+        expect(
+          row.find('[data-testid="quote-item-name"]').attributes('href'),
+        ).toBeUndefined();
+      }
+    });
   });
 
   it('removes a line, a configured one too', async () => {
@@ -187,7 +321,7 @@ describe('PortalQuoteDraftTable', () => {
       true,
     );
     expect(cards[1]!.find('[data-testid="quote-quantity"]').exists()).toBe(
-      false,
+      true,
     );
     expect(cards[1]!.find('[data-testid="line-spec"]').exists()).toBe(true);
   });

@@ -240,3 +240,41 @@ export function restoreConfiguration(
     ctx,
   );
 }
+
+/** A configured draft line to replay, on the page of the product named. */
+export interface QuoteLineReplayInput {
+  productId: string;
+  /** Reads the line once; throws when the draft holds no such line. */
+  read: () => Promise<{
+    productId: number | null;
+    quantity: number;
+    choices: ConfigurationChoices | null;
+  }>;
+}
+
+/**
+ * A new session for the product at the draft line's amount, holding its
+ * choices. The line is read first, since the session starts at the line's
+ * amount, and a read that fails is the caller's to tell, with no session made.
+ * A line of another product is not one this page can edit. A line with no
+ * choices recorded is a session on the defaults, still at its amount.
+ */
+export async function replayQuoteLine(
+  backend: ConfiguratorBackend,
+  { productId, read }: QuoteLineReplayInput,
+  ctx: ConfiguratorContext,
+): Promise<ReplayedConfiguration> {
+  const line = await read();
+  if (line.productId === null || String(line.productId) !== productId) {
+    throw createAppError(
+      ErrorCode.QUOTE_LINE_GONE,
+      `The draft line is not a line of product ${productId}`,
+    );
+  }
+  return replayChoices(
+    backend,
+    { productId, quantity: line.quantity },
+    Promise.resolve(line.choices),
+    ctx,
+  );
+}

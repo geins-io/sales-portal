@@ -90,6 +90,7 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
     notReplayed: ref(false),
     notRestored: ref(false),
     editing: ref<{ cartId: string; itemId: string } | null>(null),
+    quoteLine: ref<{ quoteId: string; lineId: string } | null>(null),
     source: ref<{ cartId: string; itemId: string } | null>(null),
     changed: ref(false),
     editNotice: ref<'not_reopenable' | 'line_gone' | null>(null),
@@ -99,6 +100,8 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
     start: vi.fn(async () => {}),
     edit: vi.fn(async () => {}),
     replay: vi.fn(async () => {}),
+    editQuoteLine: vi.fn(async () => {}),
+    retryQuoteSave: vi.fn(async () => {}),
     restore: vi.fn(async () => {}),
     reopenLine: vi.fn(async () => {}),
     revertEdit: vi.fn(async () => {}),
@@ -247,6 +250,7 @@ interface MockSession {
   notReplayed: Ref<boolean>;
   notRestored: Ref<boolean>;
   editing: Ref<{ cartId: string; itemId: string } | null>;
+  quoteLine: Ref<{ quoteId: string; lineId: string } | null>;
   source: Ref<{ cartId: string; itemId: string } | null>;
   changed: Ref<boolean>;
   editNotice: Ref<'not_reopenable' | 'line_gone' | null>;
@@ -256,6 +260,8 @@ interface MockSession {
   start: Mock;
   edit: Mock;
   replay: Mock;
+  editQuoteLine: Mock;
+  retryQuoteSave: Mock;
   restore: Mock;
   reopenLine: Mock;
   revertEdit: Mock;
@@ -273,6 +279,7 @@ interface MockSession {
       line: { cartId: string; itemId: string },
     ) => Promise<{ cartId: string; itemId: string } | null>;
     onReturn: () => void;
+    onQuoteSaved: (quote: { id: string }) => void;
   };
 }
 
@@ -285,6 +292,7 @@ const cart = useCartStore() as unknown as typeof cartStore;
 const router = (
   globalThis as unknown as {
     useRouter: () => {
+      push: Mock;
       replace: Mock;
       currentRoute: Ref<{ query: Record<string, unknown> }>;
     };
@@ -327,7 +335,8 @@ const stubs = {
   },
   ConfigurationPanel: {
     template: `<div data-testid="panel" :data-status="status" :data-busy="String(busy)"
-      :data-article="articleNumber" :data-editing="String(editing)">
+      :data-article="articleNumber" :data-editing="String(editing)"
+      :data-quote-editing="String(quoteEditing)">
       <button data-testid="panel-restart" @click="$emit('restart')"></button>
       <div data-testid="panel-slot"><slot /></div>
     </div>`,
@@ -338,6 +347,7 @@ const stubs = {
       'productName',
       'articleNumber',
       'editing',
+      'quoteEditing',
     ],
     emits: ['restart'],
   },
@@ -359,6 +369,7 @@ const stubs = {
   ConfigurationAction: {
     template: `<div data-testid="action" :data-incomplete="incomplete" :data-busy="String(busy)"
       :data-error="error ?? ''" :data-editing="String(editing)"
+      :data-quote-editing="String(quoteEditing)"
       :data-stock-block="stockBlock ?? ''">
       <button data-testid="configurator-commit"
         :aria-disabled="String(!canCommit)" @click="$emit('submit')"></button>
@@ -371,6 +382,7 @@ const stubs = {
       'incomplete',
       'error',
       'editing',
+      'quoteEditing',
       'stockBlock',
     ],
     emits: ['submit', 'revert', 'cancel'],
@@ -448,6 +460,7 @@ beforeEach(() => {
   session.notReplayed.value = false;
   session.notRestored.value = false;
   session.editing.value = null;
+  session.quoteLine.value = null;
   session.source.value = null;
   session.changed.value = false;
   session.editNotice.value = null;
@@ -458,6 +471,8 @@ beforeEach(() => {
     'start',
     'edit',
     'replay',
+    'editQuoteLine',
+    'retryQuoteSave',
     'restore',
     'reopenLine',
     'revertEdit',
@@ -479,6 +494,7 @@ beforeEach(() => {
   cart.updatingItems.clear();
   route.value.query = {};
   router.replace.mockClear();
+  router.push.mockClear();
 
   warnings = [];
   warnSpy = vi
@@ -1438,6 +1454,26 @@ describe('ConfiguratorProduct frame', () => {
     // carry back, so a look at another tab must not remount them.
     const after = wrapper.find('[data-testid="section"]').element;
     expect(after).toBe(before);
+  });
+
+  it('puts the reset button under the heading at phone width, and beside it from sm up', () => {
+    const row = mountPage().find('[data-testid="configurator-heading"]');
+
+    // Beside the heading it runs past the card at 390 px.
+    expect(row.classes()).toEqual(
+      expect.arrayContaining([
+        'flex-col',
+        'items-start',
+        'sm:flex-row',
+        'sm:items-center',
+        'sm:justify-between',
+      ]),
+    );
+    // Under the heading its icon starts at the heading's edge, not a
+    // button's padding further in.
+    expect(row.find('[data-testid="configurator-reset"]').classes()).toEqual(
+      expect.arrayContaining(['-ml-2.5', 'sm:ml-0']),
+    );
   });
 
   it('restarts the session from the reset button in the tab heading', async () => {
@@ -3595,5 +3631,427 @@ describe('ConfiguratorProduct pressing again after an add', () => {
     ).toBe('max_in_cart');
     await press(wrapper);
     expect(cart.updateQuantity).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ConfiguratorProduct editing a quotation draft line', () => {
+  const QUOTE_ID = '01a1cae6-ce08-7ea7-859d-4af6b1cb6832';
+  const LINE = { quoteId: QUOTE_ID, lineId: 'line-1' };
+  const DRAFT_PATH = `/se/sv/portal/quotations/${QUOTE_ID}`;
+  const DOWN = { status: 502, message: 'Geins down' };
+
+  /** The page on a draft line, before its session has answered. */
+  async function openingDraftLine(product = makeProduct()) {
+    route.value.query = { quote: QUOTE_ID, quoteLine: 'line-1' };
+    const wrapper = mountPage(product);
+    await flushPromises();
+    session.quoteLine.value = LINE;
+    await nextTick();
+    return wrapper;
+  }
+
+  /** The page on a draft line, its session open and on screen. */
+  async function onDraftLine(
+    configuration = makeValidConfiguration(),
+    product = makeProduct(),
+  ) {
+    const wrapper = await openingDraftLine(product);
+    activeWith(configuration);
+    await nextTick();
+    return wrapper;
+  }
+
+  /** The same, after a save that failed: the session closed, its document kept. */
+  async function afterFailedSave(error: ConfiguratorSessionError = DOWN) {
+    const wrapper = await onDraftLine();
+    await wrapper.find('[data-testid="configurator-commit"]').trigger('click');
+    session.status.value = 'closed';
+    session.error.value = error;
+    await nextTick();
+    return wrapper;
+  }
+
+  const face = (wrapper: ReturnType<typeof mountPage>) =>
+    wrapper.find('[data-testid="configurator-quote-face"]');
+  const retry = (wrapper: ReturnType<typeof mountPage>) =>
+    wrapper.find('[data-testid="configurator-quote-retry"]');
+  const leave = (wrapper: ReturnType<typeof mountPage>) =>
+    wrapper.find('[data-testid="configurator-quote-leave"]');
+
+  describe('opening', () => {
+    it('opens the draft line the query names, instead of a fresh session, a cart edit or an order row', async () => {
+      cart.cartId = 'cart-1';
+      route.value.query = {
+        quote: QUOTE_ID,
+        quoteLine: 'line-1',
+        cart: 'cart-1',
+        line: 'item-1',
+      };
+
+      mountPage();
+      await flushPromises();
+
+      expect(session.editQuoteLine).toHaveBeenCalledWith('1101', LINE);
+      expect(session.start).not.toHaveBeenCalled();
+      expect(session.edit).not.toHaveBeenCalled();
+      expect(session.replay).not.toHaveBeenCalled();
+    });
+
+    it('is an ordinary page that says the line is gone, the query dropped, for a link it cannot open', async () => {
+      route.value.query = {
+        quote: 'not-a-guid',
+        quoteLine: 'line-1',
+        keep: 'x',
+      };
+
+      const wrapper = mountPage();
+      await flushPromises();
+      activeWith(makeValidConfiguration());
+      await nextTick();
+
+      expect(session.editQuoteLine).not.toHaveBeenCalled();
+      expect(session.start).toHaveBeenCalledWith('1101');
+      expect(router.replace).toHaveBeenCalledWith({ query: { keep: 'x' } });
+      expect(
+        wrapper.find('[data-testid="configurator-edit-notice"]').text(),
+      ).toBe('configurator.quote.line_gone');
+      expect(
+        wrapper.find('[data-testid="configurator-not-replayed"]').exists(),
+      ).toBe(false);
+      expect(face(wrapper).exists()).toBe(false);
+    });
+
+    it('opens the line again when the page comes back from the back-forward cache', async () => {
+      await onDraftLine();
+      session.editQuoteLine.mockClear();
+
+      session.options.onReturn();
+
+      expect(session.editQuoteLine).toHaveBeenCalledWith('1101', LINE);
+    });
+  });
+
+  describe('the edit on screen', () => {
+    it('marks the box and turns the action and the panel to the draft', async () => {
+      const wrapper = await onDraftLine();
+
+      expect(
+        wrapper.find('[data-testid="configurator-quote-marker"]').text(),
+      ).toBe('configurator.quote.marker');
+      expect(
+        wrapper.find('[data-testid="configurator-editing"]').exists(),
+      ).toBe(false);
+      const action = wrapper.find('[data-testid="action"]');
+      expect(action.attributes('data-quote-editing')).toBe('true');
+      expect(action.attributes('data-editing')).toBe('false');
+      const panel = wrapper.find('[data-testid="panel"]');
+      expect(panel.attributes('data-quote-editing')).toBe('true');
+      expect(panel.attributes('data-editing')).toBe('false');
+      expect(face(wrapper).exists()).toBe(false);
+    });
+
+    it('marks nothing as a draft edit on an ordinary page', async () => {
+      const wrapper = mountPage();
+      activeWith(makeValidConfiguration());
+      await nextTick();
+
+      expect(
+        wrapper.find('[data-testid="configurator-quote-marker"]').exists(),
+      ).toBe(false);
+      expect(
+        wrapper.find('[data-testid="panel"]').attributes('data-quote-editing'),
+      ).toBe('false');
+    });
+
+    it("keeps the line's amount: the page sends no quantity of its own", async () => {
+      await onDraftLine({ ...makeValidConfiguration(), quantity: 3 });
+      await flushPromises();
+
+      expect(session.applyChanges).not.toHaveBeenCalled();
+    });
+
+    it('is not stopped by the stock rule: a request is not a purchase', async () => {
+      const wrapper = await onDraftLine(
+        makeValidConfiguration(),
+        makeProduct({
+          skus: [
+            {
+              skuId: 5001,
+              stock: { totalStock: 0, inStock: 0, oversellable: 0 },
+            },
+          ],
+        }),
+      );
+
+      expect(
+        wrapper.find('[data-testid="action"]').attributes('data-stock-block'),
+      ).toBe('');
+      await wrapper
+        .find('[data-testid="configurator-commit"]')
+        .trigger('click');
+      expect(session.commit).toHaveBeenCalledOnce();
+    });
+
+    it("says the line cannot be opened again, in the draft's words, over a form on the defaults", async () => {
+      const wrapper = await onDraftLine();
+
+      session.editNotice.value = 'not_reopenable';
+      await nextTick();
+
+      expect(
+        wrapper.find('[data-testid="configurator-edit-notice"]').text(),
+      ).toBe('configurator.quote.not_reopenable');
+      expect(wrapper.find('[data-testid="section"]').exists()).toBe(true);
+      expect(face(wrapper).exists()).toBe(false);
+    });
+  });
+
+  describe('revert, cancel and expiry', () => {
+    it("starts over on the defaults at the line's amount on reset, still on the line", async () => {
+      const wrapper = await onDraftLine({
+        ...makeValidConfiguration(),
+        quantity: 3,
+      });
+
+      await wrapper.find('[data-testid="configurator-reset"]').trigger('click');
+      await flushPromises();
+
+      expect(session.release).toHaveBeenCalledOnce();
+      expect(session.start).toHaveBeenCalledWith('1101', 3);
+      expect(session.quoteLine.value).toEqual(LINE);
+    });
+
+    it("goes back to the line's own choices on revert, staying on the page", async () => {
+      const wrapper = await onDraftLine();
+
+      await wrapper.find('[data-testid="action-revert"]').trigger('click');
+      await flushPromises();
+
+      expect(session.revertEdit).toHaveBeenCalledOnce();
+      expect(router.push).not.toHaveBeenCalled();
+    });
+
+    it('goes back to the draft on cancel, saving nothing and opening no cart', async () => {
+      const wrapper = await onDraftLine();
+
+      await wrapper.find('[data-testid="action-cancel"]').trigger('click');
+      await flushPromises();
+
+      expect(router.push).toHaveBeenCalledWith(DRAFT_PATH);
+      expect(session.commit).not.toHaveBeenCalled();
+      expect(session.cancelEdit).not.toHaveBeenCalled();
+      expect(cart.isOpen).toBe(false);
+    });
+
+    it("opens the line's saved choices again on a restart after expiry, restoring nothing from the screen", async () => {
+      const wrapper = await onDraftLine();
+      session.status.value = 'expired';
+      await nextTick();
+
+      await wrapper.find('[data-testid="panel-restart"]').trigger('click');
+      await flushPromises();
+
+      expect(session.release).toHaveBeenCalledOnce();
+      expect(session.reopenLine).toHaveBeenCalledOnce();
+      expect(session.restore).not.toHaveBeenCalled();
+      expect(session.start).not.toHaveBeenCalled();
+      expect(router.replace).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('saving', () => {
+    it('commits through the session on a press, never through the cart', async () => {
+      const wrapper = await onDraftLine();
+
+      await wrapper
+        .find('[data-testid="configurator-commit"]')
+        .trigger('click');
+      await flushPromises();
+
+      expect(session.commit).toHaveBeenCalledOnce();
+      expect(cart.addConfiguredItem).not.toHaveBeenCalled();
+      expect(cart.updateQuantity).not.toHaveBeenCalled();
+    });
+
+    it('goes back to the draft once the line is saved', async () => {
+      await onDraftLine();
+
+      session.options.onQuoteSaved({ id: QUOTE_ID });
+      await flushPromises();
+
+      expect(router.push).toHaveBeenCalledWith(DRAFT_PATH);
+    });
+
+    it('says the line could not be updated in place of the form, with a retry of the save and a way out', async () => {
+      const wrapper = await afterFailedSave();
+
+      expect(face(wrapper).text()).toContain(
+        'configurator.quote.update_failed',
+      );
+      expect(wrapper.find('[data-testid="section"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="configurator-error"]').exists()).toBe(
+        false,
+      );
+      expect(
+        wrapper.find('[data-testid="configurator-loading"]').exists(),
+      ).toBe(false);
+      expect(retry(wrapper).text()).toBe('configurator.add_retry');
+      expect(leave(wrapper).text()).toBe('configurator.edit.cancel');
+
+      await retry(wrapper).trigger('click');
+      expect(session.retryQuoteSave).toHaveBeenCalledOnce();
+      expect(session.reopenLine).not.toHaveBeenCalled();
+
+      await leave(wrapper).trigger('click');
+      expect(router.push).toHaveBeenCalledWith(DRAFT_PATH);
+    });
+
+    it('keeps the box with the marker and the specification beside a save that failed, with no action in it', async () => {
+      const wrapper = await afterFailedSave();
+
+      expect(wrapper.find('[data-testid="panel"]').exists()).toBe(true);
+      expect(
+        wrapper.find('[data-testid="configurator-quote-marker"]').exists(),
+      ).toBe(true);
+      expect(wrapper.find('[data-testid="action"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="configurator-reset"]').exists()).toBe(
+        true,
+      );
+      // The box is capped by the left column: it holds the form's height, or
+      // the specification is cut off after a few rows.
+      expect(
+        wrapper.find('[data-testid="configurator-form-slot"]').classes(),
+      ).toContain('lg:min-h-[calc(100vh-16rem)]');
+    });
+
+    it('still reads a retry that failed as a save that failed', async () => {
+      const wrapper = await afterFailedSave();
+      await retry(wrapper).trigger('click');
+      session.error.value = { status: 502, message: 'still down' };
+      await nextTick();
+
+      expect(face(wrapper).text()).toContain(
+        'configurator.quote.update_failed',
+      );
+    });
+
+    it('lets nothing be pressed on that face while a request is under way', async () => {
+      const wrapper = await afterFailedSave();
+      session.busy.value = true;
+      await nextTick();
+
+      expect(retry(wrapper).attributes('disabled')).toBeDefined();
+      expect(leave(wrapper).attributes('disabled')).toBeDefined();
+    });
+
+    it('says the line is gone when the draft no longer holds it at the save, with only the way back', async () => {
+      const wrapper = await afterFailedSave({
+        status: 404,
+        message: 'gone',
+        code: 'QUOTE_LINE_GONE',
+      });
+      session.editNotice.value = 'line_gone';
+      await nextTick();
+
+      expect(face(wrapper).text()).toContain('configurator.quote.line_gone');
+      expect(retry(wrapper).exists()).toBe(false);
+      expect(leave(wrapper).text()).toBe('configurator.quote.back');
+      expect(
+        wrapper.find('[data-testid="configurator-edit-notice"]').exists(),
+      ).toBe(false);
+      await leave(wrapper).trigger('click');
+      expect(router.push).toHaveBeenCalledWith(DRAFT_PATH);
+    });
+
+    it('says nothing of a save for a failed change on the draft line', async () => {
+      const wrapper = await onDraftLine();
+      await wrapper.find('[data-testid="section-change"]').trigger('click');
+      session.error.value = DOWN;
+      await nextTick();
+
+      expect(face(wrapper).exists()).toBe(false);
+      expect(
+        wrapper.find('[data-testid="configurator-form-error"]').exists(),
+      ).toBe(true);
+    });
+  });
+
+  describe('a line that does not open', () => {
+    it('says the line is gone, or the draft sent, with only the way back and no loader', async () => {
+      const wrapper = await openingDraftLine();
+      session.editNotice.value = 'line_gone';
+      await nextTick();
+
+      expect(face(wrapper).text()).toContain('configurator.quote.line_gone');
+      expect(retry(wrapper).exists()).toBe(false);
+      expect(leave(wrapper).text()).toBe('configurator.quote.back');
+      expect(
+        wrapper.find('[data-testid="configurator-loading"]').exists(),
+      ).toBe(false);
+      // Nothing is loading: the button at the top spins for no session.
+      expect(
+        wrapper
+          .find('[data-testid="configurator-cta"]')
+          .find('.animate-spin')
+          .exists(),
+      ).toBe(false);
+      // No document is coming: no box holding its shape for one, no frame
+      // waiting for a form, and nothing to reset.
+      expect(wrapper.find('[data-testid="panel"]').exists()).toBe(false);
+      expect(
+        wrapper.find('[data-testid="configurator-form-slot"]').classes(),
+      ).not.toContain('border-l');
+      expect(wrapper.find('[data-testid="configurator-reset"]').exists()).toBe(
+        false,
+      );
+      await leave(wrapper).trigger('click');
+      expect(router.push).toHaveBeenCalledWith(DRAFT_PATH);
+    });
+
+    it('says the line could not be opened, with a retry of the open and the way back', async () => {
+      const wrapper = await openingDraftLine();
+      session.error.value = DOWN;
+      await nextTick();
+
+      expect(face(wrapper).text()).toContain('configurator.quote.open_failed');
+      expect(wrapper.find('[data-testid="configurator-error"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.find('[data-testid="panel"]').exists()).toBe(false);
+      expect(leave(wrapper).text()).toBe('configurator.quote.back');
+
+      await retry(wrapper).trigger('click');
+      expect(session.reopenLine).toHaveBeenCalledOnce();
+      expect(session.retryQuoteSave).not.toHaveBeenCalled();
+
+      await leave(wrapper).trigger('click');
+      expect(router.push).toHaveBeenCalledWith(DRAFT_PATH);
+    });
+
+    it('reads a failed open after a failed save as the open: the restart is the last thing asked', async () => {
+      const wrapper = await onDraftLine();
+      await wrapper
+        .find('[data-testid="configurator-commit"]')
+        .trigger('click');
+      session.status.value = 'expired';
+      await nextTick();
+      await wrapper.find('[data-testid="panel-restart"]').trigger('click');
+      await flushPromises();
+      session.status.value = 'closed';
+      session.error.value = DOWN;
+      await nextTick();
+
+      expect(face(wrapper).text()).toContain('configurator.quote.open_failed');
+    });
+
+    it('shows the loader, and no face, while the line opens', async () => {
+      const wrapper = await openingDraftLine();
+
+      expect(
+        wrapper.find('[data-testid="configurator-loading"]').exists(),
+      ).toBe(true);
+      expect(face(wrapper).exists()).toBe(false);
+      expect(wrapper.find('[data-testid="panel"]').exists()).toBe(true);
+    });
   });
 });

@@ -7,6 +7,7 @@ import type {
   LineConfigurationSummary,
   LineConfigurationVariable,
 } from '#shared/types/commerce';
+import type { ConfigurationChoices } from '#shared/types/configurator';
 import type {
   CartItemConfigurationType,
   CommittedConfigurationOptionGroupType,
@@ -107,4 +108,46 @@ export function cartLineConfiguration(line: {
     configurationId: line.configurationId,
     ...lineConfiguration(line.configuration ?? { summary: [] }),
   };
+}
+
+/**
+ * The choices a committed configuration holds, flattened as a replay sends
+ * them: every variable and every option, by id.
+ */
+export function committedChoices(
+  sections: CommittedConfigurationSectionType[],
+): ConfigurationChoices {
+  const choices: ConfigurationChoices = { variables: [], options: [] };
+  const visitGroups = (
+    groups: CommittedConfigurationOptionGroupType[] = [],
+  ): void => {
+    for (const group of groups) {
+      for (const option of group.options) {
+        if (option.id === null) continue;
+        choices.options.push({
+          id: option.id,
+          instanceId: option.instanceId ?? '',
+          quantity: Number(option.quantity),
+        });
+      }
+      visitGroups(group.optionGroups);
+    }
+  };
+  const visitSections = (
+    list: CommittedConfigurationSectionType[] = [],
+  ): void => {
+    for (const section of list) {
+      for (const variable of section.variables) {
+        if (variable.id === null) continue;
+        choices.variables.push({
+          id: variable.id,
+          value: committedValue(variable),
+        });
+      }
+      visitGroups(section.optionGroups);
+      visitSections(section.sections);
+    }
+  };
+  visitSections(sections);
+  return choices;
 }

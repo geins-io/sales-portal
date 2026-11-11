@@ -479,6 +479,93 @@ opens the configurator on the defaults.
 The page says "The product in the cart could not be updated. It keeps its previous choices." and
 offers no retry.
 
+## Editing from a quote draft
+
+A configured line on a quote request draft is edited as a cart line is. What differs: the buyer
+comes from the draft and goes back to it, and stock never stops the update.
+
+```mermaid
+flowchart LR
+    D["The draft"] -->|Change configuration| E["The line in the configurator"]
+    E -->|Update in draft| D
+    E -->|Cancel editing| D
+    E -->|Undo changes| E
+```
+
+### A configured line on the draft
+
+The line shows its specification and "Change configuration". Its name opens the configurator too.
+Its amount is changed on the draft, in the same field as a plain line's. The line keeps its
+configuration, and the price follows the new amount.
+
+### The buyer opens a line to edit it
+
+The page opens with the line's choices, at the line's amount. It says "Editing a product in the
+quote draft", and the button says "Update in draft". The page has no amount field.
+
+### "Update in draft"
+
+The new choices replace the line's, at the line's amount, and the buyer is back on the draft. The
+line shows its new specification and price. Until then the line keeps its old choices.
+
+### Stock
+
+Stock does not stop the update, whatever the stock is and whatever the cart holds. A quote request
+is not a purchase.
+
+### "Undo changes"
+
+The line's choices come back on the page, as the draft holds them. The page is still editing the
+line.
+
+### "Cancel editing"
+
+The buyer is back on the draft, which is as it was.
+
+### "Reset" while editing
+
+The form opens on the defaults, at the line's amount, and the page is still editing. "Update in
+draft" then puts the defaults on the line.
+
+### The line's choices cannot be opened again
+
+The page says "The configuration cannot be opened again. Configure it from the start – the product in the draft stays as it is until you update it." and opens on the defaults, at the line's
+amount. The update still replaces the same line.
+
+### The line is gone, or the draft has been sent
+
+The page says "The product is no longer in the draft, or the draft has been sent." in place of the
+form. The only button is "Back to the draft". This covers a line that was removed, a draft that is
+no longer a draft, a draft that no longer exists, and a line of another product.
+
+### The line cannot be opened right now
+
+The page says "The product in the draft could not be opened right now." in place of the form, with
+"Try again" and "Back to the draft".
+
+### The account has no configurator when a line is opened
+
+The page says "This product cannot be configured right now." with "Back to the draft" and no retry.
+
+### The edit link is malformed
+
+The page says "The product is no longer in the draft, or the draft has been sent." and works as an
+ordinary configurator. There is no draft to go back to.
+
+### The update fails
+
+The page says "The product in the draft could not be updated. It keeps its previous choices." in
+place of the form, with "Try again" and "Cancel editing". The specification stays beside it.
+
+### "Try again" after a failed update
+
+The choices on the page are saved onto the line, and the buyer is back on the draft. If they cannot
+all be used any more, nothing is saved: the form opens on the defaults and says "Your earlier choices could not be brought back. You are seeing the default choices.".
+
+### The update fails because the line is gone
+
+The page shows the same as for a line that is gone when it is opened.
+
 ## Session time
 
 ### The buyer keeps working
@@ -523,6 +610,11 @@ flowchart LR
 
 The form is replaced by "The time for your change has run out. The product in the cart is unchanged.".
 "Start over" opens the line as it is in the cart. Changes made before the time ran out are lost.
+
+### The page is left idle while editing a draft line
+
+The form is replaced by "The time for your change has run out. The product in the draft is unchanged.".
+"Start over" opens the line as it is in the draft. Changes made before the time ran out are lost.
 
 ### The buyer leaves the page
 

@@ -23,6 +23,8 @@ export interface QuoteLineItem {
   id: string;
   productId: number;
   alias?: string | null;
+  /** The product page's path; a configured line opens its configurator there. */
+  canonicalUrl?: string;
   skuId: number;
   name: string;
   articleNumber: string;

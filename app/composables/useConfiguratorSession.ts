@@ -15,7 +15,9 @@ import type {
 } from '#shared/types/configurator';
 import { isBrowser } from '~/utils/client-helpers';
 import { RENEW_LEAD_MS, renewDue } from '~/utils/configurator-page';
+import type { Quote } from '#shared/types/quote';
 import { choicesOf, type OrderRowRef } from '~/utils/configurator-replay';
+import type { QuoteLineRef } from '~/utils/configurator-quote';
 
 // ---------------------------------------------------------------------------
 // One configuration session: create it, post every choice as a batch, commit
@@ -28,6 +30,11 @@ import { choicesOf, type OrderRowRef } from '~/utils/configurator-replay';
 // A session can also edit a configured line: it is reopened from the line, and
 // a commit then puts the new configuration on that same line instead of adding
 // one. The line keeps its old configuration until that swap has answered.
+//
+// A configured line of a quotation draft is edited the same way, with two
+// differences. Its choices are replayed into a new session rather than
+// reopened. And its commit is the server's: one request commits the session and
+// puts it on that line in its place, so the page never holds a committed id.
 //
 // The rule engine runs server-side and is not on the wire, so nothing here
 // interprets a document. A change response is the whole re-evaluated state and
@@ -128,6 +135,8 @@ export interface ConfiguratorSessionOptions {
    * deleted on leaving, and has to open one again.
    */
   onReturn?: () => void;
+  /** A commit was put on the quotation draft line the session was opened from. */
+  onQuoteSaved?: (quote: Quote) => void;
 }
 
 /**
@@ -155,10 +164,25 @@ export function reopenFailure(
   return null;
 }
 
+/** The same for a draft line: gone, sent with its draft, or worth another try. */
+function draftReopenFailure(
+  failure: ConfiguratorSessionError,
+): ConfiguratorEditNotice | null {
+  return failure.code === QUOTE_LINE_GONE ? 'line_gone' : null;
+}
+
+const QUOTE_LINE_GONE = 'QUOTE_LINE_GONE';
+
+/** A line opened for an edit: its session, or why there is none on its choices. */
+type Reopened =
+  | { document: Configuration; notice: ConfiguratorEditNotice | null }
+  | { document?: undefined; notice: ConfiguratorEditNotice };
+
 export function useConfiguratorSession({
   addLine,
   replaceLine,
   onReturn,
+  onQuoteSaved,
 }: ConfiguratorSessionOptions = {}) {
   const configuration = ref<Configuration | null>(null);
   /**
@@ -183,6 +207,8 @@ export function useConfiguratorSession({
   const notRestored = ref(false);
   /** The cart line being edited, while the page edits one. */
   const editing = ref<CartLineRef | null>(null);
+  /** The quotation draft line being edited, while the page edits one. */
+  const quoteLine = ref<QuoteLineRef | null>(null);
   /**
    * The cart line the held session was reopened from — the edited one, or the
    * one just added — whose quantity the page follows. None for a session
@@ -245,6 +271,11 @@ export function useConfiguratorSession({
   function leave(): void {
     const id = liveId();
     if (!id || id === leftId || running === 'commit') return;
+    drop(id);
+  }
+
+  /** Deletes a session without waiting for the answer or telling a failure. */
+  function drop(id: string): void {
     leftId = id;
     void Promise.resolve(
       $fetch(`/api/configurations/${id}`, {
@@ -398,47 +429,84 @@ export function useConfiguratorSession({
   }
 
   /**
+   * The draft line being edited, in a new session the server replays its
+   * choices into. Not on the server, for the same reason as `start`.
+   */
+  async function editQuoteLine(
+    productId: string,
+    line: QuoteLineRef,
+  ): Promise<void> {
+    if (!isBrowser() || status.value === 'active') return;
+    started = { productId, quantity: 1 };
+    quoteLine.value = line;
+    editNotice.value = null;
+    await reopenLine();
+  }
+
+  /** The cart line's committed configuration, reopened. */
+  async function reopenCartLine(
+    line: CartLineRef,
+    signal: AbortSignal,
+  ): Promise<Reopened> {
+    const document = await $fetch<Configuration>('/api/configurations/reopen', {
+      method: 'POST',
+      body: line,
+      signal,
+    });
+    return { document, notice: null };
+  }
+
+  /**
+   * The draft line's choices in a new session. Choices that did not land leave
+   * the session the server made on the defaults, which is held as it is.
+   */
+  async function reopenQuoteLine(
+    productId: string,
+    line: QuoteLineRef,
+    signal: AbortSignal,
+  ): Promise<Reopened> {
+    const { configuration: document, replayed } = await $fetch<{
+      configuration: Configuration;
+      replayed: boolean;
+    }>('/api/configurations/from-quote', {
+      method: 'POST',
+      body: { productId, ...line },
+      signal,
+    });
+    return { document, notice: replayed ? null : 'not_reopenable' };
+  }
+
+  /**
    * Opens the line being edited again: first, after a failed try, after the
    * session expired, and to revert. The line itself is untouched until a swap.
    */
   async function reopenLine(): Promise<void> {
     const line = editing.value;
-    if (!line) return;
+    const draftLine = quoteLine.value;
+    const product = started?.productId;
+    if ((!line && !draftLine) || !product) return;
     // The page shows loading rather than the expired face while it reopens.
     if (status.value === 'expired') status.value = 'closed';
 
-    const result = await run(
-      async (
-        signal,
-      ): Promise<
-        { document: Configuration } | { notice: ConfiguratorEditNotice }
-      > => {
-        try {
-          return {
-            document: await $fetch<Configuration>(
-              '/api/configurations/reopen',
-              {
-                method: 'POST',
-                body: line,
-                signal,
-              },
-            ),
-          };
-        } catch (cause) {
-          const notice = wasAborted(cause)
-            ? null
-            : reopenFailure(describe(cause));
-          if (!notice) throw cause;
-          return { notice };
-        }
-      },
-    );
+    const result = await run(async (signal): Promise<Reopened> => {
+      try {
+        return await (line
+          ? reopenCartLine(line, signal)
+          : reopenQuoteLine(product, draftLine as QuoteLineRef, signal));
+      } catch (cause) {
+        const notice = wasAborted(cause)
+          ? null
+          : (line ? reopenFailure : draftReopenFailure)(describe(cause));
+        if (!notice) throw cause;
+        return { notice };
+      }
+    });
     if (!result) return;
-    if ('document' in result) {
-      editNotice.value = null;
-      return hold(result.document, line);
-    }
     editNotice.value = result.notice;
+    if (result.document) return hold(result.document, line);
+    // A draft line that is gone leaves nothing to configure: the buyer came
+    // from the draft, and the page only offers the way back to it.
+    if (!line) return;
     if (result.notice === 'line_gone') editing.value = null;
     if (started) await start(started.productId, started.quantity);
   }
@@ -649,6 +717,7 @@ export function useConfiguratorSession({
     notReopened.value = false;
     notReplayed.value = false;
     notRestored.value = false;
+    if (quoteLine.value) return saveToQuote(id, quoteLine.value);
 
     const added = await run(async (signal) => {
       const result = await $fetch<CommittedConfiguration>(
@@ -664,6 +733,47 @@ export function useConfiguratorSession({
     if (added) await carryOn(added.line);
   }
 
+  /**
+   * The server commits the session and puts it on the draft line. A failed
+   * save may or may not have committed it, and the page cannot tell, so the
+   * session is over either way: deleted quietly and closed, with its document
+   * kept for `retryQuoteSave`. A line the draft no longer holds is told as at
+   * the open.
+   */
+  async function saveToQuote(id: string, line: QuoteLineRef): Promise<void> {
+    const saved = await run(
+      (signal) =>
+        $fetch<{ quote: Quote }>(`/api/configurations/${id}/quote-line`, {
+          method: 'POST',
+          body: { productId: started?.productId, ...line },
+          signal,
+        }),
+      'commit',
+    );
+    if (saved) {
+      close();
+      onQuoteSaved?.(saved.quote);
+      return;
+    }
+    const failure = error.value;
+    if (!failure) return;
+    drop(id);
+    close();
+    if (failure.code === QUOTE_LINE_GONE) editNotice.value = 'line_gone';
+  }
+
+  /**
+   * A save onto the draft line again, after one that failed: the choices on
+   * screen go into a new session, which is saved only if they all came back.
+   */
+  async function retryQuoteSave(): Promise<void> {
+    if (!quoteLine.value || !configuration.value || !started) return;
+    const failed = status.value === 'closed';
+    if (!failed) return;
+    await restore(started.productId);
+    if (liveId() && !notRestored.value) await commit();
+  }
+
   /** Sends the kept record again, onto the edited line or as a new one. */
   async function retryAdd(): Promise<void> {
     const record = committed.value;
@@ -675,7 +785,7 @@ export function useConfiguratorSession({
 
   /** Back to the line's own choices, still editing it. */
   async function revertEdit(): Promise<void> {
-    if (!editing.value) return;
+    if (!editing.value && !quoteLine.value) return;
     if (liveId()) {
       await release();
       if (status.value !== 'closed') return;
@@ -733,6 +843,7 @@ export function useConfiguratorSession({
     notReplayed,
     notRestored,
     editing,
+    quoteLine,
     source,
     changed,
     editNotice,
@@ -742,6 +853,8 @@ export function useConfiguratorSession({
     start,
     edit,
     replay,
+    editQuoteLine,
+    retryQuoteSave,
     restore,
     reopenLine,
     revertEdit,

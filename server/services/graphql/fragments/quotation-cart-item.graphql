@@ -26,6 +26,7 @@ fragment QuotationCartItem on CartItemType {
   product {
     productId
     alias
+    canonicalUrl
     name
     articleNumber
     productImages {

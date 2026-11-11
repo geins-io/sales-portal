@@ -1165,6 +1165,29 @@ describe('ConfigurationPanel', () => {
       expect(button.find('[data-name="play"]').exists()).toBe(false);
     });
 
+    it('says the draft line is unchanged when the session of a draft edit expired', () => {
+      const wrapper = mountPanel({ status: 'expired', quoteEditing: true });
+      const expired = wrapper.find(
+        '[data-testid="configurator-panel-expired"]',
+      );
+      expect(expired.text()).toContain('configurator.quote.expired');
+      expect(expired.text()).not.toContain('configurator.edit.expired');
+      expect(expired.text()).not.toContain('configurator.panel.expired');
+      const button = expired.find('button');
+      expect(button.text()).toBe('configurator.edit.start_over');
+      expect(button.find('[data-name="rotate-ccw"]').exists()).toBe(true);
+      expect(button.find('[data-name="play"]').exists()).toBe(false);
+    });
+
+    it('emits restart when start over in a draft edit is pressed', async () => {
+      const wrapper = mountPanel({ status: 'expired', quoteEditing: true });
+      await wrapper
+        .find('[data-testid="configurator-panel-expired"]')
+        .find('button')
+        .trigger('click');
+      expect(wrapper.emitted('restart')).toHaveLength(1);
+    });
+
     it.each([
       ['resume is', false],
       ['start over in an edit is', true],

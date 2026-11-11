@@ -430,6 +430,16 @@
       "open_failed": "Produktet i kurven kunne ikke åbnes lige nu.",
       "update_failed": "Produktet i kurven kunne ikke opdateres. Det beholder sine tidligere valg.",
       "currency_mismatch": "Produktet i kurven blev tilføjet på et andet marked og kan ikke ændres her. Det er uændret."
+    },
+    "quote": {
+      "marker": "Redigerer et produkt i tilbudsudkastet",
+      "update": "Opdater i udkastet",
+      "expired": "Tiden for ændringen er udløbet. Produktet i udkastet er uændret.",
+      "not_reopenable": "Konfigurationen kan ikke åbnes igen. Konfigurer den forfra – produktet i udkastet er uændret, indtil du opdaterer.",
+      "line_gone": "Produktet er ikke længere i udkastet, eller udkastet er sendt.",
+      "open_failed": "Produktet i udkastet kunne ikke åbnes lige nu.",
+      "update_failed": "Produktet i udkastet kunne ikke opdateres. Det beholder sine tidligere valg.",
+      "back": "Tilbage til udkastet"
     }
   },
   "account": {
@@ -1033,7 +1043,6 @@
         "removed": "{name} blev fjernet.",
         "undo": "Fortryd",
         "remove": "Fjern",
-        "configured_quantity": "Antallet ændres i konfiguratoren",
         "continue": "Gå videre til tilbudsforespørgsel",
         "continue_hint": "I næste trin tilføjer du besked og ønsker og sender. Der afgives ingen ordre.",
         "updated_at": "Senest ændret",

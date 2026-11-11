@@ -199,7 +199,6 @@ export function useQuoteDraftEditing({
 
   // ----------------------------------------------------------------- actions
   function setQuantity(l: QuoteLineItem, quantity: number) {
-    if (l.configuration) return;
     amounts.set(l.id, quantity);
     clearTimeout(amountTimers.get(l.id));
     amountTimers.set(

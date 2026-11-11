@@ -430,6 +430,16 @@
       "open_failed": "Das Produkt im Warenkorb konnte gerade nicht geöffnet werden.",
       "update_failed": "Das Produkt im Warenkorb konnte nicht aktualisiert werden. Es behält seine bisherige Auswahl.",
       "currency_mismatch": "Das Produkt im Warenkorb wurde in einem anderen Markt hinzugefügt und kann hier nicht geändert werden. Es bleibt unverändert."
+    },
+    "quote": {
+      "marker": "Ein Produkt im Angebotsentwurf wird bearbeitet",
+      "update": "Im Entwurf aktualisieren",
+      "expired": "Die Zeit für Ihre Änderung ist abgelaufen. Das Produkt im Entwurf ist unverändert.",
+      "not_reopenable": "Die Konfiguration kann nicht erneut geöffnet werden. Konfigurieren Sie sie neu – das Produkt im Entwurf bleibt unverändert, bis Sie aktualisieren.",
+      "line_gone": "Das Produkt ist nicht mehr im Entwurf, oder der Entwurf wurde gesendet.",
+      "open_failed": "Das Produkt im Entwurf konnte gerade nicht geöffnet werden.",
+      "update_failed": "Das Produkt im Entwurf konnte nicht aktualisiert werden. Es behält seine bisherige Auswahl.",
+      "back": "Zurück zum Entwurf"
     }
   },
   "account": {
@@ -1033,7 +1043,6 @@
         "removed": "{name} wurde entfernt.",
         "undo": "Rückgängig",
         "remove": "Entfernen",
-        "configured_quantity": "Die Menge wird im Konfigurator geändert",
         "continue": "Weiter zur Angebotsanfrage",
         "continue_hint": "Im nächsten Schritt fügen Sie eine Nachricht und Ihre Wünsche hinzu und senden ab. Es wird keine Bestellung aufgegeben.",
         "updated_at": "Zuletzt geändert",

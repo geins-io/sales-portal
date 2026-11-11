@@ -483,6 +483,16 @@ export const ReplayOrderLineSchema = z.object({
   row: z.number().int().min(0),
 });
 
+/**
+ * A configured line of a quotation draft, by the draft's id and its own, on
+ * the page of the product named: to open the line, and to save onto it.
+ */
+export const QuoteLineOfProductSchema = z.object({
+  productId: z.string().min(1),
+  quoteId: z.guid(),
+  lineId: z.string().min(1).max(64),
+});
+
 // A document holds a few hundred nodes at most; the cap is room to spare.
 const RESTORE_NODES = 500;
 
