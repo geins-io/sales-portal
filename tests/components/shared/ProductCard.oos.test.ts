@@ -46,10 +46,6 @@ const stubs = {
     props: ['modelValue', 'min', 'max', 'disabled'],
     template: '<div data-testid="quantity-input" />',
   },
-  QuantityStepper: {
-    props: ['modelValue', 'min', 'max', 'disabled'],
-    template: '<div data-testid="quantity-stepper" />',
-  },
   PriceDisplay: {
     template: '<span data-testid="price-display" />',
     props: ['price', 'lowestPrice', 'discountType', 'campaignNames'],

@@ -362,16 +362,9 @@ async function addToCart() {
         <OutOfStockBlock v-else-if="isOutOfStock" class="mt-auto pt-3" />
         <div v-else class="mt-auto flex items-center gap-3 pt-3">
           <QuantityInput
-            v-if="isFullProduct(product)"
             v-model="quantity"
             :min="1"
             :max="maxQuantity"
-            class="h-9 shrink-0"
-          />
-          <QuantityStepper
-            v-else
-            v-model="quantity"
-            :min="1"
             class="h-9 shrink-0"
           />
           <Button
@@ -382,11 +375,17 @@ async function addToCart() {
             :disabled="!skuId || isAdding"
             @click="addToCart"
           >
-            <AlertCircle v-if="addError" class="size-4 shrink-0" />
-            <ShoppingCart v-else class="size-4 shrink-0" />
-            <!-- 7.875rem: the room inside the button the icon and the Swedish label need.
-                 A narrower button shows the icon alone, on any screen. -->
-            <span class="hidden whitespace-nowrap @min-[7.875rem]/add:inline">
+            <!-- 8.25rem: the room inside the button the icon, its margin and the
+                 Swedish label need. A narrower button shows the icon alone. -->
+            <AlertCircle
+              v-if="addError"
+              class="size-4 shrink-0 @min-[8.25rem]/add:mr-1.5"
+            />
+            <ShoppingCart
+              v-else
+              class="size-4 shrink-0 @min-[8.25rem]/add:mr-1.5"
+            />
+            <span class="hidden whitespace-nowrap @min-[8.25rem]/add:inline">
               {{
                 addError ? t('cart.add_failed') : t('cart.add_to_cart_short')
               }}
@@ -529,13 +528,11 @@ async function addToCart() {
           <OutOfStockBlock v-else-if="isOutOfStock" class="shrink-0" />
           <template v-else>
             <QuantityInput
-              v-if="isFullProduct(product)"
               v-model="quantity"
               :min="1"
               :max="maxQuantity"
               class="h-9"
             />
-            <QuantityStepper v-else v-model="quantity" :min="1" class="h-9" />
             <Button
               data-testid="add-to-cart-button"
               class="h-9 px-4"

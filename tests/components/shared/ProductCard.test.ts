@@ -42,12 +42,12 @@ const stubs = {
     template:
       '<img data-testid="geins-image" :data-file-name="fileName" :data-url="url" :data-sizes="sizes" :data-widths="widths?.join(\',\')" :data-loading="loading" :data-priority="String(priority)" :alt="alt" />',
   },
-  QuantityStepper: {
-    name: 'QuantityStepper',
+  QuantityInput: {
+    name: 'QuantityInput',
     props: ['modelValue', 'min', 'max', 'disabled'],
     emits: ['update:modelValue'],
     template:
-      '<div data-testid="quantity-stepper" :data-value="modelValue"></div>',
+      '<div data-testid="quantity-input" :data-value="modelValue"></div>',
   },
   Button: {
     props: ['disabled', 'variant', 'size'],
@@ -201,15 +201,19 @@ describe('ProductCard', () => {
     expect(wrapper.find('[data-testid="original-price"]').exists()).toBe(true);
   });
 
-  it('renders QuantityStepper', () => {
-    const wrapper = mountComponent(ProductCard, {
-      props: { product: baseProduct },
-      global: { stubs },
-    });
-    expect(wrapper.find('[data-testid="quantity-stepper"]').exists()).toBe(
-      true,
-    );
-  });
+  it.each(['grid', 'list'] as const)(
+    'gives the %s card the listing cards’ quantity field, uncapped from 1',
+    (variant) => {
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: baseProduct, variant },
+        global: { stubs },
+      });
+      const field = wrapper.findComponent({ name: 'QuantityInput' });
+      expect(field.exists()).toBe(true);
+      expect(field.props('min')).toBe(1);
+      expect(field.props('max')).toBeUndefined();
+    },
+  );
 });
 
 // What a narrow card shows: the icons outside the label, which stays `hidden`
@@ -245,7 +249,7 @@ describe('ProductCard add to cart for a card item', () => {
         global: { stubs },
       });
       await wrapper
-        .findComponent({ name: 'QuantityStepper' })
+        .findComponent({ name: 'QuantityInput' })
         .vm.$emit('update:modelValue', 3);
 
       await wrapper.find('[data-testid="add-to-cart-button"]').trigger('click');
