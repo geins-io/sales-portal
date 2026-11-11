@@ -998,6 +998,37 @@
         "from_quotation": "Bestilt fra tilbud {number}",
         "view_quotation": "Vis tilbudet i kundeportalen",
         "continue_shopping": "Fortsett å handle"
+      },
+      "draft": {
+        "saving": "Lagrer…",
+        "saved": "Alle endringer er lagret",
+        "name_label": "Navn på tilbudsforespørselen",
+        "more": "Flere valg for {name}",
+        "rename": "Gi nytt navn",
+        "delete": "Slett",
+        "quick_add_label": "Hurtiglegg til",
+        "quick_add_placeholder": "Legg til produkt – søk navn eller art.nr.",
+        "quick_add_no_hits": "Ingen produkter samsvarer med «{q}».",
+        "quick_add_on_draft": "Legges til i denne tilbudsforespørselen",
+        "quick_add_configurable": "Konfigureres på produktsiden",
+        "quick_add_variants": "Velg variant på produktsiden",
+        "added": "{name} er lagt til.",
+        "removed": "{name} ble fjernet.",
+        "undo": "Angre",
+        "remove": "Fjern",
+        "configured_quantity": "Antallet endres i konfiguratoren",
+        "continue": "Gå videre til tilbudsforespørsel",
+        "continue_hint": "I neste steg legger du til melding og ønsker og sender. Ingen ordre legges inn.",
+        "updated_at": "Sist endret",
+        "save_failed": "Endringen kunne ikke lagres. Utkastet vises slik det er lagret.",
+        "delete_failed": "Utkastet kunne ikke slettes. Prøv igjen."
+      },
+      "delete_dialog": {
+        "title": "Slette utkastet?",
+        "description": "«{name}» slettes med alle varer. Dette kan ikke angres.",
+        "submit": "Slett utkast",
+        "last_line_title": "Fjerne den siste varen?",
+        "last_line_description": "Et utkast må ha minst én vare. Fjerner du den siste, slettes hele utkastet. Dette kan ikke angres."
       }
     },
     "favorites": {

@@ -17,7 +17,8 @@ vi.mock('~/utils/internal-fetch', () => ({
 }));
 
 // Import store after mocks
-const { useQuotesStore } = await import('../../app/stores/quotes');
+const { useQuotesStore, DRAFT_WRITE_TIMEOUT_MS } =
+  await import('../../app/stores/quotes');
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -60,7 +61,8 @@ const mockQuote = makeQuote({
   lineItems: [
     {
       productId: 1,
-      sku: 'SKU-001',
+      id: 'line-001',
+      skuId: 1,
       name: 'Test Product',
       articleNumber: 'ART-001',
       quantity: 3,
@@ -456,6 +458,113 @@ describe('useQuotesStore', () => {
     });
   });
 
+  describe('updateDraft', () => {
+    it('starts with nothing being saved', () => {
+      expect(useQuotesStore().isSaving).toBe(false);
+    });
+
+    const draft = { ...mockQuote, status: 'request_draft' as const };
+
+    it('writes the change and answers the draft Geins holds', async () => {
+      const renamed = { ...draft, name: 'Kontor plan 3' };
+      mockFetchImpl.mockResolvedValueOnce({ quote: renamed });
+
+      const store = useQuotesStore();
+      const pending = store.updateDraft('q-001', { name: 'Kontor plan 3' });
+      expect(store.isSaving).toBe(true);
+      const result = await pending;
+
+      expect(mockFetchImpl).toHaveBeenCalledWith('/api/quotes/q-001/request', {
+        method: 'PATCH',
+        body: { name: 'Kontor plan 3' },
+        timeout: DRAFT_WRITE_TIMEOUT_MS,
+      });
+      expect(result).toEqual(renamed);
+      expect(store.isSaving).toBe(false);
+      expect(store.error).toBeNull();
+    });
+
+    it('stops waiting for an answer after 20 seconds, and says the change was not saved', async () => {
+      expect(DRAFT_WRITE_TIMEOUT_MS).toBe(20_000);
+      // What ofetch throws when its timeout runs out.
+      mockFetchImpl.mockRejectedValueOnce(
+        Object.assign(
+          new Error(
+            '[PATCH] "/api/quotes/q-001/request": <no response> The operation was aborted due to timeout',
+          ),
+          { name: 'FetchError' },
+        ),
+      );
+
+      const store = useQuotesStore();
+      const result = await store.updateDraft('q-001', { name: 'x' });
+
+      expect(result).toBeNull();
+      expect(store.error).toBe('portal.quotations.draft.save_failed');
+      expect(store.isSaving).toBe(false);
+    });
+
+    it('says the change was not saved when the write fails', async () => {
+      mockFetchImpl.mockRejectedValueOnce(new Error('502'));
+
+      const store = useQuotesStore();
+      const result = await store.updateDraft('q-001', {
+        items: [{ id: 'line-a', skuId: 11, quantity: 3 }],
+      });
+
+      expect(result).toBeNull();
+      expect(store.error).toBe('portal.quotations.draft.save_failed');
+      expect(store.isSaving).toBe(false);
+    });
+
+    it('clears an earlier error when a write succeeds', async () => {
+      mockFetchImpl.mockResolvedValueOnce({ quote: draft });
+
+      const store = useQuotesStore();
+      store.error = 'portal.quotations.draft.save_failed';
+      await store.updateDraft('q-001', { name: 'x' });
+
+      expect(store.error).toBeNull();
+    });
+  });
+
+  describe('deleteDraft', () => {
+    it('deletes the draft and takes it off the list', async () => {
+      mockFetchImpl
+        .mockResolvedValueOnce({
+          quotes: [mockQuoteListItem, mockQuoteListItem2],
+          total: 2,
+        })
+        .mockResolvedValueOnce({ deleted: true });
+
+      const store = useQuotesStore();
+      await store.fetchQuotes();
+      const pending = store.deleteDraft('q-001');
+      expect(store.isSaving).toBe(true);
+      const deleted = await pending;
+
+      expect(mockFetchImpl).toHaveBeenLastCalledWith('/api/quotes/q-001', {
+        method: 'DELETE',
+        timeout: DRAFT_WRITE_TIMEOUT_MS,
+      });
+      expect(deleted).toBe(true);
+      expect(store.quotes.map((q) => q.id)).toEqual(['q-002']);
+      expect(store.totalQuotes).toBe(1);
+      expect(store.isSaving).toBe(false);
+    });
+
+    it('keeps the draft and says so when the delete fails', async () => {
+      mockFetchImpl.mockRejectedValueOnce(new Error('502'));
+
+      const store = useQuotesStore();
+      const deleted = await store.deleteDraft('q-001');
+
+      expect(deleted).toBe(false);
+      expect(store.error).toBe('portal.quotations.draft.delete_failed');
+      expect(store.isSaving).toBe(false);
+    });
+  });
+
   describe('sendQuoteRequest', () => {
     const draft = { ...mockQuote, status: 'request_draft' as const };
     const requested = { ...mockQuote, status: 'requested' as const };
@@ -808,6 +917,7 @@ describe('useQuotesStore', () => {
       expect(store.currentQuote).toBeNull();
       expect(store.isLoading).toBe(false);
       expect(store.isActionLoading).toBe(false);
+      expect(store.isSaving).toBe(false);
       expect(store.error).toBeNull();
     });
   });

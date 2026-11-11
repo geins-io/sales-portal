@@ -1,15 +1,21 @@
 <script setup lang="ts">
 import type { FunctionalComponent } from 'vue';
+import { onBeforeRouteLeave } from 'vue-router';
+import { useEventListener } from '@vueuse/core';
 import {
   ArrowLeft,
   Calendar,
   CalendarPlus,
+  Check,
   CircleCheck,
   Clock,
   FileText,
   Hash,
+  History,
   Info,
+  Loader2,
   MessageSquare,
+  MoreHorizontal,
   ShoppingBag,
   Tag,
   Truck,
@@ -17,6 +23,12 @@ import {
 } from 'lucide-vue-next';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu';
 import {
   Accordion,
   AccordionContent,
@@ -37,7 +49,8 @@ import {
   quoteStatusInfoKey,
 } from '~/utils/quote-view';
 import { summaryRows } from '~/utils/summary-rows';
-import type { Quote } from '#shared/types/quote';
+import type { Quote, QuoteLineItem } from '#shared/types/quote';
+import { QUOTE_NAME_MAX_LENGTH } from '#shared/constants/quote';
 
 definePageMeta({ middleware: ['auth', 'feature'], feature: 'quotes' });
 
@@ -73,6 +86,8 @@ store.currentQuote = data.value.quote;
 store.error = null;
 
 const quote = computed<Quote | null>(() => data.value?.quote ?? null);
+/** A request draft is edited here; from `REQUESTED` on the view is read-only. */
+const isDraft = computed(() => quote.value?.status === 'request_draft');
 
 useHead({
   title: computed(
@@ -96,10 +111,11 @@ const orderPath = computed(() =>
 
 const hasResponses = computed(
   () =>
-    !!store.error ||
-    responses.value.withdraw ||
-    !!responses.value.accept ||
-    responses.value.placeOrder,
+    !isDraft.value &&
+    (!!store.error ||
+      responses.value.withdraw ||
+      !!responses.value.accept ||
+      responses.value.placeOrder),
 );
 
 type QuoteAction = 'withdraw' | 'decline' | 'accept';
@@ -136,6 +152,109 @@ async function runAction() {
       : await store.rejectQuote(quote.value.id);
   pendingAction.value = null;
   if (answered) data.value = { quote: answered };
+}
+
+// ------------------------------------------------------------ the draft
+const editing = useQuoteDraftEditing({
+  quote: () => quote.value as Quote,
+  save: (update) => store.updateDraft(quoteId.value, update),
+  onSaved: (answer) => {
+    data.value = { quote: answer };
+  },
+  // The page shows what Geins holds, not what failed to reach it. A failed
+  // `refresh()` would empty `data`; a failed read here keeps the last draft.
+  onFailed: async () => {
+    try {
+      data.value = await $fetch<{ quote: Quote }>(
+        `/api/quotes/${quoteId.value}`,
+      );
+    } catch {
+      // The save's error is already shown.
+    }
+  },
+});
+const { lines: draftLines, notice, saving, saved, canRemove } = editing;
+
+const noticeText = computed(() =>
+  notice.value
+    ? t(`portal.quotations.draft.${notice.value.kind}`, {
+        name: notice.value.name,
+      })
+    : '',
+);
+
+// Nothing waiting is lost, or sent stale, when the buyer goes on or away.
+// Closing or reloading the tab cannot wait for a save, so it asks first.
+if (isDraft.value) {
+  onBeforeRouteLeave(async () => ((await editing.flush()) ? undefined : false));
+  useEventListener('beforeunload', (event) => {
+    if (!saving.value) return;
+    event.preventDefault();
+    // Older Chrome and Safari ask only when this is set.
+    event.returnValue = '';
+  });
+}
+
+const requestPath = computed(() =>
+  localePath(`/portal/quotations/${quoteId.value}/request`),
+);
+
+const editingName = ref(false);
+const nameDraft = ref('');
+const nameInput = ref<HTMLInputElement | null>(null);
+
+function startRename() {
+  nameDraft.value = quote.value?.name ?? '';
+  editingName.value = true;
+  nextTick(() => {
+    nameInput.value?.focus();
+    nameInput.value?.select();
+  });
+}
+
+function commitRename() {
+  if (!editingName.value) return;
+  editingName.value = false;
+  const name = nameDraft.value.trim();
+  if (name && name !== quote.value?.name) editing.rename(name);
+}
+
+// Rename starts once the menu has closed: started from the item, the closing
+// menu would take the focus back from the name field.
+const renameRequested = ref(false);
+
+function onMenuCloseAutoFocus(event: Event) {
+  if (!renameRequested.value) return;
+  event.preventDefault();
+  renameRequested.value = false;
+  startRename();
+}
+
+const deleteOpen = ref(false);
+/** Whether the delete dialog was opened by removing the last line. */
+const deleteLastLine = ref(false);
+
+function openDelete() {
+  deleteLastLine.value = false;
+  deleteOpen.value = true;
+}
+
+/** The last line goes only with the whole draft, so that is asked first. */
+function removeLine(line: QuoteLineItem) {
+  if (canRemove.value) {
+    editing.remove(line);
+    return;
+  }
+  deleteLastLine.value = true;
+  deleteOpen.value = true;
+}
+
+async function confirmDelete() {
+  await editing.flush();
+  if (await store.deleteDraft(quoteId.value)) {
+    deleteOpen.value = false;
+    await navigateTo(localePath('/portal/quotations'));
+  }
 }
 
 // ------------------------------------------------------------------ view
@@ -259,6 +378,13 @@ const metaRows = computed<MetaRow[]>(() => {
     lines: q.expiresAt ? [formatDate(q.expiresAt)] : [],
   });
   add({
+    key: 'updated',
+    testId: 'quote-meta-updated',
+    icon: History,
+    label: t('portal.quotations.draft.updated_at'),
+    lines: isDraft.value && q.updatedAt ? [formatDate(q.updatedAt)] : [],
+  });
+  add({
     key: 'terms',
     testId: 'payment-terms',
     icon: Clock,
@@ -293,8 +419,10 @@ const metaRows = computed<MetaRow[]>(() => {
   return rows;
 });
 
+// A draft has no addresses yet: they are chosen when the request is sent.
 const hasCustomerCard = computed(
   () =>
+    !isDraft.value &&
     !!(
       quote.value?.company ||
       quote.value?.billingAddress ||
@@ -336,11 +464,79 @@ const customerSummary = computed(() => {
           <ArrowLeft class="size-4" />
           {{ t('portal.quotations.back_to_quotations') }}
         </NuxtLink>
+        <p
+          v-if="isDraft && (saving || saved)"
+          data-testid="quote-save-state"
+          class="text-muted-foreground inline-flex items-center gap-1.5 text-xs"
+          aria-live="polite"
+        >
+          <template v-if="saving">
+            <Loader2 class="size-3.5 animate-spin" />{{
+              t('portal.quotations.draft.saving')
+            }}
+          </template>
+          <template v-else>
+            <Check class="size-3.5" />{{ t('portal.quotations.draft.saved') }}
+          </template>
+        </p>
       </div>
 
       <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <!-- Left, a draft: quick add and the lines, edited. On a phone they
+             stay on the page, under the summary, as in a cart. -->
+        <div
+          v-if="isDraft"
+          data-testid="quote-draft-lines"
+          class="order-2 min-w-0 space-y-4 lg:order-1 lg:col-span-2"
+        >
+          <div
+            class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <h3 class="text-base font-semibold">
+              {{ t('portal.quotations.items_heading') }}
+            </h3>
+            <PortalQuoteQuickAdd
+              class="w-full sm:w-80"
+              :pending="store.isSaving"
+              @add="editing.add"
+            />
+          </div>
+          <p
+            v-if="store.error"
+            data-testid="draft-error"
+            role="alert"
+            class="bg-danger/10 text-danger border-danger/20 rounded-md border px-3 py-2 text-sm"
+          >
+            {{ t(store.error) }}
+          </p>
+          <p
+            v-if="notice"
+            data-testid="quote-notice"
+            role="status"
+            class="bg-muted flex items-center justify-between gap-3 rounded-md px-4 py-2.5 text-sm"
+          >
+            <span>{{ noticeText }}</span>
+            <Button
+              v-if="notice.undo"
+              data-testid="quote-undo"
+              variant="link"
+              size="sm"
+              class="h-auto px-0"
+              @click="notice.undo()"
+            >
+              {{ t('portal.quotations.draft.undo') }}
+            </Button>
+          </p>
+          <PortalQuoteDraftTable
+            :lines="draftLines"
+            :totals="totals"
+            @quantity="editing.setQuantity"
+            @remove="removeLine"
+          />
+        </div>
+
         <!-- Left: the lines (desktop only; below lg they are in the sheet) -->
-        <div class="hidden min-w-0 lg:col-span-2 lg:block">
+        <div v-else class="hidden min-w-0 lg:col-span-2 lg:block">
           <OrderItemsTable
             :items="lineRows"
             :rows="totals"
@@ -350,11 +546,32 @@ const customerSummary = computed(() => {
         </div>
 
         <!-- Right: header, summary with the responses, details, customer -->
-        <aside class="space-y-6">
+        <aside class="order-1 space-y-6 lg:order-2">
           <header data-testid="quote-header">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div class="min-w-0 flex-1">
+                <form
+                  v-if="editingName"
+                  data-testid="quote-name-form"
+                  @submit.prevent="commitRename"
+                >
+                  <label for="quote-name-input" class="sr-only">{{
+                    t('portal.quotations.draft.name_label')
+                  }}</label>
+                  <input
+                    id="quote-name-input"
+                    ref="nameInput"
+                    v-model="nameDraft"
+                    data-testid="quote-name-input"
+                    autocomplete="off"
+                    :maxlength="QUOTE_NAME_MAX_LENGTH"
+                    class="border-input focus-visible:border-ring focus-visible:ring-ring/50 h-10 w-full rounded-md border bg-transparent px-3 text-xl font-semibold focus-visible:ring-[3px] focus-visible:outline-none"
+                    @keydown.escape.prevent="editingName = false"
+                    @blur="commitRename"
+                  />
+                </form>
                 <h2
+                  v-else
                   data-testid="quote-title"
                   class="text-2xl font-semibold wrap-break-word"
                 >
@@ -373,12 +590,48 @@ const customerSummary = computed(() => {
                   >
                 </p>
               </div>
-              <Badge
-                data-testid="status-badge"
-                :variant="getQuoteStatusVariant(quote.status)"
-              >
-                {{ t(getQuoteStatusLabelKey(quote.status)) }}
-              </Badge>
+              <div class="flex items-center gap-1">
+                <Badge
+                  data-testid="status-badge"
+                  :variant="getQuoteStatusVariant(quote.status)"
+                >
+                  {{ t(getQuoteStatusLabelKey(quote.status)) }}
+                </Badge>
+                <DropdownMenu v-if="isDraft">
+                  <DropdownMenuTrigger as-child>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      data-testid="quote-more"
+                      :aria-label="
+                        t('portal.quotations.draft.more', {
+                          name: quote.name ?? '',
+                        })
+                      "
+                    >
+                      <MoreHorizontal class="size-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    @close-auto-focus="onMenuCloseAutoFocus"
+                  >
+                    <DropdownMenuItem
+                      data-testid="quote-rename"
+                      @select="renameRequested = true"
+                    >
+                      {{ t('portal.quotations.draft.rename') }}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      variant="destructive"
+                      data-testid="quote-delete"
+                      @select="openDelete"
+                    >
+                      {{ t('portal.quotations.draft.delete') }}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </header>
 
@@ -387,8 +640,24 @@ const customerSummary = computed(() => {
             show-prices
             :title="t('portal.quotations.request.summary_title')"
           >
+            <template v-if="isDraft" #heading-aside>
+              <QuoteEstimateBadge />
+            </template>
+            <template v-if="isDraft" #default>
+              <Button as-child class="w-full" data-testid="quote-continue">
+                <NuxtLink :to="requestPath">
+                  {{ t('portal.quotations.draft.continue') }}
+                </NuxtLink>
+              </Button>
+              <p
+                data-testid="quote-continue-hint"
+                class="text-muted-foreground text-xs"
+              >
+                {{ t('portal.quotations.draft.continue_hint') }}
+              </p>
+            </template>
             <!-- Only with something to show, or the card keeps an empty gap. -->
-            <template v-if="hasResponses" #default>
+            <template v-else-if="hasResponses" #default>
               <div
                 v-if="store.error"
                 data-testid="action-error"
@@ -460,6 +729,7 @@ const customerSummary = computed(() => {
           </OrderSummaryCard>
 
           <PortalItemRowsSheet
+            v-if="!isDraft"
             class="lg:hidden"
             :items="lineRows"
             :totals="totals"
@@ -574,6 +844,15 @@ const customerSummary = computed(() => {
         :destructive="actionCopy.destructive"
         :pending="store.isActionLoading"
         @confirm="runAction"
+      />
+
+      <PortalDialogDeleteQuoteDraft
+        v-if="isDraft"
+        v-model:open="deleteOpen"
+        :name="quote.name ?? ''"
+        :pending="store.isSaving"
+        :last-line="deleteLastLine"
+        @confirm="confirmDelete"
       />
     </div>
   </PortalShell>

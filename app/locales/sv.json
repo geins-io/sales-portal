@@ -998,6 +998,37 @@
         "from_quotation": "Beställd från offert {number}",
         "view_quotation": "Visa offerten i kundportalen",
         "continue_shopping": "Fortsätt handla"
+      },
+      "draft": {
+        "saving": "Sparar…",
+        "saved": "Alla ändringar sparade",
+        "name_label": "Namn på offertförfrågan",
+        "more": "Fler val för {name}",
+        "rename": "Byt namn",
+        "delete": "Radera",
+        "quick_add_label": "Snabbtillägg",
+        "quick_add_placeholder": "Lägg till produkt – sök namn eller art nr",
+        "quick_add_no_hits": "Inga produkter matchar ”{q}”.",
+        "quick_add_on_draft": "Läggs till i den här offerten",
+        "quick_add_configurable": "Konfigureras på produktsidan",
+        "quick_add_variants": "Välj variant på produktsidan",
+        "added": "{name} har lagts till.",
+        "removed": "{name} togs bort.",
+        "undo": "Ångra",
+        "remove": "Ta bort",
+        "configured_quantity": "Antalet ändras i konfiguratorn",
+        "continue": "Gå vidare till offertförfrågan",
+        "continue_hint": "I nästa steg lägger du till meddelande och önskemål och skickar. Ingen order läggs.",
+        "updated_at": "Senast ändrad",
+        "save_failed": "Ändringen kunde inte sparas. Utkastet visas som det är sparat.",
+        "delete_failed": "Utkastet kunde inte raderas. Försök igen."
+      },
+      "delete_dialog": {
+        "title": "Radera utkastet?",
+        "description": "”{name}” raderas med alla artiklar. Det går inte att ångra.",
+        "submit": "Radera utkast",
+        "last_line_title": "Ta bort sista artikeln?",
+        "last_line_description": "Ett utkast måste ha minst en artikel. Tar du bort den sista raderas hela utkastet. Det går inte att ångra."
       }
     },
     "favorites": {

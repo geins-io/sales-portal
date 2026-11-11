@@ -998,6 +998,37 @@
         "from_quotation": "Bestilt fra tilbud {number}",
         "view_quotation": "Vis tilbuddet i kundeportalen",
         "continue_shopping": "Fortsæt med at handle"
+      },
+      "draft": {
+        "saving": "Gemmer…",
+        "saved": "Alle ændringer gemt",
+        "name_label": "Navn på tilbudsforespørgslen",
+        "more": "Flere valg for {name}",
+        "rename": "Omdøb",
+        "delete": "Slet",
+        "quick_add_label": "Hurtig tilføjelse",
+        "quick_add_placeholder": "Tilføj produkt – søg navn eller varenr.",
+        "quick_add_no_hits": "Ingen produkter matcher “{q}”.",
+        "quick_add_on_draft": "Tilføjes til denne tilbudsforespørgsel",
+        "quick_add_configurable": "Konfigureres på produktsiden",
+        "quick_add_variants": "Vælg variant på produktsiden",
+        "added": "{name} er tilføjet.",
+        "removed": "{name} blev fjernet.",
+        "undo": "Fortryd",
+        "remove": "Fjern",
+        "configured_quantity": "Antallet ændres i konfiguratoren",
+        "continue": "Gå videre til tilbudsforespørgsel",
+        "continue_hint": "I næste trin tilføjer du besked og ønsker og sender. Der afgives ingen ordre.",
+        "updated_at": "Senest ændret",
+        "save_failed": "Ændringen kunne ikke gemmes. Udkastet vises, som det er gemt.",
+        "delete_failed": "Udkastet kunne ikke slettes. Prøv igen."
+      },
+      "delete_dialog": {
+        "title": "Slet udkastet?",
+        "description": "“{name}” slettes med alle varer. Det kan ikke fortrydes.",
+        "submit": "Slet udkast",
+        "last_line_title": "Fjern den sidste vare?",
+        "last_line_description": "Et udkast skal have mindst én vare. Fjerner du den sidste, slettes hele udkastet. Det kan ikke fortrydes."
       }
     },
     "favorites": {

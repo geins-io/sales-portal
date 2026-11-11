@@ -1,16 +1,19 @@
 import * as quotesService from '../../../services/quotes';
 import { UpdateQuoteRequestSchema } from '../../../schemas/api-input';
 import {
-  quoteRespondRateLimiter,
+  quoteDraftRateLimiter,
   getClientIp,
 } from '../../../utils/rate-limiter';
 
 export default defineEventHandler(async (event) => {
   await requireAuth(event);
 
-  const { allowed } = await quoteRespondRateLimiter.check(getClientIp(event));
+  const { allowed } = await quoteDraftRateLimiter.check(getClientIp(event));
   if (!allowed) {
-    throw createAppError(ErrorCode.RATE_LIMITED, 'Too many quote responses');
+    throw createAppError(
+      ErrorCode.RATE_LIMITED,
+      'Too many quote draft changes',
+    );
   }
 
   const details = await readValidatedBody(

@@ -1,0 +1,13 @@
+mutation deleteQuotationRequest(
+  $quotationId: Guid!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  deleteQuotationRequest(
+    quotationId: $quotationId
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  )
+}

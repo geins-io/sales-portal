@@ -19,9 +19,11 @@ export type QuoteStatus =
 // Quote Line Item
 // ---------------------------------------------------------------------------
 export interface QuoteLineItem {
+  /** The line's id on the quotation's cart; a kept line is sent back by it. */
+  id: string;
   productId: number;
   alias?: string | null;
-  sku: string;
+  skuId: number;
   name: string;
   articleNumber: string;
   quantity: number;
@@ -39,6 +41,8 @@ export interface QuoteLineItem {
   configuration?: CartLineConfiguration;
   /** A configured line's prices, which its specification totals. */
   linePrices?: { unit?: PriceType; total?: PriceType };
+  /** Not shown; sent back unchanged, so a write of the lines keeps it. */
+  message?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -197,10 +201,7 @@ export interface AcceptQuoteInput {
   quoteId: string;
 }
 
-/**
- * `UpdateQuotationRequestInputType`, without `items`: Geins takes them as the
- * whole new list of lines, and leaving them out keeps the lines.
- */
+/** The details of `UpdateQuotationRequestInputType` the request page writes. */
 export interface QuoteRequestDetails {
   comment?: string;
   /** A calendar day, `YYYY-MM-DD` */
@@ -208,4 +209,25 @@ export interface QuoteRequestDetails {
   /** The buyer's PO number, at most 30 characters */
   customerOrderNumber?: string;
   goodsLabel?: string;
+}
+
+/**
+ * A line as `updateQuotationRequest` takes it. A kept line carries its `id`, a
+ * configured one its `configurationId`; a line without an `id` is added.
+ */
+export interface QuoteRequestLine {
+  id?: string;
+  skuId: number;
+  quantity: number;
+  configurationId?: string;
+  message?: string;
+}
+
+/**
+ * A write to a `REQUEST_DRAFT`. `items` is the whole new list of lines: a line
+ * left out is removed. Without `items` the lines stay as they are.
+ */
+export interface QuoteRequestUpdate extends QuoteRequestDetails {
+  name?: string;
+  items?: QuoteRequestLine[];
 }

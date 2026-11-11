@@ -230,13 +230,21 @@ export const createOrderRateLimiter = new RateLimiter({
   prefix: 'checkout-create-order',
 });
 
-// Shared by every quote write: accept, reject, finalize, and creating, updating
-// and sending a request. A buyer's office reaches us from one IP, so the limit
-// leaves room for several buyers working through their quotes.
+// Shared by the quote writes that move a quotation on: accept, reject,
+// finalize, and creating and sending a request. A buyer's office reaches us
+// from one IP, so the limit leaves room for several buyers.
 export const quoteRespondRateLimiter = new RateLimiter({
   limit: 20,
   windowMs: 60000,
   prefix: 'quote-respond',
+});
+
+// Writes to a request draft, and deleting one. Editing a draft saves once per
+// change, so a buyer adding and adjusting lines writes far more often.
+export const quoteDraftRateLimiter = new RateLimiter({
+  limit: 120,
+  windowMs: 60000,
+  prefix: 'quote-draft',
 });
 
 export const reviewPostRateLimiter = new RateLimiter({

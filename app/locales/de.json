@@ -998,6 +998,37 @@
         "from_quotation": "Bestellt aus Angebot {number}",
         "view_quotation": "Angebot im Kundenportal ansehen",
         "continue_shopping": "Weiter einkaufen"
+      },
+      "draft": {
+        "saving": "Wird gespeichert…",
+        "saved": "Alle Änderungen gespeichert",
+        "name_label": "Name der Angebotsanfrage",
+        "more": "Weitere Optionen für {name}",
+        "rename": "Umbenennen",
+        "delete": "Löschen",
+        "quick_add_label": "Schnell hinzufügen",
+        "quick_add_placeholder": "Produkt hinzufügen – Name oder Artikelnr. suchen",
+        "quick_add_no_hits": "Keine Produkte entsprechen „{q}“.",
+        "quick_add_on_draft": "Wird dieser Angebotsanfrage hinzugefügt",
+        "quick_add_configurable": "Wird auf der Produktseite konfiguriert",
+        "quick_add_variants": "Variante auf der Produktseite wählen",
+        "added": "{name} wurde hinzugefügt.",
+        "removed": "{name} wurde entfernt.",
+        "undo": "Rückgängig",
+        "remove": "Entfernen",
+        "configured_quantity": "Die Menge wird im Konfigurator geändert",
+        "continue": "Weiter zur Angebotsanfrage",
+        "continue_hint": "Im nächsten Schritt fügen Sie eine Nachricht und Ihre Wünsche hinzu und senden ab. Es wird keine Bestellung aufgegeben.",
+        "updated_at": "Zuletzt geändert",
+        "save_failed": "Die Änderung konnte nicht gespeichert werden. Der Entwurf wird so angezeigt, wie er gespeichert ist.",
+        "delete_failed": "Der Entwurf konnte nicht gelöscht werden. Bitte versuchen Sie es erneut."
+      },
+      "delete_dialog": {
+        "title": "Entwurf löschen?",
+        "description": "„{name}“ wird mit allen Artikeln gelöscht. Dies kann nicht rückgängig gemacht werden.",
+        "submit": "Entwurf löschen",
+        "last_line_title": "Letzten Artikel entfernen?",
+        "last_line_description": "Ein Entwurf muss mindestens einen Artikel enthalten. Wenn Sie den letzten entfernen, wird der ganze Entwurf gelöscht. Dies kann nicht rückgängig gemacht werden."
       }
     },
     "favorites": {

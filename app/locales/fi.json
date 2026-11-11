@@ -998,6 +998,37 @@
         "from_quotation": "Tilattu tarjouksesta {number}",
         "view_quotation": "Näytä tarjous asiakasportaalissa",
         "continue_shopping": "Jatka ostoksia"
+      },
+      "draft": {
+        "saving": "Tallennetaan…",
+        "saved": "Kaikki muutokset tallennettu",
+        "name_label": "Tarjouspyynnön nimi",
+        "more": "Lisää valintoja: {name}",
+        "rename": "Nimeä uudelleen",
+        "delete": "Poista",
+        "quick_add_label": "Pikalisäys",
+        "quick_add_placeholder": "Lisää tuote – hae nimellä tai tuotenumerolla",
+        "quick_add_no_hits": "Hakua ”{q}” vastaavia tuotteita ei löytynyt.",
+        "quick_add_on_draft": "Lisätään tähän tarjouspyyntöön",
+        "quick_add_configurable": "Konfiguroidaan tuotesivulla",
+        "quick_add_variants": "Valitse variantti tuotesivulla",
+        "added": "{name} lisättiin.",
+        "removed": "{name} poistettiin.",
+        "undo": "Kumoa",
+        "remove": "Poista",
+        "configured_quantity": "Määrää muutetaan konfiguraattorissa",
+        "continue": "Jatka tarjouspyyntöön",
+        "continue_hint": "Seuraavassa vaiheessa lisäät viestin ja toiveet ja lähetät. Tilausta ei tehdä.",
+        "updated_at": "Viimeksi muutettu",
+        "save_failed": "Muutosta ei voitu tallentaa. Luonnos näytetään tallennetussa muodossa.",
+        "delete_failed": "Luonnosta ei voitu poistaa. Yritä uudelleen."
+      },
+      "delete_dialog": {
+        "title": "Poistetaanko luonnos?",
+        "description": "”{name}” poistetaan kaikkine tuotteineen. Tätä ei voi kumota.",
+        "submit": "Poista luonnos",
+        "last_line_title": "Poistetaanko viimeinen tuote?",
+        "last_line_description": "Luonnoksessa on oltava vähintään yksi tuote. Jos poistat viimeisen, koko luonnos poistetaan. Tätä ei voi kumota."
       }
     },
     "favorites": {

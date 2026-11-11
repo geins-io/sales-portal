@@ -37,7 +37,8 @@ const CONFIGURED_PRICE = {
 /** A line brought over from a configured cart line, as the API maps it. */
 const CONFIGURED_LINE = {
   productId: 1001,
-  sku: '1001-1',
+  id: 'e2e-line-configured',
+  skuId: 1001,
   name: 'E2E Configured Display',
   articleNumber: 'CFG-001',
   quantity: 1,
@@ -96,7 +97,8 @@ function makeQuote(status: string, extraLines: object[] = []) {
     lineItems: [
       {
         productId: 1025,
-        sku: '1025-1',
+        id: 'e2e-line-1025',
+        skuId: 1025,
         name: 'E2E Widget',
         articleNumber: 'E2E-1025',
         quantity: 10,

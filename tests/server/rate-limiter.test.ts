@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   RateLimiter,
   getClientIp,
+  quoteDraftRateLimiter,
   quoteRespondRateLimiter,
 } from '../../server/utils/rate-limiter';
 import type { H3Event } from 'h3';
@@ -285,6 +286,29 @@ describe('RateLimiter', () => {
 
       vi.advanceTimersByTime(60001);
       expect((await quoteRespondRateLimiter.check('10.0.0.1')).allowed).toBe(
+        true,
+      );
+    });
+  });
+
+  describe('quoteDraftRateLimiter', () => {
+    it('allows 120 draft changes a minute per IP, apart from the responses, then blocks', async () => {
+      for (let i = 0; i < 120; i++) {
+        expect((await quoteDraftRateLimiter.check('10.0.0.1')).allowed).toBe(
+          true,
+        );
+      }
+
+      expect((await quoteDraftRateLimiter.check('10.0.0.1')).allowed).toBe(
+        false,
+      );
+      expect(mockStore.has('rate-limit:quote-draft:10.0.0.1')).toBe(true);
+      expect((await quoteRespondRateLimiter.check('10.0.0.1')).allowed).toBe(
+        true,
+      );
+
+      vi.advanceTimersByTime(60001);
+      expect((await quoteDraftRateLimiter.check('10.0.0.1')).allowed).toBe(
         true,
       );
     });
