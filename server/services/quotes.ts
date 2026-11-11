@@ -481,6 +481,7 @@ function mapQuotationCartToListItem(
   return {
     id: cart.id,
     quoteNumber: q.quotationNumber ?? '',
+    name: q.name ?? undefined,
     contactName: `${contactFirstName} ${contactLastName}`.trim(),
     contactEmail: q.billingAddress?.email ?? '',
     status: mapStatus(q.status),

@@ -862,16 +862,31 @@
       }
     },
     "quotations": {
-      "title": "Tarjoukset",
-      "subtitle": "Katso, hyväksy tai hylkää myyntitiimisi tarjouksia.",
-      "search_placeholder": "Hae tarjouksista...",
-      "no_quotations": "Tarjouksia ei löytynyt",
+      "title": "Tarjoukset ja pyynnöt",
+      "subtitle": "Jatka luonnoksiasi, seuraa lähettämiäsi pyyntöjä ja vastaa tarjouksiin.",
+      "search_placeholder": "Hae nimeä tai tarjousnumeroa…",
+      "filters": {
+        "all": "Kaikki",
+        "drafts": "Luonnokset",
+        "requests": "Pyynnöt",
+        "quotations": "Tarjoukset"
+      },
+      "empty": {
+        "all": "Sinulla ei ole vielä tarjouksia.",
+        "drafts": "Sinulla ei ole luonnoksia.",
+        "requests": "Sinulla ei ole lähetettyjä pyyntöjä.",
+        "quotations": "Sinulla ei ole tarjouksia myyntitiimiltäsi.",
+        "no_match": "Hakuasi vastaavia tuloksia ei löytynyt."
+      },
       "quote_number": "Tarjousnro",
+      "name_number": "Nimi / nro",
       "created": "Luotu",
       "contact": "Yhteyshenkilö",
       "status": "Tila",
       "total": "Summa",
+      "estimate_short": "arvio",
       "view": "Näytä",
+      "continue": "Jatka",
       "status_request_draft": "Luonnos",
       "status_requested": "Lähetetty",
       "status_pending": "Odottaa",
@@ -1029,6 +1044,14 @@
         "submit": "Poista luonnos",
         "last_line_title": "Poistetaanko viimeinen tuote?",
         "last_line_description": "Luonnoksessa on oltava vähintään yksi tuote. Jos poistat viimeisen, koko luonnos poistetaan. Tätä ei voi kumota."
+      },
+      "rename_dialog": {
+        "title": "Nimeä uudelleen",
+        "description": "Nimi näkyy sinulle ja myyjällesi, kun pyyntö lähetetään.",
+        "label": "Nimi",
+        "placeholder": "Esim. Vaihe 2 – Lehmuskortteli",
+        "submit": "Tallenna",
+        "required": "Anna nimi."
       }
     },
     "favorites": {

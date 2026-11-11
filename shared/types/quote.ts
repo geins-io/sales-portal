@@ -174,6 +174,7 @@ export interface Quote {
 export interface QuoteListItem {
   id: string;
   quoteNumber: string;
+  name?: string;
   contactName: string;
   contactEmail: string;
   status: QuoteStatus;

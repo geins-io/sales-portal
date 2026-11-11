@@ -862,16 +862,31 @@
       }
     },
     "quotations": {
-      "title": "Angebote",
-      "subtitle": "Sehen Sie Angebote Ihres Vertriebsteams ein, nehmen Sie sie an oder lehnen Sie sie ab.",
-      "search_placeholder": "Angebote durchsuchen...",
-      "no_quotations": "Keine Angebote gefunden",
+      "title": "Angebote und Anfragen",
+      "subtitle": "Setzen Sie Ihre Entwürfe fort, verfolgen Sie Ihre gesendeten Anfragen und antworten Sie auf Angebote.",
+      "search_placeholder": "Name oder Angebotsnr. suchen…",
+      "filters": {
+        "all": "Alle",
+        "drafts": "Entwürfe",
+        "requests": "Anfragen",
+        "quotations": "Angebote"
+      },
+      "empty": {
+        "all": "Sie haben noch keine Angebote.",
+        "drafts": "Sie haben keine Entwürfe.",
+        "requests": "Sie haben keine gesendeten Anfragen.",
+        "quotations": "Sie haben keine Angebote von Ihrem Vertriebsteam.",
+        "no_match": "Nichts entspricht Ihrer Suche."
+      },
       "quote_number": "Angebotsnr.",
+      "name_number": "Name / Nr.",
       "created": "Erstellt",
       "contact": "Kontakt",
       "status": "Status",
       "total": "Summe",
+      "estimate_short": "geschätzt",
       "view": "Ansehen",
+      "continue": "Fortsetzen",
       "status_request_draft": "Entwurf",
       "status_requested": "Gesendet",
       "status_pending": "Ausstehend",
@@ -1029,6 +1044,14 @@
         "submit": "Entwurf löschen",
         "last_line_title": "Letzten Artikel entfernen?",
         "last_line_description": "Ein Entwurf muss mindestens einen Artikel enthalten. Wenn Sie den letzten entfernen, wird der ganze Entwurf gelöscht. Dies kann nicht rückgängig gemacht werden."
+      },
+      "rename_dialog": {
+        "title": "Umbenennen",
+        "description": "Der Name ist für Sie und Ihren Vertriebskontakt sichtbar, sobald die Anfrage gesendet wird.",
+        "label": "Name",
+        "placeholder": "z. B. Bauabschnitt 2 – Lindenviertel",
+        "submit": "Speichern",
+        "required": "Geben Sie einen Namen ein."
       }
     },
     "favorites": {
