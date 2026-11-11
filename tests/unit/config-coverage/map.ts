@@ -158,7 +158,7 @@ const PORTAL_OVERVIEW = 'tests/unit/pages/PortalOverview.test.ts';
 const CART_QUOTE_REQUEST =
   'tests/components/cart/CartQuoteRequestButton.test.ts';
 const CART_QUOTE_REQUEST_SHOWN =
-  'shows the button and its hint to a signed-in buyer when quotes and quoteRequests are enabled';
+  'shows the button, with no hint under it, to a signed-in buyer when quotes and quoteRequests are enabled';
 const PORTAL_ORDERS_TABLE = 'tests/components/portal/PortalOrdersTable.test.ts';
 const TENANT_CONFIG_SERVICE = 'tests/server/tenant-config-service.test.ts';
 const PRICE_DISPLAY = 'tests/components/commerce/PriceDisplay.test.ts';

@@ -135,8 +135,11 @@
     "quantity_updating": "Päivitetään…",
     "quantity_change_failed": "Määrää ei voitu muuttaa. Ostoskorin tuote on ennallaan.",
     "items_short": "tuotetta",
-    "add_to_quote": "Lisää ostoskori tarjoukseen",
-    "add_to_quote_hint": "Ostoskorista tulee tarjouspyynnön luonnos, ja kori tyhjennetään. Tilausta ei tehdä.",
+    "add_to_quote": "Luo tarjouspyyntö ostoskorista",
+    "quote_confirm_title": "Tarjouspyyntö",
+    "quote_confirm_text": "Ostoskori tyhjennetään ja tuotteet siirtyvät tarjouspyyntöön, jonka voit tarkistaa seuraavassa vaiheessa.",
+    "quote_confirm_draft": "Jos haluat lähettää sen myöhemmin, se tallennetaan myös luonnoksena.",
+    "quote_confirm_submit": "Jatka pyyntöön",
     "quote_request_name": "Ostoskori {date}",
     "add_to_quote_failed": "Tarjouspyyntöä ei voitu luoda. Ostoskori on ennallaan.",
     "add_to_quote_rate_limited": "Liian monta yritystä. Odota hetki ja yritä uudelleen."
