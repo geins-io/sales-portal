@@ -160,7 +160,7 @@ function onQuantity(line: QuoteLineItem, value: number) {
             >
               {{ totalPrice(line) }}
             </td>
-            <td class="px-2 py-2">
+            <td class="p-2">
               <Tooltip>
                 <TooltipTrigger as-child>
                   <Button

@@ -157,7 +157,7 @@ const activeDescendant = computed(() =>
         aria-controls="quote-quick-add-listbox"
         aria-describedby="quote-quick-add-hint"
         :placeholder="t('portal.quotations.draft.quick_add_placeholder')"
-        class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring/50 focus-visible:border-ring flex h-10 w-full rounded-md border py-2 pr-10 pl-10 text-sm focus-visible:ring-[3px] focus-visible:outline-none"
+        class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring/50 focus-visible:border-ring flex h-10 w-full rounded-md border px-10 py-2 text-sm focus-visible:ring-[3px] focus-visible:outline-none"
         @keydown.enter.prevent="onEnter"
         @keydown.down.prevent="move(1)"
         @keydown.up.prevent="move(-1)"
@@ -183,7 +183,7 @@ const activeDescendant = computed(() =>
       <li
         v-if="!hits.length"
         data-testid="quote-quick-add-empty"
-        class="text-muted-foreground px-3 py-3 text-sm"
+        class="text-muted-foreground p-3 text-sm"
       >
         {{
           t('portal.quotations.draft.quick_add_no_hits', { q: query.trim() })
