@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ref } from 'vue';
+import { nextTick, ref } from 'vue';
 import { shallowMountComponent } from '../../utils/component';
 import CartPage from '../../../app/components/pages/CartPage.vue';
 import type { CartType } from '../../../shared/types/commerce';
@@ -8,6 +8,13 @@ import { createPinia, setActivePinia } from 'pinia';
 import { mockShowIncVat } from '../../setup-components';
 
 const mockShowPrice = ref(true);
+
+/** The pinned summary's height, as the page measures it. */
+const mockSummaryHeight = ref(0);
+vi.mock('@vueuse/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@vueuse/core')>()),
+  useElementSize: () => ({ width: ref(0), height: mockSummaryHeight }),
+}));
 vi.mock('../../../app/composables/usePriceVisibility', () => ({
   usePriceVisibility: () => ({ showPrice: mockShowPrice }),
 }));
@@ -891,6 +898,51 @@ describe('CartPage', () => {
       expect([...(total.element.parentElement?.classList ?? [])]).toEqual(
         expect.arrayContaining(['text-lg', 'font-semibold', 'items-baseline']),
       );
+    });
+  });
+
+  describe('the summary pinned to the bottom of the window', () => {
+    const padding = () => document.documentElement.style.scrollPaddingBottom;
+
+    afterEach(() => {
+      mockSummaryHeight.value = 0;
+      document.documentElement.style.scrollPaddingBottom = '';
+    });
+
+    function mountWithLines() {
+      const cartStore = useCartStore();
+      cartStore.cart = mockCart;
+      cartStore.cartId = 'cart-123';
+      return shallowMountComponent(CartPage, {
+        global: { stubs: defaultStubs },
+      });
+    }
+
+    it('keeps its height free at the bottom, so a line scrolled to or focused is not under it', async () => {
+      mockSummaryHeight.value = 370;
+      mountWithLines();
+      await nextTick();
+      expect(padding()).toBe('370px');
+
+      mockSummaryHeight.value = 330;
+      await nextTick();
+      expect(padding()).toBe('330px');
+    });
+
+    it('keeps nothing free while there is no summary', async () => {
+      mountWithLines();
+      await nextTick();
+      expect(padding()).toBe('');
+    });
+
+    it('gives the room back when the page goes', async () => {
+      mockSummaryHeight.value = 370;
+      const wrapper = mountWithLines();
+      await nextTick();
+
+      wrapper.unmount();
+
+      expect(padding()).toBe('');
     });
   });
 });
