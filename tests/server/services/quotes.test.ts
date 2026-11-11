@@ -493,6 +493,19 @@ describe('quotes service', () => {
         return (await quotesService.getQuote('cart-001', mockEvent)).lineItems;
       }
 
+      it('gives a line without an id or SKU empty ones', async () => {
+        const [bare] = await readLines({ id: undefined, skuId: undefined });
+
+        expect(bare).toMatchObject({ id: '', skuId: 0 });
+      });
+
+      it('carries a line message, which is sent back with the line', async () => {
+        const [plain, noted] = await readLines({}, { message: 'Montering' });
+
+        expect(plain).not.toHaveProperty('message');
+        expect(noted!.message).toBe('Montering');
+      });
+
       it('carries the configuration it was committed with and its prices', async () => {
         const [line] = await readLines({
           configurationId: 'config-1',
@@ -564,10 +577,13 @@ describe('quotes service', () => {
         );
 
         expect(
-          lines.map((line) => [line.sku, line.configuration?.configurationId]),
+          lines.map((line) => [
+            line.skuId,
+            line.configuration?.configurationId,
+          ]),
         ).toEqual([
-          ['501', 'config-1'],
-          ['501', 'config-2'],
+          [501, 'config-1'],
+          [501, 'config-2'],
         ]);
       });
     });
@@ -620,7 +636,8 @@ describe('quotes service', () => {
       expect(result.lineItems).toHaveLength(1);
       expect(result.lineItems[0]).toMatchObject({
         productId: 101,
-        sku: '501',
+        id: 'item-001',
+        skuId: 501,
         name: 'Standing Desk Oak Large',
         articleNumber: 'SD-OAK-L',
         quantity: 2,
@@ -1658,6 +1675,174 @@ describe('quotes service', () => {
 
       expect(mockGraphqlMutation.mock.calls[0]![0].variables.request).toEqual({
         comment: 'Bara en kommentar',
+      });
+    });
+
+    describe('updateQuoteRequest with a name and lines', () => {
+      it('sends the name and the lines as given, without reading the draft first', async () => {
+        mockGraphqlMutation.mockResolvedValueOnce({
+          updateQuotationRequest: draftCart('REQUEST_DRAFT'),
+        });
+        const items = [
+          { id: 'item-001', skuId: 501, quantity: 3 },
+          { skuId: 777, quantity: 1 },
+        ];
+
+        await quotesService.updateQuoteRequest(
+          'draft-001',
+          { name: 'Kontor plan 3', items },
+          mockEvent,
+        );
+
+        expect(mockGraphqlQuery).not.toHaveBeenCalled();
+        expect(mockGraphqlMutation.mock.calls[0]![0].variables).toEqual({
+          quotationId: 'draft-001',
+          request: { name: 'Kontor plan 3', items },
+          languageId: 'sv-SE',
+        });
+      });
+
+      describe('a configured line', () => {
+        /** The draft as Geins holds it: one configured line of 2. */
+        function draftWithConfiguredLine() {
+          const cart: Record<string, unknown> = draftCart('REQUEST_DRAFT');
+          const [item] = cart.items as Record<string, unknown>[];
+          cart.items = [
+            item,
+            {
+              ...item,
+              id: 'item-002',
+              skuId: 900,
+              quantity: 2,
+              configurationId: 'cfg-1',
+            },
+          ];
+          mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+        }
+
+        it('is sent when the draft holds it at that amount', async () => {
+          draftWithConfiguredLine();
+          mockGraphqlMutation.mockResolvedValueOnce({
+            updateQuotationRequest: draftCart('REQUEST_DRAFT'),
+          });
+          const items = [
+            {
+              id: 'item-002',
+              skuId: 900,
+              quantity: 2,
+              configurationId: 'cfg-1',
+            },
+          ];
+
+          await quotesService.updateQuoteRequest(
+            'draft-001',
+            { items },
+            mockEvent,
+          );
+
+          expect(mockGraphqlQuery).toHaveBeenCalledWith(
+            expect.objectContaining({
+              queryAsString: 'query:quotes/get-quotation.graphql',
+              variables: { quotationId: 'draft-001', languageId: 'sv-SE' },
+              userToken: 'test-user-token',
+            }),
+          );
+          expect(
+            mockGraphqlMutation.mock.calls[0]![0].variables.request,
+          ).toEqual({ items });
+        });
+
+        it.each([
+          [
+            'a configuration the draft does not hold',
+            { skuId: 900, quantity: 2, configurationId: 'cfg-other' },
+          ],
+          [
+            'its configuration at another amount',
+            { skuId: 900, quantity: 3, configurationId: 'cfg-1' },
+          ],
+        ])('refuses %s and writes nothing', async (_label, line) => {
+          draftWithConfiguredLine();
+
+          await expect(
+            quotesService.updateQuoteRequest(
+              'draft-001',
+              { items: [line] },
+              mockEvent,
+            ),
+          ).rejects.toMatchObject({
+            code: 'BAD_REQUEST',
+            message: `Configured line ${line.configurationId} is not on quote draft-001 at that amount`,
+          });
+          expect(mockGraphqlMutation).not.toHaveBeenCalled();
+        });
+
+        it('refuses the same configuration twice', async () => {
+          draftWithConfiguredLine();
+          const line = { skuId: 900, quantity: 2, configurationId: 'cfg-1' };
+
+          await expect(
+            quotesService.updateQuoteRequest(
+              'draft-001',
+              { items: [line, line] },
+              mockEvent,
+            ),
+          ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+          expect(mockGraphqlMutation).not.toHaveBeenCalled();
+        });
+      });
+    });
+
+    describe('deleteQuoteRequest', () => {
+      it("deletes the draft in the buyer's channel", async () => {
+        mockGraphqlMutation.mockResolvedValueOnce({
+          deleteQuotationRequest: true,
+        });
+
+        await quotesService.deleteQuoteRequest('draft-001', mockEvent);
+
+        expect(mockGraphqlMutation).toHaveBeenCalledWith(
+          expect.objectContaining({
+            queryAsString: 'query:quotes/delete-quotation-request.graphql',
+            userToken: 'test-user-token',
+            variables: {
+              quotationId: 'draft-001',
+              channelId: '1|se',
+              languageId: 'sv-SE',
+              marketId: 'se',
+            },
+            requestOptions: { context: { timeoutMs: 0 } },
+          }),
+        );
+      });
+
+      it.each([false, null])(
+        'fails as an external API error when Geins answers %s',
+        async (answer) => {
+          mockGraphqlMutation.mockResolvedValueOnce({
+            deleteQuotationRequest: answer,
+          });
+
+          await expect(
+            quotesService.deleteQuoteRequest('draft-001', mockEvent),
+          ).rejects.toMatchObject({
+            code: 'EXTERNAL_API_ERROR',
+            message: 'Geins answered false or nothing deleting quote draft-001',
+          });
+        },
+      );
+
+      it('names the quotes service for the error mapping', async () => {
+        mockGraphqlMutation.mockResolvedValueOnce({
+          deleteQuotationRequest: true,
+        });
+
+        await quotesService.deleteQuoteRequest('draft-001', mockEvent);
+
+        expect(vi.mocked(wrapServiceCall)).toHaveBeenLastCalledWith(
+          expect.any(Function),
+          'quotes',
+        );
       });
     });
 

@@ -3,8 +3,16 @@ import type {
   Quote,
   QuoteListItem,
   QuoteRequestDetails,
+  QuoteRequestUpdate,
 } from '#shared/types/quote';
 import { internalFetch } from '~/utils/internal-fetch';
+
+/**
+ * How long the page waits for a draft write. Geins finishes a write it got
+ * (the server does not cut it), but a page left waiting would keep "Saving…"
+ * up and hold every later change and the way out.
+ */
+export const DRAFT_WRITE_TIMEOUT_MS = 20_000;
 
 export const useQuotesStore = defineStore('quotes', () => {
   const quotes = ref<QuoteListItem[]>([]);
@@ -12,6 +20,8 @@ export const useQuotesStore = defineStore('quotes', () => {
   const currentQuote = ref<Quote | null>(null);
   const isLoading = ref(false);
   const isActionLoading = ref(false);
+  /** A write to a draft (its name or lines) or its delete is under way. */
+  const isSaving = ref(false);
   const error = ref<string | null>(null);
 
   // Computeds
@@ -130,6 +140,48 @@ export const useQuotesStore = defineStore('quotes', () => {
     }
   }
 
+  /** One write to a draft; the answer is the draft as Geins now holds it. */
+  async function updateDraft(
+    id: string,
+    update: QuoteRequestUpdate,
+  ): Promise<Quote | null> {
+    isSaving.value = true;
+    try {
+      const data = await $fetch<{ quote: Quote }>(`/api/quotes/${id}/request`, {
+        method: 'PATCH',
+        body: update,
+        timeout: DRAFT_WRITE_TIMEOUT_MS,
+      });
+      error.value = null;
+      return data.quote;
+    } catch {
+      error.value = 'portal.quotations.draft.save_failed';
+      return null;
+    } finally {
+      isSaving.value = false;
+    }
+  }
+
+  async function deleteDraft(id: string): Promise<boolean> {
+    isSaving.value = true;
+    try {
+      await $fetch(`/api/quotes/${id}`, {
+        method: 'DELETE',
+        timeout: DRAFT_WRITE_TIMEOUT_MS,
+      });
+      error.value = null;
+      const before = quotes.value.length;
+      quotes.value = quotes.value.filter((q) => q.id !== id);
+      totalQuotes.value -= before - quotes.value.length;
+      return true;
+    } catch {
+      error.value = 'portal.quotations.draft.delete_failed';
+      return false;
+    } finally {
+      isSaving.value = false;
+    }
+  }
+
   /** Writes the request's details, if any, then sends it to the seller. */
   async function sendQuoteRequest(
     id: string,
@@ -170,6 +222,7 @@ export const useQuotesStore = defineStore('quotes', () => {
     currentQuote.value = null;
     isLoading.value = false;
     isActionLoading.value = false;
+    isSaving.value = false;
     error.value = null;
   }
 
@@ -179,6 +232,7 @@ export const useQuotesStore = defineStore('quotes', () => {
     currentQuote,
     isLoading,
     isActionLoading,
+    isSaving,
     error,
     pendingQuotes,
     pendingCount,
@@ -188,6 +242,8 @@ export const useQuotesStore = defineStore('quotes', () => {
     rejectQuote,
     finalizeQuote,
     sendQuoteRequest,
+    updateDraft,
+    deleteDraft,
     reset,
   };
 });

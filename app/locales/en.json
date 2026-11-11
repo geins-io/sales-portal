@@ -998,6 +998,37 @@
         "from_quotation": "Ordered from quotation {number}",
         "view_quotation": "View quotation in the customer portal",
         "continue_shopping": "Continue shopping"
+      },
+      "draft": {
+        "saving": "Saving…",
+        "saved": "All changes saved",
+        "name_label": "Quote request name",
+        "more": "More options for {name}",
+        "rename": "Rename",
+        "delete": "Delete",
+        "quick_add_label": "Quick product add",
+        "quick_add_placeholder": "Add product – search name or article no",
+        "quick_add_no_hits": "No products match “{q}”.",
+        "quick_add_on_draft": "Adds to this quote request",
+        "quick_add_configurable": "Configured on the product page",
+        "quick_add_variants": "Choose a variant on the product page",
+        "added": "{name} was added.",
+        "removed": "{name} was removed.",
+        "undo": "Undo",
+        "remove": "Remove",
+        "configured_quantity": "The amount is changed in the configurator",
+        "continue": "Continue to quote request",
+        "continue_hint": "In the next step you add a message and your wishes, and send it. No order is placed.",
+        "updated_at": "Last changed",
+        "save_failed": "The change could not be saved. The draft is shown as it is saved.",
+        "delete_failed": "The draft could not be deleted. Please try again."
+      },
+      "delete_dialog": {
+        "title": "Delete the draft?",
+        "description": "“{name}” and all its items will be deleted. This cannot be undone.",
+        "submit": "Delete draft",
+        "last_line_title": "Remove the last item?",
+        "last_line_description": "A draft must have at least one item. Removing the last one deletes the whole draft. This cannot be undone."
       }
     },
     "favorites": {

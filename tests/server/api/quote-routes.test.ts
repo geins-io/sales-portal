@@ -14,6 +14,7 @@ const mockFinalizeQuote = vi.fn();
 const mockCreateQuoteRequest = vi.fn();
 const mockUpdateQuoteRequest = vi.fn();
 const mockReleaseQuoteRequest = vi.fn();
+const mockDeleteQuoteRequest = vi.fn();
 
 vi.mock('../../../server/services/quotes', () => ({
   listQuotes: (...args: unknown[]) => mockListQuotes(...args),
@@ -25,6 +26,7 @@ vi.mock('../../../server/services/quotes', () => ({
   createQuoteRequest: (...args: unknown[]) => mockCreateQuoteRequest(...args),
   updateQuoteRequest: (...args: unknown[]) => mockUpdateQuoteRequest(...args),
   releaseQuoteRequest: (...args: unknown[]) => mockReleaseQuoteRequest(...args),
+  deleteQuoteRequest: (...args: unknown[]) => mockDeleteQuoteRequest(...args),
 }));
 
 const mockGetCart = vi.fn();
@@ -54,9 +56,13 @@ vi.mock('../../../server/utils/auth', () => ({
 
 // Rate limiter — uses useStorage('kv'), must stay mocked
 const mockRateLimitCheck = vi.fn();
+const mockDraftRateLimitCheck = vi.fn();
 vi.mock('../../../server/utils/rate-limiter', () => ({
   quoteRespondRateLimiter: {
     check: (...args: unknown[]) => mockRateLimitCheck(...args),
+  },
+  quoteDraftRateLimiter: {
+    check: (...args: unknown[]) => mockDraftRateLimitCheck(...args),
   },
   getClientIp: vi.fn().mockReturnValue('203.0.113.7'),
 }));
@@ -170,6 +176,11 @@ describe('Quote API Routes', () => {
     mockRateLimitCheck.mockResolvedValue({
       allowed: true,
       remaining: 19,
+      resetTime: 0,
+    });
+    mockDraftRateLimitCheck.mockResolvedValue({
+      allowed: true,
+      remaining: 119,
       resetTime: 0,
     });
   });
@@ -570,6 +581,9 @@ describe('Quote API Routes', () => {
       release: async () =>
         (await import('../../../server/api/quotes/[id]/release.post'))
           .default as Handler,
+      delete: async () =>
+        (await import('../../../server/api/quotes/[id].delete'))
+          .default as Handler,
     };
     const load = (name: keyof typeof handlers) => handlers[name]();
 
@@ -579,63 +593,111 @@ describe('Quote API Routes', () => {
         path: 'create' as const,
         service: mockCreateQuoteRequest,
         body: { name: 'Varukorg 2 nov 2026' },
+        limiter: mockRateLimitCheck,
+        other: mockDraftRateLimitCheck,
       },
       {
         route: 'PATCH /api/quotes/[id]/request',
         path: 'update' as const,
         service: mockUpdateQuoteRequest,
         body: { comment: 'Leverans till lager B' },
+        limiter: mockDraftRateLimitCheck,
+        other: mockRateLimitCheck,
       },
       {
         route: 'POST /api/quotes/[id]/release',
         path: 'release' as const,
         service: mockReleaseQuoteRequest,
         body: undefined,
+        limiter: mockRateLimitCheck,
+        other: mockDraftRateLimitCheck,
+      },
+      {
+        route: 'DELETE /api/quotes/[id]',
+        path: 'delete' as const,
+        service: mockDeleteQuoteRequest,
+        body: undefined,
+        limiter: mockDraftRateLimitCheck,
+        other: mockRateLimitCheck,
+        answer: { deleted: true },
       },
     ];
+
+    describe('DELETE /api/quotes/[id]', () => {
+      beforeEach(() => mockDeleteQuoteRequest.mockResolvedValue(undefined));
+
+      it('deletes the draft in the path and says so', async () => {
+        const result = await (await load('delete'))(withId);
+
+        expect(mockDeleteQuoteRequest).toHaveBeenCalledWith(
+          'draft-001',
+          withId,
+        );
+        expect(result).toEqual({ deleted: true });
+      });
+    });
 
     beforeEach(() => {
       mockGetCartCookie.mockReturnValue('cart-abc');
       mockGetCart.mockResolvedValue({ id: 'cart-abc', items: [{ id: 'l1' }] });
     });
 
-    describe.each(requestRoutes)('$route', ({ path, service, body }) => {
-      beforeEach(() => {
-        readBodyMock.mockReturnValue(body);
-        service.mockResolvedValue(draft);
-      });
-
-      it('requires authentication and counts nothing without it', async () => {
-        mockRequireAuth.mockRejectedValue(new Error('Authentication required'));
-
-        await expect((await load(path))(withId)).rejects.toThrow(
-          'Authentication required',
-        );
-        expect(mockRateLimitCheck).not.toHaveBeenCalled();
-        expect(service).not.toHaveBeenCalled();
-      });
-
-      it('answers 429 and never calls Geins when the limit is reached', async () => {
-        mockRateLimitCheck.mockResolvedValue({
-          allowed: false,
-          remaining: 0,
-          resetTime: 0,
+    // Draft writes have their own, wider limit: autosave writes once per
+    // change, and an office shares one IP.
+    describe.each(requestRoutes)(
+      '$route',
+      ({ path, service, body, limiter, other, answer }) => {
+        beforeEach(() => {
+          readBodyMock.mockReturnValue(body);
+          service.mockResolvedValue(draft);
         });
 
-        await expect((await load(path))(withId)).rejects.toMatchObject({
-          statusCode: 429,
-          message: 'Too many quote responses',
+        it('requires authentication and counts nothing without it', async () => {
+          mockRequireAuth.mockRejectedValue(
+            new Error('Authentication required'),
+          );
+
+          await expect((await load(path))(withId)).rejects.toThrow(
+            'Authentication required',
+          );
+          expect(limiter).not.toHaveBeenCalled();
+          expect(service).not.toHaveBeenCalled();
         });
-        expect(service).not.toHaveBeenCalled();
-      });
 
-      it('keys the limit on the client IP and answers the quote', async () => {
-        const result = await (await load(path))(withId);
+        it('counts against its own limit only', async () => {
+          await (
+            await load(path)
+          )(withId);
 
-        expect(mockRateLimitCheck).toHaveBeenCalledWith('203.0.113.7');
-        expect(result).toEqual({ quote: draft });
-      });
-    });
+          expect(limiter).toHaveBeenCalledTimes(1);
+          expect(other).not.toHaveBeenCalled();
+        });
+
+        it('answers 429 and never calls Geins when the limit is reached', async () => {
+          limiter.mockResolvedValue({
+            allowed: false,
+            remaining: 0,
+            resetTime: 0,
+          });
+
+          await expect((await load(path))(withId)).rejects.toMatchObject({
+            statusCode: 429,
+            message:
+              limiter === mockDraftRateLimitCheck
+                ? 'Too many quote draft changes'
+                : 'Too many quote responses',
+          });
+          expect(service).not.toHaveBeenCalled();
+        });
+
+        it('keys the limit on the client IP and answers', async () => {
+          const result = await (await load(path))(withId);
+
+          expect(limiter).toHaveBeenCalledWith('203.0.113.7');
+          expect(result).toEqual(answer ?? { quote: draft });
+        });
+      },
+    );
 
     describe('POST /api/quotes/requests', () => {
       beforeEach(() => {
@@ -855,7 +917,6 @@ describe('Quote API Routes', () => {
           desiredDeliveryDate: '2026-12-15',
           customerOrderNumber: ' PO-7781 ',
           customerReference: 'not passed on',
-          items: [{ skuId: 1, quantity: 1 }],
           goodsLabel: ' Lastbrygga B ',
         });
 
@@ -870,6 +931,62 @@ describe('Quote API Routes', () => {
             customerOrderNumber: 'PO-7781',
             goodsLabel: 'Lastbrygga B',
           },
+          withId,
+        );
+      });
+
+      it('passes a new name, trimmed, and the lines on', async () => {
+        const items = [
+          { id: 'line-1', skuId: 501, quantity: 3 },
+          { skuId: 502, quantity: 1 },
+          {
+            id: 'line-2',
+            skuId: 503,
+            quantity: 2,
+            configurationId: 'cfg-1',
+            message: 'Montering',
+          },
+        ];
+        readBodyMock.mockReturnValue({ name: '  Kontor plan 3 ', items });
+
+        const handler = await load('update');
+        await handler(withId);
+
+        expect(mockUpdateQuoteRequest).toHaveBeenCalledWith(
+          'draft-001',
+          { name: 'Kontor plan 3', items },
+          withId,
+        );
+      });
+
+      it('takes one line, 200 lines, and amounts of 1 and 9999', async () => {
+        const many = Array.from({ length: 200 }, (_, i) => ({
+          skuId: i + 1,
+          quantity: i % 2 ? 1 : 9999,
+        }));
+        for (const items of [[{ skuId: 1, quantity: 1 }], many]) {
+          readBodyMock.mockReturnValue({ items });
+          await (
+            await load('update')
+          )(withId);
+          expect(mockUpdateQuoteRequest).toHaveBeenLastCalledWith(
+            'draft-001',
+            { items },
+            withId,
+          );
+        }
+      });
+
+      it('takes a name of 80 characters', async () => {
+        readBodyMock.mockReturnValue({ name: 'n'.repeat(80) });
+
+        await (
+          await load('update')
+        )(withId);
+
+        expect(mockUpdateQuoteRequest).toHaveBeenCalledWith(
+          'draft-001',
+          { name: 'n'.repeat(80) },
           withId,
         );
       });
@@ -897,6 +1014,38 @@ describe('Quote API Routes', () => {
         ['a date in another format', { desiredDeliveryDate: '15/12/2026' }],
         ['a date that does not exist', { desiredDeliveryDate: '2026-02-30' }],
         ['a date with a time', { desiredDeliveryDate: '2026-12-15T10:00:00Z' }],
+        ['an empty name', { name: '   ' }],
+        ['an empty list of lines', { items: [] }],
+        ['a name over 80 characters', { name: 'n'.repeat(81) }],
+        [
+          'more than 200 lines',
+          {
+            items: Array.from({ length: 201 }, (_, i) => ({
+              skuId: i + 1,
+              quantity: 1,
+            })),
+          },
+        ],
+        ['an amount of 0', { items: [{ skuId: 1, quantity: 0 }] }],
+        ['an amount over 9999', { items: [{ skuId: 1, quantity: 10000 }] }],
+        ['a part of an amount', { items: [{ skuId: 1, quantity: 1.5 }] }],
+        ['a line without a sku', { items: [{ quantity: 1 }] }],
+        ['a sku of 0', { items: [{ skuId: 0, quantity: 1 }] }],
+        ['a part of a sku', { items: [{ skuId: 1.5, quantity: 1 }] }],
+        [
+          'a line id over 64 characters',
+          { items: [{ id: 'i'.repeat(65), skuId: 1, quantity: 1 }] },
+        ],
+        [
+          'a configuration id over 64 characters',
+          {
+            items: [{ skuId: 1, quantity: 1, configurationId: 'c'.repeat(65) }],
+          },
+        ],
+        [
+          'a line message over 500 characters',
+          { items: [{ skuId: 1, quantity: 1, message: 'm'.repeat(501) }] },
+        ],
       ])('refuses %s', async (_label, body) => {
         readBodyMock.mockReturnValue(body);
 

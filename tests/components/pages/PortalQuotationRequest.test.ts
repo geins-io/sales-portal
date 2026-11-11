@@ -479,7 +479,9 @@ describe('PortalQuotationRequest', () => {
   it('counts the lines, not the pieces, in the subtotal', async () => {
     const line = makeQuote().lineItems[0]!;
     const wrapper = await mountWith(
-      draft({ lineItems: [line, { ...line, sku: 'SKU-B', quantity: 5 }] }),
+      draft({
+        lineItems: [line, { ...line, id: 'line-b', skuId: 12, quantity: 5 }],
+      }),
     );
 
     expect(

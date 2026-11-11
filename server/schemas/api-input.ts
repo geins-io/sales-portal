@@ -1,5 +1,10 @@
 import { z } from 'zod';
 import { GeinsPaymentType } from '@geins/types';
+import {
+  QUOTE_LINE_MAX_QUANTITY,
+  QUOTE_NAME_MAX_LENGTH,
+  QUOTE_REQUEST_MAX_LINES,
+} from '#shared/constants/quote';
 import type {
   ConfigurationChange,
   CreateConfigurationInput,
@@ -346,12 +351,27 @@ export type ListQuotesInput = z.infer<typeof ListQuotesSchema>;
 
 // No cart id: the request is made from the cart in the buyer's cart cookie.
 export const CreateQuoteRequestSchema = z.object({
-  name: z.string().trim().min(1).max(80),
+  name: z.string().trim().min(1).max(QUOTE_NAME_MAX_LENGTH),
 });
 export type CreateQuoteRequestInput = z.infer<typeof CreateQuoteRequestSchema>;
 
-// Never `items`: Geins takes them as the whole new list of lines.
+const QuoteRequestLineSchema = z.object({
+  id: z.string().min(1).max(64).optional(),
+  skuId: z.number().int().positive(),
+  quantity: z.number().int().min(1).max(QUOTE_LINE_MAX_QUANTITY),
+  configurationId: z.string().min(1).max(64).optional(),
+  message: z.string().max(500).optional(),
+});
+
+// `items` is the whole new list of lines; the service checks configured ones.
+// Geins refuses an empty list: "A request must keep at least one item."
 export const UpdateQuoteRequestSchema = z.object({
+  name: z.string().trim().min(1).max(QUOTE_NAME_MAX_LENGTH).optional(),
+  items: z
+    .array(QuoteRequestLineSchema)
+    .min(1)
+    .max(QUOTE_REQUEST_MAX_LINES)
+    .optional(),
   comment: z.string().max(2000).optional(),
   desiredDeliveryDate: z.iso.date().optional(),
   customerOrderNumber: z.string().trim().max(30).optional(),

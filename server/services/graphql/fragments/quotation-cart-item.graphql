@@ -2,6 +2,7 @@ fragment QuotationCartItem on CartItemType {
   id
   skuId
   quantity
+  message
   unitPrice {
     sellingPriceIncVat
     sellingPriceIncVatFormatted

@@ -15,3 +15,8 @@ export {
 } from './cms';
 export { ROUTE_PATHS, type RoutePathPrefix } from './route-paths';
 export { ISO_3166_1_ALPHA2, isIsoRegion } from './iso-regions';
+export {
+  QUOTE_NAME_MAX_LENGTH,
+  QUOTE_REQUEST_MAX_LINES,
+  QUOTE_LINE_MAX_QUANTITY,
+} from './quote';

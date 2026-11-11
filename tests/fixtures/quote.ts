@@ -31,7 +31,8 @@ export function makeQuote(overrides: Partial<Quote> = {}): Quote {
     lineItems: [
       {
         productId: 1,
-        sku: 'SKU-A',
+        id: 'line-a',
+        skuId: 11,
         name: 'Widget Pro',
         articleNumber: 'ART-001',
         quantity: 2,
@@ -86,7 +87,8 @@ export function makeConfiguredQuoteLine(
   };
   return {
     productId: 1001,
-    sku: '1001-1',
+    id: 'line-configured',
+    skuId: 1001,
     name: 'Configured Display',
     articleNumber: 'CFG-001',
     quantity: 1,

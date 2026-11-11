@@ -11,6 +11,8 @@ import type {
   QuoteOrderDetails,
   QuotePaymentMethod,
   QuoteRequestDetails,
+  QuoteRequestLine,
+  QuoteRequestUpdate,
   QuoteStatus,
 } from '#shared/types/quote';
 import {
@@ -39,6 +41,7 @@ interface RawCartItem {
   id?: string;
   skuId?: number;
   quantity: number;
+  message?: string | null;
   unitPrice?: PriceType;
   totalPrice?: PriceType;
   configurationId?: string | null;
@@ -223,9 +226,10 @@ function mapLineItem(item: RawCartItem, amount: QuoteAmount): QuoteLineItem {
   const { unitPrice, totalPrice } = item;
   const configuration = cartLineConfiguration(item);
   return {
+    id: item.id ?? '',
     productId: item.product?.productId ?? 0,
     alias: item.product?.alias ?? null,
-    sku: String(item.skuId ?? ''),
+    skuId: item.skuId ?? 0,
     name: item.product?.name ?? '',
     articleNumber: item.product?.articleNumber ?? '',
     quantity: item.quantity,
@@ -251,6 +255,7 @@ function mapLineItem(item: RawCartItem, amount: QuoteAmount): QuoteLineItem {
     ),
     imageFileName: item.product?.productImages?.[0]?.fileName ?? undefined,
     imageUrl: item.product?.productImages?.[0]?.url ?? null,
+    ...(item.message && { message: item.message }),
     ...(configuration && {
       configuration,
       linePrices: { unit: unitPrice, total: totalPrice },
@@ -756,13 +761,50 @@ export function createQuoteRequest(
   );
 }
 
-/** Write the request's details on a `REQUEST_DRAFT`; its lines are kept */
-export function updateQuoteRequest(
+/**
+ * A configured line is only ever kept as it is: its amount is set in the
+ * configurator, and a configuration the draft does not hold could be anyone's.
+ */
+async function assertConfiguredLinesKept(
   quoteId: string,
-  details: QuoteRequestDetails,
+  items: QuoteRequestLine[],
+  event: H3Event,
+): Promise<void> {
+  const configured = items.filter((item) => item.configurationId);
+  if (!configured.length) return;
+  const held = new Map(
+    (await getQuote(quoteId, event)).lineItems.flatMap((line) =>
+      line.configuration
+        ? [[line.configuration.configurationId, line.quantity] as const]
+        : [],
+    ),
+  );
+  const seen = new Set<string>();
+  for (const { configurationId, quantity } of configured) {
+    const id = configurationId as string;
+    if (held.get(id) !== quantity || seen.has(id)) {
+      throw createAppError(
+        ErrorCode.BAD_REQUEST,
+        `Configured line ${id} is not on quote ${quoteId} at that amount`,
+      );
+    }
+    seen.add(id);
+  }
+}
+
+/**
+ * Write to a `REQUEST_DRAFT`: its name, the request's details, and, when
+ * `items` is given, the whole new list of lines.
+ */
+export async function updateQuoteRequest(
+  quoteId: string,
+  update: QuoteRequestUpdate,
   event: H3Event,
 ): Promise<Quote> {
-  const { desiredDeliveryDate, ...rest } = details;
+  if (update.items) {
+    await assertConfiguredLinesKept(quoteId, update.items, event);
+  }
+  const { desiredDeliveryDate, ...rest } = update;
   // Geins takes a DateTimeOffset and refuses a bare date; the day goes as its
   // UTC midnight, the instant an order's desired delivery date is sent as.
   const request = desiredDeliveryDate
@@ -785,4 +827,33 @@ export function releaseQuoteRequest(
     ({ languageId }) => ({ quotationId: quoteId, languageId }),
     event,
   );
+}
+
+/** Delete a `REQUEST_DRAFT`; Geins answers with a Boolean */
+export async function deleteQuoteRequest(
+  quoteId: string,
+  event: H3Event,
+): Promise<void> {
+  const sdk = await getTenantSDK(event);
+  const requestContext = buildRequestContext(event);
+  const result = await wrapServiceCall(
+    () =>
+      sdk.core.graphql.mutation({
+        queryAsString: loadQuery('quotes/delete-quotation-request.graphql'),
+        variables: {
+          quotationId: quoteId,
+          ...getRequestChannelVariables(sdk, event),
+        },
+        userToken: requestContext?.userToken,
+        // No timeout: a delete Geins makes after a cut would read as failed.
+        requestOptions: { context: { timeoutMs: 0 } },
+      }),
+    'quotes',
+  );
+  if (unwrapGraphQL(result) !== true) {
+    throw createAppError(
+      ErrorCode.EXTERNAL_API_ERROR,
+      `Geins answered false or nothing deleting quote ${quoteId}`,
+    );
+  }
 }

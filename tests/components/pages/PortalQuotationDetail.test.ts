@@ -372,7 +372,8 @@ describe('PortalQuotationDetail', () => {
           makeQuote().lineItems[0]!,
           {
             productId: 2,
-            sku: 'SKU-B',
+            id: 'line-b',
+            skuId: 12,
             name: 'Gadget Plus',
             articleNumber: 'ART-002',
             quantity: 1,

@@ -40,7 +40,8 @@ function makeQuote(name: string) {
     lineItems: [
       {
         productId: 1025,
-        sku: '1025-1',
+        id: 'e2e-line-1025',
+        skuId: 1025,
         name: 'E2E Widget',
         articleNumber: 'E2E-1025',
         quantity: 1,
