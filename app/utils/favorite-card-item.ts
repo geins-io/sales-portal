@@ -1,7 +1,7 @@
 import type { ProductCardItem } from '~/components/shared/ProductCard.vue';
 
 // Minimal product shape returned by /api/products/by-aliases. We only need
-// the fields consumed by the card + add-to-cart handler.
+// the fields the card consumes, its sku included.
 export interface FavoriteProduct {
   alias?: string | null;
   name?: string | null;
@@ -42,6 +42,7 @@ export function toFavoriteCardItem(
   const sellingFormatted = showIncVat
     ? unitPrice?.sellingPriceIncVatFormatted
     : unitPrice?.sellingPriceExVatFormatted;
+  const skuId = product.skus?.find((s) => s?.skuId != null)?.skuId;
   const hasDiscount =
     unitPrice?.isDiscounted === true ||
     (regular != null && selling != null && regular > selling);
@@ -56,6 +57,7 @@ export function toFavoriteCardItem(
     salePrice: hasDiscount ? (sellingFormatted ?? null) : null,
     articleNumber: product.articleNumber ?? null,
     alias: product.alias ?? null,
+    ...(skuId != null && { skuId }),
     ...(product.configurable === true && { configurable: true }),
   };
 }

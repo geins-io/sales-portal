@@ -3,7 +3,6 @@ import { Star, LayoutGrid, List } from 'lucide-vue-next';
 import ProductCard from '~/components/shared/ProductCard.vue';
 import { Input } from '~/components/ui/input';
 import { useFavoritesStore } from '~/stores/favorites';
-import { useCartStore } from '~/stores/cart';
 import {
   toFavoriteCardItem,
   type FavoriteProduct,
@@ -15,7 +14,6 @@ const { t } = useI18n();
 const { localePath } = useLocaleMarket();
 const { showIncVat } = useVatDisplay();
 const favoritesStore = useFavoritesStore();
-const cartStore = useCartStore();
 
 const viewMode = ref<'grid' | 'list'>('grid');
 const searchQuery = ref('');
@@ -67,15 +65,6 @@ if (import.meta.client) {
       .filter((a): a is string => typeof a === 'string' && a.length > 0);
     favoritesStore.pruneStaleAliases(returnedAliases);
   });
-}
-
-async function handleAddToCart(
-  product: FavoriteProduct,
-  { quantity }: { quantity: number },
-) {
-  const firstSku = product.skus?.find((s) => s?.skuId != null);
-  if (!firstSku?.skuId) return;
-  await cartStore.addItem(firstSku.skuId, quantity);
 }
 </script>
 
@@ -170,7 +159,7 @@ async function handleAddToCart(
           data-testid="favorites-grid"
           :class="
             viewMode === 'grid'
-              ? 'grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4'
+              ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4'
               : 'flex flex-col gap-3'
           "
         >
@@ -182,7 +171,6 @@ async function handleAddToCart(
             <ProductCard
               :product="toFavoriteCardItem(product, showIncVat)"
               :variant="viewMode"
-              @add-to-cart="handleAddToCart(product, $event)"
             />
           </div>
         </div>

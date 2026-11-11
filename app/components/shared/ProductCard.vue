@@ -16,10 +16,9 @@ import { useFavoritesStore } from '~/stores/favorites';
 
 /**
  * Brief product shape for surfaces that don't have the full Geins SDK
- * payload. Favorites and Purchased Products on the portal landing pull
- * from the purchased-products aggregator and only have alias, name,
- * image, and a pre-formatted price string. Avoids a second GraphQL
- * round-trip per row just to render a card.
+ * payload. Favorites and Purchased Products on the portal landing only
+ * have alias, name, image, a pre-formatted price string and the sku to
+ * add. Avoids a second GraphQL round-trip per row just to render a card.
  *
  * ProductCard also accepts the full Geins SDK shape
  * (ListProduct | DetailProduct) used by PLP, PDP, search, related
@@ -33,6 +32,7 @@ export interface ProductCardItem {
   salePrice?: string | number | null;
   articleNumber?: string | null;
   alias?: string | null;
+  skuId?: number;
   configurable?: boolean;
 }
 
@@ -42,16 +42,11 @@ const props = withDefaults(
   defineProps<{
     product: ProductCardProp;
     variant?: 'grid' | 'list';
-    isLoading?: boolean;
     /** Position in a page's main grid; sets how early its image loads. */
     index?: number;
   }>(),
-  { variant: 'grid', isLoading: false, index: undefined },
+  { variant: 'grid', index: undefined },
 );
-
-const emit = defineEmits<{
-  'add-to-cart': [payload: { quantity: number }];
-}>();
 
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
@@ -144,9 +139,9 @@ const productUrl = computed(() => {
   return null;
 });
 
-const firstSku = computed(() => {
-  if (isFullProduct(props.product)) return props.product.skus?.[0] ?? null;
-  return null;
+const skuId = computed(() => {
+  if (isFullProduct(props.product)) return props.product.skus?.[0]?.skuId;
+  return props.product.skuId;
 });
 
 const maxQuantity = computed(() => {
@@ -169,22 +164,18 @@ const isAdding = ref(false);
 const addError = ref(false);
 
 async function addToCart() {
-  if (isFullProduct(props.product)) {
-    if (!firstSku.value?.skuId) return;
-    isAdding.value = true;
-    addError.value = false;
-    try {
-      await cartStore.addItem(firstSku.value.skuId, quantity.value);
-      if (cartStore.error) {
-        addError.value = true;
-      }
-    } catch {
+  if (!skuId.value) return;
+  isAdding.value = true;
+  addError.value = false;
+  try {
+    await cartStore.addItem(skuId.value, quantity.value);
+    if (cartStore.error) {
       addError.value = true;
-    } finally {
-      isAdding.value = false;
     }
-  } else {
-    emit('add-to-cart', { quantity: quantity.value });
+  } catch {
+    addError.value = true;
+  } finally {
+    isAdding.value = false;
   }
 }
 </script>
@@ -385,31 +376,20 @@ async function addToCart() {
           />
           <Button
             data-testid="add-to-cart-button"
-            class="h-9 min-w-0 flex-1 overflow-hidden px-4"
+            class="@container/add h-9 min-w-0 flex-1 overflow-hidden px-4"
             :variant="addError ? 'destructive' : 'default'"
             :aria-label="t('cart.add_to_cart_short')"
-            :disabled="
-              isFullProduct(product) ? !firstSku || isAdding : isLoading
-            "
+            :disabled="!skuId || isAdding"
             @click="addToCart"
           >
-            <AlertCircle
-              v-if="isFullProduct(product) && addError"
-              class="size-4 shrink-0 sm:mr-1.5"
-            />
-            <ShoppingCart
-              v-else-if="isFullProduct(product)"
-              class="size-4 shrink-0 sm:mr-1.5"
-            />
-            <span class="hidden whitespace-nowrap sm:inline">
-              <template v-if="isFullProduct(product)">
-                {{
-                  addError ? t('cart.add_failed') : t('cart.add_to_cart_short')
-                }}
-              </template>
-              <template v-else>
-                {{ t('common.add_to_cart') }}
-              </template>
+            <AlertCircle v-if="addError" class="size-4 shrink-0" />
+            <ShoppingCart v-else class="size-4 shrink-0" />
+            <!-- 7.875rem: the room inside the button the icon and the Swedish label need.
+                 A narrower button shows the icon alone, on any screen. -->
+            <span class="hidden whitespace-nowrap @min-[7.875rem]/add:inline">
+              {{
+                addError ? t('cart.add_failed') : t('cart.add_to_cart_short')
+              }}
             </span>
           </Button>
         </div>
@@ -561,26 +541,13 @@ async function addToCart() {
               class="h-9 px-4"
               :variant="addError ? 'destructive' : 'default'"
               :aria-label="t('cart.add_to_cart')"
-              :disabled="
-                isFullProduct(product) ? !firstSku || isAdding : isLoading
-              "
+              :disabled="!skuId || isAdding"
               @click="addToCart"
             >
-              <AlertCircle
-                v-if="isFullProduct(product) && addError"
-                class="size-4 shrink-0 sm:mr-1.5"
-              />
-              <ShoppingCart
-                v-else-if="isFullProduct(product)"
-                class="size-4 shrink-0 sm:mr-1.5"
-              />
+              <AlertCircle v-if="addError" class="size-4 shrink-0 sm:mr-1.5" />
+              <ShoppingCart v-else class="size-4 shrink-0 sm:mr-1.5" />
               <span class="hidden whitespace-nowrap sm:inline">
-                <template v-if="isFullProduct(product)">
-                  {{ addError ? t('cart.add_failed') : t('cart.add_to_cart') }}
-                </template>
-                <template v-else>
-                  {{ t('common.add_to_cart') }}
-                </template>
+                {{ addError ? t('cart.add_failed') : t('cart.add_to_cart') }}
               </span>
             </Button>
           </template>

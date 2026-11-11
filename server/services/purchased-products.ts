@@ -26,6 +26,7 @@ interface RawOrder {
 }
 
 interface RawOrderItem {
+  skuId?: number | null;
   quantity?: number | null;
   unitPrice?: {
     sellingPriceExVat?: number | null;
@@ -165,6 +166,7 @@ export async function getPurchasedProducts(
           latestOrderId: orderId,
           latestOrderPublicId: orderPublicId,
           latestBuyerName: buyerName,
+          ...(item.skuId != null && { skuId: item.skuId }),
           ...(configurable ? { configurable } : {}),
           _latestTime: orderTime,
         });
@@ -177,6 +179,7 @@ export async function getPurchasedProducts(
           existing.latestOrderId = orderId;
           existing.latestOrderPublicId = orderPublicId;
           existing.latestBuyerName = buyerName;
+          existing.skuId = item.skuId ?? existing.skuId;
           existing.priceExVat = priceExVat;
           existing.priceExVatFormatted = priceExVatFormatted;
           existing.priceIncVat = priceIncVat;

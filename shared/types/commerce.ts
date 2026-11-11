@@ -526,6 +526,8 @@ export interface PurchasedProduct {
   latestOrderId: string;
   latestOrderPublicId: string | null;
   latestBuyerName: string;
+  /** The sku of the latest order line, which the portal adds to the cart. */
+  skuId?: number;
   /** Set when the product is configured through the CPQ service. */
   configurable?: boolean;
 }

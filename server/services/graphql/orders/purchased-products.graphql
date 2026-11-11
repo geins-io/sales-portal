@@ -18,6 +18,7 @@ query getCompanyOrdersForPurchasedProducts(
     }
     cart {
       items {
+        skuId
         quantity
         unitPrice {
           sellingPriceExVat

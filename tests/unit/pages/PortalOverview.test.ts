@@ -221,8 +221,7 @@ const stubs = {
     name: 'ProductCard',
     template:
       '<div data-testid="product-card" :data-name="product.name" :data-price="product.price"></div>',
-    props: ['product', 'variant', 'isLoading'],
-    emits: ['add-to-cart'],
+    props: ['product', 'variant'],
   },
   Icon: {
     template: '<span></span>',
@@ -755,14 +754,13 @@ describe('Portal Overview page', () => {
     });
   });
 
-  it('wires ProductCard add-to-cart to the page handler', async () => {
+  it('passes the purchased product’s sku to ProductCard, which adds it', async () => {
     mockProductsData = {
       products: [
         {
           name: 'Hammer',
           articleNumber: 'ART-001',
-          priceExVat: 49.95,
-          priceExVatFormatted: 'SEK 49.95',
+          skuId: 301,
           totalQuantity: 1,
           latestOrderDate: '2026-03-01T00:00:00Z',
           latestOrderId: 'o1',
@@ -773,12 +771,8 @@ describe('Portal Overview page', () => {
     };
     const wrapper = await mountPage();
     const card = wrapper.findComponent({ name: 'ProductCard' });
-    expect(card.exists()).toBe(true);
-    // PurchasedProduct lacks skuId so the handler is a deliberate no-op
-    // stub. The event emission must not throw — that confirms the binding
-    // exists and the handler is callable. When the API is enriched with
-    // skuId in M7, this test should be tightened to assert cartStore.addItem.
-    expect(() => card.vm.$emit('add-to-cart', { quantity: 2 })).not.toThrow();
+    expect(card.props('product')).toMatchObject({ skuId: 301 });
+    expect(card.attributes()).not.toHaveProperty('onAddToCart');
   });
 
   describe('prices follow the VAT choice', () => {
