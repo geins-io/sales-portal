@@ -108,4 +108,48 @@ describe('QuantityInput with the real number field', () => {
     expect(wrapper.find('input').element.value).toBe('2');
     wrapper.unmount();
   });
+
+  describe('without a max, as for a card that knows no stock', () => {
+    function mountUncapped(modelValue: number) {
+      return mountComponent(QuantityInput, {
+        props: { modelValue, min: 1 },
+        attachTo: document.body,
+      });
+    }
+
+    it('takes a typed quantity above the listing cards’ default cap', async () => {
+      const wrapper = mountUncapped(1);
+      const input = wrapper.find('input');
+      await input.setValue('250');
+      await input.trigger('blur');
+
+      expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([250]);
+      wrapper.unmount();
+    });
+
+    // The arrow keys run the same step as the +/− buttons, whose press
+    // handling needs a real pointer.
+    it('steps up past 99', async () => {
+      const wrapper = mountUncapped(99);
+
+      expect(
+        wrapper.find('button[aria-label="Increase"]').attributes('disabled'),
+      ).toBeUndefined();
+      await wrapper.find('input').trigger('keydown', { key: 'ArrowUp' });
+
+      expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([100]);
+      wrapper.unmount();
+    });
+
+    it('steps down, and stops at 1', async () => {
+      const wrapper = mountUncapped(2);
+      const decrement = wrapper.find('button[aria-label="Decrease"]');
+      await wrapper.find('input').trigger('keydown', { key: 'ArrowDown' });
+      expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([1]);
+
+      await wrapper.setProps({ modelValue: 1 });
+      expect(decrement.attributes('disabled')).toBeDefined();
+      wrapper.unmount();
+    });
+  });
 });

@@ -59,6 +59,7 @@ function makeOrder(overrides: {
   customerEmail?: string | null;
   billingAddress?: { firstName?: string; lastName?: string } | null;
   items?: Array<{
+    skuId?: number | null;
     productId?: number;
     type?: string;
     articleNumber?: string;
@@ -92,6 +93,7 @@ function makeOrder(overrides: {
         ? null
         : {
             items: (overrides.items ?? []).map((item) => ({
+              skuId: item.skuId === undefined ? 9001 : item.skuId,
               quantity: item.quantity ?? 1,
               unitPrice: {
                 sellingPriceExVat: item.sellingPriceExVat ?? 100,
@@ -418,6 +420,86 @@ describe('getPurchasedProducts', () => {
         totalQuantity: 3,
       }),
     );
+  });
+
+  describe('the sku a row adds to the cart', () => {
+    const older = (skuId: number) =>
+      makeOrder({
+        id: 5,
+        createdAt: '2026-01-01T00:00:00Z',
+        items: [{ articleNumber: 'ART-001', skuId }],
+      });
+    const newer = (skuId: number) =>
+      makeOrder({
+        id: 10,
+        createdAt: '2026-04-01T00:00:00Z',
+        items: [{ articleNumber: 'ART-001', skuId }],
+      });
+
+    it('carries the order line’s sku', async () => {
+      withOrders([newer(301)]);
+
+      const result = await purchasedProducts.getPurchasedProducts(mockEvent);
+
+      expect(result.products[0]!.skuId).toBe(301);
+    });
+
+    it('takes the latest order’s sku when it comes after an older one', async () => {
+      withOrders([older(301), newer(302)]);
+
+      const result = await purchasedProducts.getPurchasedProducts(mockEvent);
+
+      expect(result.products).toHaveLength(1);
+      expect(result.products[0]!.skuId).toBe(302);
+    });
+
+    it('keeps the latest order’s sku when an older one comes after it', async () => {
+      withOrders([newer(302), older(301)]);
+
+      const result = await purchasedProducts.getPurchasedProducts(mockEvent);
+
+      expect(result.products[0]!.skuId).toBe(302);
+    });
+
+    it('gives a line without a sku no sku at all', async () => {
+      withOrders([
+        makeOrder({ items: [{ articleNumber: 'ART-001', skuId: null }] }),
+      ]);
+
+      const result = await purchasedProducts.getPurchasedProducts(mockEvent);
+
+      expect(result.products[0]).not.toHaveProperty('skuId');
+    });
+
+    it('keeps an older sku when the latest line has none', async () => {
+      withOrders([
+        older(301),
+        makeOrder({
+          id: 10,
+          createdAt: '2026-04-01T00:00:00Z',
+          items: [{ articleNumber: 'ART-001', skuId: null }],
+        }),
+      ]);
+
+      const result = await purchasedProducts.getPurchasedProducts(mockEvent);
+
+      expect(result.products[0]!.skuId).toBe(301);
+    });
+
+    it('keeps the first line’s sku when one order holds two of the product', async () => {
+      withOrders([
+        makeOrder({
+          items: [
+            { articleNumber: 'ART-001', skuId: 301 },
+            { articleNumber: 'ART-001', skuId: 302 },
+          ],
+        }),
+      ]);
+
+      const result = await purchasedProducts.getPurchasedProducts(mockEvent);
+
+      expect(result.products[0]!.skuId).toBe(301);
+    });
   });
 
   it('keeps both VAT sides of the latest order when an older one comes later', async () => {

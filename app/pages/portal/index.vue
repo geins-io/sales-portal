@@ -192,16 +192,9 @@ function mapPurchasedProduct(product: PurchasedProduct): ProductCardItem {
     imageFileName: product.imageFileName ?? null,
     imageUrl: product.imageUrl ?? null,
     alias: product.alias ?? null,
+    skuId: product.skuId,
     configurable: product.configurable,
   };
-}
-
-function handleProductAddToCart(
-  _product: PurchasedProduct,
-  _payload: { quantity: number },
-): void {
-  // TODO: PurchasedProduct lacks skuId. Enrich the /api/orders/products
-  // endpoint with skuId to wire this to cartStore.addItem.
 }
 </script>
 
@@ -561,10 +554,7 @@ function handleProductAddToCart(
           :key="product.articleNumber"
           data-testid="purchased-product-card"
         >
-          <ProductCard
-            :product="mapPurchasedProduct(product)"
-            @add-to-cart="handleProductAddToCart(product, $event)"
-          />
+          <ProductCard :product="mapPurchasedProduct(product)" />
         </div>
       </div>
     </div>

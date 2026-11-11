@@ -1,17 +1,24 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { DOMWrapper } from '@vue/test-utils';
+import { flushPromises } from '@vue/test-utils';
 import { mountComponent } from '../../utils/component';
 import { requestedShapes } from '../../utils/image';
 import ProductCard from '../../../app/components/shared/ProductCard.vue';
 
 // useTenant and useLocaleMarket mocks are provided by setup-components.ts
 
-vi.mock('~/stores/cart', () => ({
-  useCartStore: () => ({
-    addItem: vi.fn(),
-    isLoading: false,
-    error: null,
-  }),
+const cart = vi.hoisted(() => ({
+  addItem: vi.fn<(skuId: number, quantity: number) => Promise<void>>(),
+  isLoading: false,
+  error: null as string | null,
 }));
+
+vi.mock('~/stores/cart', () => ({ useCartStore: () => cart }));
+
+beforeEach(() => {
+  cart.addItem.mockReset();
+  cart.error = null;
+});
 
 vi.mock('~/stores/favorites', () => ({
   useFavoritesStore: () => ({
@@ -35,16 +42,17 @@ const stubs = {
     template:
       '<img data-testid="geins-image" :data-file-name="fileName" :data-url="url" :data-sizes="sizes" :data-widths="widths?.join(\',\')" :data-loading="loading" :data-priority="String(priority)" :alt="alt" />',
   },
-  QuantityStepper: {
+  QuantityInput: {
+    name: 'QuantityInput',
     props: ['modelValue', 'min', 'max', 'disabled'],
     emits: ['update:modelValue'],
     template:
-      '<div data-testid="quantity-stepper" :data-value="modelValue"></div>',
+      '<div data-testid="quantity-input" :data-value="modelValue"></div>',
   },
   Button: {
     props: ['disabled', 'variant', 'size'],
     template:
-      '<button data-testid="add-to-cart-button" :disabled="disabled"><slot /></button>',
+      '<button data-testid="add-to-cart-button" :data-variant="variant" :disabled="disabled"><slot /></button>',
   },
 };
 
@@ -193,34 +201,114 @@ describe('ProductCard', () => {
     expect(wrapper.find('[data-testid="original-price"]').exists()).toBe(true);
   });
 
-  it('renders QuantityStepper', () => {
-    const wrapper = mountComponent(ProductCard, {
-      props: { product: baseProduct },
-      global: { stubs },
-    });
-    expect(wrapper.find('[data-testid="quantity-stepper"]').exists()).toBe(
-      true,
-    );
-  });
+  it.each(['grid', 'list'] as const)(
+    'gives the %s card the listing cards’ quantity field, uncapped from 1',
+    (variant) => {
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: baseProduct, variant },
+        global: { stubs },
+      });
+      const field = wrapper.findComponent({ name: 'QuantityInput' });
+      expect(field.exists()).toBe(true);
+      expect(field.props('min')).toBe(1);
+      expect(field.props('max')).toBeUndefined();
+    },
+  );
+});
 
-  it('emits add-to-cart with quantity when add button is clicked', async () => {
-    const wrapper = mountComponent(ProductCard, {
-      props: { product: baseProduct },
-      global: { stubs },
-    });
-    await wrapper.find('[data-testid="add-to-cart-button"]').trigger('click');
-    const emitted = wrapper.emitted('add-to-cart');
-    expect(emitted).toBeTruthy();
-    expect(emitted?.[0]?.[0]).toMatchObject({ quantity: 1 });
-  });
+// What a narrow card shows: the icons outside the label, which stays `hidden`
+// until the card is wide enough. Icons render through the global `Icon` stub.
+function iconsWithoutLabel(button: DOMWrapper<Element>) {
+  return button
+    .findAll('.icon')
+    .filter((icon) => icon.element.closest('.hidden') === null)
+    .map((icon) => icon.attributes('data-name'));
+}
 
-  it('disables the add-to-cart button when isLoading is true', () => {
+describe('ProductCard add to cart for a card item', () => {
+  const variants = ['grid', 'list'] as const;
+
+  it.each(variants)(
+    'shows the cart icon without the label in the %s variant',
+    (variant) => {
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: { ...baseProduct, skuId: 42 }, variant },
+        global: { stubs },
+      });
+      const button = wrapper.find('[data-testid="add-to-cart-button"]');
+
+      expect(iconsWithoutLabel(button)).toEqual(['shopping-cart']);
+    },
+  );
+
+  it.each(variants)(
+    'adds the item’s sku with the chosen quantity in the %s variant',
+    async (variant) => {
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: { ...baseProduct, skuId: 42 }, variant },
+        global: { stubs },
+      });
+      await wrapper
+        .findComponent({ name: 'QuantityInput' })
+        .vm.$emit('update:modelValue', 3);
+
+      await wrapper.find('[data-testid="add-to-cart-button"]').trigger('click');
+
+      expect(cart.addItem).toHaveBeenCalledExactlyOnceWith(42, 3);
+    },
+  );
+
+  it.each([
+    [
+      'the cart reports an error',
+      () =>
+        cart.addItem.mockImplementation(async () => {
+          cart.error = 'Failed to add item';
+        }),
+    ],
+    ['the add throws', () => cart.addItem.mockRejectedValue(new Error('down'))],
+  ])('shows the error icon without the label when %s', async (_, failAdd) => {
+    failAdd();
     const wrapper = mountComponent(ProductCard, {
-      props: { product: baseProduct, isLoading: true },
+      props: { product: { ...baseProduct, skuId: 42 } },
       global: { stubs },
     });
     const button = wrapper.find('[data-testid="add-to-cart-button"]');
+
+    await button.trigger('click');
+    await flushPromises();
+
+    expect(button.attributes('data-variant')).toBe('destructive');
+    expect(iconsWithoutLabel(button)).toEqual(['circle-alert']);
+  });
+
+  it('keeps the button disabled while the add runs', async () => {
+    let finish!: () => void;
+    cart.addItem.mockReturnValue(new Promise<void>((r) => (finish = r)));
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: { ...baseProduct, skuId: 42 } },
+      global: { stubs },
+    });
+    const button = wrapper.find('[data-testid="add-to-cart-button"]');
+
+    await button.trigger('click');
     expect(button.attributes('disabled')).toBeDefined();
+
+    finish();
+    await flushPromises();
+    expect(button.attributes('disabled')).toBeUndefined();
+    expect(button.attributes('data-variant')).toBe('default');
+  });
+
+  it('disables the button for an item without a sku', async () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: baseProduct },
+      global: { stubs },
+    });
+    const button = wrapper.find('[data-testid="add-to-cart-button"]');
+
+    expect(button.attributes('disabled')).toBeDefined();
+    expect(iconsWithoutLabel(button)).toEqual(['shopping-cart']);
   });
 });
 

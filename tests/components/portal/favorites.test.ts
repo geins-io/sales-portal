@@ -32,16 +32,6 @@ vi.mock('../../../app/stores/favorites', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Cart store mock
-// ---------------------------------------------------------------------------
-const mockAddItem = vi.fn();
-const mockCartStore = { addItem: mockAddItem };
-
-vi.mock('../../../app/stores/cart', () => ({
-  useCartStore: () => mockCartStore,
-}));
-
-// ---------------------------------------------------------------------------
 // useFetch mock — controls products returned by /api/products/by-aliases
 // ---------------------------------------------------------------------------
 type FavoriteProduct = {
@@ -110,8 +100,7 @@ const stubs = {
     name: 'ProductCard',
     template:
       '<div data-testid="product-card" :data-alias="product?.alias" :data-name="product?.name" :data-price="product?.price"></div>',
-    props: ['product', 'variant', 'isLoading'],
-    emits: ['add-to-cart'],
+    props: ['product', 'variant'],
   },
 };
 
@@ -143,7 +132,6 @@ describe('FavoritesPage (Figma-aligned grid)', () => {
     mockFetchProducts = [];
     mockFetchPending = false;
     mockRemove.mockClear();
-    mockAddItem.mockClear();
     mockRefresh.mockClear();
     mockPruneStaleAliases.mockClear();
     mockShowIncVat.value = true;
@@ -225,33 +213,30 @@ describe('FavoritesPage (Figma-aligned grid)', () => {
     expect(wrapper.findAll('[data-testid="favorite-card"]')).toHaveLength(1);
   });
 
-  it('calls cartStore.addItem when ProductCard emits add-to-cart', async () => {
+  it('lays the grid out like the overview: one card per row on a phone', () => {
     const wrapper = mountFavorites({
       aliases: ['alpha'],
-      products: [
-        {
-          alias: 'alpha',
-          name: 'Alpha',
-          skus: [{ skuId: 42 }],
-        },
-      ],
+      products: [{ alias: 'alpha', name: 'Alpha' }],
     });
-    const card = wrapper.findComponent({ name: 'ProductCard' });
-    expect(card.exists()).toBe(true);
-    card.vm.$emit('add-to-cart', { quantity: 3 });
-    await wrapper.vm.$nextTick();
-    expect(mockAddItem).toHaveBeenCalledWith(42, 3);
+    const grid = wrapper.find('[data-testid="favorites-grid"]');
+    expect(grid.classes()).toEqual(
+      expect.arrayContaining([
+        'grid-cols-1',
+        'sm:grid-cols-2',
+        'lg:grid-cols-4',
+      ]),
+    );
+    expect(grid.classes()).not.toContain('grid-cols-2');
   });
 
-  it('skips add-to-cart when product has no skuId', async () => {
+  it('passes the first sku to ProductCard, which adds it', () => {
     const wrapper = mountFavorites({
       aliases: ['alpha'],
-      products: [{ alias: 'alpha', name: 'Alpha', skus: [] }],
+      products: [{ alias: 'alpha', name: 'Alpha', skus: [{ skuId: 42 }] }],
     });
     const card = wrapper.findComponent({ name: 'ProductCard' });
-    card.vm.$emit('add-to-cart', { quantity: 2 });
-    await wrapper.vm.$nextTick();
-    expect(mockAddItem).not.toHaveBeenCalled();
+    expect(card.props('product')).toMatchObject({ skuId: 42 });
+    expect(card.attributes()).not.toHaveProperty('onAddToCart');
   });
 
   it('handles partial loading — some aliases missing from response', () => {

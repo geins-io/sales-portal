@@ -37,6 +37,25 @@ describe('toFavoriteCardItem', () => {
     });
   });
 
+  it('gives the card the first sku that has an id, for its add to cart', () => {
+    const item = toFavoriteCardItem(
+      {
+        ...ORDINARY,
+        skus: [null, { skuId: null }, { skuId: 7 }, { skuId: 8 }],
+      },
+      true,
+    );
+    expect(item.skuId).toBe(7);
+  });
+
+  it('gives the card no sku when none has an id', () => {
+    const item = toFavoriteCardItem(
+      { ...ORDINARY, skus: [{ skuId: null }] },
+      true,
+    );
+    expect(item).not.toHaveProperty('skuId');
+  });
+
   it('passes a configurable product’s flag through to the card', () => {
     expect(
       toFavoriteCardItem({ ...ORDINARY, configurable: true }, true),
