@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { nextTick } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 import { makeQuote, makeQuoteListItem } from '../fixtures/quote';
 
@@ -909,6 +910,7 @@ describe('useQuotesStore', () => {
       await store.fetchQuotes();
       store.currentQuote = mockQuote;
       store.error = 'Some error';
+      store.lastAdd = { scope: 'page-1', outcome: { kind: 'failed' } };
 
       store.reset();
 
@@ -919,6 +921,57 @@ describe('useQuotesStore', () => {
       expect(store.isActionLoading).toBe(false);
       expect(store.isSaving).toBe(false);
       expect(store.error).toBeNull();
+      expect(store.lastAdd).toBeNull();
+    });
+  });
+
+  describe('another buyer in the same tab', () => {
+    async function heldBy(userId: string) {
+      const { useAuthStore } = await import('../../app/stores/auth');
+      const auth = useAuthStore();
+      auth.user = { userId, username: `${userId}@example.com` };
+      const store = useQuotesStore();
+      await nextTick();
+      store.quotes = [mockQuoteListItem];
+      store.totalQuotes = 1;
+      store.currentQuote = mockQuote;
+      store.lastAdd = {
+        scope: 'page-1',
+        outcome: { kind: 'added', id: 'q-1', name: 'Etapp 2', created: true },
+      };
+      return { auth, store };
+    }
+
+    it("forgets the buyer's quotations and last add on sign-out", async () => {
+      const { auth, store } = await heldBy('buyer-1');
+
+      auth.user = null;
+      await nextTick();
+
+      expect(store.quotes).toEqual([]);
+      expect(store.totalQuotes).toBe(0);
+      expect(store.currentQuote).toBeNull();
+      expect(store.lastAdd).toBeNull();
+    });
+
+    it('forgets them when another buyer signs in', async () => {
+      const { auth, store } = await heldBy('buyer-1');
+
+      auth.user = { userId: 'buyer-2', username: 'buyer-2@example.com' };
+      await nextTick();
+
+      expect(store.quotes).toEqual([]);
+      expect(store.lastAdd).toBeNull();
+    });
+
+    it("keeps them while the same buyer's session is read again", async () => {
+      const { auth, store } = await heldBy('buyer-1');
+
+      auth.user = { userId: 'buyer-1', username: 'buyer-1@example.com' };
+      await nextTick();
+
+      expect(store.quotes).toEqual([mockQuoteListItem]);
+      expect(store.lastAdd).not.toBeNull();
     });
   });
 });

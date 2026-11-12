@@ -1,6 +1,10 @@
 import type { H3Event } from 'h3';
 import type { CartItemConfigurationType } from '@geins/types';
 import type { PriceType } from '#shared/types/commerce';
+import {
+  QUOTE_LINE_MAX_QUANTITY,
+  QUOTE_REQUEST_MAX_LINES,
+} from '#shared/constants/quote';
 import type { ConfigurationChoices } from '#shared/types/configurator';
 import type {
   Quote,
@@ -22,6 +26,7 @@ import {
   getRequestChannelVariables,
 } from './_sdk';
 import { findOrderPublicId } from './orders';
+import { addItem, createCart } from './cart';
 import { cartLineConfiguration, committedChoices } from './line-configuration';
 import { amountWriter } from './amount';
 import { loadQuery } from './graphql/loader';
@@ -503,6 +508,7 @@ function mapQuotationCartToListItem(
     currency: q.currency ?? '',
     itemCount: cart.items?.length ?? 0,
     createdAt: q.createdAt ?? '',
+    updatedAt: q.modifiedAt ?? '',
     expiresAt: q.validTo ?? undefined,
   };
 }
@@ -915,6 +921,149 @@ export async function replaceConfiguredLine(
     }),
     event,
   );
+}
+
+/**
+ * A line on its way to a draft: a plain one by its SKU, or a configuration
+ * this request committed.
+ */
+export interface NewQuoteLine {
+  skuId: number;
+  quantity: number;
+  configurationId?: string;
+}
+
+function addFailed(message: string): Error {
+  return createAppError(ErrorCode.QUOTE_ADD_FAILED, message);
+}
+
+/** The lines of a `REQUEST_DRAFT`, read now; anything else takes no add. */
+async function draftLines(
+  quoteId: string,
+  event: H3Event,
+): Promise<RawCartItem[]> {
+  const { cart } = await findQuotationCart(quoteId, event);
+  if (cart?.quotation?.status !== 'REQUEST_DRAFT') {
+    throw addFailed(`${quoteId} is not a request draft`);
+  }
+  return cart.items ?? [];
+}
+
+/**
+ * The draft's list with the line added. A plain line of the same SKU takes the
+ * amount, as quick add does; a configuration is always a line of its own.
+ * Also the amount the line should hold once Geins has it.
+ */
+function withLine(
+  items: RawCartItem[],
+  line: NewQuoteLine,
+): { items: QuoteRequestLine[]; expected: number } {
+  const kept = items.map(keptLine);
+  const same = line.configurationId
+    ? undefined
+    : kept.find((item) => item.skuId === line.skuId && !item.configurationId);
+  if (same) {
+    if (same.quantity >= QUOTE_LINE_MAX_QUANTITY) {
+      throw addFailed(
+        `SKU ${line.skuId} is at the largest amount a line takes`,
+      );
+    }
+    same.quantity = Math.min(
+      same.quantity + line.quantity,
+      QUOTE_LINE_MAX_QUANTITY,
+    );
+    return { items: kept, expected: same.quantity };
+  }
+  if (kept.length >= QUOTE_REQUEST_MAX_LINES) {
+    throw addFailed('The draft holds as many lines as one may');
+  }
+  return { items: [...kept, { ...line }], expected: line.quantity };
+}
+
+/** Geins answers a write it did not make with a 200 too: the line must be there. */
+function assertHolds(quote: Quote, line: NewQuoteLine, expected: number): void {
+  const held = quote.lineItems.some((item) =>
+    line.configurationId
+      ? item.configuration?.configurationId === line.configurationId
+      : item.skuId === line.skuId &&
+        !item.configuration &&
+        item.quantity === expected,
+  );
+  if (!held) {
+    throw addFailed(`Quote ${quote.id} does not hold SKU ${line.skuId}`);
+  }
+}
+
+/**
+ * Add a line to a `REQUEST_DRAFT`, sending the whole list as the draft holds
+ * it. A line given as a function is a commit: it runs only once the draft is
+ * known to take it, and the list is read again after it, so a change saved
+ * meanwhile is not put back.
+ */
+export async function addToDraft(
+  quoteId: string,
+  line: NewQuoteLine | (() => Promise<NewQuoteLine>),
+  event: H3Event,
+): Promise<Quote> {
+  let items = await draftLines(quoteId, event);
+  let added: NewQuoteLine;
+  if (typeof line === 'function') {
+    added = await line();
+    items = await draftLines(quoteId, event);
+  } else {
+    added = line;
+  }
+  const next = withLine(items, added);
+  const quote = await requestMutation(
+    'quotes/update-quotation-request.graphql',
+    ({ languageId }) => ({
+      quotationId: quoteId,
+      request: { items: next.items },
+      languageId,
+    }),
+    event,
+  );
+  assertHolds(quote, added, next.expected);
+  return quote;
+}
+
+/**
+ * A new `REQUEST_DRAFT` holding one line. Geins makes a draft only from a cart,
+ * so the line goes into a cart of its own: the buyer's cart is never read or
+ * changed. `place` puts the line in that cart and fails when the cart did not
+ * take it, so no draft is made without it.
+ */
+export async function createDraftWith(
+  name: string,
+  place: (cartId: string) => Promise<NewQuoteLine>,
+  event: H3Event,
+): Promise<Quote> {
+  const { id: cartId } = await createCart(event);
+  const line = await place(cartId);
+  const quote = await createQuoteRequest(cartId, name, event);
+  assertHolds(quote, line, line.quantity);
+  return quote;
+}
+
+/**
+ * A plain line in the cart `place` was handed. Geins answers a line short of
+ * stock with a 200 and no line, so the answer is checked.
+ */
+export async function placePlainLine(
+  cartId: string,
+  line: NewQuoteLine,
+  event: H3Event,
+): Promise<NewQuoteLine> {
+  const cart = await addItem(
+    cartId,
+    { skuId: line.skuId, quantity: line.quantity },
+    event,
+  );
+  const held = cart?.items?.some(
+    (item) => item.skuId === line.skuId && item.quantity === line.quantity,
+  );
+  if (!held) throw addFailed(`The cart did not take SKU ${line.skuId}`);
+  return line;
 }
 
 /**

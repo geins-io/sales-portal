@@ -6,6 +6,7 @@ import type {
 } from '#shared/types/commerce';
 import { filterVisibleCampaigns, getStockStatus } from '#shared/types/commerce';
 import type { ContentAreaType } from '#shared/types/cms';
+import type { Quote, QuoteAddTarget } from '#shared/types/quote';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { Badge } from '~/components/ui/badge';
 import {
@@ -19,6 +20,7 @@ import {
 import { useCartStore } from '~/stores/cart';
 import { useFavoritesStore } from '~/stores/favorites';
 import { useAuthStore } from '~/stores/auth';
+import { useQuotesStore } from '~/stores/quotes';
 import {
   productPath as buildProductPath,
   categoryPath,
@@ -418,6 +420,38 @@ async function addToCart() {
   await cartStore.addItem(resolvedSku.value.skuId, quantity.value);
 }
 
+/**
+ * The product at the add-to-cart amount, to a request draft or a new one.
+ * Stock never stops a quote; out of stock the stepper is gone and the amount
+ * is 1, which the stepper's cap already holds it at.
+ */
+// Where an add to a draft landed belongs to this page and product. An id
+// alone is positional, so the next product's page would get the same one.
+const quotes = useQuotesStore();
+const pageId = useId();
+const quoteScope = computed(
+  () => `${pageId}:${product.value?.productId ?? ''}`,
+);
+watch(quoteScope, (_, before) => quotes.forgetAdd(before));
+onBeforeUnmount(() => quotes.forgetAdd(quoteScope.value));
+
+async function sendToQuote(target: QuoteAddTarget): Promise<Quote> {
+  const skuId = resolvedSku.value?.skuId;
+  if (!skuId) throw new Error('No SKU to add');
+  const line = { skuId, quantity: quantity.value };
+  const { quote } =
+    'quoteId' in target
+      ? await $fetch<{ quote: Quote }>(
+          `/api/quotes/${encodeURIComponent(target.quoteId)}/lines`,
+          { method: 'POST', body: line },
+        )
+      : await $fetch<{ quote: Quote }>('/api/quotes/drafts', {
+          method: 'POST',
+          body: { name: target.name, ...line },
+        });
+  return quote;
+}
+
 // Sibling-variant products list each variant as its own product alias
 // in variantGroup.variants. When the user picks a different variant in
 // the selector, navigate to that variant's PDP rather than mutating
@@ -717,6 +751,15 @@ useProductSeo({
               {{ $t('product.max_quantity_info') }}
             </span>
           </template>
+
+          <ProductAddToQuote
+            v-if="!hidesCatalogueSku"
+            :send="sendToQuote"
+            :disabled="switchingVariant"
+            :needs-choice="needsSkuPick"
+            :scope="quoteScope"
+            @choose="variantSelector?.openSkuSheet()"
+          />
 
           <div
             class="border-border flex flex-col border-y"

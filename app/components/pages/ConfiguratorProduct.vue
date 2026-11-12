@@ -16,6 +16,7 @@ import type { ContentAreaType } from '#shared/types/cms';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
 import type { DetailProduct, ListProduct } from '#shared/types/commerce';
 import type { ConfigurationChange } from '#shared/types/configurator';
+import type { Quote, QuoteAddTarget } from '#shared/types/quote';
 import { ancestorCrumbs } from '#shared/utils/breadcrumb-trail';
 import { PRINT_TILE_WIDTHS } from '#shared/utils/image';
 import { categoryPath } from '#shared/utils/route-helpers';
@@ -25,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import type { BlockingItem } from '~/utils/configurator-panel';
 import { quantityInCart, stockBlock } from '~/utils/stock-in-cart';
 import { useCartStore } from '~/stores/cart';
+import { useQuotesStore } from '~/stores/quotes';
 import {
   addError,
   addFailureKey,
@@ -272,6 +274,7 @@ const {
   commit,
   retryAdd,
   release,
+  addToQuote,
 } = useConfiguratorSession({
   addLine: async (record) => {
     // Unreachable: `canCommit` refuses a commit without a SKU.
@@ -472,6 +475,35 @@ const commitEnabled = computed(() =>
     linePending: linePending.value,
   }),
 );
+
+// Where an add to a draft landed outlives the menu, which a restore takes off,
+// but not the page or its product: an id alone is positional and the next
+// product's page would get the same one.
+const quotes = useQuotesStore();
+const pageId = useId();
+const quoteScope = computed(() => `${pageId}:${productId.value}`);
+watch(quoteScope, (_, before) => quotes.forgetAdd(before));
+onBeforeUnmount(() => quotes.forgetAdd(quoteScope.value));
+
+/** The quote menu takes what the add takes, except that stock never stops it. */
+const quoteEnabled = computed(() =>
+  canCommit({
+    status: status.value,
+    configuration: configuration.value,
+    busy: busy.value,
+    skuId: skuId.value,
+    stockBlock: null,
+    lineQuantity: lineQuantity.value,
+    linePending: linePending.value,
+  }),
+);
+
+async function sendToQuote(target: QuoteAddTarget): Promise<Quote> {
+  const quote =
+    skuId.value === null ? null : await addToQuote(target, skuId.value);
+  if (!quote) throw new Error('The configuration was not added');
+  return quote;
+}
 
 /** Said at the action when the product has no single SKU to add. */
 const actionError = computed(() =>
@@ -1442,7 +1474,15 @@ function onRetryOpen(): void {
                     @submit="onSubmit"
                     @revert="onRevert"
                     @cancel="onCancel"
-                  />
+                  >
+                    <template #quote>
+                      <ProductAddToQuote
+                        :send="sendToQuote"
+                        :disabled="!quoteEnabled"
+                        :scope="quoteScope"
+                      />
+                    </template>
+                  </ConfigurationAction>
                 </ConfigurationPanel>
               </Card>
             </aside>

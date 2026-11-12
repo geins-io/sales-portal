@@ -380,6 +380,28 @@ export const UpdateQuoteRequestSchema = z.object({
 });
 export type UpdateQuoteRequestInput = z.infer<typeof UpdateQuoteRequestSchema>;
 
+/** A product added to a request draft: its SKU, at the amount on the page. */
+export const QuoteDraftLineSchema = z.object({
+  skuId: z.number().int().positive(),
+  quantity: z.number().int().min(1).max(QUOTE_LINE_MAX_QUANTITY),
+});
+
+const QuoteNameSchema = z.string().trim().min(1).max(QUOTE_NAME_MAX_LENGTH);
+
+/** A new request draft with the product in it. */
+export const NewQuoteDraftSchema = QuoteDraftLineSchema.extend({
+  name: QuoteNameSchema,
+});
+
+/**
+ * The configuration on screen added to a request draft, or to a new one by its
+ * name. The amount is the commit's, never the client's.
+ */
+export const ConfiguredQuoteAddSchema = z.union([
+  z.object({ skuId: z.number().int().positive(), quoteId: z.guid() }),
+  z.object({ skuId: z.number().int().positive(), name: QuoteNameSchema }),
+]);
+
 // A bare POST, with no body, places the order without a message.
 export const FinalizeQuoteSchema = z
   .object({ message: z.string().max(2000).optional() })

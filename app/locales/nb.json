@@ -257,7 +257,18 @@
     "documents": "Dokumenter",
     "related": "Relaterte produkter",
     "add_to_cart": "Legg i handlekurv",
-    "add_to_quote": "Legg til i tilbud",
+    "add_to_quote": "Legg til i tilbudsforespørsel",
+    "quote_menu": {
+      "label": "Legg i utkast",
+      "items": "{count} vare | {count} varer",
+      "no_drafts": "Du har ingen utkast ennå.",
+      "new_request": "Ny tilbudsforespørsel",
+      "added": "Lagt til i",
+      "added_new": "Nytt utkast opprettet:",
+      "view": "Vis utkast",
+      "failed": "Det kunne ikke legges til i utkastet. Prøv igjen.",
+      "load_failed": "Utkastene dine kunne ikke hentes."
+    },
     "download": "Last ned datablad",
     "download_data_sheet": "Last ned som datablad",
     "printed_on": "Utskrevet",
@@ -1063,7 +1074,10 @@
         "label": "Navn",
         "placeholder": "F.eks. Etappe 2 – Lindekvartalet",
         "submit": "Lagre",
-        "required": "Skriv inn et navn."
+        "required": "Skriv inn et navn.",
+        "new_title": "Ny tilbudsforespørsel",
+        "new_description": "Gi forespørselen et navn så du lett finner den.",
+        "new_submit": "Opprett utkast"
       }
     },
     "favorites": {

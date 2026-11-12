@@ -100,6 +100,14 @@ const auth = useAuthStore();
       {{ t('product.max_quantity_info') }}
     </p>
 
+    <!-- The quote menu, only where the press adds a new line. -->
+    <div
+      v-if="(showPrice || !canUnlockByAuth) && !editing && !quoteEditing"
+      class="mt-2 empty:hidden"
+    >
+      <slot name="quote" />
+    </div>
+
     <div v-if="editing || quoteEditing" class="mt-2 flex gap-2">
       <Button
         variant="outline"

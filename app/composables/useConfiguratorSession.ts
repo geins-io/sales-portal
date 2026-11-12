@@ -4,6 +4,7 @@ import {
   useEventListener,
   useIdle,
   useIntervalFn,
+  until,
   watchThrottled,
   type WindowEventName,
 } from '@vueuse/core';
@@ -15,7 +16,7 @@ import type {
 } from '#shared/types/configurator';
 import { isBrowser } from '~/utils/client-helpers';
 import { RENEW_LEAD_MS, renewDue } from '~/utils/configurator-page';
-import type { Quote } from '#shared/types/quote';
+import type { Quote, QuoteAddTarget } from '#shared/types/quote';
 import { choicesOf, type OrderRowRef } from '~/utils/configurator-replay';
 import type { QuoteLineRef } from '~/utils/configurator-quote';
 
@@ -774,6 +775,66 @@ export function useConfiguratorSession({
   }
 
   /**
+   * The configuration on screen as a new line of a request draft, or of a new
+   * draft. The server commits, which finishes the session, and a draft line
+   * cannot be reopened, so the same choices go into a new session.
+   *
+   * After an add the form stays on screen, busy, until the new session holds
+   * them, as after an add to the cart. A failed add may or may not have
+   * committed the session, so it is deleted and the choices restored as after
+   * an expiry. Answers the draft, or null when nothing was added.
+   */
+  async function addToQuote(
+    target: QuoteAddTarget,
+    skuId: number,
+  ): Promise<Quote | null> {
+    // A press that blurred a typed field started a batch; the add waits for it.
+    if (busy.value) await until(busy).toBe(false);
+    const id = liveId();
+    const held = configuration.value;
+    if (!id || held?.isValid !== true || !started) return null;
+    const { productId } = started;
+
+    // One run, so the form stays busy from the press to the new session and
+    // nothing renews or deletes the session the add commits.
+    const result = await run(async (signal) => {
+      const { quote } = await $fetch<{ quote: Quote }>(
+        `/api/configurations/${id}/quote-add`,
+        { method: 'POST', body: { skuId, ...target }, signal },
+      );
+      const next = await $fetch<{
+        configuration: Configuration;
+        replayed: boolean;
+      }>('/api/configurations/restore', {
+        method: 'POST',
+        body: { productId, quantity: held.quantity, ...choicesOf(held) },
+        signal,
+      }).catch(() => null);
+      return { quote, next };
+    }, 'commit');
+
+    if (!result) {
+      if (disposed) return null;
+      drop(id);
+      close();
+      await restore(productId);
+      return null;
+    }
+    if (result.next) {
+      notReplayed.value = false;
+      notRestored.value = !result.next.replayed;
+      hold(result.next.configuration);
+    } else {
+      // The add went in; only the new session failed, so the page starts one
+      // and says the choices did not come back.
+      close();
+      notRestored.value = true;
+      await start(productId, held.quantity);
+    }
+    return result.quote;
+  }
+
+  /**
    * A save onto the draft line again, after one that failed: the choices on
    * screen go into a new session, which is saved only if they all came back.
    */
@@ -875,5 +936,6 @@ export function useConfiguratorSession({
     commit,
     retryAdd,
     release,
+    addToQuote,
   };
 }

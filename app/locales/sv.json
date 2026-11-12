@@ -257,7 +257,18 @@
     "documents": "Dokument",
     "related": "Relaterade produkter",
     "add_to_cart": "Lägg i varukorg",
-    "add_to_quote": "Lägg till offert",
+    "add_to_quote": "Lägg till i offertförfrågan",
+    "quote_menu": {
+      "label": "Lägg i utkast",
+      "items": "{count} artikel | {count} artiklar",
+      "no_drafts": "Du har inga utkast än.",
+      "new_request": "Ny offertförfrågan",
+      "added": "Tillagd i",
+      "added_new": "Nytt utkast skapat:",
+      "view": "Visa utkast",
+      "failed": "Det gick inte att lägga till i utkastet. Försök igen.",
+      "load_failed": "Dina utkast kunde inte hämtas."
+    },
     "download": "Ladda ner datablad",
     "download_data_sheet": "Ladda ner som datablad",
     "printed_on": "Utskriven",
@@ -1063,7 +1074,10 @@
         "label": "Namn",
         "placeholder": "T.ex. Etapp 2 – Kv. Linden",
         "submit": "Spara",
-        "required": "Ange ett namn."
+        "required": "Ange ett namn.",
+        "new_title": "Ny offertförfrågan",
+        "new_description": "Ge förfrågan ett namn så hittar du den lätt.",
+        "new_submit": "Skapa utkast"
       }
     },
     "favorites": {
