@@ -187,6 +187,8 @@ export interface QuoteListItem {
   currency: string;
   itemCount: number;
   createdAt: string;
+  /** When the quotation last changed; '' when Geins gives no time. */
+  updatedAt: string;
   expiresAt?: string;
 }
 
@@ -218,6 +220,9 @@ export interface QuoteRequestDetails {
  * A line as `updateQuotationRequest` takes it. A kept line carries its `id`, a
  * configured one its `configurationId`; a line without an `id` is added.
  */
+/** Where an add goes: a request draft the buyer has, or a new one by its name. */
+export type QuoteAddTarget = { quoteId: string } | { name: string };
+
 export interface QuoteRequestLine {
   id?: string;
   skuId: number;

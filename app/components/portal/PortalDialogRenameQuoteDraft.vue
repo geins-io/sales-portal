@@ -12,11 +12,18 @@ import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 
-const props = defineProps<{
-  open: boolean;
-  name: string;
-  pending?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    open: boolean;
+    name?: string;
+    pending?: boolean;
+    /** Naming a new request rather than renaming a draft. */
+    mode?: 'rename' | 'new';
+    /** Why the last submit did not go through. */
+    error?: string | null;
+  }>(),
+  { name: '', mode: 'rename', error: null },
+);
 
 const emit = defineEmits<{
   'update:open': [value: boolean];
@@ -40,6 +47,20 @@ watch(
 
 const trimmed = computed(() => draftName.value.trim());
 
+const copy = computed(() =>
+  props.mode === 'new'
+    ? {
+        title: t('portal.quotations.rename_dialog.new_title'),
+        description: t('portal.quotations.rename_dialog.new_description'),
+        submit: t('portal.quotations.rename_dialog.new_submit'),
+      }
+    : {
+        title: t('portal.quotations.rename_dialog.title'),
+        description: t('portal.quotations.rename_dialog.description'),
+        submit: t('portal.quotations.rename_dialog.submit'),
+      },
+);
+
 function submit() {
   touched.value = true;
   if (!trimmed.value || props.pending) return;
@@ -52,12 +73,8 @@ function submit() {
     <DialogContent data-testid="rename-draft-dialog" class="sm:max-w-md">
       <form class="grid gap-4" novalidate @submit.prevent="submit">
         <DialogHeader>
-          <DialogTitle>{{
-            t('portal.quotations.rename_dialog.title')
-          }}</DialogTitle>
-          <DialogDescription>
-            {{ t('portal.quotations.rename_dialog.description') }}
-          </DialogDescription>
+          <DialogTitle>{{ copy.title }}</DialogTitle>
+          <DialogDescription>{{ copy.description }}</DialogDescription>
         </DialogHeader>
 
         <div class="grid gap-2">
@@ -84,6 +101,15 @@ function submit() {
           </p>
         </div>
 
+        <p
+          v-if="error"
+          role="alert"
+          class="text-destructive text-sm"
+          data-testid="rename-draft-failed"
+        >
+          {{ error }}
+        </p>
+
         <DialogFooter>
           <Button
             type="button"
@@ -98,7 +124,7 @@ function submit() {
             data-testid="rename-draft-submit"
             :disabled="pending"
           >
-            {{ t('portal.quotations.rename_dialog.submit') }}
+            {{ copy.submit }}
           </Button>
         </DialogFooter>
       </form>

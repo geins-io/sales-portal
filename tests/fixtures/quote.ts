@@ -158,6 +158,7 @@ export function makeQuoteListItem(
     currency: 'SEK',
     itemCount: 3,
     createdAt: '2024-03-01T10:00:00Z',
+    updatedAt: '2024-03-01T10:00:00Z',
     ...overrides,
   };
 }

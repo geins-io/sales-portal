@@ -26,6 +26,8 @@ export enum ErrorCode {
   CART_LINE_GONE = 'CART_LINE_GONE',
   /** A quote line named for a change is not on a draft, or carries no configuration. */
   QUOTE_LINE_GONE = 'QUOTE_LINE_GONE',
+  /** A line meant for a request draft is not on it: refused, or left out. */
+  QUOTE_ADD_FAILED = 'QUOTE_ADD_FAILED',
   /** The cart named is another company's. */
   CART_NOT_OWN = 'CART_NOT_OWN',
   /** The cart is read only with the buyer signed in. */
@@ -68,6 +70,7 @@ const ERROR_STATUS_CODES: Record<ErrorCode, number> = {
   // edit from an unknown configuration or a buyer the provider refuses by code.
   [ErrorCode.CART_LINE_GONE]: 404,
   [ErrorCode.QUOTE_LINE_GONE]: 404,
+  [ErrorCode.QUOTE_ADD_FAILED]: 409,
   [ErrorCode.CART_NOT_OWN]: 403,
   // Not UNAUTHORIZED: the client keeps the cart id for this code alone.
   [ErrorCode.CART_LOGIN_REQUIRED]: 401,
@@ -103,6 +106,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.GONE]: 'Resource is no longer available',
   [ErrorCode.CART_LINE_GONE]: 'Cart line not found',
   [ErrorCode.QUOTE_LINE_GONE]: 'Quote draft line not found',
+  [ErrorCode.QUOTE_ADD_FAILED]: 'The line was not added to the draft',
   [ErrorCode.CART_NOT_OWN]: 'Cart belongs to another company',
   [ErrorCode.CART_LOGIN_REQUIRED]: 'Sign in to read this cart',
   [ErrorCode.CONFIGURATOR_NOT_AVAILABLE]: 'The configurator is not available',

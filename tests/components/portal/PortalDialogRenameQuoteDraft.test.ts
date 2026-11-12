@@ -79,6 +79,58 @@ describe('PortalDialogRenameQuoteDraft', () => {
     ).toHaveProperty('disabled');
   });
 
+  describe('naming a new request', () => {
+    it("asks in the new request's words and opens with an empty name", () => {
+      const wrapper = mount({ mode: 'new', name: undefined });
+
+      expect(wrapper.find('[data-testid="title"]').text()).toBe(
+        'portal.quotations.rename_dialog.new_title',
+      );
+      expect(wrapper.find('[data-testid="description"]').text()).toBe(
+        'portal.quotations.rename_dialog.new_description',
+      );
+      expect(wrapper.find('[data-testid="rename-draft-submit"]').text()).toBe(
+        'portal.quotations.rename_dialog.new_submit',
+      );
+      expect(
+        (
+          wrapper.find('[data-testid="rename-draft-input"]')
+            .element as HTMLInputElement
+        ).value,
+      ).toBe('');
+    });
+
+    it('asks for a name before it submits', async () => {
+      const wrapper = mount({ mode: 'new', name: undefined });
+
+      await wrapper.find('form').trigger('submit');
+
+      expect(wrapper.emitted('submit')).toBeUndefined();
+      expect(wrapper.find('[data-testid="rename-draft-error"]').exists()).toBe(
+        true,
+      );
+    });
+
+    it('says why the last submit did not go through', () => {
+      expect(
+        mount({ mode: 'new', error: 'It failed' })
+          .find('[data-testid="rename-draft-failed"]')
+          .text(),
+      ).toBe('It failed');
+      expect(
+        mount({ mode: 'new' })
+          .find('[data-testid="rename-draft-failed"]')
+          .exists(),
+      ).toBe(false);
+    });
+
+    it('keeps the rename words by default', () => {
+      expect(mount().find('[data-testid="rename-draft-submit"]').text()).toBe(
+        'portal.quotations.rename_dialog.submit',
+      );
+    });
+  });
+
   it('fills in the current name again each time it opens', async () => {
     const wrapper = mount({ open: false });
     await wrapper.setProps({ open: true, name: 'Etapp 3' });

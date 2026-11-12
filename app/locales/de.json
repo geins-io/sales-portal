@@ -257,7 +257,18 @@
     "documents": "Dokumente",
     "related": "Ähnliche Produkte",
     "add_to_cart": "In den Warenkorb",
-    "add_to_quote": "Zum Angebot hinzufügen",
+    "add_to_quote": "Zur Angebotsanfrage hinzufügen",
+    "quote_menu": {
+      "label": "Zum Entwurf hinzufügen",
+      "items": "{count} Artikel | {count} Artikel",
+      "no_drafts": "Sie haben noch keine Entwürfe.",
+      "new_request": "Neue Angebotsanfrage",
+      "added": "Hinzugefügt zu",
+      "added_new": "Neuer Entwurf erstellt:",
+      "view": "Entwurf anzeigen",
+      "failed": "Es konnte nicht zum Entwurf hinzugefügt werden. Bitte versuchen Sie es erneut.",
+      "load_failed": "Ihre Entwürfe konnten nicht geladen werden."
+    },
     "download": "Typenblätter herunterladen",
     "download_data_sheet": "Als Datenblatt herunterladen",
     "printed_on": "Gedruckt",
@@ -1063,7 +1074,10 @@
         "label": "Name",
         "placeholder": "z. B. Bauabschnitt 2 – Lindenviertel",
         "submit": "Speichern",
-        "required": "Geben Sie einen Namen ein."
+        "required": "Geben Sie einen Namen ein.",
+        "new_title": "Neue Angebotsanfrage",
+        "new_description": "Geben Sie der Anfrage einen Namen, damit Sie sie leicht wiederfinden.",
+        "new_submit": "Entwurf erstellen"
       }
     },
     "favorites": {

@@ -334,3 +334,42 @@ describe('ConfigurationAction', () => {
     });
   });
 });
+
+describe('ConfigurationAction, the quote menu', () => {
+  const withQuote = (props: Record<string, unknown> = {}) =>
+    mountComponent(ConfigurationAction, {
+      props: { canCommit: true, busy: false, incomplete: false, ...props },
+      slots: { quote: '<div data-testid="quote-slot" />' },
+    });
+
+  beforeEach(() => {
+    setFeatures({});
+    useAuthStore().user = null;
+  });
+
+  it('sits under the add to cart', () => {
+    const html = withQuote().html();
+
+    expect(html).toContain('data-testid="quote-slot"');
+    expect(html.indexOf('configurator-commit')).toBeLessThan(
+      html.indexOf('quote-slot'),
+    );
+  });
+
+  it.each([
+    ['a cart line', { editing: true }],
+    ['a draft line', { quoteEditing: true }],
+  ])('is left out while %s is edited', (_case, props) => {
+    expect(withQuote(props).find('[data-testid="quote-slot"]').exists()).toBe(
+      false,
+    );
+  });
+
+  it('is left out while the prices wait for a sign-in', () => {
+    setFeatures({
+      priceVisibility: { enabled: true, access: 'authenticated' },
+    });
+
+    expect(withQuote().find('[data-testid="quote-slot"]').exists()).toBe(false);
+  });
+});

@@ -6,6 +6,7 @@ import type {
   QuoteRequestUpdate,
 } from '#shared/types/quote';
 import { internalFetch } from '~/utils/internal-fetch';
+import { useAuthStore } from '~/stores/auth';
 
 /**
  * How long the page waits for a draft write. Geins finishes a write it got
@@ -13,6 +14,11 @@ import { internalFetch } from '~/utils/internal-fetch';
  * up and hold every later change and the way out.
  */
 export const DRAFT_WRITE_TIMEOUT_MS = 20_000;
+
+/** What an add to a draft from a product page came to. */
+export type QuoteAddOutcome =
+  | { kind: 'added'; id: string; name: string; created: boolean }
+  | { kind: 'failed' };
 
 export const useQuotesStore = defineStore('quotes', () => {
   const quotes = ref<QuoteListItem[]>([]);
@@ -23,6 +29,12 @@ export const useQuotesStore = defineStore('quotes', () => {
   /** A write to a draft (its name or lines) or its delete is under way. */
   const isSaving = ref(false);
   const error = ref<string | null>(null);
+  /**
+   * The last add from a product page, by the page that made it. Kept here
+   * rather than in the menu: the configurator takes the menu off the page
+   * while it restores the session after the add.
+   */
+  const lastAdd = ref<{ scope: string; outcome: QuoteAddOutcome } | null>(null);
 
   // Computeds
   const pendingQuotes = computed<QuoteListItem[]>(() =>
@@ -216,6 +228,11 @@ export const useQuotesStore = defineStore('quotes', () => {
     }
   }
 
+  /** The page that owns `scope` is gone or shows another product. */
+  function forgetAdd(scope: string) {
+    if (lastAdd.value?.scope === scope) lastAdd.value = null;
+  }
+
   function reset() {
     quotes.value = [];
     totalQuotes.value = 0;
@@ -224,7 +241,18 @@ export const useQuotesStore = defineStore('quotes', () => {
     isActionLoading.value = false;
     isSaving.value = false;
     error.value = null;
+    lastAdd.value = null;
   }
+
+  // Everything here is the signed-in buyer's: another buyer, or none, starts
+  // empty in the same tab.
+  const auth = useAuthStore();
+  watch(
+    () => auth.user?.userId ?? null,
+    (now, before) => {
+      if (now !== before) reset();
+    },
+  );
 
   return {
     quotes,
@@ -234,6 +262,8 @@ export const useQuotesStore = defineStore('quotes', () => {
     isActionLoading,
     isSaving,
     error,
+    lastAdd,
+    forgetAdd,
     pendingQuotes,
     pendingCount,
     fetchQuotes,

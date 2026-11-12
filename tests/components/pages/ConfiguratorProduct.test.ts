@@ -29,6 +29,9 @@ import {
   makeValidConfiguration,
 } from '../../fixtures/configurator';
 import { useCartStore } from '../../../app/stores/cart';
+import { useAuthStore } from '../../../app/stores/auth';
+import { useQuotesStore } from '../../../app/stores/quotes';
+import { internalFetch } from '../../../app/utils/internal-fetch';
 import { CONFIGURATION_TAB_ID } from '../../../app/utils/product-tabs';
 import type { BlockingItem } from '../../../app/utils/configurator-panel';
 
@@ -78,6 +81,10 @@ const COMMITTED: CommittedConfiguration = {
   ],
 };
 
+vi.mock('../../../app/utils/internal-fetch', () => ({
+  internalFetch: vi.fn(),
+}));
+
 // The composable is built inside the factory, which cannot reach this file's
 // scope; the test reaches it back by calling the mocked composable, which
 // returns the one object every mount shares.
@@ -116,6 +123,7 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
     }),
     retryAdd: vi.fn(async () => {}),
     release: vi.fn(async () => {}),
+    addToQuote: vi.fn(async (): Promise<unknown> => null),
     /** What the page passed in, so its add can be called directly. */
     options: null as unknown,
   };
@@ -291,6 +299,7 @@ interface MockSession {
   applyChanges: Mock;
   commit: Mock;
   retryAdd: Mock;
+  addToQuote: Mock;
   release: Mock;
   options: {
     addLine: (
@@ -321,6 +330,14 @@ const router = (
   }
 ).useRouter();
 const route = router.currentRoute;
+
+/** How the quote menu sends, as the page handed it. */
+const quoteMenu: {
+  send:
+    | ((target: { quoteId: string } | { name: string }) => Promise<unknown>)
+    | null;
+  scope?: string;
+} = { send: null };
 
 /** What the status stub hands the page when its missing item is clicked. */
 const goToTarget = ref<BlockingItem | null>(null);
@@ -397,6 +414,7 @@ const stubs = {
         :aria-disabled="String(!canCommit)" @click="$emit('submit')"></button>
       <button data-testid="action-revert" @click="$emit('revert')"></button>
       <button data-testid="action-cancel" @click="$emit('cancel')"></button>
+      <slot name="quote" />
     </div>`,
     props: [
       'canCommit',
@@ -408,6 +426,15 @@ const stubs = {
       'stockBlock',
     ],
     emits: ['submit', 'revert', 'cancel'],
+  },
+  ProductAddToQuote: {
+    template: `<div data-testid="add-to-quote"
+      :data-disabled="String(!!disabled)" />`,
+    props: ['send', 'disabled', 'scope'],
+    setup(props: Record<string, unknown>) {
+      quoteMenu.send = props.send as typeof quoteMenu.send;
+      quoteMenu.scope = props.scope as string;
+    },
   },
   ConfiguratorAddRetry: {
     template: `<div data-testid="add-retry" :data-message="message ?? ''"
@@ -504,6 +531,7 @@ beforeEach(() => {
     'commit',
     'retryAdd',
     'release',
+    'addToQuote',
   ] as const) {
     session[verb].mockClear();
   }
@@ -4116,5 +4144,316 @@ describe('ConfiguratorProduct editing a quotation draft line', () => {
       expect(face(wrapper).exists()).toBe(false);
       expect(wrapper.find('[data-testid="panel"]').exists()).toBe(true);
     });
+  });
+});
+
+describe('ConfiguratorProduct adding to a quote request', () => {
+  const SKU = 5001;
+  const QUOTE = { id: 'draft-1', name: 'Etapp 2' };
+
+  async function pageWith(
+    configuration: Configuration,
+    product: DetailProduct = makeProduct(),
+  ) {
+    const wrapper = mountPage(product);
+    activeWith(configuration);
+    await nextTick();
+    return wrapper;
+  }
+
+  const menu = (wrapper: ReturnType<typeof mountPage>) =>
+    wrapper.find('[data-testid="add-to-quote"]');
+
+  beforeEach(() => {
+    quoteMenu.send = null;
+  });
+
+  it('offers the quote menu under the add to cart', async () => {
+    const wrapper = await pageWith(makeValidConfiguration());
+
+    expect(
+      wrapper
+        .find('[data-testid="action"]')
+        .find('[data-testid="add-to-quote"]')
+        .exists(),
+    ).toBe(true);
+    expect(menu(wrapper).attributes('data-disabled')).toBe('false');
+  });
+
+  it('cannot be used until the configuration is valid', async () => {
+    const wrapper = await pageWith(makeInvalidConfiguration());
+
+    expect(menu(wrapper).attributes('data-disabled')).toBe('true');
+  });
+
+  it('cannot be used while a request is under way', async () => {
+    const wrapper = await pageWith(makeValidConfiguration());
+    session.busy.value = true;
+    await nextTick();
+
+    expect(menu(wrapper).attributes('data-disabled')).toBe('true');
+  });
+
+  it('is not stopped by the stock that stops the add to cart', async () => {
+    const wrapper = await pageWith(
+      makeValidConfiguration(),
+      makeProduct({
+        skus: [
+          {
+            skuId: SKU,
+            stock: { inStock: 0, oversellable: 0, totalStock: 0, static: 0 },
+          },
+        ],
+      }),
+    );
+
+    expect(
+      wrapper.find('[data-testid="action"]').attributes('data-stock-block'),
+    ).toBe('out_of_stock');
+    expect(menu(wrapper).attributes('data-disabled')).toBe('false');
+  });
+
+  it("sends the session with the product's SKU and answers the draft", async () => {
+    session.addToQuote.mockResolvedValue(QUOTE);
+    await pageWith(makeValidConfiguration());
+
+    await expect(quoteMenu.send!({ quoteId: 'draft-1' })).resolves.toEqual(
+      QUOTE,
+    );
+    expect(session.addToQuote).toHaveBeenCalledWith(
+      { quoteId: 'draft-1' },
+      SKU,
+    );
+    expect(cart.addConfiguredItem).not.toHaveBeenCalled();
+  });
+
+  it('fails the menu when the session could not add it', async () => {
+    session.addToQuote.mockResolvedValue(null);
+    await pageWith(makeValidConfiguration());
+
+    await expect(quoteMenu.send!({ name: 'Etapp 2' })).rejects.toThrow();
+  });
+});
+
+describe('ConfiguratorProduct after an add to a quote request', () => {
+  const QUOTE = { id: 'draft-1', name: 'Etapp 2' };
+
+  /** The real menu, over stubbed menu parts: what the buyer sees after an add. */
+  async function pageWithRealMenu() {
+    const { default: ProductAddToQuote } =
+      await import('../../../app/components/product/ProductAddToQuote.vue');
+    useAuthStore().user = { userId: '1', username: 'buyer@example.com' };
+    const wrapper = mountComponent(ConfiguratorProduct, {
+      props: { product: makeProduct(), alias: 'arbetsbord-pro' },
+      global: {
+        stubs: {
+          ...stubs,
+          ProductAddToQuote,
+          DropdownMenu: {
+            props: ['open'],
+            emits: ['update:open'],
+            template:
+              '<div><div data-testid="menu-open" @click="$emit(\'update:open\', true)" /><slot /></div>',
+          },
+          DropdownMenuTrigger: { template: '<div><slot /></div>' },
+          DropdownMenuContent: { template: '<div><slot /></div>' },
+          DropdownMenuLabel: { template: '<p><slot /></p>' },
+          DropdownMenuSeparator: { template: '<hr />' },
+          DropdownMenuItem: {
+            emits: ['select'],
+            template:
+              '<button v-bind="$attrs" @click="$emit(\'select\', $event)"><slot /></button>',
+          },
+          PortalDialogRenameQuoteDraft: true,
+        },
+      },
+    });
+    activeWith(makeValidConfiguration());
+    await nextTick();
+    return wrapper;
+  }
+
+  // The session goes through loading while it restores the choices after the
+  // add, which takes the action, and the menu in it, off the page meanwhile.
+  function addRestoresTheSession() {
+    session.addToQuote.mockImplementation(async () => {
+      session.status.value = 'closed';
+      await nextTick();
+      await nextTick();
+      session.status.value = 'active';
+      return QUOTE;
+    });
+  }
+
+  it('shows where the add landed, with the way to the draft, once the new session is ready', async () => {
+    vi.mocked(internalFetch).mockResolvedValue({
+      quotes: [
+        {
+          id: 'draft-1',
+          name: 'Etapp 2',
+          status: 'request_draft',
+          updatedAt: '2026-11-12T10:00:00Z',
+          itemCount: 1,
+        },
+      ],
+      total: 1,
+    });
+    addRestoresTheSession();
+    const wrapper = await pageWithRealMenu();
+
+    await wrapper.find('[data-testid="menu-open"]').trigger('click');
+    await flushPromises();
+    await wrapper.find('[data-testid="add-to-quote-draft"]').trigger('click');
+    await flushPromises();
+
+    const notice = wrapper.find('[data-testid="add-to-quote-confirmation"]');
+    expect(notice.exists()).toBe(true);
+    expect(notice.text()).toContain('product.quote_menu.added');
+    expect(notice.text()).toContain('Etapp 2');
+    expect(wrapper.find('[data-testid="add-to-quote-view"]').exists()).toBe(
+      true,
+    );
+  });
+
+  it('says a new draft was made, once the new session is ready', async () => {
+    vi.mocked(internalFetch).mockResolvedValue({ quotes: [], total: 0 });
+    addRestoresTheSession();
+    const wrapper = await pageWithRealMenu();
+
+    await wrapper.find('[data-testid="menu-open"]').trigger('click');
+    await flushPromises();
+    await wrapper.find('[data-testid="add-to-quote-new"]').trigger('click');
+    wrapper
+      .findComponent({ name: 'PortalDialogRenameQuoteDraft' })
+      .vm.$emit('submit', 'Etapp 2');
+    await flushPromises();
+
+    expect(session.addToQuote).toHaveBeenCalledWith({ name: 'Etapp 2' }, 5001);
+    expect(
+      wrapper.find('[data-testid="add-to-quote-confirmation"]').text(),
+    ).toContain('product.quote_menu.added_new');
+  });
+
+  it('says the add failed, once the new session is ready', async () => {
+    vi.mocked(internalFetch).mockResolvedValue({
+      quotes: [
+        {
+          id: 'draft-1',
+          name: 'Etapp 2',
+          status: 'request_draft',
+          updatedAt: '2026-11-12T10:00:00Z',
+          itemCount: 1,
+        },
+      ],
+      total: 1,
+    });
+    session.addToQuote.mockImplementation(async () => {
+      session.status.value = 'closed';
+      await nextTick();
+      session.status.value = 'active';
+      return null;
+    });
+    const wrapper = await pageWithRealMenu();
+
+    await wrapper.find('[data-testid="menu-open"]').trigger('click');
+    await flushPromises();
+    await wrapper.find('[data-testid="add-to-quote-draft"]').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="add-to-quote-error"]').exists()).toBe(
+      true,
+    );
+    expect(
+      wrapper.find('[data-testid="add-to-quote-confirmation"]').exists(),
+    ).toBe(false);
+  });
+
+  it('keeps the form on screen through the add and shows the notice with the choices kept', async () => {
+    vi.mocked(internalFetch).mockResolvedValue({
+      quotes: [
+        {
+          id: 'draft-1',
+          name: 'Etapp 2',
+          status: 'request_draft',
+          updatedAt: '2026-11-12T10:00:00Z',
+          itemCount: 1,
+        },
+      ],
+      total: 1,
+    });
+    const wrapper = await pageWithRealMenu();
+    const form = () => wrapper.find('[data-testid="action"]').exists();
+    const during: boolean[] = [];
+    // The session stays active and busy, and swaps the document once the new
+    // session holds the same choices.
+    session.addToQuote.mockImplementation(async () => {
+      session.busy.value = true;
+      await nextTick();
+      during.push(form());
+      session.configuration.value = makeValidConfiguration({
+        configurationId: 'restored-1',
+      });
+      session.busy.value = false;
+      await nextTick();
+      during.push(form());
+      return QUOTE;
+    });
+
+    await wrapper.find('[data-testid="menu-open"]').trigger('click');
+    await flushPromises();
+    await wrapper.find('[data-testid="add-to-quote-draft"]').trigger('click');
+    await flushPromises();
+
+    expect(during).toEqual([true, true]);
+    expect(
+      wrapper.find('[data-testid="add-to-quote-confirmation"]').text(),
+    ).toContain('product.quote_menu.added');
+  });
+
+  it('starts without a notice on a page opened afresh', async () => {
+    const wrapper = await pageWithRealMenu();
+
+    expect(
+      wrapper.find('[data-testid="add-to-quote-confirmation"]').exists(),
+    ).toBe(false);
+  });
+});
+
+describe('ConfiguratorProduct, the notice belongs to the product it was added from', () => {
+  const added = (scope: string) => ({
+    scope,
+    outcome: {
+      kind: 'added' as const,
+      id: 'draft-1',
+      name: 'Etapp 2',
+      created: false,
+    },
+  });
+
+  it("is not on another product's page", async () => {
+    const a = mountPage(makeProduct({ productId: 1101 }));
+    activeWith(makeValidConfiguration());
+    await nextTick();
+    const scopeA = quoteMenu.scope!;
+    useQuotesStore().lastAdd = added(scopeA);
+
+    a.unmount();
+    mountPage(makeProduct({ productId: 1102 }));
+    await nextTick();
+
+    expect(quoteMenu.scope).toBeDefined();
+    expect(quoteMenu.scope).not.toBe(scopeA);
+    expect(useQuotesStore().lastAdd).toBeNull();
+  });
+
+  it("keeps another page's notice when this one goes", async () => {
+    const page = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+    useQuotesStore().lastAdd = added('another-page');
+
+    page.unmount();
+
+    expect(useQuotesStore().lastAdd).toEqual(added('another-page'));
   });
 });

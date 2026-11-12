@@ -257,7 +257,18 @@
     "documents": "Documents",
     "related": "Related products",
     "add_to_cart": "Add to Cart",
-    "add_to_quote": "Add to quote",
+    "add_to_quote": "Add to quote request",
+    "quote_menu": {
+      "label": "Add to draft",
+      "items": "{count} item | {count} items",
+      "no_drafts": "You have no drafts yet.",
+      "new_request": "New quote request",
+      "added": "Added to",
+      "added_new": "New draft created:",
+      "view": "View draft",
+      "failed": "It could not be added to the draft. Please try again.",
+      "load_failed": "Your drafts could not be loaded."
+    },
     "download": "Download type sheets",
     "download_data_sheet": "Download as data sheet",
     "printed_on": "Printed",
@@ -1063,7 +1074,10 @@
         "label": "Name",
         "placeholder": "E.g. Phase 2 – Linden block",
         "submit": "Save",
-        "required": "Enter a name."
+        "required": "Enter a name.",
+        "new_title": "New quote request",
+        "new_description": "Give the request a name so it is easy to find.",
+        "new_submit": "Create draft"
       }
     },
     "favorites": {

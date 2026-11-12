@@ -257,7 +257,18 @@
     "documents": "Dokumenter",
     "related": "Relaterede produkter",
     "add_to_cart": "Læg i kurv",
-    "add_to_quote": "Føj til tilbud",
+    "add_to_quote": "Føj til tilbudsforespørgsel",
+    "quote_menu": {
+      "label": "Læg i kladde",
+      "items": "{count} vare | {count} varer",
+      "no_drafts": "Du har ingen kladder endnu.",
+      "new_request": "Ny tilbudsforespørgsel",
+      "added": "Tilføjet til",
+      "added_new": "Ny kladde oprettet:",
+      "view": "Vis kladde",
+      "failed": "Det kunne ikke føjes til kladden. Prøv igen.",
+      "load_failed": "Dine kladder kunne ikke hentes."
+    },
     "download": "Hent datablade",
     "download_data_sheet": "Hent som datablad",
     "printed_on": "Udskrevet",
@@ -1063,7 +1074,10 @@
         "label": "Navn",
         "placeholder": "F.eks. Etape 2 – Lindekvarteret",
         "submit": "Gem",
-        "required": "Angiv et navn."
+        "required": "Angiv et navn.",
+        "new_title": "Ny tilbudsforespørgsel",
+        "new_description": "Giv forespørgslen et navn, så du let kan finde den.",
+        "new_submit": "Opret kladde"
       }
     },
     "favorites": {

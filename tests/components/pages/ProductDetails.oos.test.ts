@@ -33,7 +33,12 @@ async function mountProductDetails(
 
 const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
-  useFeatureAccess: () => ({ canAccess: mockCanAccess }),
+  useFeatureAccess: () => ({
+    canAccess: mockCanAccess,
+    // The quote menu under the cart row asks this, from the same flags.
+    canRequestQuotes: () =>
+      mockCanAccess('quotes') && mockCanAccess('quoteRequests'),
+  }),
 }));
 
 let mockCartValue: { items: { skuId: number; quantity: number }[] } = {
