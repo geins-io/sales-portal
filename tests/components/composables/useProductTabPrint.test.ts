@@ -1,5 +1,4 @@
-import { describe, it, expect, afterEach, beforeEach } from 'vitest';
-import { enableAutoUnmount } from '@vue/test-utils';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { defineComponent } from 'vue';
 import { mountComponent } from '../../utils/component';
 import { useProductTabPrint } from '../../../app/composables/useProductTabPrint';
@@ -29,7 +28,6 @@ function hidden(testid: string): boolean {
 
 // Every mount here registers a window listener, so a wrapper left mounted keeps
 // unhiding panels in later tests.
-enableAutoUnmount(afterEach);
 
 beforeEach(() => {
   document.body.innerHTML = '';

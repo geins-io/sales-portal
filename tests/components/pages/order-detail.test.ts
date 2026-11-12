@@ -8,7 +8,7 @@ import {
   assert,
 } from 'vitest';
 import type { AuthUser } from '@geins/types';
-import { enableAutoUnmount, flushPromises } from '@vue/test-utils';
+import { flushPromises } from '@vue/test-utils';
 import { ref, unref } from 'vue';
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { shallowMountComponent } from '../../utils/component';
@@ -20,7 +20,6 @@ import { mockIsCatalogMode, mockShowIncVat } from '../../setup-components';
 
 // The route's query is reactive here, so a page left mounted would react to
 // the next test's reset: its 404s and polls would count against that test.
-enableAutoUnmount(afterEach);
 
 // Escapes the tier-wide mock, which answers true for every key; see
 // tests/setup-components.ts. The real chain then runs over the fixture below.

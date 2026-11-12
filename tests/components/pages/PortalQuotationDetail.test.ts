@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   defineComponent,
   h,
@@ -7,7 +7,7 @@ import {
   onErrorCaptured,
   type VNode,
 } from 'vue';
-import { mount, flushPromises, enableAutoUnmount } from '@vue/test-utils';
+import { mount, flushPromises } from '@vue/test-utils';
 import { Hash, MessageSquare, Tag, Truck } from 'lucide-vue-next';
 import { defaultMountOptions } from '../../utils/component';
 import type { Quote, QuoteStatus } from '../../../shared/types/quote';
@@ -252,10 +252,6 @@ const defaultStubs = {
 
 // Mount the detail page wrapped in <Suspense>. Captures any error thrown
 // during async setup via onErrorCaptured so callers can assert the 404 throw.
-// Every test sets the one mocked quote: a page left mounted would render
-// again for each test after it.
-enableAutoUnmount(afterEach);
-
 async function mountDetailPage() {
   const captured: Array<Error & { statusCode?: number; fatal?: boolean }> = [];
   const Wrapper = defineComponent({
