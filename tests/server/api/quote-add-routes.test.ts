@@ -22,6 +22,8 @@ const mockClearCartCookie = vi.fn();
 vi.stubGlobal('getCartCookie', mockGetCartCookie);
 vi.stubGlobal('setCartCookie', mockSetCartCookie);
 vi.stubGlobal('clearCartCookie', mockClearCartCookie);
+// The shared quote request check reads the session itself.
+vi.stubGlobal('getSessionToken', vi.fn().mockReturnValue('auth-token'));
 
 const mockRequireAuth = vi.fn();
 vi.stubGlobal('requireAuth', mockRequireAuth);

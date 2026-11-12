@@ -16,7 +16,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
-import { useAuthStore } from '~/stores/auth';
 import { useQuotesStore, type QuoteAddOutcome } from '~/stores/quotes';
 import { internalFetch } from '~/utils/internal-fetch';
 
@@ -36,15 +35,10 @@ const props = defineProps<{
 const emit = defineEmits<{ choose: [] }>();
 
 const { t } = useI18n();
-const auth = useAuthStore();
 const quotes = useQuotesStore();
-const { canAccess } = useFeatureAccess();
+const { canRequestQuotes } = useFeatureAccess();
 
-// The routes need a session even where a tenant opens quotes to all.
-const show = computed(
-  () =>
-    auth.isAuthenticated && canAccess('quotes') && canAccess('quoteRequests'),
-);
+const show = computed(() => canRequestQuotes());
 
 const menuOpen = ref(false);
 const drafts = ref<QuoteListItem[]>([]);

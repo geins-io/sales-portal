@@ -1,6 +1,6 @@
 import { createDraftWith, placePlainLine } from '../../services/quotes';
 import { NewQuoteDraftSchema } from '../../schemas/api-input';
-import { assertFeatureAccess } from '../../utils/feature-access';
+import { assertQuoteRequestAccess } from '../../utils/feature-access';
 import { quoteDraftRateLimiter, getClientIp } from '../../utils/rate-limiter';
 
 /**
@@ -10,9 +10,7 @@ import { quoteDraftRateLimiter, getClientIp } from '../../utils/rate-limiter';
 export default defineEventHandler(async (event) => {
   await requireAuth(event);
 
-  const signedIn = { authenticated: true };
-  await assertFeatureAccess(event, 'quotes', signedIn);
-  await assertFeatureAccess(event, 'quoteRequests', signedIn);
+  await assertQuoteRequestAccess(event);
 
   const { allowed } = await quoteDraftRateLimiter.check(getClientIp(event));
   if (!allowed) {

@@ -30,12 +30,13 @@ vi.mock('../../../../../server/utils/rate-limiter', () => ({
   getClientIp: () => '203.0.113.7',
 }));
 
-// The tenant's quote switches; the real rule over them is the quote routes'.
+// The tenant's quote switches; the shared check over them has its own tests.
 const quoteSwitches = { quotes: true, quoteRequests: true };
-const assertFeatureAccess = vi.fn();
+const assertQuoteRequestAccess = vi.fn();
 vi.mock('../../../../../server/utils/feature-access', async (original) => ({
   ...(await original<object>()),
-  assertFeatureAccess: (...args: unknown[]) => assertFeatureAccess(...args),
+  assertQuoteRequestAccess: (...args: unknown[]) =>
+    assertQuoteRequestAccess(...args),
 }));
 
 const SESSION_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301';
@@ -63,13 +64,11 @@ describe('POST /api/configurations/:id/quote-add', () => {
     resetHarness();
     quoteSwitches.quotes = true;
     quoteSwitches.quoteRequests = true;
-    assertFeatureAccess.mockImplementation(
-      async (_event: unknown, name: 'quotes' | 'quoteRequests') => {
-        if (!quoteSwitches[name]) {
-          throw Object.assign(new Error('Access denied'), { statusCode: 403 });
-        }
-      },
-    );
+    assertQuoteRequestAccess.mockImplementation(async () => {
+      if (!quoteSwitches.quotes || !quoteSwitches.quoteRequests) {
+        throw Object.assign(new Error('Access denied'), { statusCode: 403 });
+      }
+    });
     rateLimitCheck.mockReset().mockResolvedValue({ allowed: true });
     backend.commit.mockResolvedValue(COMMITTED);
     backend.addToCart.mockResolvedValue({ itemId: 'item-1' });
@@ -202,17 +201,12 @@ describe('POST /api/configurations/:id/quote-add', () => {
     },
   );
 
-  it('asks both switches as the signed-in buyer', async () => {
+  it('asks the shared quote request check', async () => {
     const event = eventWith({ skuId: 1534, quoteId: QUOTE_ID });
 
     await handler(event);
 
-    expect(assertFeatureAccess).toHaveBeenCalledWith(event, 'quotes', {
-      authenticated: true,
-    });
-    expect(assertFeatureAccess).toHaveBeenCalledWith(event, 'quoteRequests', {
-      authenticated: true,
-    });
+    expect(assertQuoteRequestAccess).toHaveBeenCalledWith(event);
   });
 
   it('answers 429 when drafts change too often, reading nothing', async () => {

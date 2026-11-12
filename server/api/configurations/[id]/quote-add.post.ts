@@ -5,7 +5,7 @@ import {
   configurationIdFrom,
   requireConfigurator,
 } from '../../../utils/configurator-route';
-import { assertFeatureAccess } from '../../../utils/feature-access';
+import { assertQuoteRequestAccess } from '../../../utils/feature-access';
 import {
   getClientIp,
   quoteDraftRateLimiter,
@@ -20,9 +20,7 @@ import {
 export default defineEventHandler(async (event) => {
   const { backend, ctx } = await requireConfigurator(event);
 
-  const signedIn = { authenticated: true };
-  await assertFeatureAccess(event, 'quotes', signedIn);
-  await assertFeatureAccess(event, 'quoteRequests', signedIn);
+  await assertQuoteRequestAccess(event);
 
   const { allowed } = await quoteDraftRateLimiter.check(getClientIp(event));
   if (!allowed) {
