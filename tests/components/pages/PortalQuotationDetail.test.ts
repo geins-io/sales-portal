@@ -42,11 +42,15 @@ vi.mock('../../../app/composables/usePriceVisibility', async () => {
   return { usePriceVisibility: () => ({ showPrice: ref(false) }) };
 });
 
-const { mockCanAccess } = vi.hoisted(() => ({
+const { mockCanAccess, mockCanRequestQuotes } = vi.hoisted(() => ({
   mockCanAccess: vi.fn((_name: string) => true),
+  mockCanRequestQuotes: vi.fn(() => true),
 }));
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
-  useFeatureAccess: () => ({ canAccess: mockCanAccess }),
+  useFeatureAccess: () => ({
+    canAccess: mockCanAccess,
+    canRequestQuotes: mockCanRequestQuotes,
+  }),
 }));
 
 // Hoist reactive mock state so it's available inside vi.mock factories
@@ -331,6 +335,8 @@ describe('PortalQuotationDetail', () => {
     mockShowIncVat.value = true;
     mockCanAccess.mockReset();
     mockCanAccess.mockReturnValue(true);
+    mockCanRequestQuotes.mockReset();
+    mockCanRequestQuotes.mockReturnValue(true);
   });
 
   describe('SSR 404 handling', () => {
@@ -787,6 +793,26 @@ describe('PortalQuotationDetail', () => {
           .find('[data-testid="quote-withdraw"]')
           .exists(),
       ).toBe(true);
+    });
+
+    // The setting covers making and changing a request, not answering one.
+    describe('when the buyer may not work on quote requests', () => {
+      beforeEach(() => mockCanRequestQuotes.mockReturnValue(false));
+
+      it('still offers withdraw on a sent request', async () => {
+        const wrapper = await mountWith(makeQuote({ status: 'requested' }));
+
+        expect(wrapper.find('[data-testid="quote-withdraw"]').exists()).toBe(
+          true,
+        );
+      });
+
+      it('still offers decline and accept on a pending quotation', async () => {
+        const wrapper = await mountWith(makeQuote({ status: 'pending' }));
+
+        expect(wrapper.find('[data-testid="decline-btn"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="accept-btn"]').exists()).toBe(true);
+      });
     });
 
     it('offers only "withdraw" on a sent request', async () => {

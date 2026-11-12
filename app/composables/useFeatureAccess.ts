@@ -22,8 +22,20 @@ export function useFeatureAccess() {
     return canAccessFeature(features.value?.[featureName], user());
   }
 
+  /**
+   * Whether this buyer may make, change or send a quote request:
+   * signed in, with `quotes` and `quoteRequests` both open to them. The server
+   * asks the same with `assertQuoteRequestAccess`.
+   */
+  function canRequestQuotes(): boolean {
+    return (
+      auth.isAuthenticated && canAccess('quotes') && canAccess('quoteRequests')
+    );
+  }
+
   return {
     canAccess,
+    canRequestQuotes,
     canConfigure: () => canConfigure(user()),
     pageTypeOf: (product: { configurable?: boolean } | null | undefined) =>
       resolveProductPageType(product, user()),

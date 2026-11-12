@@ -30,6 +30,7 @@ const {
   mockSendQuoteRequest,
   mockIsActionLoading,
   mockStoreError,
+  mockCanRequestQuotes,
 } = vi.hoisted(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { ref } = require('vue') as typeof import('vue');
@@ -45,8 +46,16 @@ const {
     ),
     mockIsActionLoading: ref(false),
     mockStoreError: ref<string | null>(null),
+    mockCanRequestQuotes: ref(true),
   };
 });
+
+vi.mock('../../../app/composables/useFeatureAccess', () => ({
+  useFeatureAccess: () => ({
+    canAccess: () => true,
+    canRequestQuotes: () => mockCanRequestQuotes.value,
+  }),
+}));
 
 vi.stubGlobal('definePageMeta', vi.fn());
 vi.stubGlobal('navigateTo', mockNavigateTo);
@@ -202,6 +211,7 @@ describe('PortalQuotationRequest', () => {
     mockSendQuoteRequest.mockReset();
     mockSendQuoteRequest.mockResolvedValue(null);
     mockShowIncVat.value = false;
+    mockCanRequestQuotes.value = true;
   });
 
   it('reads the quotation and the company with dedupe: defer', async () => {
@@ -223,6 +233,23 @@ describe('PortalQuotationRequest', () => {
     const { captured } = await mountPage();
 
     expect(captured[0]).toMatchObject({ statusCode: 404, fatal: true });
+  });
+
+  // Nuxt empties a fetch's data when its key goes, e.g. on leaving the page.
+  it('renders nothing, and does not throw, when the quotation data goes away', async () => {
+    mockQuoteData.value = { quote: draft() };
+    const { wrapper, captured } = await mountPage();
+    expect(wrapper.find('[data-testid="quote-request-page"]').exists()).toBe(
+      true,
+    );
+
+    mockQuoteData.value = null;
+    await flushPromises();
+
+    expect(captured).toEqual([]);
+    expect(wrapper.find('[data-testid="quote-request-page"]').exists()).toBe(
+      false,
+    );
   });
 
   describe('who gets in', () => {
@@ -252,6 +279,21 @@ describe('PortalQuotationRequest', () => {
       expect(wrapper.find('[data-testid="quote-request-page"]').exists()).toBe(
         false,
       );
+    });
+
+    it('sends a request draft to the quotation view when the buyer may not work on quote requests', async () => {
+      mockCanRequestQuotes.value = false;
+
+      const wrapper = await mountWith(draft());
+
+      expect(mockNavigateTo).toHaveBeenCalledWith(VIEW_PATH, { replace: true });
+      expect(wrapper.find('[data-testid="quote-request-page"]').exists()).toBe(
+        false,
+      );
+      const urls = mockUseFetch.mock.calls.map(([urlOrFn]) =>
+        typeof urlOrFn === 'function' ? urlOrFn() : urlOrFn,
+      );
+      expect(urls).toEqual(['/api/quotes/q-001']);
     });
 
     it('does not read the company for a quotation it sends away', async () => {

@@ -44,16 +44,21 @@ if (error.value || !data.value?.quote) {
   });
 }
 
-const quote = computed(() => data.value!.quote);
+// Null once Nuxt empties the fetch, as on leaving the page.
+const quote = computed<Quote | null>(() => data.value?.quote ?? null);
 
-// A sent request is locked; the view shows it.
-const isDraft = computed(() => quote.value.status === 'request_draft');
-if (!isDraft.value) {
+// A sent request is locked, and without quote requests a draft is only read:
+// the view shows either.
+const { canRequestQuotes } = useFeatureAccess();
+const sendable = computed(
+  () => quote.value?.status === 'request_draft' && canRequestQuotes(),
+);
+if (!sendable.value) {
   await navigateTo(quotationPath.value, { replace: true });
 }
 
 const company = ref<Company | null>(null);
-if (isDraft.value) {
+if (sendable.value) {
   const { data: companyData } = await useFetch<{ company: Company }>(
     '/api/portal/company',
     { dedupe: 'defer' },
@@ -64,13 +69,15 @@ if (isDraft.value) {
 store.error = null;
 
 const title = computed(() =>
-  t('portal.quotations.request.heading', {
-    name: quote.value.name ?? `#${quote.value.quoteNumber}`,
-  }),
+  quote.value
+    ? t('portal.quotations.request.heading', {
+        name: quote.value.name ?? `#${quote.value.quoteNumber}`,
+      })
+    : '',
 );
 useHead({ title });
 
-const hasLines = computed(() => quote.value.lineItems.length > 0);
+const hasLines = computed(() => !!quote.value?.lineItems.length);
 const amounts = computed(() =>
   quoteAmounts(quote.value, showIncVat.value, formatLocale.value),
 );
@@ -92,8 +99,9 @@ const sending = computed(() => store.isActionLoading);
 
 async function send() {
   submitted.value = true;
-  if (dateInPast.value || !hasLines.value || sending.value) return;
-  const sent = await store.sendQuoteRequest(quote.value.id, {
+  const id = quote.value?.id;
+  if (!id || dateInPast.value || !hasLines.value || sending.value) return;
+  const sent = await store.sendQuoteRequest(id, {
     desiredDeliveryDate: form.desiredDeliveryDate || undefined,
     customerOrderNumber: form.reference.trim() || undefined,
     goodsLabel: form.goodsLabel.trim() || undefined,
@@ -106,7 +114,7 @@ async function send() {
 <template>
   <div class="min-h-full bg-neutral-50">
     <div
-      v-if="isDraft"
+      v-if="sendable && quote"
       class="mx-auto max-w-7xl px-4 py-8 lg:px-6"
       data-testid="quote-request-page"
     >

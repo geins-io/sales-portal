@@ -47,6 +47,14 @@ vi.mock('../../../app/stores/quotes', () => ({
 }));
 vi.stubGlobal('definePageMeta', vi.fn());
 
+const mockCanRequestQuotes = ref(true);
+vi.mock('../../../app/composables/useFeatureAccess', () => ({
+  useFeatureAccess: () => ({
+    canAccess: () => true,
+    canRequestQuotes: () => mockCanRequestQuotes.value,
+  }),
+}));
+
 // Import AFTER mocks are set up
 const { default: PortalQuotations } =
   await import('../../../app/pages/portal/quotations/index.vue');
@@ -121,6 +129,7 @@ describe('PortalQuotations page', () => {
     mockUpdateDraft.mockReset();
     mockDeleteDraft.mockReset();
     mockStoreError.value = null;
+    mockCanRequestQuotes.value = true;
   });
 
   describe('page structure', () => {
@@ -1115,6 +1124,55 @@ describe('PortalQuotations page', () => {
       expect(otherRow!.find('[data-testid="quotation-more"]').exists()).toBe(
         false,
       );
+    });
+
+    // The tenant's quoteRequests setting is off: a draft is opened and read.
+    describe('when the buyer may not work on quote requests', () => {
+      beforeEach(() => {
+        mockCanRequestQuotes.value = false;
+      });
+
+      it('views a draft row like any other, with no draft actions', () => {
+        const wrapper = mountWith([draft()]);
+        const row = wrapper.find('table [data-testid="quotation-row"]');
+
+        expect(
+          row.find('[data-testid="quotation-view-link"]').attributes('href'),
+        ).toBe('/se/en/portal/quotations/q-d1');
+        for (const id of [
+          'quotation-continue',
+          'quotation-more',
+          'quotation-rename',
+          'quotation-delete',
+        ]) {
+          expect(row.find(`[data-testid="${id}"]`).exists(), id).toBe(false);
+        }
+      });
+
+      it('gives the mobile draft card no draft actions', () => {
+        const wrapper = mountWith([draft()]);
+        const card = wrapper.find('[data-testid="quotation-card"]');
+
+        expect(card.find('a').attributes('href')).toBe(
+          '/se/en/portal/quotations/q-d1',
+        );
+        for (const id of [
+          'quotation-card-continue',
+          'quotation-card-rename',
+          'quotation-card-delete',
+        ]) {
+          expect(card.find(`[data-testid="${id}"]`).exists(), id).toBe(false);
+        }
+      });
+
+      it('still lists the draft and counts it', () => {
+        const wrapper = mountWith([
+          draft(),
+          makeQuote({ id: 'q-p1', status: 'pending' }),
+        ]);
+
+        expect(counts(wrapper).drafts).toBe('1');
+      });
     });
 
     it('names the draft in the menu button', () => {

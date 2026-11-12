@@ -122,4 +122,42 @@ describe('useFeatureAccess', () => {
       expect(pageTypeOf({ configurable: true })).toBe('configurable');
     });
   });
+
+  describe('canRequestQuotes', () => {
+    const ON = {
+      quotes: { enabled: true, access: 'authenticated' },
+      quoteRequests: { enabled: true },
+    };
+
+    beforeEach(() => {
+      mockAuthStore.isAuthenticated = true;
+    });
+
+    it('lets a signed-in buyer work on requests when quotes and quoteRequests are enabled', () => {
+      mockFeatures.value = ON;
+      expect(useFeatureAccess().canRequestQuotes()).toBe(true);
+    });
+
+    it.each([
+      [
+        'quoteRequests is disabled',
+        { ...ON, quoteRequests: { enabled: false } },
+      ],
+      ['quotes is disabled', { ...ON, quotes: { enabled: false } }],
+      ['no quoteRequests is stored', { quotes: ON.quotes }],
+      ['no tenant config yet', undefined],
+    ])('refuses when %s', (_case, features) => {
+      mockFeatures.value = features;
+      expect(useFeatureAccess().canRequestQuotes()).toBe(false);
+    });
+
+    it('refuses a signed-out visitor, whatever the switches', () => {
+      mockFeatures.value = {
+        quotes: { enabled: true },
+        quoteRequests: { enabled: true },
+      };
+      mockAuthStore.isAuthenticated = false;
+      expect(useFeatureAccess().canRequestQuotes()).toBe(false);
+    });
+  });
 });

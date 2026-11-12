@@ -93,7 +93,9 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
     quoteLine: ref<{ quoteId: string; lineId: string } | null>(null),
     source: ref<{ cartId: string; itemId: string } | null>(null),
     changed: ref(false),
-    editNotice: ref<'not_reopenable' | 'line_gone' | null>(null),
+    editNotice: ref<'not_reopenable' | 'line_gone' | 'not_editable' | null>(
+      null,
+    ),
     status: ref<ConfiguratorSessionStatus>('idle'),
     busy: ref(false),
     error: ref<ConfiguratorSessionError | null>(null),
@@ -101,6 +103,7 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
     edit: vi.fn(async () => {}),
     replay: vi.fn(async () => {}),
     editQuoteLine: vi.fn(async () => {}),
+    refuseQuoteLine: vi.fn(),
     retryQuoteSave: vi.fn(async () => {}),
     restore: vi.fn(async () => {}),
     reopenLine: vi.fn(async () => {}),
@@ -238,6 +241,24 @@ const { schemaOrgComposablePath } = vi.hoisted(() => {
 });
 vi.mock(schemaOrgComposablePath, () => ({ useSchemaOrg: vi.fn() }));
 
+const { mockCanRequestQuotes } = vi.hoisted(() => ({
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  mockCanRequestQuotes: (require('vue') as typeof import('vue')).ref(true),
+}));
+vi.mock('../../../app/composables/useFeatureAccess', async () => {
+  const { resolveProductPageType } =
+    await import('../../../app/utils/product-page-type');
+  return {
+    useFeatureAccess: () => ({
+      canAccess: () => true,
+      canConfigure: () => true,
+      canRequestQuotes: () => mockCanRequestQuotes.value,
+      pageTypeOf: (product: { configurable?: boolean } | null | undefined) =>
+        resolveProductPageType(product, { authenticated: true }),
+    }),
+  };
+});
+
 vi.stubGlobal(
   'useRequestURL',
   () => new URL('https://example.test/se/sv/p/arbetsbord-pro'),
@@ -253,7 +274,7 @@ interface MockSession {
   quoteLine: Ref<{ quoteId: string; lineId: string } | null>;
   source: Ref<{ cartId: string; itemId: string } | null>;
   changed: Ref<boolean>;
-  editNotice: Ref<'not_reopenable' | 'line_gone' | null>;
+  editNotice: Ref<'not_reopenable' | 'line_gone' | 'not_editable' | null>;
   status: Ref<ConfiguratorSessionStatus>;
   busy: Ref<boolean>;
   error: Ref<ConfiguratorSessionError | null>;
@@ -261,6 +282,7 @@ interface MockSession {
   edit: Mock;
   replay: Mock;
   editQuoteLine: Mock;
+  refuseQuoteLine: Mock;
   retryQuoteSave: Mock;
   restore: Mock;
   reopenLine: Mock;
@@ -472,6 +494,7 @@ beforeEach(() => {
     'edit',
     'replay',
     'editQuoteLine',
+    'refuseQuoteLine',
     'retryQuoteSave',
     'restore',
     'reopenLine',
@@ -493,6 +516,7 @@ beforeEach(() => {
   cart.pendingQuantities.clear();
   cart.updatingItems.clear();
   route.value.query = {};
+  mockCanRequestQuotes.value = true;
   router.replace.mockClear();
   router.push.mockClear();
 
@@ -3719,6 +3743,45 @@ describe('ConfiguratorProduct editing a quotation draft line', () => {
         wrapper.find('[data-testid="configurator-not-replayed"]').exists(),
       ).toBe(false);
       expect(face(wrapper).exists()).toBe(false);
+    });
+
+    describe('when the buyer may not work on quote requests', () => {
+      beforeEach(() => {
+        mockCanRequestQuotes.value = false;
+      });
+
+      it('opens nothing and holds the line as not editable, so the face says so', async () => {
+        route.value.query = { quote: QUOTE_ID, quoteLine: 'line-1' };
+
+        const wrapper = mountPage();
+        await flushPromises();
+        expect(session.refuseQuoteLine).toHaveBeenCalledWith(LINE);
+        expect(session.editQuoteLine).not.toHaveBeenCalled();
+        expect(session.start).not.toHaveBeenCalled();
+
+        session.quoteLine.value = LINE;
+        session.editNotice.value = 'not_editable';
+        await nextTick();
+
+        expect(face(wrapper).text()).toContain(
+          'configurator.quote.not_editable',
+        );
+        expect(retry(wrapper).exists()).toBe(false);
+        expect(leave(wrapper).text()).toBe('configurator.quote.back');
+        expect(
+          wrapper.find('[data-testid="configurator-edit-notice"]').exists(),
+        ).toBe(false);
+        await leave(wrapper).trigger('click');
+        expect(router.push).toHaveBeenCalledWith(DRAFT_PATH);
+      });
+
+      it('opens the defaults as usual without a draft line in the query', async () => {
+        mountPage();
+        await flushPromises();
+
+        expect(session.refuseQuoteLine).not.toHaveBeenCalled();
+        expect(session.start).toHaveBeenCalledWith('1101');
+      });
     });
 
     it('opens the line again when the page comes back from the back-forward cache', async () => {

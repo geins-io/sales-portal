@@ -3135,6 +3135,19 @@ describe('useConfiguratorSession editing a quotation draft line', () => {
       expect(session.notReplayed.value).toBe(false);
     });
 
+    it('holds a line the buyer may not edit for the way back, asking nothing and starting nothing', () => {
+      const { session } = openOnQuote();
+
+      session.refuseQuoteLine(LINE);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(session.editNotice.value).toBe('not_editable');
+      expect(session.quoteLine.value).toEqual(LINE);
+      expect(session.configuration.value).toBeNull();
+      expect(session.status.value).toBe('idle');
+      expect(session.error.value).toBeNull();
+    });
+
     it('says the line is gone, keeps the line for the way back and starts nothing', async () => {
       mockFetch.mockRejectedValue(GONE());
       const { session } = openOnQuote();

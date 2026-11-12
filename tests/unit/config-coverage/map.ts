@@ -2249,7 +2249,7 @@ export const CONFIG_COVERAGE_MAP = {
       note: OVERVIEW_NOTE,
     }),
     quoteRequests: namedFeature({
-      consumer: 'server/api/quotes/requests.post.ts:14',
+      consumer: 'server/utils/feature-access.ts:62',
       cells: {
         enabledTrue: [
           {
@@ -2284,12 +2284,13 @@ export const CONFIG_COVERAGE_MAP = {
       },
       access: accessNeverRead(
         'buildTenantConfig derives it from features.quotes as { enabled } ' +
-          'with no access rule, and the route checks it after sign-in.',
+          'with no access rule, and the routes check it after sign-in.',
       ),
       note:
-        'The route runs the real assertFeatureAccess over the tenant config ' +
-        'in the event, so both cases write the configured value. The ' +
-        'derivation from quotes.quoteRequests is tested in tenant.test.ts.',
+        'Every request and draft route runs the real assertQuoteRequestAccess ' +
+        'over the tenant config in the event, so both cases write the ' +
+        'configured value; the pages ask canRequestQuotes in useFeatureAccess. ' +
+        'The derivation from quotes.quoteRequests is tested in tenant.test.ts.',
     }),
     registration: {
       enabled: {

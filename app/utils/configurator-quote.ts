@@ -75,6 +75,7 @@ const NOT_AVAILABLE = 'CONFIGURATOR_NOT_AVAILABLE';
 export interface QuoteFace {
   message:
     | 'configurator.quote.line_gone'
+    | 'configurator.quote.not_editable'
     | 'configurator.quote.open_failed'
     | 'configurator.quote.update_failed'
     | 'configurator.not_available';
@@ -97,8 +98,12 @@ export function quoteFace(state: {
 }): QuoteFace | null {
   if (!state.draft) return null;
   const leave = 'configurator.quote.back';
-  if (state.notice === 'line_gone') {
-    return { message: 'configurator.quote.line_gone', retry: null, leave };
+  if (state.notice === 'line_gone' || state.notice === 'not_editable') {
+    return {
+      message: `configurator.quote.${state.notice}`,
+      retry: null,
+      leave,
+    };
   }
   if (state.stage !== 'error') return null;
   if (state.lastAction === 'commit') {

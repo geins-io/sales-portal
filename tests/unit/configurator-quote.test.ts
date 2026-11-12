@@ -109,6 +109,23 @@ describe('quoteFace', () => {
     },
   );
 
+  it.each(['form', 'loading', 'error'] as const)(
+    'says the draft cannot be changed on the %s face, with only the way back',
+    (stage) => {
+      expect(quoteFace(state({ notice: 'not_editable', stage }))).toEqual({
+        message: 'configurator.quote.not_editable',
+        retry: null,
+        leave: 'configurator.quote.back',
+      });
+    },
+  );
+
+  it('is none for a draft that cannot be changed outside a draft line', () => {
+    expect(
+      quoteFace(state({ draft: false, notice: 'not_editable' })),
+    ).toBeNull();
+  });
+
   it('says the line could not be opened, with a retry of the open and the way back', () => {
     expect(quoteFace(state())).toEqual({
       message: 'configurator.quote.open_failed',

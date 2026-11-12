@@ -437,6 +437,7 @@
       "expired": "Muutoksen aika on umpeutunut. Luonnoksen tuote on ennallaan.",
       "not_reopenable": "Kokoonpanoa ei voi avata uudelleen. Tee se alusta – luonnoksen tuote pysyy ennallaan, kunnes päivität.",
       "line_gone": "Tuote ei ole enää luonnoksessa, tai luonnos on lähetetty.",
+      "not_editable": "Luonnosta ei voi muuttaa.",
       "open_failed": "Luonnoksen tuotetta ei voitu avata juuri nyt.",
       "update_failed": "Luonnoksen tuotetta ei voitu päivittää. Se säilyttää aiemmat valintansa.",
       "back": "Takaisin luonnokseen"

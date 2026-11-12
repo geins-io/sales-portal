@@ -36,6 +36,7 @@ describe('server feature-access', () => {
   let canAccessFeatureServer: typeof import('../../server/utils/feature-access').canAccessFeatureServer;
   let assertFeatureAccess: typeof import('../../server/utils/feature-access').assertFeatureAccess;
   let sessionForFeature: typeof import('../../server/utils/feature-access').sessionForFeature;
+  let assertQuoteRequestAccess: typeof import('../../server/utils/feature-access').assertQuoteRequestAccess;
 
   const mockEvent = {
     context: { tenant: { hostname: 'test.example.com' } },
@@ -57,6 +58,7 @@ describe('server feature-access', () => {
     sessionToken.mockReset().mockReturnValue(undefined);
     assertFeatureAccess = mod.assertFeatureAccess;
     sessionForFeature = mod.sessionForFeature;
+    assertQuoteRequestAccess = mod.assertQuoteRequestAccess;
     mockRequireAuth.mockReset().mockResolvedValue(TOKENS);
     mockOptionalAuth.mockReset().mockResolvedValue(null);
   });
@@ -151,6 +153,51 @@ describe('server feature-access', () => {
       },
     );
   });
+  describe('quote requests', () => {
+    const tenant = (features: Record<string, unknown>) =>
+      mockFeatures.mockResolvedValue(features);
+    const ON = {
+      quotes: { enabled: true, access: 'authenticated' },
+      quoteRequests: { enabled: true },
+    };
+
+    beforeEach(() => sessionToken.mockReturnValue('tok'));
+
+    it('lets a signed-in buyer work on requests when quotes and quoteRequests are enabled', async () => {
+      tenant(ON);
+
+      await expect(assertQuoteRequestAccess(mockEvent)).resolves.toBe(
+        undefined,
+      );
+    });
+
+    it.each([
+      [
+        'quoteRequests is disabled',
+        { ...ON, quoteRequests: { enabled: false } },
+      ],
+      ['quotes is disabled', { ...ON, quotes: { enabled: false } }],
+      ['no quoteRequests is stored', { quotes: ON.quotes }],
+      ['no quotes is stored', { quoteRequests: ON.quoteRequests }],
+    ])('refuses when %s', async (_case, features) => {
+      tenant(features);
+
+      await expect(assertQuoteRequestAccess(mockEvent)).rejects.toMatchObject({
+        statusCode: 403,
+        message: 'Access denied: quote requests are not available',
+      });
+    });
+
+    it('refuses a request with no session, whatever the switches', async () => {
+      tenant({ quotes: { enabled: true }, quoteRequests: { enabled: true } });
+      sessionToken.mockReturnValue(undefined);
+
+      await expect(assertQuoteRequestAccess(mockEvent)).rejects.toMatchObject({
+        statusCode: 403,
+      });
+    });
+  });
+
   describe('sessionForFeature', () => {
     const unauthorized = Object.assign(new Error('Authentication required'), {
       statusCode: 401,

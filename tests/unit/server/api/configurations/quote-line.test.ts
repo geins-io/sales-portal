@@ -6,7 +6,10 @@ import {
   bodyReads,
   lifecycleCases,
   makeEvent,
+  QUOTE_REQUESTS_ON,
+  quoteRequestCases,
   resetHarness,
+  withTenantFeatures,
   type RouteHandler,
 } from './harness';
 
@@ -50,6 +53,7 @@ describe('POST /api/configurations/:id/quote-line', () => {
 
   beforeEach(async () => {
     resetHarness();
+    withTenantFeatures(QUOTE_REQUESTS_ON);
     rateLimitCheck.mockReset().mockResolvedValue({ allowed: true });
     // The service runs the commit it is handed, as the real one does once the
     // line has been checked.
@@ -119,6 +123,12 @@ describe('POST /api/configurations/:id/quote-line', () => {
     });
     expect(replaceConfiguredLine).not.toHaveBeenCalled();
     expect(backend.commit).not.toHaveBeenCalled();
+  });
+
+  quoteRequestCases({
+    handler: () => handler,
+    event: validEvent,
+    draftCall: replaceConfiguredLine,
   });
 
   lifecycleCases({

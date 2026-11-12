@@ -298,6 +298,7 @@ vi.mock('../app/composables/useFeatureAccess', async () => {
     useFeatureAccess: () => ({
       canAccess: (_featureName: string) => true,
       canConfigure: () => true,
+      canRequestQuotes: () => true,
       pageTypeOf: (product: { configurable?: boolean } | null | undefined) =>
         resolveProductPageType(product, { authenticated: true }),
     }),
