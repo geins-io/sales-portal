@@ -7,7 +7,10 @@ import {
   headersOf,
   lifecycleCases,
   makeEvent,
+  QUOTE_REQUESTS_ON,
+  quoteRequestCases,
   resetHarness,
+  withTenantFeatures,
   type RouteHandler,
 } from './harness';
 import { createAppError, ErrorCode } from '../../../../../server/utils/errors';
@@ -42,6 +45,7 @@ describe('POST /api/configurations/from-quote', () => {
 
   beforeEach(async () => {
     resetHarness();
+    withTenantFeatures(QUOTE_REQUESTS_ON);
     getQuoteLineChoices
       .mockReset()
       .mockResolvedValue({ productId: 1358, quantity: 2, choices: null });
@@ -116,6 +120,12 @@ describe('POST /api/configurations/from-quote', () => {
       expect(backend.create).not.toHaveBeenCalled();
     },
   );
+
+  quoteRequestCases({
+    handler: () => handler,
+    event: validEvent,
+    draftCall: getQuoteLineChoices,
+  });
 
   lifecycleCases({
     handler: () => handler,

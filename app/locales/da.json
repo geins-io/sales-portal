@@ -437,6 +437,7 @@
       "expired": "Tiden for ændringen er udløbet. Produktet i udkastet er uændret.",
       "not_reopenable": "Konfigurationen kan ikke åbnes igen. Konfigurer den forfra – produktet i udkastet er uændret, indtil du opdaterer.",
       "line_gone": "Produktet er ikke længere i udkastet, eller udkastet er sendt.",
+      "not_editable": "Udkastet kan ikke ændres.",
       "open_failed": "Produktet i udkastet kunne ikke åbnes lige nu.",
       "update_failed": "Produktet i udkastet kunne ikke opdateres. Det beholder sine tidligere valg.",
       "back": "Tilbage til udkastet"

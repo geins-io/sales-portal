@@ -142,9 +142,11 @@ export interface ConfiguratorSessionOptions {
 /**
  * Why an edit is not on the line's own choices: the line's configuration
  * cannot be reopened, so the buyer configures it again from nothing; or the
- * line is not one this buyer can edit any more, so the page is an ordinary one.
+ * line is not one this buyer can edit any more, so the page is an ordinary one;
+ * or the buyer may not change quote request drafts at all.
  */
-export type ConfiguratorEditNotice = 'not_reopenable' | 'line_gone';
+export type ConfiguratorEditNotice =
+  'not_reopenable' | 'line_gone' | 'not_editable';
 
 /**
  * What a failed reopen for an edit means. The line is read as gone only by the
@@ -441,6 +443,15 @@ export function useConfiguratorSession({
     quoteLine.value = line;
     editNotice.value = null;
     await reopenLine();
+  }
+
+  /**
+   * A draft line the buyer may not change: held for the way back to the draft,
+   * with nothing asked of the server.
+   */
+  function refuseQuoteLine(line: QuoteLineRef): void {
+    quoteLine.value = line;
+    editNotice.value = 'not_editable';
   }
 
   /** The cart line's committed configuration, reopened. */
@@ -854,6 +865,7 @@ export function useConfiguratorSession({
     edit,
     replay,
     editQuoteLine,
+    refuseQuoteLine,
     retryQuoteSave,
     restore,
     reopenLine,

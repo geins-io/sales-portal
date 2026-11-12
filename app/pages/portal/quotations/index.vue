@@ -95,6 +95,11 @@ const store = useQuotesStore();
 /** The store's error from a write made here, never one left by another page. */
 const writeError = ref<string | null>(null);
 
+const { canRequestQuotes } = useFeatureAccess();
+/** A draft the buyer may work on; without quote requests it is only viewed. */
+const editableDraft = (quote: QuoteListItem) =>
+  quote.status === 'request_draft' && canRequestQuotes();
+
 function quotePath(quote: QuoteListItem): string {
   return localePath(`/portal/quotations/${quote.id}`);
 }
@@ -336,7 +341,7 @@ function formatDate(dateStr: string): string {
               </div>
             </NuxtLink>
             <div
-              v-if="quote.status === 'request_draft'"
+              v-if="editableDraft(quote)"
               class="mt-3 flex items-center gap-2"
             >
               <Button as-child variant="outline" size="sm" class="ml-auto">
@@ -438,7 +443,7 @@ function formatDate(dateStr: string): string {
                 </td>
                 <td class="py-3 text-right">
                   <div
-                    v-if="quote.status === 'request_draft'"
+                    v-if="editableDraft(quote)"
                     class="flex items-center justify-end gap-1"
                   >
                     <PortalRowAction

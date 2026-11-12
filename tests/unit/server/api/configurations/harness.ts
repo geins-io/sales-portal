@@ -60,14 +60,24 @@ vi.mock('../../../../../server/services/tenant-config', () => ({
   getFeatures: (...args: unknown[]) => getFeatures(...args),
 }));
 
+/** The tenant's other features, kept under every stored configurator feature. */
+let tenantFeatures: Record<string, unknown> = {};
+
 /**
  * A `features.configurator` left stored from before the switch was retired,
  * in any shape. Nothing may read it.
  */
 export function storedConfiguratorFeature(feature: unknown): void {
-  getFeatures.mockResolvedValue(
-    feature === undefined ? {} : { configurator: feature },
-  );
+  getFeatures.mockResolvedValue({
+    ...tenantFeatures,
+    ...(feature === undefined ? {} : { configurator: feature }),
+  });
+}
+
+/** A tenant with these features, for the routes that also follow one. */
+export function withTenantFeatures(features: Record<string, unknown>): void {
+  tenantFeatures = features;
+  storedConfiguratorFeature(undefined);
 }
 
 // ---------------------------------------------------------------------------
@@ -206,7 +216,7 @@ export const engineRefusal = () =>
 export function resetHarness(): void {
   vi.clearAllMocks();
   errorContexts.length = 0;
-  storedConfiguratorFeature(undefined);
+  withTenantFeatures({});
   getConfiguratorBackend.mockReturnValue(backend);
   buildConfiguratorRequestContext.mockResolvedValue(CTX);
 }
@@ -361,5 +371,66 @@ export function lifecycleCases(spec: {
         });
       },
     );
+  });
+}
+
+// ---------------------------------------------------------------------------
+// The routes that work on a quote request draft
+// ---------------------------------------------------------------------------
+
+/** A tenant where buyers may work on quote requests. */
+export const QUOTE_REQUESTS_ON = {
+  quotes: { enabled: true },
+  quoteRequests: { enabled: true },
+};
+
+export function quoteRequestCases(spec: {
+  handler: () => RouteHandler;
+  event: (init?: { authenticated?: boolean }) => H3Event;
+  /** The draft call the route makes once let through. */
+  draftCall: ReturnType<typeof vi.fn>;
+}): void {
+  describe('the quotes and quoteRequests switches', () => {
+    it.each([
+      [
+        'quoteRequests is disabled',
+        { ...QUOTE_REQUESTS_ON, quoteRequests: { enabled: false } },
+      ],
+      [
+        'quotes is disabled',
+        { ...QUOTE_REQUESTS_ON, quotes: { enabled: false } },
+      ],
+      ['the tenant stores no quoteRequests', { quotes: { enabled: true } }],
+    ])(
+      'answers 403 when %s, before the body, the draft and the engine',
+      async (_case, features) => {
+        withTenantFeatures(features);
+
+        await expect(spec.handler()(spec.event())).rejects.toMatchObject({
+          statusCode: 403,
+        });
+        expect(bodyReads).not.toHaveBeenCalled();
+        expect(spec.draftCall).not.toHaveBeenCalled();
+        for (const method of Object.values(backend)) {
+          expect(method).not.toHaveBeenCalled();
+        }
+      },
+    );
+
+    it('answers 404, not 403, to an anonymous request when the switch is off', async () => {
+      withTenantFeatures({});
+
+      await expect(
+        spec.handler()(spec.event({ authenticated: false })),
+      ).rejects.toMatchObject({ statusCode: 404 });
+    });
+
+    it('reaches the draft when both are enabled', async () => {
+      await spec
+        .handler()(spec.event())
+        .catch(() => undefined);
+
+      expect(spec.draftCall).toHaveBeenCalled();
+    });
   });
 }

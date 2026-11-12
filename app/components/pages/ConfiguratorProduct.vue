@@ -239,6 +239,7 @@ function showConfiguration(): void {
 // The session
 // ---------------------------------------------------------------------------
 const cart = useCartStore();
+const { canRequestQuotes } = useFeatureAccess();
 
 /** What the configured line is added as; the action stays shut without one. */
 const skuId = computed(() => configuredSkuId(product.skus ?? []));
@@ -261,6 +262,7 @@ const {
   edit,
   replay,
   editQuoteLine,
+  refuseQuoteLine,
   retryQuoteSave,
   restore,
   reopenLine,
@@ -401,6 +403,7 @@ function dropReplayQuery(): void {
  */
 function open(): void {
   const quote = quoteLineTarget(route.query);
+  if (quote.line && !canRequestQuotes()) return refuseQuoteLine(quote.line);
   if (quote.line) return void editQuoteLine(productId.value, quote.line);
   if (quote.stale) {
     staleQuote.value = true;

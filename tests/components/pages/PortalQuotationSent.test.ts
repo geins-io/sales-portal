@@ -9,7 +9,13 @@ import { quoteRows } from '../../../app/utils/quote-view';
 
 /** The thank-you page after a quote request was sent. */
 
-const { mockData, mockError, mockUseFetch, mockNavigateTo } = vi.hoisted(() => {
+const {
+  mockData,
+  mockError,
+  mockUseFetch,
+  mockNavigateTo,
+  mockCanRequestQuotes,
+} = vi.hoisted(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { ref } = require('vue') as typeof import('vue');
   return {
@@ -17,8 +23,16 @@ const { mockData, mockError, mockUseFetch, mockNavigateTo } = vi.hoisted(() => {
     mockError: ref<Error | null>(null),
     mockUseFetch: vi.fn(),
     mockNavigateTo: vi.fn((..._args: unknown[]) => Promise.resolve()),
+    mockCanRequestQuotes: ref(true),
   };
 });
+
+vi.mock('../../../app/composables/useFeatureAccess', () => ({
+  useFeatureAccess: () => ({
+    canAccess: () => true,
+    canRequestQuotes: () => mockCanRequestQuotes.value,
+  }),
+}));
 
 vi.stubGlobal('definePageMeta', vi.fn());
 vi.stubGlobal('navigateTo', mockNavigateTo);
@@ -151,6 +165,7 @@ describe('PortalQuotationSent', () => {
     mockError.value = null;
     mockUseFetch.mockClear();
     mockNavigateTo.mockClear();
+    mockCanRequestQuotes.value = true;
   });
 
   it('reads the quotation by id with dedupe: defer', async () => {
@@ -190,6 +205,15 @@ describe('PortalQuotationSent', () => {
       'unknown',
     ])('sends a %s quotation to the quotation view', async (status) => {
       const { wrapper } = await mountWith(sent({ status }));
+
+      expect(mockNavigateTo).toHaveBeenCalledWith(VIEW_PATH, { replace: true });
+      expect(wrapper.findComponent(QuoteConfirmationStub).exists()).toBe(false);
+    });
+
+    it('sends a sent request to the quotation view when the buyer may not work on quote requests', async () => {
+      mockCanRequestQuotes.value = false;
+
+      const { wrapper } = await mountWith(sent());
 
       expect(mockNavigateTo).toHaveBeenCalledWith(VIEW_PATH, { replace: true });
       expect(wrapper.findComponent(QuoteConfirmationStub).exists()).toBe(false);

@@ -437,6 +437,7 @@
       "expired": "The time for your change has run out. The product in the draft is unchanged.",
       "not_reopenable": "The configuration cannot be opened again. Configure it from the start – the product in the draft stays as it is until you update it.",
       "line_gone": "The product is no longer in the draft, or the draft has been sent.",
+      "not_editable": "The draft cannot be changed.",
       "open_failed": "The product in the draft could not be opened right now.",
       "update_failed": "The product in the draft could not be updated. It keeps its previous choices.",
       "back": "Back to the draft"

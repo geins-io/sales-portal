@@ -60,7 +60,7 @@ const { timezone } = useTenant();
 const route = useRoute();
 const store = useQuotesStore();
 const { localePath } = useLocaleMarket();
-const { canAccess } = useFeatureAccess();
+const { canAccess, canRequestQuotes } = useFeatureAccess();
 
 const quoteId = computed(() => route.params.id as string);
 
@@ -88,6 +88,8 @@ store.error = null;
 const quote = computed<Quote | null>(() => data.value?.quote ?? null);
 /** A request draft is edited here; from `REQUESTED` on the view is read-only. */
 const isDraft = computed(() => quote.value?.status === 'request_draft');
+/** Without quote requests a draft is read as a sent request is, not edited. */
+const editable = computed(() => isDraft.value && canRequestQuotes());
 
 useHead({
   title: computed(
@@ -185,7 +187,7 @@ const noticeText = computed(() =>
 
 // Nothing waiting is lost, or sent stale, when the buyer goes on or away.
 // Closing or reloading the tab cannot wait for a save, so it asks first.
-if (isDraft.value) {
+if (editable.value) {
   onBeforeRouteLeave(async () => ((await editing.flush()) ? undefined : false));
   useEventListener('beforeunload', (event) => {
     if (!saving.value) return;
@@ -465,7 +467,7 @@ const customerSummary = computed(() => {
           {{ t('portal.quotations.back_to_quotations') }}
         </NuxtLink>
         <p
-          v-if="isDraft && (saving || saved)"
+          v-if="editable && (saving || saved)"
           data-testid="quote-save-state"
           class="text-muted-foreground inline-flex items-center gap-1.5 text-xs"
           aria-live="polite"
@@ -485,7 +487,7 @@ const customerSummary = computed(() => {
         <!-- Left, a draft: quick add and the lines, edited. On a phone they
              stay on the page, under the summary, as in a cart. -->
         <div
-          v-if="isDraft"
+          v-if="editable"
           data-testid="quote-draft-lines"
           class="order-2 min-w-0 space-y-4 lg:order-1 lg:col-span-2"
         >
@@ -598,7 +600,7 @@ const customerSummary = computed(() => {
                 >
                   {{ t(getQuoteStatusLabelKey(quote.status)) }}
                 </Badge>
-                <DropdownMenu v-if="isDraft">
+                <DropdownMenu v-if="editable">
                   <DropdownMenuTrigger as-child>
                     <Button
                       variant="ghost"
@@ -644,7 +646,7 @@ const customerSummary = computed(() => {
             <template v-if="isDraft" #heading-aside>
               <QuoteEstimateBadge />
             </template>
-            <template v-if="isDraft" #default>
+            <template v-if="editable" #default>
               <Button as-child class="w-full" data-testid="quote-continue">
                 <NuxtLink :to="requestPath">
                   {{ t('portal.quotations.draft.continue') }}
@@ -730,7 +732,7 @@ const customerSummary = computed(() => {
           </OrderSummaryCard>
 
           <PortalItemRowsSheet
-            v-if="!isDraft"
+            v-if="!editable"
             class="lg:hidden"
             :items="lineRows"
             :totals="totals"
@@ -848,7 +850,7 @@ const customerSummary = computed(() => {
       />
 
       <PortalDialogDeleteQuoteDraft
-        v-if="isDraft"
+        v-if="editable"
         v-model:open="deleteOpen"
         :name="quote.name ?? ''"
         :pending="store.isSaving"

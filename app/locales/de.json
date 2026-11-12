@@ -437,6 +437,7 @@
       "expired": "Die Zeit für Ihre Änderung ist abgelaufen. Das Produkt im Entwurf ist unverändert.",
       "not_reopenable": "Die Konfiguration kann nicht erneut geöffnet werden. Konfigurieren Sie sie neu – das Produkt im Entwurf bleibt unverändert, bis Sie aktualisieren.",
       "line_gone": "Das Produkt ist nicht mehr im Entwurf, oder der Entwurf wurde gesendet.",
+      "not_editable": "Der Entwurf kann nicht geändert werden.",
       "open_failed": "Das Produkt im Entwurf konnte gerade nicht geöffnet werden.",
       "update_failed": "Das Produkt im Entwurf konnte nicht aktualisiert werden. Es behält seine bisherige Auswahl.",
       "back": "Zurück zum Entwurf"

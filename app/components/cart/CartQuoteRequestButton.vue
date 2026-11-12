@@ -10,23 +10,17 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog';
 import { useCartStore } from '~/stores/cart';
-import { useAuthStore } from '~/stores/auth';
 import { internalFetch } from '~/utils/internal-fetch';
 import type { QuoteListItem } from '#shared/types/quote';
 
 const { t } = useI18n();
 const cartStore = useCartStore();
-const auth = useAuthStore();
 const router = useRouter();
-const { canAccess } = useFeatureAccess();
+const { canRequestQuotes } = useFeatureAccess();
 const { formatLocale } = useFormatLocale();
 const { localePath } = useLocaleMarket();
 
-// The route needs a session even where a tenant opens quotes to all.
-const show = computed(
-  () =>
-    auth.isAuthenticated && canAccess('quotes') && canAccess('quoteRequests'),
-);
+const show = computed(() => canRequestQuotes());
 const confirming = ref(false);
 const working = ref(false);
 

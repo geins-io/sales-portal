@@ -4,9 +4,11 @@ import {
   quoteDraftRateLimiter,
   getClientIp,
 } from '../../../utils/rate-limiter';
+import { assertQuoteRequestAccess } from '../../../utils/feature-access';
 
 export default defineEventHandler(async (event) => {
   await requireAuth(event);
+  await assertQuoteRequestAccess(event);
 
   const { allowed } = await quoteDraftRateLimiter.check(getClientIp(event));
   if (!allowed) {

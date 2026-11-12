@@ -463,6 +463,23 @@ describe('Quote API Routes', () => {
         'Authentication required',
       );
     });
+
+    // Withdrawing a sent request answers it; quoteRequests covers making and
+    // changing one, so the route neither reads nor refuses.
+    it('withdraws a REQUESTED quote when quoteRequests is disabled, without reading it first', async () => {
+      const event = eventOn(true, false);
+      event.context.params = { id: 'quote-uuid-001' };
+      const rejected = { ...mockQuote, status: 'rejected' };
+      mockRejectQuote.mockResolvedValue(rejected);
+
+      const handler = (
+        await import('../../../server/api/quotes/[id]/reject.post')
+      ).default;
+
+      await expect(handler(event)).resolves.toEqual({ quote: rejected });
+      expect(mockGetQuote).not.toHaveBeenCalled();
+      expect(mockRejectQuote).toHaveBeenCalledWith('quote-uuid-001', event);
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -879,23 +896,6 @@ describe('Quote API Routes', () => {
             (await load('create'))(eventOn(false, false)),
           ).rejects.toThrow('Authentication required');
         });
-
-        it.each([
-          ['update', mockUpdateQuoteRequest, { comment: 'Leverans' }],
-          ['release', mockReleaseQuoteRequest, undefined],
-        ] as const)(
-          'leaves %s to an existing request when both switches are off',
-          async (path, service, body) => {
-            readBodyMock.mockReturnValue(body);
-            service.mockResolvedValue(draft);
-            const event = eventOn(false, false);
-            event.context.params = { id: 'draft-001' };
-
-            await expect((await load(path))(event)).resolves.toEqual({
-              quote: draft,
-            });
-          },
-        );
       });
 
       it('takes a name of exactly 80 characters', async () => {
@@ -907,6 +907,56 @@ describe('Quote API Routes', () => {
         expect(mockCreateQuoteRequest.mock.calls[0]![1]).toBe('x'.repeat(80));
       });
     });
+
+    // An existing draft follows the same switches as making one.
+    describe.each(requestRoutes.filter((r) => r.path !== 'create'))(
+      '$route and the quotes and quoteRequests switches',
+      ({ path, service, body, limiter, answer }) => {
+        const on = (quotes?: boolean, quoteRequests?: boolean) => {
+          const event = eventOn(quotes, quoteRequests);
+          event.context.params = { id: 'draft-001' };
+          return event;
+        };
+
+        beforeEach(() => {
+          readBodyMock.mockReturnValue(body);
+          service.mockResolvedValue(draft);
+        });
+
+        it.each([
+          ['quoteRequests is disabled', true, false],
+          ['quotes is disabled', false, true],
+          ['both are disabled', false, false],
+          ['the tenant stores no quoteRequests', true, undefined],
+        ] as const)(
+          'answers 403 before the body, the limit and Geins when %s',
+          async (_, quotes, quoteRequests) => {
+            await expect(
+              (await load(path))(on(quotes, quoteRequests)),
+            ).rejects.toMatchObject({ statusCode: 403 });
+            expect(readBodyMock).not.toHaveBeenCalled();
+            expect(limiter).not.toHaveBeenCalled();
+            expect(service).not.toHaveBeenCalled();
+          },
+        );
+
+        it('answers when both are enabled', async () => {
+          await expect((await load(path))(on(true, true))).resolves.toEqual(
+            answer ?? { quote: draft },
+          );
+        });
+
+        it('checks the switches only after sign-in', async () => {
+          mockRequireAuth.mockRejectedValue(
+            new Error('Authentication required'),
+          );
+
+          await expect((await load(path))(on(false, false))).rejects.toThrow(
+            'Authentication required',
+          );
+        });
+      },
+    );
 
     describe('PATCH /api/quotes/[id]/request', () => {
       beforeEach(() => mockUpdateQuoteRequest.mockResolvedValue(draft));

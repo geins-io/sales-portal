@@ -38,7 +38,10 @@ if (error.value || !data.value?.quote) {
 }
 
 // Only right after the request was sent; otherwise the quotation itself.
-const isSent = computed(() => data.value?.quote.status === 'requested');
+const { canRequestQuotes } = useFeatureAccess();
+const isSent = computed(
+  () => data.value?.quote.status === 'requested' && canRequestQuotes(),
+);
 if (!isSent.value) {
   await navigateTo(quotationPath.value, { replace: true });
 }

@@ -24,6 +24,7 @@ const {
   mockDeleteDraft,
   mockStoreError,
   mockIsSaving,
+  mockCanRequestQuotes,
   leaveGuards,
 } = vi.hoisted(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -39,6 +40,7 @@ const {
     mockDeleteDraft: vi.fn<(id: string) => Promise<boolean>>(),
     mockStoreError: ref<string | null>(null),
     mockIsSaving: ref(false),
+    mockCanRequestQuotes: ref(true),
     leaveGuards: [] as (() => Promise<boolean | undefined>)[],
   };
 });
@@ -90,7 +92,10 @@ vi.mock('#app/composables/router', async (importOriginal) => ({
 }));
 
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
-  useFeatureAccess: () => ({ canAccess: () => true }),
+  useFeatureAccess: () => ({
+    canAccess: () => true,
+    canRequestQuotes: () => mockCanRequestQuotes.value,
+  }),
 }));
 
 vi.mock('../../../app/stores/quotes', () => ({
@@ -235,6 +240,7 @@ beforeEach(() => {
   navigateToMock.mockReset();
   mockStoreError.value = null;
   mockIsSaving.value = false;
+  mockCanRequestQuotes.value = true;
   leaveGuards.length = 0;
 });
 
@@ -556,6 +562,51 @@ describe('the quotation view of a request draft', () => {
       await find('quote-delete').trigger('click');
 
       expect(find('delete-dialog').attributes('data-last-line')).toBe('false');
+    });
+  });
+
+  // The tenant's quoteRequests setting is off: the draft is read, not edited.
+  describe('when the buyer may not work on quote requests', () => {
+    beforeEach(() => {
+      mockCanRequestQuotes.value = false;
+    });
+
+    it('shows the draft read-only: the lines table, no editing, no way on', async () => {
+      await mountWith(draft());
+
+      expect(find('order-items-table').exists()).toBe(true);
+      expect(find('rows-sheet').exists()).toBe(true);
+      for (const id of [
+        'quote-draft-lines',
+        'quick-add',
+        'draft-table',
+        'quote-more',
+        'quote-rename',
+        'quote-delete',
+        'quote-continue',
+        'quote-continue-hint',
+        'delete-dialog',
+      ]) {
+        expect(find(id).exists(), id).toBe(false);
+      }
+    });
+
+    it('still reads as a draft: the estimate, the last change, no customer card', async () => {
+      await mountWith(draft({ updatedAt: '2026-11-10T12:00:00Z' }));
+
+      expect(find('estimate-badge').exists()).toBe(true);
+      expect(find('quote-meta-updated').exists()).toBe(true);
+      expect(find('customer-info-card').exists()).toBe(false);
+      expect(find('quote-title').text()).toBe('Kontor plan 3');
+    });
+
+    it('neither holds up leaving nor asks on closing the tab', async () => {
+      await mountWith(draft());
+      const event = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(event);
+
+      expect(leaveGuards).toHaveLength(0);
+      expect(event.defaultPrevented).toBe(false);
     });
   });
 

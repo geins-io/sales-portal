@@ -8,6 +8,7 @@ import {
   getClientIp,
   quoteDraftRateLimiter,
 } from '../../../utils/rate-limiter';
+import { assertQuoteRequestAccess } from '../../../utils/feature-access';
 
 /**
  * Commits the session `:id` onto a configured line of a quotation draft. The
@@ -19,6 +20,7 @@ import {
  */
 export default defineEventHandler(async (event) => {
   const { backend, ctx } = await requireConfigurator(event);
+  await assertQuoteRequestAccess(event);
 
   const { allowed } = await quoteDraftRateLimiter.check(getClientIp(event));
   if (!allowed) {
