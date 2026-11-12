@@ -131,11 +131,13 @@ describe('useConfiguratorSession, adding to a quote request', () => {
     const restore = mockFetch.mock.calls.find(
       ([url]) => url === '/api/configurations/restore',
     );
+    expect(restore![1]!.method).toBe('POST');
     expect(restore![1]!.body).toEqual({
       productId: PRODUCT_ID,
       quantity: 3,
       ...choicesOf(held),
     });
+    expect(session.notReplayed.value).toBe(false);
     expect(session.configuration.value?.configurationId).toBe('restored-1');
     expect(session.status.value).toBe('active');
     expect(session.error.value).toBeNull();
@@ -285,5 +287,27 @@ describe('useConfiguratorSession, adding to a quote request', () => {
       // Said, not a silent switch to the defaults.
       expect(session.notRestored.value).toBe(true);
     });
+  });
+
+  it('sends nothing more when the page has gone before a failed add answers', async () => {
+    const { session, scope } = await started(makeValidConfiguration());
+    let fail: (error: unknown) => void = () => {};
+    mockFetch.mockImplementation(
+      (url) =>
+        new Promise((_, reject) => {
+          if (url.endsWith('/quote-add')) fail = reject;
+          else reject(new Error(`unexpected ${url}`));
+        }),
+    );
+
+    const adding = session.addToQuote({ quoteId: QUOTE_ID }, 1534);
+    scope.stop();
+    fail(fetchError(502));
+
+    await expect(adding).resolves.toBeNull();
+    expect(urls()).not.toContain('/api/configurations/restore');
+    expect(
+      mockFetch.mock.calls.some(([, options]) => options?.method === 'DELETE'),
+    ).toBe(false);
   });
 });
