@@ -8,7 +8,7 @@ import {
   type Mock,
 } from 'vitest';
 import { nextTick, ref, type Ref } from 'vue';
-import { enableAutoUnmount, flushPromises } from '@vue/test-utils';
+import { flushPromises } from '@vue/test-utils';
 import { mountComponent } from '../../utils/component';
 import ConfiguratorProduct from '../../../app/components/pages/ConfiguratorProduct.vue';
 import type { DetailProduct } from '../../../shared/types/commerce';
@@ -497,7 +497,6 @@ function activeWith(configuration: Configuration): void {
 
 // Every page shares the one mocked session and cart; a page left mounted would
 // go on following the line a later test sets.
-enableAutoUnmount(afterEach);
 
 let warnings: string[] = [];
 let warnSpy: ReturnType<typeof vi.spyOn>;

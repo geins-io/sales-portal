@@ -6,7 +6,8 @@
  */
 
 import './setup';
-import { vi, beforeEach } from 'vitest';
+import { vi, beforeEach, afterEach } from 'vitest';
+import { enableAutoUnmount } from '@vue/test-utils';
 import { ref, computed, type Ref } from 'vue';
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { createPinia, setActivePinia } from 'pinia';
@@ -33,6 +34,10 @@ export const mockAssetBaseUrl = ref('');
 const vatGlobal = globalThis as unknown as { __mockShowIncVat?: Ref<boolean> };
 export const mockShowIncVat: Ref<boolean> = (vatGlobal.__mockShowIncVat ??=
   ref(true));
+
+// Every mounted component is unmounted after its test. One left mounted keeps
+// rendering on the shared mocks the later tests in the file change.
+enableAutoUnmount(afterEach);
 
 // One Pinia instance, so stores work without Nuxt. This runs when the setup
 // file is evaluated, NOT before each test — the comment here used to say
