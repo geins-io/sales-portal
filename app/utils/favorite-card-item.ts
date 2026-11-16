@@ -3,7 +3,10 @@ import type { ProductCardItem } from '~/components/shared/ProductCard.vue';
 // Minimal product shape returned by /api/products/by-aliases. We only need
 // the fields the card consumes, its sku included.
 export interface FavoriteProduct {
+  /** The alias the favorite is stored under, whatever its language. */
   alias?: string | null;
+  /** The product page in the language of the page. */
+  canonicalUrl?: string | null;
   name?: string | null;
   articleNumber?: string | null;
   productImages?: Array<{
@@ -57,6 +60,7 @@ export function toFavoriteCardItem(
     salePrice: hasDiscount ? (sellingFormatted ?? null) : null,
     articleNumber: product.articleNumber ?? null,
     alias: product.alias ?? null,
+    ...(product.canonicalUrl && { canonicalUrl: product.canonicalUrl }),
     ...(skuId != null && { skuId }),
     ...(product.configurable === true && { configurable: true }),
   };

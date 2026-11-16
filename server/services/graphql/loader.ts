@@ -25,6 +25,7 @@ const FRAGMENT_NAMES: Record<string, string> = {
   Campaign: './fragments/campaign.graphql',
   Address: './fragments/address.graphql',
   ListProduct: './fragments/list-product.graphql',
+  ProductCard: './fragments/product-card.graphql',
   ListInfo: './fragments/list-info.graphql',
   ListFilters: './fragments/list-filters.graphql',
   QuotationCartItem: './fragments/quotation-cart-item.graphql',
@@ -88,6 +89,14 @@ function resolveFragments(query: string): string {
     .join('\n');
 
   return fragmentDefs ? `${query}\n${fragmentDefs}` : query;
+}
+
+/**
+ * Adds the fragment definitions a query built at runtime spreads, as
+ * `loadQuery` does for a file.
+ */
+export function withFragments(query: string): string {
+  return resolveFragments(query);
 }
 
 /**

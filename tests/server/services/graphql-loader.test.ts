@@ -1,7 +1,40 @@
 import { describe, it, expect } from 'vitest';
-import { loadQuery } from '../../../server/services/graphql/loader';
+import {
+  loadQuery,
+  withFragments,
+} from '../../../server/services/graphql/loader';
 
 describe('GraphQL loader', () => {
+  describe('withFragments', () => {
+    it('adds the fragments a query built at runtime spreads, each once', () => {
+      const query = withFragments(
+        'query q($a0: String!) {\n  a0_0: product(alias: $a0) { ...ProductCard }\n  a0_1: product(alias: $a0) { ...ProductCard }\n}',
+      );
+
+      for (const fragment of [
+        'fragment ProductCard on ProductType',
+        'fragment Price on PriceType',
+        'fragment Sku on SkuType',
+        'fragment Stock on StockType',
+      ]) {
+        expect(query.split(fragment)).toHaveLength(2);
+      }
+      expect(query.startsWith('query q($a0: String!)')).toBe(true);
+    });
+
+    it('leaves a query without spreads as it is', () => {
+      expect(withFragments('query q { brands { name } }')).toBe(
+        'query q { brands { name } }',
+      );
+    });
+  });
+
+  it('loads the product cards by ids with the card fragment', () => {
+    expect(loadQuery('products/product-cards-by-ids.graphql')).toContain(
+      'fragment ProductCard on ProductType',
+    );
+  });
+
   describe('loadQuery', () => {
     it('should load a simple query without fragments', () => {
       const query = loadQuery('brands/brands.graphql');

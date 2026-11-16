@@ -606,3 +606,61 @@ describe('00.locale-market prefix canonicalisation', () => {
     }
   });
 });
+
+// The render of a page calls our own /api routes through event.$fetch. Those
+// calls carry the page's locale, so the API answers in the language of the URL
+// rather than of the cookie the browser sent, which still holds the last one.
+describe('00.locale-market: the API calls of a page', () => {
+  function withFetch(event: H3Event) {
+    const inner = vi.fn(async () => 'ok');
+    (event as unknown as { $fetch: typeof inner }).$fetch = inner;
+    return inner;
+  }
+
+  it("carry the locale of the page's URL, not of its cookie", async () => {
+    getCookieMock.mockReturnValue('sv');
+    const event = makeEvent('/fi/en/portal', VALIDATING_TENANT);
+    const inner = withFetch(event);
+
+    handler(event);
+    await event.$fetch('/api/orders/products');
+
+    expect(inner).toHaveBeenCalledWith('/api/orders/products', {
+      query: { locale: 'en' },
+    });
+  });
+
+  it("carry the URL's locale for a tenant without lists", async () => {
+    const event = makeEvent('/se/en/portal', { locale: 'sv-SE', market: 'se' });
+    const inner = withFetch(event);
+
+    handler(event);
+    await event.$fetch('/api/cart');
+
+    expect(inner).toHaveBeenCalledWith('/api/cart', {
+      query: { locale: 'en' },
+    });
+  });
+
+  it('carry the default locale when a tenant without lists serves a page without a prefix', async () => {
+    getCookieMock.mockReturnValue('nb');
+    const event = makeEvent('/some-page', { locale: 'fi-FI', market: 'fi' });
+    const inner = withFetch(event);
+
+    handler(event);
+    await event.$fetch('/api/cart');
+
+    expect(inner).toHaveBeenCalledWith('/api/cart', {
+      query: { locale: 'fi' },
+    });
+  });
+
+  it('leave an API request itself as it is', () => {
+    const event = makeEvent('/api/cart', VALIDATING_TENANT);
+    const inner = withFetch(event);
+
+    handler(event);
+
+    expect(event.$fetch).toBe(inner);
+  });
+});

@@ -29,6 +29,7 @@ vi.mock('../../../server/services/_sdk', () => ({
 // Mock graphql loader (depends on #graphql-queries build-time alias)
 vi.mock('../../../server/services/graphql/loader', () => ({
   loadQuery: vi.fn((path: string) => `query:${path}`),
+  withFragments: vi.fn((query: string) => query),
 }));
 
 // Let unwrapGraphQL run for real — it's pure logic
@@ -137,7 +138,7 @@ vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
 // Helpers
 // ---------------------------------------------------------------------------
 type Handler = (event: H3Event) => Promise<unknown>;
-const fakeEvent = {} as unknown as H3Event;
+const fakeEvent = { context: {} } as unknown as H3Event;
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -752,11 +753,29 @@ describe('Product API Routes', () => {
       handler = mod.default as Handler;
     });
 
+    // The service looks every alias up in one document, its fields named
+    // a<alias index>_<language index>. The fake event names no channel
+    // languages, so the language of the page is the only one.
+    function answerByAlias(products: Record<string, object | null>) {
+      mockGraphqlQuery.mockImplementation(
+        async ({ variables }: { variables: Record<string, unknown> }) =>
+          Object.fromEntries(
+            Object.entries(variables)
+              .filter(([key]) => /^a\d+$/.test(key))
+              .map(([key, alias]) => [
+                `${key}_0`,
+                products[alias as string] ?? null,
+              ]),
+          ),
+      );
+    }
+
     it('returns products for valid aliases', async () => {
       vi.mocked(getQuery).mockReturnValue({ aliases: 'a,b' });
-      mockGraphqlQuery
-        .mockResolvedValueOnce({ product: { alias: 'a', name: 'A' } })
-        .mockResolvedValueOnce({ product: { alias: 'b', name: 'B' } });
+      answerByAlias({
+        a: { alias: 'a', name: 'A' },
+        b: { alias: 'b', name: 'B' },
+      });
 
       const result = await handler(fakeEvent);
 
@@ -770,13 +789,10 @@ describe('Product API Routes', () => {
 
     it('flags a configurable favourite and leaves an ordinary one as it was', async () => {
       vi.mocked(getQuery).mockReturnValue({ aliases: 'bookcase,wood-screw' });
-      mockGraphqlQuery
-        .mockResolvedValueOnce({
-          product: { productId: 1359, alias: 'bookcase', type: 'configurable' },
-        })
-        .mockResolvedValueOnce({
-          product: { productId: 42, alias: 'wood-screw', type: 'product' },
-        });
+      answerByAlias({
+        bookcase: { productId: 1359, alias: 'bookcase', type: 'configurable' },
+        'wood-screw': { productId: 42, alias: 'wood-screw', type: 'product' },
+      });
 
       const result = await handler(fakeEvent);
 
@@ -794,7 +810,7 @@ describe('Product API Routes', () => {
 
     it('names its operation for the error handler', async () => {
       vi.mocked(getQuery).mockReturnValue({ aliases: 'a' });
-      mockGraphqlQuery.mockResolvedValue({ product: { alias: 'a' } });
+      answerByAlias({ a: { alias: 'a' } });
 
       await handler(fakeEvent);
 
@@ -805,14 +821,13 @@ describe('Product API Routes', () => {
 
     it("keeps each product's type out of the response", async () => {
       vi.mocked(getQuery).mockReturnValue({ aliases: 'a,b' });
-      mockGraphqlQuery
-        .mockResolvedValueOnce({ product: { alias: 'a', type: 'product' } })
-        .mockResolvedValueOnce({
-          product: { alias: 'b', type: 'configurable' },
-        });
+      answerByAlias({
+        a: { alias: 'a', type: 'product' },
+        b: { alias: 'b', type: 'configurable' },
+      });
 
-      // The query is shared with the product page, which needs the type for
-      // the seam; a favourites item carries the portal-side flag instead.
+      // The type is for the seam; a favourites item carries the portal-side
+      // flag instead.
       expect(await handler(fakeEvent)).toEqual({
         products: [{ alias: 'a' }, { alias: 'b', configurable: true }],
       });
@@ -820,9 +835,7 @@ describe('Product API Routes', () => {
 
     it('skips empty entries between commas', async () => {
       vi.mocked(getQuery).mockReturnValue({ aliases: 'a,,b' });
-      mockGraphqlQuery
-        .mockResolvedValueOnce({ product: { alias: 'a' } })
-        .mockResolvedValueOnce({ product: { alias: 'b' } });
+      answerByAlias({ a: { alias: 'a' }, b: { alias: 'b' } });
 
       expect(await handler(fakeEvent)).toEqual({
         products: [{ alias: 'a' }, { alias: 'b' }],
@@ -842,30 +855,40 @@ describe('Product API Routes', () => {
 
     it('omits products returned as null', async () => {
       vi.mocked(getQuery).mockReturnValue({ aliases: 'a,missing' });
-      mockGraphqlQuery
-        .mockResolvedValueOnce({ product: { alias: 'a', name: 'A' } })
-        .mockResolvedValueOnce({ product: null });
+      answerByAlias({ a: { alias: 'a', name: 'A' }, missing: null });
 
       const result = await handler(fakeEvent);
 
       expect(result).toEqual({ products: [{ alias: 'a', name: 'A' }] });
     });
 
-    it('handles partial failure gracefully', async () => {
+    // A list with a product missing would make the favorites page delete
+    // that favorite, so a failed lookup fails the list instead.
+    it('fails the list when the lookup fails, rather than answering a part of it', async () => {
       vi.mocked(getQuery).mockReturnValue({ aliases: 'a,b' });
-      mockGraphqlQuery
-        .mockResolvedValueOnce({ product: { alias: 'a', name: 'A' } })
-        .mockRejectedValueOnce(new Error('SDK exploded'));
+      mockGraphqlQuery.mockRejectedValue(new Error('SDK exploded'));
 
-      const result = await handler(fakeEvent);
+      await expect(handler(fakeEvent)).rejects.toThrow('SDK exploded');
+    });
 
-      expect(result).toEqual({ products: [{ alias: 'a', name: 'A' }] });
+    it('sets no cache header when the lookup fails, so no edge caches the failure', async () => {
+      vi.mocked(getQuery).mockReturnValue({ aliases: 'a' });
+      vi.mocked(optionalAuth).mockResolvedValue(null);
+      mockGraphqlQuery.mockRejectedValue(new Error('SDK exploded'));
+
+      await expect(handler(fakeEvent)).rejects.toThrow();
+
+      expect(setResponseHeader).not.toHaveBeenCalledWith(
+        fakeEvent,
+        'Cache-Control',
+        expect.anything(),
+      );
     });
 
     it('sets public cache header for anonymous requests', async () => {
       vi.mocked(getQuery).mockReturnValue({ aliases: 'a' });
       vi.mocked(optionalAuth).mockResolvedValue(null);
-      mockGraphqlQuery.mockResolvedValue({ product: { alias: 'a' } });
+      answerByAlias({ a: { alias: 'a' } });
 
       await handler(fakeEvent);
 
@@ -882,7 +905,7 @@ describe('Product API Routes', () => {
         authToken: 'tok',
         refreshToken: 'refresh-tok',
       });
-      mockGraphqlQuery.mockResolvedValue({ product: { alias: 'a' } });
+      answerByAlias({ a: { alias: 'a' } });
 
       await handler(fakeEvent);
 
@@ -900,16 +923,21 @@ describe('Product API Routes', () => {
       vi.mocked(getQuery).mockReturnValue({
         aliases: 'manifold-100/100-45,s1.200.050',
       });
-      mockGraphqlQuery
-        .mockResolvedValueOnce({
-          product: { alias: 'manifold-100/100-45', name: 'A' },
-        })
-        .mockResolvedValueOnce({
-          product: { alias: 's1.200.050', name: 'B' },
-        });
+      answerByAlias({
+        'manifold-100/100-45': { alias: 'manifold-100/100-45', name: 'A' },
+        's1.200.050': { alias: 's1.200.050', name: 'B' },
+      });
 
       const result = await handler(fakeEvent);
 
+      expect(mockGraphqlQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          variables: expect.objectContaining({
+            a0: 'manifold-100/100-45',
+            a1: 's1.200.050',
+          }),
+        }),
+      );
       expect(result).toEqual({
         products: [
           { alias: 'manifold-100/100-45', name: 'A' },

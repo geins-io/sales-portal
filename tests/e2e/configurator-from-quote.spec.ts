@@ -6,6 +6,7 @@ import {
   signedInState,
   waitForHydration,
 } from './helpers';
+import { isApiCall } from './api-call';
 
 /**
  * Opening a configured line of a quotation draft in the configurator, end to
@@ -162,7 +163,7 @@ test.describe('Opening a configured draft line', () => {
 
     const replayed = page.waitForResponse(
       (r) =>
-        r.url().endsWith('/api/configurations/from-quote') &&
+        isApiCall(r.url(), '/api/configurations/from-quote') &&
         r.request().method() === 'POST',
     );
     await change.click();
@@ -200,11 +201,10 @@ test.describe('Opening a configured draft line', () => {
 
     const released = page.waitForRequest(
       (r) =>
-        r
-          .url()
-          .endsWith(
-            `/api/configurations/${body.configuration.configurationId}`,
-          ) && r.method() === 'DELETE',
+        isApiCall(
+          r.url(),
+          `/api/configurations/${body.configuration.configurationId}`,
+        ) && r.method() === 'DELETE',
     );
     await page.getByTestId('configurator-edit-cancel').click();
     await released;

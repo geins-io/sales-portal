@@ -65,6 +65,28 @@ const baseProduct = {
 };
 
 describe('ProductCard', () => {
+  it('links to the canonical URL when the card item has one, and to the alias when not', () => {
+    const productLinks = (
+      product: typeof baseProduct & { canonicalUrl?: string },
+    ) =>
+      mountComponent(ProductCard, { props: { product }, global: { stubs } })
+        .findAll('a[href]')
+        .map((a) => a.attributes('href'))
+        .filter((href) => href?.includes('/p/'));
+
+    const localized = productLinks({
+      ...baseProduct,
+      alias: 'kopparror',
+      canonicalUrl: '/se/en/p/pipes/copper-pipe',
+    });
+    expect(localized.length).toBeGreaterThan(0);
+    expect(new Set(localized)).toEqual(new Set(['/se/en/p/pipes/copper-pipe']));
+
+    expect(new Set(productLinks(baseProduct))).toEqual(
+      new Set(['/se/en/p/test-widget']),
+    );
+  });
+
   it('renders the product name', () => {
     const wrapper = mountComponent(ProductCard, {
       props: { product: baseProduct },

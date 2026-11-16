@@ -404,6 +404,32 @@ describe('Saved list detail with a configurable product', () => {
     return wrapper.findAll('[data-testid="list-item-row"]')[index]!;
   }
 
+  it('links a row to its canonical URL in the language of the page, product and configure link alike', () => {
+    const localized = {
+      ...BOOKCASE,
+      alias: 'bokhylla',
+      name: 'Bookshelf',
+      canonicalUrl: '/se/en/p/furniture/bookcase',
+    };
+    mockFetchProducts.push(localized);
+    try {
+      const shelf = mountPage()
+        .findAll('[data-testid="list-item-row"]')
+        .find((r) => r.text().includes('Bookshelf'))!;
+
+      expect(
+        shelf.find('[data-testid="list-item-product-link"]').attributes('href'),
+      ).toBe('/se/en/p/furniture/bookcase');
+      expect(
+        shelf
+          .find('[data-testid="list-item-configure-link"]')
+          .attributes('href'),
+      ).toBe('/se/en/p/furniture/bookcase');
+    } finally {
+      mockFetchProducts.splice(mockFetchProducts.indexOf(localized), 1);
+    }
+  });
+
   it('links a configurable row to its product page instead of adding it to the cart', () => {
     const bookcase = row(mountPage(), 2);
 

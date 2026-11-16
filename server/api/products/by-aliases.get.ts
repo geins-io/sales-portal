@@ -29,22 +29,22 @@ export default defineEventHandler(async (event) => {
   );
   const auth = await optionalAuth(event);
 
-  // Match the single-product endpoint's auth-aware cache strategy. Anonymous
-  // requests can be edge-cached briefly, signed-in requests are per-user.
-  setResponseHeader(
-    event,
-    'Cache-Control',
-    auth?.authToken
-      ? 'private, no-cache'
-      : 'public, s-maxage=60, stale-while-revalidate=600',
-  );
-
   return withErrorHandling(
     async () => {
       const products = (await getProductsByAliases(
         { aliases, userToken: auth?.authToken },
         event,
       )) as FavoriteProducts;
+      // Match the single-product endpoint's auth-aware cache strategy.
+      // Anonymous answers can be edge-cached briefly, signed-in ones are
+      // per-user. Only on success: a cached failure would come back.
+      setResponseHeader(
+        event,
+        'Cache-Control',
+        auth?.authToken
+          ? 'private, no-cache'
+          : 'public, s-maxage=60, stale-while-revalidate=600',
+      );
       return { products: withConfigurableFlags(event, products) };
     },
     { operation: 'products.by-aliases' },

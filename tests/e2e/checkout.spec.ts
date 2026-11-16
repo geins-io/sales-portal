@@ -14,6 +14,7 @@ import {
   type VatSide,
 } from './helpers';
 import { localeText } from './locale-text';
+import { apiRoute } from './api-call';
 
 /**
  * Checkout E2E Tests
@@ -374,7 +375,7 @@ test.describe('Checkout refusal', () => {
 
       // Answered here, so the request never reaches the server and no order
       // can be placed; the body is the shape createAppError gives a refusal.
-      await page.route('**/api/checkout/create-order', (route) =>
+      await page.route(apiRoute('/api/checkout/create-order'), (route) =>
         route.fulfill({
           status,
           contentType: 'application/json',

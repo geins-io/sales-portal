@@ -23,6 +23,11 @@ vi.stubGlobal(
   'getRequestURL',
   vi.fn(() => new URL('http://localhost:3000/se/sv/checkout')),
 );
+const mockQuery: Record<string, string | undefined> = {};
+vi.stubGlobal(
+  'getQuery',
+  vi.fn(() => mockQuery),
+);
 const mockCookies: Record<string, string | undefined> = {};
 vi.stubGlobal(
   'getCookie',
@@ -91,6 +96,7 @@ describe('POST /api/checkout/token', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     for (const k of Object.keys(mockCookies)) mockCookies[k] = undefined;
+    for (const k of Object.keys(mockQuery)) mockQuery[k] = undefined;
     mockCookies.market = 'se';
     mockCookies.locale = 'sv';
     mockCreateToken.mockResolvedValue('sdk-generated-token-123');
@@ -163,6 +169,53 @@ describe('POST /api/checkout/token', () => {
       'http://localhost:3000/se/sv/cart',
     );
     expect(options.redirectUrls?.continue).toBe('http://localhost:3000/se/sv/');
+  });
+
+  it('returns to the language of the page that asked, not of the cookie another tab set', async () => {
+    // An en tab asks while an sv tab last set the cookies.
+    // The market stays the cookie's, as before; a market in the query is not read.
+    mockQuery.locale = 'en';
+    mockQuery.market = 'no';
+    const event = makeMockEvent({ body: { cartId: 'cart-en-tab' } });
+    const { default: handler } =
+      await import('../../../../server/api/checkout/token.post');
+    await handler(event);
+
+    const [options] = mockCreateToken.mock.calls[0] as [
+      import('@geins/types').GenerateCheckoutTokenOptions,
+    ];
+    expect(options.redirectUrls).toEqual({
+      success: 'http://localhost:3000/se/en/order-confirmation',
+      cancel: 'http://localhost:3000/se/en/cart',
+      continue: 'http://localhost:3000/se/en/',
+    });
+  });
+
+  it('omits the prefix when the page sends its locale but no market cookie is set', async () => {
+    mockQuery.locale = 'en';
+    mockCookies.market = undefined;
+    const event = makeMockEvent({ body: { cartId: 'cart-locale-only' } });
+    const { default: handler } =
+      await import('../../../../server/api/checkout/token.post');
+    await handler(event);
+
+    const [options] = mockCreateToken.mock.calls[0] as [
+      import('@geins/types').GenerateCheckoutTokenOptions,
+    ];
+    expect(options.redirectUrls?.cancel).toBe('http://localhost:3000/cart');
+  });
+
+  it('omits the prefix when only the market is known', async () => {
+    mockCookies.locale = undefined;
+    const event = makeMockEvent({ body: { cartId: 'cart-market-only' } });
+    const { default: handler } =
+      await import('../../../../server/api/checkout/token.post');
+    await handler(event);
+
+    const [options] = mockCreateToken.mock.calls[0] as [
+      import('@geins/types').GenerateCheckoutTokenOptions,
+    ];
+    expect(options.redirectUrls?.cancel).toBe('http://localhost:3000/cart');
   });
 
   it('does not send a terms URL in the redirect payload', async () => {

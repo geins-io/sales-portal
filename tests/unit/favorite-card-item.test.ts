@@ -25,6 +25,18 @@ const ORDINARY: FavoriteProduct = {
 };
 
 describe('toFavoriteCardItem', () => {
+  it('carries the canonical URL of the product in the language of the page, for its link', () => {
+    const card = toFavoriteCardItem(
+      { ...ORDINARY, canonicalUrl: '/se/en/p/fasteners/wood-screw-en' },
+      true,
+    );
+
+    expect(card).toMatchObject({
+      alias: 'wood-screw',
+      canonicalUrl: '/se/en/p/fasteners/wood-screw-en',
+    });
+  });
+
   it('builds the card item of an ordinary product without the flag', () => {
     expect(toFavoriteCardItem(ORDINARY, true)).toStrictEqual({
       name: 'Wood screw',

@@ -6,6 +6,7 @@ import {
   outOfScope,
   waitForHydration,
 } from './helpers';
+import { apiRoute } from './api-call';
 
 /**
  * An organization buyer who signs in on another market lands on the market of
@@ -56,7 +57,7 @@ test.describe('Buyer market on sign-in', () => {
     // response body, so it is read on the way through.
     let switched: { market?: string | null } | undefined;
     let setMarket: string | undefined;
-    await page.route('**/api/auth/login', async (route) => {
+    await page.route(apiRoute('/api/auth/login'), async (route) => {
       const response = await route.fetch();
       switched = await response.json();
       setMarket = response

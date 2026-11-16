@@ -5,6 +5,7 @@ import {
   outOfScope,
   signedInState,
 } from './helpers';
+import { apiRoute } from './api-call';
 
 /**
  * The order-from-quotation page. Placing an order cannot be undone, so the
@@ -83,7 +84,7 @@ async function mockFinalize(page: Page, quote: FullQuote) {
   };
 
   const finalizeCalls: Array<{ url: string; body: unknown }> = [];
-  await page.route('**/api/quotes/*/finalize', async (route) => {
+  await page.route(apiRoute('/api/quotes/*/finalize'), async (route) => {
     finalizeCalls.push({
       url: route.request().url(),
       body: route.request().postDataJSON(),
@@ -189,7 +190,7 @@ test.describe('Order from a quotation', () => {
     await page.locator('#checkout-terms-checkbox').click();
     await expect(place).toBeEnabled();
     // From here on the quotation reads as the order it became.
-    await page.route(`**/api/quotes/${quote!.id}`, async (route) => {
+    await page.route(apiRoute(`/api/quotes/${quote!.id}`), async (route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       await route.fulfill({ json: { quote: finalized } });
     });
@@ -239,7 +240,7 @@ test.describe('Order from a quotation', () => {
     await expect(place).toBeDisabled();
     await page.locator('#checkout-terms-checkbox').click();
     await expect(place).toBeEnabled();
-    await page.route(`**/api/quotes/${quote!.id}`, async (route) => {
+    await page.route(apiRoute(`/api/quotes/${quote!.id}`), async (route) => {
       if (route.request().method() !== 'GET') return route.fallback();
       await route.fulfill({ json: { quote: finalized } });
     });

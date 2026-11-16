@@ -11,6 +11,7 @@ import {
   waitForHydration,
 } from './helpers';
 import { localeText } from './locale-text';
+import { apiRoute } from './api-call';
 
 /**
  * A request draft edited in the quotation view, against Geins: each test makes
@@ -261,7 +262,8 @@ async function readDraft(page: Page, id: string) {
  * 8 times in 12), so a real search is left out of this spec.
  */
 async function quickAdd(page: Page, product: DraftProduct) {
-  await page.route('**/api/search/products?*', (route) =>
+  const search = apiRoute('/api/search/products');
+  await page.route(search, (route) =>
     route.fulfill({
       json: {
         products: [
@@ -283,7 +285,7 @@ async function quickAdd(page: Page, product: DraftProduct) {
     .getByTestId('quote-quick-add-hit')
     .filter({ hasText: product.articleNumber })
     .click();
-  await page.unroute('**/api/search/products?*');
+  await page.unroute(search);
 }
 
 async function openDraft(page: Page, id: string) {

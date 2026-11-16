@@ -7,6 +7,7 @@ import {
   waitForHydration,
 } from './helpers';
 import { localeText } from './locale-text';
+import { apiRoute, isApiCall } from './api-call';
 
 /**
  * Editing a configured cart line, end to end on a real CPQ backend.
@@ -115,7 +116,7 @@ async function addConfiguredLine(
   await expect(commit).toBeEnabled({ timeout: 30_000 });
   const added = page.waitForResponse(
     (r) =>
-      /\/api\/configurations\/[^/]+\/cart$/.test(r.url()) &&
+      isApiCall(r.url(), '/api/configurations/*/cart') &&
       r.request().method() === 'POST',
   );
   await commit.click();
@@ -139,7 +140,7 @@ async function removeLine(page: Page, cartId: string, itemId: string) {
 function reopenResponse(page: Page): Promise<Response> {
   return page.waitForResponse(
     (r) =>
-      r.url().endsWith('/api/configurations/reopen') &&
+      isApiCall(r.url(), '/api/configurations/reopen') &&
       r.request().method() === 'POST',
   );
 }
@@ -201,7 +202,7 @@ async function chooseOther(
   await expect(sheet).toBeInViewport({ ratio: 1 });
   const changed = page.waitForResponse(
     (r) =>
-      /\/api\/configurations\/[^/]+\/changes$/.test(r.url()) &&
+      isApiCall(r.url(), '/api/configurations/*/changes') &&
       r.request().method() === 'POST',
   );
   await sheet.locator(`[data-option-id="${where.optionId}"]`).click();
@@ -252,7 +253,7 @@ test.describe('Editing a configured cart line', () => {
 
       const swapped = page.waitForResponse(
         (r) =>
-          /\/api\/configurations\/[^/]+\/cart$/.test(r.url()) &&
+          isApiCall(r.url(), '/api/configurations/*/cart') &&
           r.request().method() === 'PUT',
       );
       await page.getByTestId('configurator-commit').click();
@@ -394,7 +395,7 @@ test.describe('Editing a configured cart line', () => {
     const { cartId, line } = await addConfiguredLine(page);
     try {
       // What the portal answers for the provider's ConfigurationCurrencyMismatch.
-      await page.route('**/api/configurations/reopen', (route) =>
+      await page.route(apiRoute('/api/configurations/reopen'), (route) =>
         route.fulfill({
           status: 409,
           contentType: 'application/json',
@@ -424,7 +425,8 @@ test.describe('Editing a configured cart line', () => {
     const { cartId, line } = await addConfiguredLine(page);
     try {
       // What the portal answers for the provider's ConfigurationNotReopenable.
-      await page.route('**/api/configurations/reopen', (route) =>
+      const reopen = apiRoute('/api/configurations/reopen');
+      await page.route(reopen, (route) =>
         route.fulfill({
           status: 422,
           contentType: 'application/json',
@@ -437,7 +439,7 @@ test.describe('Editing a configured cart line', () => {
       );
       const created = page.waitForResponse(
         (r) =>
-          r.url().endsWith('/api/configurations') &&
+          isApiCall(r.url(), '/api/configurations') &&
           r.request().method() === 'POST',
       );
       await editLine(page, line.id, 'cart page');
@@ -451,10 +453,10 @@ test.describe('Editing a configured cart line', () => {
 
       const swapped = page.waitForResponse(
         (r) =>
-          /\/api\/configurations\/[^/]+\/cart$/.test(r.url()) &&
+          isApiCall(r.url(), '/api/configurations/*/cart') &&
           r.request().method() === 'PUT',
       );
-      await page.unroute('**/api/configurations/reopen');
+      await page.unroute(reopen);
       await page.getByTestId('configurator-commit').click();
       expect((await swapped).status()).toBe(200);
 
@@ -602,7 +604,8 @@ test.describe("Changing a configured line's quantity", () => {
     const { cartId, line } = await addConfiguredLine(page);
     try {
       // What the portal answers when the provider refuses the quantity.
-      await page.route('**/api/cart/items', (route) =>
+      const items = apiRoute('/api/cart/items');
+      await page.route(items, (route) =>
         route.request().method() === 'PUT'
           ? route.fulfill({
               status: 422,
@@ -632,7 +635,7 @@ test.describe("Changing a configured line's quantity", () => {
       await expect(
         item.locator('[data-testid="quantity-input"] input'),
       ).toHaveValue('1');
-      await page.unroute('**/api/cart/items');
+      await page.unroute(items);
       const kept = (await lines(page, cartId)).find((l) => l.id === line.id);
       expect(kept?.quantity).toBe(1);
       expect(kept?.configuration?.configurationId).toBe(
@@ -666,7 +669,7 @@ test.describe("Following a line's quantity on the configurator page", () => {
   function followAnswer(page: Page): Promise<Response> {
     return page.waitForResponse(
       (r) =>
-        /\/api\/configurations\/[^/]+\/changes$/.test(r.url()) &&
+        isApiCall(r.url(), '/api/configurations/*/changes') &&
         r.request().method() === 'POST' &&
         (
           r.request().postDataJSON() as { changes: { type: string }[] }
@@ -736,7 +739,7 @@ test.describe("Following a line's quantity on the configurator page", () => {
       .filter({ has: page.locator(`#cart-item-configuration-${itemId}`) });
     const follows: string[] = [];
     const count = (request: { url(): string; postData(): string | null }) => {
-      if (/\/api\/configurations\/[^/]+\/changes$/.test(request.url())) {
+      if (isApiCall(request.url(), '/api/configurations/*/changes')) {
         follows.push(request.postData() ?? '');
       }
     };
@@ -804,10 +807,10 @@ test.describe("Following a line's quantity on the configurator page", () => {
     const sent = { commits: 0, adds: 0 };
     const count = (request: { method(): string; url(): string }) => {
       if (request.method() !== 'POST') return;
-      if (/\/api\/configurations\/[^/]+\/commit$/.test(request.url())) {
+      if (isApiCall(request.url(), '/api/configurations/*/commit')) {
         sent.commits++;
       }
-      if (/\/api\/configurations\/[^/]+\/cart$/.test(request.url())) {
+      if (isApiCall(request.url(), '/api/configurations/*/cart')) {
         sent.adds++;
       }
     };
@@ -843,7 +846,7 @@ test.describe("Following a line's quantity on the configurator page", () => {
       await expect(commit).toBeEnabled();
       const add = page.waitForResponse(
         (r) =>
-          /\/api\/configurations\/[^/]+\/cart$/.test(r.url()) &&
+          isApiCall(r.url(), '/api/configurations/*/cart') &&
           r.request().method() === 'POST',
       );
       await commit.click();
@@ -931,11 +934,13 @@ test.describe("Following a line's quantity on the configurator page", () => {
 
       await expect(commit).toBeEnabled();
       const committed = page.waitForResponse(
-        (r) => r.url().endsWith('/commit') && r.request().method() === 'POST',
+        (r) =>
+          isApiCall(r.url(), '/api/configurations/*/commit') &&
+          r.request().method() === 'POST',
       );
       const swapped = page.waitForResponse(
         (r) =>
-          /\/api\/configurations\/[^/]+\/cart$/.test(r.url()) &&
+          isApiCall(r.url(), '/api/configurations/*/cart') &&
           r.request().method() === 'PUT',
       );
       await commit.click();
