@@ -957,7 +957,7 @@ test.describe('Portal Quotations', () => {
   });
   // An answer cannot be undone and the account's quotations are shared test
   // data, so this only opens the dialog and cancels it — it never confirms.
-  test('a pending quotation asks before it is declined, and cancel changes nothing', async ({
+  test('a pending quotation asks before it is declined, offers a message, and cancel changes nothing', async ({
     page,
   }) => {
     // Read before any navigation: leaving a page mid-hydration makes Nuxt
@@ -981,6 +981,12 @@ test.describe('Portal Quotations', () => {
     const dialog = page.locator('[data-testid="quote-action-dialog"]');
     await expect(dialog).toBeVisible({ timeout: PAGE_TIMEOUT });
     await expect(dialog.getByRole('heading')).toHaveText('Avböj offerten?');
+    const message = dialog.getByLabel('Meddelande till säljaren (valfritt)');
+    await expect(message).toHaveAttribute('maxlength', '4000');
+    await message.fill('För dyrt');
+    await expect(
+      dialog.locator('[data-testid="quote-action-message-count"]'),
+    ).toHaveText('8 / 4000');
 
     await dialog.locator('[data-testid="quote-action-cancel"]').click();
     await expect(dialog).toBeHidden({ timeout: PAGE_TIMEOUT });
