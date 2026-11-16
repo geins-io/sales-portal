@@ -73,12 +73,16 @@ export const useQuotesStore = defineStore('quotes', () => {
     }
   }
 
-  async function acceptQuote(id: string): Promise<Quote | null> {
+  async function acceptQuote(
+    id: string,
+    message?: string,
+  ): Promise<Quote | null> {
     isActionLoading.value = true;
     error.value = null;
     try {
       const data = await $fetch<{ quote: Quote }>(`/api/quotes/${id}/accept`, {
         method: 'POST',
+        ...(message && { body: { message } }),
       });
       currentQuote.value = data.quote;
       const idx = quotes.value.findIndex((q) => q.id === id);
@@ -97,12 +101,16 @@ export const useQuotesStore = defineStore('quotes', () => {
     }
   }
 
-  async function rejectQuote(id: string): Promise<Quote | null> {
+  async function rejectQuote(
+    id: string,
+    message?: string,
+  ): Promise<Quote | null> {
     isActionLoading.value = true;
     error.value = null;
     try {
       const data = await $fetch<{ quote: Quote }>(`/api/quotes/${id}/reject`, {
         method: 'POST',
+        ...(message && { body: { message } }),
       });
       currentQuote.value = data.quote;
       const idx = quotes.value.findIndex((q) => q.id === id);

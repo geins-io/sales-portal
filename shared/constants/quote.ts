@@ -4,3 +4,5 @@ export const QUOTE_NAME_MAX_LENGTH = 80;
 export const QUOTE_REQUEST_MAX_LINES = 200;
 /** The most of one product a draft line may ask for. */
 export const QUOTE_LINE_MAX_QUANTITY = 9999;
+/** The longest message to the seller; Geins' own limit. */
+export const QUOTE_MESSAGE_MAX_LENGTH = 4000;

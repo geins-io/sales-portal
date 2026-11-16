@@ -1,8 +1,10 @@
 <script setup lang="ts">
 /**
  * Confirm an answer to a quotation before it is sent — withdraw, decline,
- * accept. None of them can be undone.
+ * accept. None of them can be undone. The buyer may add a message to the
+ * seller, which Geins stores with the status change.
  */
+import { QUOTE_MESSAGE_MAX_LENGTH } from '#shared/constants/quote';
 import {
   Dialog,
   DialogContent,
@@ -12,6 +14,7 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog';
 import { Button } from '~/components/ui/button';
+import { Label } from '~/components/ui/label';
 
 defineProps<{
   open: boolean;
@@ -21,7 +24,10 @@ defineProps<{
   /** Opting out (withdraw, decline) is shown as destructive. */
   destructive?: boolean;
   pending?: boolean;
+  messagePlaceholder?: string;
 }>();
+
+const message = defineModel<string>('message', { default: '' });
 
 const emit = defineEmits<{
   'update:open': [value: boolean];
@@ -38,6 +44,27 @@ const { t } = useI18n();
         <DialogTitle>{{ title }}</DialogTitle>
         <DialogDescription>{{ description }}</DialogDescription>
       </DialogHeader>
+      <div class="space-y-2">
+        <Label for="quote-action-message">{{
+          t('portal.quotations.answer_message')
+        }}</Label>
+        <textarea
+          id="quote-action-message"
+          v-model="message"
+          :placeholder="messagePlaceholder"
+          :maxlength="QUOTE_MESSAGE_MAX_LENGTH"
+          :disabled="pending"
+          rows="4"
+          class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-20 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          data-testid="quote-action-message"
+        />
+        <p
+          class="text-muted-foreground text-right text-xs tabular-nums"
+          data-testid="quote-action-message-count"
+        >
+          {{ message.length }} / {{ QUOTE_MESSAGE_MAX_LENGTH }}
+        </p>
+      </div>
       <DialogFooter>
         <Button
           variant="outline"

@@ -1449,6 +1449,53 @@ describe('quotes service', () => {
     });
   });
 
+  // The buyer's message goes with the status change; Geins stores it there.
+  describe.each([
+    {
+      action: 'acceptQuote' as const,
+      field: 'acceptQuotation',
+      rawStatus: 'ACCEPTED',
+    },
+    {
+      action: 'rejectQuote' as const,
+      field: 'rejectQuotation',
+      rawStatus: 'REJECTED',
+    },
+  ])('$action with a message', ({ action, field, rawStatus }) => {
+    beforeEach(() => {
+      mockGraphqlMutation.mockResolvedValueOnce({ [field]: true });
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: makeRawQuotationCart({ status: rawStatus }),
+      });
+    });
+
+    it('sends the message, trimmed', async () => {
+      await quotesService[action]('cart-001', mockEvent, {
+        message: '  Vi hör av oss i vår\n',
+      });
+
+      expect(mockGraphqlMutation.mock.calls[0]![0].variables).toEqual({
+        quotationId: 'cart-001',
+        languageId: 'sv-SE',
+        message: 'Vi hör av oss i vår',
+      });
+    });
+
+    it.each([
+      ['no options', undefined],
+      ['no message', {}],
+      ['an empty message', { message: '' }],
+      ['a blank message', { message: ' \n\t ' }],
+    ])('sends no message variable for %s', async (_label, options) => {
+      await quotesService[action]('cart-001', mockEvent, options);
+
+      expect(mockGraphqlMutation.mock.calls[0]![0].variables).toEqual({
+        quotationId: 'cart-001',
+        languageId: 'sv-SE',
+      });
+    });
+  });
+
   describe('getQuoteNumber', () => {
     it("reads only the quotation's number, as the signed-in buyer", async () => {
       mockGraphqlQuery.mockResolvedValueOnce({

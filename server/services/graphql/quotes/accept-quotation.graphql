@@ -1,3 +1,11 @@
-mutation acceptQuotation($quotationId: Guid!, $languageId: String) {
-  acceptQuotation(quotationId: $quotationId, languageId: $languageId)
+mutation acceptQuotation(
+  $quotationId: Guid!
+  $message: String
+  $languageId: String
+) {
+  acceptQuotation(
+    quotationId: $quotationId
+    message: $message
+    languageId: $languageId
+  )
 }

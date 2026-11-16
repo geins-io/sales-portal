@@ -95,14 +95,18 @@ const {
     mockUseFetch: vi.fn(),
     // Default implementations simulate the real store by clearing/setting
     // the shared error ref. Individual tests can override with mockImplementationOnce.
-    mockAcceptQuote: vi.fn((_id: string): Promise<Quote | null> => {
-      storeErrorRef.value = null;
-      return Promise.resolve(null);
-    }),
-    mockRejectQuote: vi.fn((_id: string): Promise<Quote | null> => {
-      storeErrorRef.value = null;
-      return Promise.resolve(null);
-    }),
+    mockAcceptQuote: vi.fn(
+      (_id: string, _message?: string): Promise<Quote | null> => {
+        storeErrorRef.value = null;
+        return Promise.resolve(null);
+      },
+    ),
+    mockRejectQuote: vi.fn(
+      (_id: string, _message?: string): Promise<Quote | null> => {
+        storeErrorRef.value = null;
+        return Promise.resolve(null);
+      },
+    ),
     mockIsActionLoading: ref(false),
     mockIsLoading: ref(false),
     mockStoreCurrentQuote: ref<Quote | null>(null),
@@ -234,11 +238,14 @@ const defaultStubs = {
       'confirmLabel',
       'destructive',
       'pending',
+      'message',
+      'messagePlaceholder',
     ],
-    emits: ['update:open', 'confirm'],
+    emits: ['update:open', 'confirm', 'update:message'],
     template: `<div v-if="open" data-testid="quote-action-dialog" :data-destructive="String(!!destructive)" :data-pending="String(!!pending)">
       <h2 data-testid="dialog-title">{{ title }}</h2>
       <p data-testid="dialog-description">{{ description }}</p>
+      <textarea data-testid="quote-action-message" :value="message" :placeholder="messagePlaceholder" @input="$emit('update:message', $event.target.value)" />
       <button data-testid="quote-action-cancel" @click="$emit('update:open', false)">cancel</button>
       <button data-testid="quote-action-confirm" @click="$emit('confirm')">{{ confirmLabel }}</button>
     </div>`,
@@ -1087,7 +1094,7 @@ describe('PortalQuotationDetail', () => {
         'accept',
       ],
     ])(
-      'sends a confirmed %s once, with the id only',
+      'sends a confirmed %s once, with no message for an empty field',
       async (_, quote, button, call) => {
         const wrapper = await mountWith(quote);
 
@@ -1098,10 +1105,166 @@ describe('PortalQuotationDetail', () => {
             ? [mockAcceptQuote, mockRejectQuote]
             : [mockRejectQuote, mockAcceptQuote];
         expect(used).toHaveBeenCalledTimes(1);
-        expect(used).toHaveBeenCalledWith('q-001');
+        expect(used).toHaveBeenCalledWith('q-001', undefined);
         expect(unused).not.toHaveBeenCalled();
       },
     );
+
+    describe('the message to the seller', () => {
+      const actions = [
+        [
+          'withdraw',
+          makeQuote({ status: 'requested' }),
+          'quote-withdraw',
+          mockRejectQuote,
+        ],
+        ['decline', pending(), 'decline-btn', mockRejectQuote],
+        [
+          'accept',
+          pending({ requiresConfirmation: true }),
+          'accept-btn',
+          mockAcceptQuote,
+        ],
+      ] as const;
+
+      async function write(wrapper: Wrapper, button: string, text: string) {
+        await wrapper.find(`[data-testid="${button}"]`).trigger('click');
+        await wrapper
+          .find('[data-testid="quote-action-message"]')
+          .setValue(text);
+      }
+
+      const confirm = async (wrapper: Wrapper) => {
+        await wrapper
+          .find('[data-testid="quote-action-confirm"]')
+          .trigger('click');
+        await flushPromises();
+      };
+
+      const field = (wrapper: Wrapper) =>
+        wrapper.find('[data-testid="quote-action-message"]')
+          .element as HTMLTextAreaElement;
+
+      it.each(actions)(
+        'gives the %s dialog its own placeholder',
+        async (action, quote, button) => {
+          const wrapper = await mountWith(quote);
+
+          await wrapper.find(`[data-testid="${button}"]`).trigger('click');
+
+          expect(field(wrapper).placeholder).toBe(
+            `portal.quotations.answer_message_placeholder_${action}`,
+          );
+        },
+      );
+
+      it.each(actions)(
+        'sends the %s with the message, trimmed',
+        async (_, quote, button, call) => {
+          const wrapper = await mountWith(quote);
+
+          await write(wrapper, button, '  Vi hör av oss i vår \n');
+          await confirm(wrapper);
+
+          expect(call).toHaveBeenCalledTimes(1);
+          expect(call).toHaveBeenCalledWith('q-001', 'Vi hör av oss i vår');
+        },
+      );
+
+      it.each(actions)(
+        'sends the %s with no message for a blank field',
+        async (_, quote, button, call) => {
+          const wrapper = await mountWith(quote);
+
+          await write(wrapper, button, ' \n\t ');
+          await confirm(wrapper);
+
+          expect(call).toHaveBeenCalledWith('q-001', undefined);
+        },
+      );
+
+      it('keeps the text after a failed answer, to send again', async () => {
+        mockRejectQuote.mockImplementationOnce(() => {
+          mockStoreError.value = 'portal.quotations.decline_failed';
+          return Promise.resolve(null);
+        });
+        const wrapper = await mountWith(pending());
+
+        await write(wrapper, 'decline-btn', 'För dyrt');
+        await confirm(wrapper);
+        await wrapper.find('[data-testid="decline-btn"]').trigger('click');
+
+        expect(field(wrapper).value).toBe('För dyrt');
+        await confirm(wrapper);
+        expect(mockRejectQuote).toHaveBeenLastCalledWith('q-001', 'För dyrt');
+      });
+
+      it("keeps a failed answer's text for that action only", async () => {
+        mockRejectQuote.mockImplementationOnce(() => {
+          mockStoreError.value = 'portal.quotations.decline_failed';
+          return Promise.resolve(null);
+        });
+        const wrapper = await mountWith(
+          pending({ requiresConfirmation: true }),
+        );
+
+        await write(wrapper, 'decline-btn', 'För dyrt');
+        await confirm(wrapper);
+        await wrapper.find('[data-testid="accept-btn"]').trigger('click');
+        expect(field(wrapper).value).toBe('');
+
+        await confirm(wrapper);
+        expect(mockAcceptQuote).toHaveBeenCalledWith('q-001', undefined);
+      });
+
+      it('shows the kept text again after another action was cancelled', async () => {
+        mockRejectQuote.mockImplementationOnce(() => {
+          mockStoreError.value = 'portal.quotations.decline_failed';
+          return Promise.resolve(null);
+        });
+        const wrapper = await mountWith(
+          pending({ requiresConfirmation: true }),
+        );
+
+        await write(wrapper, 'decline-btn', 'För dyrt');
+        await confirm(wrapper);
+        await write(wrapper, 'accept-btn', 'Tack');
+        await wrapper
+          .find('[data-testid="quote-action-cancel"]')
+          .trigger('click');
+        await wrapper.find('[data-testid="decline-btn"]').trigger('click');
+
+        expect(field(wrapper).value).toBe('För dyrt');
+      });
+
+      it('clears the text on cancel', async () => {
+        const wrapper = await mountWith(pending());
+
+        await write(wrapper, 'decline-btn', 'För dyrt');
+        await wrapper
+          .find('[data-testid="quote-action-cancel"]')
+          .trigger('click');
+        await wrapper.find('[data-testid="decline-btn"]').trigger('click');
+
+        expect(field(wrapper).value).toBe('');
+      });
+
+      it('clears the text once the answer has landed', async () => {
+        // Still pending in the answer, so the dialog can be opened again.
+        mockAcceptQuote.mockResolvedValueOnce(
+          pending({ requiresConfirmation: true }),
+        );
+        const wrapper = await mountWith(
+          pending({ requiresConfirmation: true }),
+        );
+
+        await write(wrapper, 'accept-btn', 'Tack');
+        await confirm(wrapper);
+        await wrapper.find('[data-testid="accept-btn"]').trigger('click');
+
+        expect(field(wrapper).value).toBe('');
+      });
+    });
 
     it('disables the confirm while the answer is on its way', async () => {
       mockIsActionLoading.value = true;

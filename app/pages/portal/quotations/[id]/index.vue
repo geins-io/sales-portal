@@ -124,10 +124,26 @@ const hasResponses = computed(
 
 type QuoteAction = 'withdraw' | 'decline' | 'accept';
 const pendingAction = ref<QuoteAction | null>(null);
+// One per action, kept when an answer fails so a retry of that action sends
+// it again; another action never shows it.
+const actionMessages = ref<Record<QuoteAction, string>>({
+  withdraw: '',
+  decline: '',
+  accept: '',
+});
+const actionMessage = computed({
+  get: () =>
+    pendingAction.value ? actionMessages.value[pendingAction.value] : '',
+  set: (text: string) => {
+    if (pendingAction.value) actionMessages.value[pendingAction.value] = text;
+  },
+});
 const actionOpen = computed({
   get: () => pendingAction.value !== null,
   set: (open: boolean) => {
-    if (!open) pendingAction.value = null;
+    if (open) return;
+    actionMessage.value = '';
+    pendingAction.value = null;
   },
 });
 
@@ -143,6 +159,9 @@ const actionCopy = computed(() => {
     ),
     confirm: t(`portal.quotations.${key}`),
     destructive: action !== 'accept',
+    messagePlaceholder: t(
+      `portal.quotations.answer_message_placeholder_${action}`,
+    ),
   };
 });
 
@@ -150,12 +169,15 @@ const actionCopy = computed(() => {
 async function runAction() {
   const action = pendingAction.value;
   if (!quote.value || !action) return;
+  const message = actionMessages.value[action].trim() || undefined;
   const answered =
     action === 'accept'
-      ? await store.acceptQuote(quote.value.id)
-      : await store.rejectQuote(quote.value.id);
+      ? await store.acceptQuote(quote.value.id, message)
+      : await store.rejectQuote(quote.value.id, message);
   pendingAction.value = null;
-  if (answered) data.value = { quote: answered };
+  if (!answered) return;
+  actionMessages.value[action] = '';
+  data.value = { quote: answered };
 }
 
 // ------------------------------------------------------------ the draft
@@ -843,10 +865,12 @@ const customerSummary = computed(() => {
       <PortalDialogConfirmQuoteAction
         v-if="actionCopy"
         v-model:open="actionOpen"
+        v-model:message="actionMessage"
         :title="actionCopy.title"
         :description="actionCopy.description"
         :confirm-label="actionCopy.confirm"
         :destructive="actionCopy.destructive"
+        :message-placeholder="actionCopy.messagePlaceholder"
         :pending="store.isActionLoading"
         @confirm="runAction"
       />

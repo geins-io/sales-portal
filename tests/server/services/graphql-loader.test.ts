@@ -217,9 +217,9 @@ describe('GraphQL loader', () => {
       const query = loadQuery(file);
 
       // The field takes `quotationId:`; the operation line takes `$quotationId:`.
-      expect(query).toMatch(new RegExp(`${field}\\(quotationId:`));
+      expect(query).toMatch(new RegExp(`${field}\\(\\s*quotationId:`));
       expect(query).not.toMatch(
-        new RegExp(`${field}\\(quotationId:[^)]*\\)\\s*\\{`),
+        new RegExp(`${field}\\(\\s*quotationId:[^)]*\\)\\s*\\{`),
       );
     });
   });
