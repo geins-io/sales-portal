@@ -886,6 +886,30 @@
       }
     },
     "quotations": {
+      "thread": {
+        "author": {
+          "buyer": "Köparen",
+          "seller": "Säljaren"
+        },
+        "open": "Offertkommunikation",
+        "title": "Offertkommunikation",
+        "empty": "Inga meddelanden än.",
+        "load_failed": "Det gick inte att ladda meddelandena.",
+        "event": {
+          "request_sent": "skickade förfrågan",
+          "quote_sent": "skickade offerten",
+          "accepted": "accepterade offerten",
+          "confirmed": "bekräftade offerten",
+          "declined": "avböjde offerten",
+          "withdrawn": "drog tillbaka förfrågan",
+          "quote_rejected": "avvisade offerten",
+          "request_rejected": "avvisade förfrågan",
+          "ordered": "lade ordern",
+          "canceled": "avbröt offerten",
+          "expired": "satte offerten som utgången",
+          "extended": "satte ett nytt utgångsdatum"
+        }
+      },
       "title": "Offerter och förfrågningar",
       "subtitle": "Fortsätt med dina utkast, följ dina skickade förfrågningar och svara på offerter.",
       "search_placeholder": "Sök namn eller offertnr…",

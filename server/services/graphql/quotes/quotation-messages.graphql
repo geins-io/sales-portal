@@ -1,0 +1,14 @@
+query getQuotationMessages($quotationId: Guid!) {
+  getQuotationMessages(quotationId: $quotationId) {
+    id
+    type
+    authorName
+    message
+    timestamp
+    answerRef
+    tags {
+      key
+      value
+    }
+  }
+}

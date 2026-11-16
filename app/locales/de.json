@@ -886,6 +886,30 @@
       }
     },
     "quotations": {
+      "thread": {
+        "author": {
+          "buyer": "Käufer",
+          "seller": "Verkäufer"
+        },
+        "open": "Angebotskommunikation",
+        "title": "Angebotskommunikation",
+        "empty": "Noch keine Nachrichten.",
+        "load_failed": "Die Nachrichten konnten nicht geladen werden.",
+        "event": {
+          "request_sent": "hat die Anfrage gesendet",
+          "quote_sent": "hat das Angebot gesendet",
+          "accepted": "hat das Angebot angenommen",
+          "confirmed": "hat das Angebot bestätigt",
+          "declined": "hat das Angebot abgelehnt",
+          "withdrawn": "hat die Anfrage zurückgezogen",
+          "quote_rejected": "hat das Angebot zurückgewiesen",
+          "request_rejected": "hat die Anfrage zurückgewiesen",
+          "ordered": "hat die Bestellung aufgegeben",
+          "canceled": "hat das Angebot storniert",
+          "expired": "hat das Angebot als abgelaufen markiert",
+          "extended": "hat ein neues Ablaufdatum gesetzt"
+        }
+      },
       "title": "Angebote und Anfragen",
       "subtitle": "Setzen Sie Ihre Entwürfe fort, verfolgen Sie Ihre gesendeten Anfragen und antworten Sie auf Angebote.",
       "search_placeholder": "Name oder Angebotsnr. suchen…",

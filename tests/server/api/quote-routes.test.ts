@@ -29,6 +29,11 @@ vi.mock('../../../server/services/quotes', () => ({
   deleteQuoteRequest: (...args: unknown[]) => mockDeleteQuoteRequest(...args),
 }));
 
+const mockGetQuoteThread = vi.fn();
+vi.mock('../../../server/services/quote-thread', () => ({
+  getQuoteThread: (...args: unknown[]) => mockGetQuoteThread(...args),
+}));
+
 const mockGetCart = vi.fn();
 vi.mock('../../../server/services/cart', () => ({
   getCart: (...args: unknown[]) => mockGetCart(...args),
@@ -320,6 +325,64 @@ describe('Quote API Routes', () => {
 
       await expect(handler(eventWithId)).rejects.toThrow(
         'Authentication required',
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // GET /api/quotes/[id]/messages
+  // -------------------------------------------------------------------------
+  describe('GET /api/quotes/[id]/messages', () => {
+    const eventWithId = () =>
+      ({
+        ...mockEvent,
+        context: { ...mockEvent.context, params: { id: 'quote-uuid-001' } },
+      }) as unknown as import('h3').H3Event;
+    const loadHandler = async () =>
+      (await import('../../../server/api/quotes/[id]/messages.get')).default;
+
+    it("answers the quotation's thread, read fresh every time", async () => {
+      const thread = {
+        entries: [
+          {
+            id: 'm-1',
+            at: '2026-11-10T08:00:00Z',
+            side: 'seller',
+            authorName: 'Erik',
+            text: 'Hej',
+          },
+        ],
+        messageCount: 1,
+      };
+      mockGetQuoteThread.mockResolvedValue(thread);
+      const event = eventWithId();
+
+      const result = await (await loadHandler())(event);
+
+      expect(mockRequireAuth).toHaveBeenCalledWith(event);
+      expect(mockGetQuoteThread).toHaveBeenCalledWith('quote-uuid-001', event);
+      expect(setHeader).toHaveBeenCalledWith(
+        event,
+        'Cache-Control',
+        'private, no-cache',
+      );
+      expect(result).toEqual({ thread });
+    });
+
+    it('reads nothing without a signed-in buyer', async () => {
+      mockRequireAuth.mockRejectedValue(new Error('Authentication required'));
+
+      await expect((await loadHandler())(eventWithId())).rejects.toThrow(
+        'Authentication required',
+      );
+      expect(mockGetQuoteThread).not.toHaveBeenCalled();
+    });
+
+    it('fails when the thread cannot be read', async () => {
+      mockGetQuoteThread.mockRejectedValue(new Error('Bad Gateway'));
+
+      await expect((await loadHandler())(eventWithId())).rejects.toThrow(
+        'Bad Gateway',
       );
     });
   });

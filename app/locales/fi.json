@@ -886,6 +886,30 @@
       }
     },
     "quotations": {
+      "thread": {
+        "author": {
+          "buyer": "Ostaja",
+          "seller": "Myyjä"
+        },
+        "open": "Tarjousviestit",
+        "title": "Tarjousviestit",
+        "empty": "Ei vielä viestejä.",
+        "load_failed": "Viestejä ei voitu ladata.",
+        "event": {
+          "request_sent": "lähetti tarjouspyynnön",
+          "quote_sent": "lähetti tarjouksen",
+          "accepted": "hyväksyi tarjouksen",
+          "confirmed": "vahvisti tarjouksen",
+          "declined": "hylkäsi tarjouksen",
+          "withdrawn": "peruutti tarjouspyynnön",
+          "quote_rejected": "hylkäsi tarjouksen",
+          "request_rejected": "hylkäsi tarjouspyynnön",
+          "ordered": "teki tilauksen",
+          "canceled": "perui tarjouksen",
+          "expired": "merkitsi tarjouksen vanhentuneeksi",
+          "extended": "asetti uuden voimassaolopäivän"
+        }
+      },
       "title": "Tarjoukset ja pyynnöt",
       "subtitle": "Jatka luonnoksiasi, seuraa lähettämiäsi pyyntöjä ja vastaa tarjouksiin.",
       "search_placeholder": "Hae nimeä tai tarjousnumeroa…",

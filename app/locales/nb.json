@@ -886,6 +886,30 @@
       }
     },
     "quotations": {
+      "thread": {
+        "author": {
+          "buyer": "Kjøperen",
+          "seller": "Selgeren"
+        },
+        "open": "Tilbudskommunikasjon",
+        "title": "Tilbudskommunikasjon",
+        "empty": "Ingen meldinger ennå.",
+        "load_failed": "Meldingene kunne ikke lastes inn.",
+        "event": {
+          "request_sent": "sendte forespørselen",
+          "quote_sent": "sendte tilbudet",
+          "accepted": "aksepterte tilbudet",
+          "confirmed": "bekreftet tilbudet",
+          "declined": "avslo tilbudet",
+          "withdrawn": "trakk tilbake forespørselen",
+          "quote_rejected": "avviste tilbudet",
+          "request_rejected": "avviste forespørselen",
+          "ordered": "la inn ordren",
+          "canceled": "avbrøt tilbudet",
+          "expired": "markerte tilbudet som utløpt",
+          "extended": "satte en ny utløpsdato"
+        }
+      },
       "title": "Tilbud og forespørsler",
       "subtitle": "Fortsett med utkastene dine, følg de sendte forespørslene dine og svar på tilbud.",
       "search_placeholder": "Søk navn eller tilbudsnr.…",

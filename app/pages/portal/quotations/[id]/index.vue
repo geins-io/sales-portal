@@ -14,7 +14,6 @@ import {
   History,
   Info,
   Loader2,
-  MessageSquare,
   MoreHorizontal,
   ShoppingBag,
   Tag,
@@ -86,6 +85,9 @@ store.currentQuote = data.value.quote;
 store.error = null;
 
 const quote = computed<Quote | null>(() => data.value?.quote ?? null);
+const threadSubtitle = computed(() =>
+  [quote.value?.quoteNumber, quote.value?.name].filter(Boolean).join(' · '),
+);
 /** A request draft is edited here; from `REQUESTED` on the view is read-only. */
 const isDraft = computed(() => quote.value?.status === 'request_draft');
 /** Without quote requests a draft is read as a sent request is, not edited. */
@@ -366,13 +368,6 @@ const metaRows = computed<MetaRow[]>(() => {
     lines: [sent?.goodsLabel ?? ''],
   });
   add({
-    key: 'comment',
-    testId: 'quote-meta-comment',
-    icon: MessageSquare,
-    label: t('portal.quotations.comment'),
-    lines: [sent?.comment ?? ''],
-  });
-  add({
     key: 'expires',
     testId: 'expires-at',
     icon: Calendar,
@@ -635,6 +630,13 @@ const customerSummary = computed(() => {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
+            </div>
+            <!-- Its own row: beside the title it squeezes the title in this narrow column. -->
+            <div v-if="!isDraft" class="mt-3">
+              <PortalQuoteThread
+                :quote-id="quoteId"
+                :subtitle="threadSubtitle"
+              />
             </div>
           </header>
 
