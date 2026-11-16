@@ -11,7 +11,7 @@ import { mount, flushPromises } from '@vue/test-utils';
 import { Hash, Tag, Truck } from 'lucide-vue-next';
 import { defaultMountOptions } from '../../utils/component';
 import type { Quote, QuoteStatus } from '../../../shared/types/quote';
-import { makeQuote } from '../../fixtures/quote';
+import { makeConfiguredQuoteLine, makeQuote } from '../../fixtures/quote';
 import { mockShowIncVat } from '../../setup-components';
 
 // Per-file override of the shared `vue-i18n` mock from `tests/setup-components.ts`.
@@ -488,6 +488,43 @@ describe('PortalQuotationDetail', () => {
       expect(
         wrapper.findAll('[data-testid="order-item-name"]')[0]!.text(),
       ).toBe('Widget Pro');
+    });
+
+    const withConfigured = (overrides: Partial<Quote> = {}) => {
+      const quote = twoLines();
+      return {
+        ...quote,
+        lineItems: [
+          ...quote.lineItems,
+          makeConfiguredQuoteLine({ alias: 'display' }),
+        ],
+        ...overrides,
+      };
+    };
+
+    it('leaves a configured line plain once the quotation is sent', async () => {
+      const wrapper = await mountWith(withConfigured());
+
+      const links = wrapper.findAll('[data-testid="order-item-name-link"]');
+      expect(links.map((link) => link.text())).toEqual(['Gadget Plus']);
+      expect(sheetOf(wrapper).props('items')).toMatchObject([
+        { alias: null },
+        { alias: 'gadget-plus' },
+        { alias: null },
+      ]);
+    });
+
+    it('still links a configured draft line read by a buyer who may not edit it', async () => {
+      mockCanRequestQuotes.mockReturnValue(false);
+      const wrapper = await mountWith(
+        withConfigured({ status: 'request_draft' }),
+      );
+
+      const links = wrapper.findAll('[data-testid="order-item-name-link"]');
+      expect(links.map((link) => link.text())).toEqual([
+        'Gadget Plus',
+        'Configured Display',
+      ]);
     });
 
     it('shows the thumbnail through GeinsImage, never a raw img', async () => {

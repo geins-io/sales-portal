@@ -3,7 +3,7 @@ import { defineComponent, h, ref, Suspense, onErrorCaptured } from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
 import { defaultMountOptions } from '../../utils/component';
 import type { Quote, QuoteStatus } from '../../../shared/types/quote';
-import { makeQuote } from '../../fixtures/quote';
+import { makeConfiguredQuoteLine, makeQuote } from '../../fixtures/quote';
 import { mockShowIncVat } from '../../setup-components';
 import type { AuthUser } from '@geins/types';
 import { useAuthStore } from '../../../app/stores/auth';
@@ -266,6 +266,32 @@ describe('PortalQuotationOrder', () => {
       expect(
         wrapper.find('[data-testid="quote-order-title"]').text(),
       ).toContain('Spring order');
+    });
+
+    it('words the line under the banner title lighter than the title, in the readable shade', async () => {
+      const wrapper = await mountWith(orderable());
+
+      const [, line] = wrapper.findAll('[data-testid="quote-order-banner"] p');
+      expect(line!.classes()).toContain('text-foreground/58');
+      expect(line!.classes()).not.toContain('text-muted-foreground');
+    });
+
+    it('links an ordinary line but not a configured one on the sent quotation', async () => {
+      const lineItems = [
+        { ...orderable().lineItems[0]!, alias: 'widget-pro' },
+        makeConfiguredQuoteLine({ alias: 'display' }),
+      ];
+      const wrapper = await mountWith(orderable({ lineItems }));
+
+      const card = wrapper.find('[data-testid="quote-articles"]');
+      expect(
+        card
+          .findAll('[data-testid="line-item-name-link"]')
+          .map((link) => link.text()),
+      ).toEqual(['Widget Pro', 'Widget Pro']);
+      expect(
+        card.findAll('[data-testid="line-item-name"]').map((n) => n.text()),
+      ).toEqual(['Configured Display', 'Configured Display']);
     });
 
     it('lists the quotation\'s lines in the "Artiklar" card', async () => {

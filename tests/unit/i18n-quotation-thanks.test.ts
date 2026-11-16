@@ -27,7 +27,7 @@ describe('quotation thank-you copy', () => {
       request_lines: 'Artiklar i förfrågan',
       order_title: 'Beställning bekräftad!',
       order_body:
-        'Tack för din beställning. En bekräftelse har skickats till din e-postadress.',
+        'Tack för din beställning. En bekräftelse har skickats till e-postadressen som är angiven som kontakt för ditt företag.',
       order_number: 'Ordernummer',
       from_quotation: 'Beställd från offert {number}',
       view_quotation: 'Visa offerten i kundportalen',

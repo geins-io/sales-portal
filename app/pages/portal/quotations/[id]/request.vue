@@ -5,7 +5,7 @@ import { Label } from '~/components/ui/label';
 import CheckoutCardHeader from '~/components/checkout/CheckoutCardHeader.vue';
 import { useQuotesStore } from '~/stores/quotes';
 import { useAuthStore } from '~/stores/auth';
-import { quoteAmounts } from '~/utils/quote-view';
+import { quoteAmounts, quoteLinksConfiguredLines } from '~/utils/quote-view';
 import type { Company } from '#shared/types/company';
 import type { Quote } from '#shared/types/quote';
 
@@ -140,7 +140,7 @@ async function send() {
           <p class="text-sm font-semibold">
             {{ t('portal.quotations.request.banner_title') }}
           </p>
-          <p class="text-muted-foreground mt-0.5 text-sm">
+          <p class="text-foreground/58 mt-0.5 text-sm">
             {{ t('portal.quotations.request.banner_body') }}
           </p>
         </div>
@@ -155,7 +155,10 @@ async function send() {
 
       <div class="flex flex-col gap-8 lg:flex-row lg:items-start">
         <div class="min-w-0 flex-1 space-y-6">
-          <PortalQuoteArticles :items="quote.lineItems">
+          <PortalQuoteArticles
+            :items="quote.lineItems"
+            :link-configured="quoteLinksConfiguredLines(quote)"
+          >
             <template #empty>
               <p
                 class="text-muted-foreground py-6 text-center text-sm"

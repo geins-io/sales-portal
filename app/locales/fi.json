@@ -1069,7 +1069,7 @@
         "view_request": "Näytä pyyntö asiakasportaalissa",
         "request_lines": "Pyynnön tuotteet",
         "order_title": "Tilaus vahvistettu!",
-        "order_body": "Kiitos tilauksestasi. Vahvistus on lähetetty sähköpostiisi.",
+        "order_body": "Kiitos tilauksestasi. Vahvistus on lähetetty sähköpostiosoitteeseen, joka on ilmoitettu yrityksesi yhteystiedoksi.",
         "order_number": "Tilausnumero",
         "from_quotation": "Tilattu tarjouksesta {number}",
         "view_quotation": "Näytä tarjous asiakasportaalissa",

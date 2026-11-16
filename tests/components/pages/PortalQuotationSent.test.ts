@@ -3,7 +3,7 @@ import { defineComponent, h, Suspense, onErrorCaptured } from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
 import { defaultMountOptions } from '../../utils/component';
 import type { Quote, QuoteStatus } from '../../../shared/types/quote';
-import { makeQuote } from '../../fixtures/quote';
+import { makeConfiguredQuoteLine, makeQuote } from '../../fixtures/quote';
 import { mockShowIncVat } from '../../setup-components';
 import { quoteRows } from '../../../app/utils/quote-view';
 
@@ -249,6 +249,22 @@ describe('PortalQuotationSent', () => {
       expect(table.props('showPrices')).toBe(true);
       expect(table.element.parentElement?.classList).toContain('lg:block');
       expect(table.element.parentElement?.classList).toContain('hidden');
+    });
+
+    it('links an ordinary line but not a configured one, in the table and the sheet', async () => {
+      const lineItems = [
+        { ...sent().lineItems[0]!, alias: 'widget-pro' },
+        makeConfiguredQuoteLine({ alias: 'display' }),
+      ];
+      const { wrapper } = await mountWith(sent({ lineItems }));
+
+      const aliases = [{ alias: 'widget-pro' }, { alias: null }];
+      expect(wrapper.findComponent(TableStub).props('items')).toMatchObject(
+        aliases,
+      );
+      expect(wrapper.findComponent(SheetStub).props('items')).toMatchObject(
+        aliases,
+      );
     });
 
     it('titles the summary card and marks it as an estimate inside it', async () => {

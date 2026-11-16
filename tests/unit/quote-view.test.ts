@@ -5,6 +5,7 @@ import {
   quoteCanOrder,
   quoteDiscountLabel,
   quoteKindLabelKey,
+  quoteLinksConfiguredLines,
   quoteResponses,
   quoteStatusInfoKey,
   quoteRows,
@@ -53,6 +54,18 @@ const fixedOff = () =>
     discount: 62.5,
     discountExVat: 50,
   });
+
+const SENT_STATUSES: QuoteStatus[] = [
+  'requested',
+  'pending',
+  'accepted',
+  'confirmed',
+  'finalized',
+  'rejected',
+  'canceled',
+  'expired',
+  'unknown',
+];
 
 describe('quoteAmounts', () => {
   it('shows a percent discount on the inc side, with its rate', () => {
@@ -260,6 +273,45 @@ describe('quoteRows', () => {
   it('has no rows without a quotation', () => {
     expect(quoteRows(null, true)).toEqual([]);
   });
+
+  describe('the link to the product', () => {
+    const mixed = (status: QuoteStatus) =>
+      makeQuote({
+        status,
+        lineItems: [
+          { ...makeQuote().lineItems[0]!, alias: 'widget-pro' },
+          makeConfiguredQuoteLine({ alias: 'display' }),
+        ],
+      });
+
+    it('keeps it on every line of a draft, configured or not', () => {
+      const rows = quoteRows(mixed('request_draft'), true);
+
+      expect(rows.map((row) => row.alias)).toEqual(['widget-pro', 'display']);
+    });
+
+    it.each<QuoteStatus>(SENT_STATUSES)(
+      'drops it from a configured line only, once the quotation is %s',
+      (status) => {
+        const rows = quoteRows(mixed(status), true);
+
+        expect(rows.map((row) => row.alias)).toEqual(['widget-pro', null]);
+      },
+    );
+  });
+});
+
+describe('quoteLinksConfiguredLines', () => {
+  it('links the configured lines of a draft', () => {
+    expect(quoteLinksConfiguredLines({ status: 'request_draft' })).toBe(true);
+  });
+
+  it.each<QuoteStatus>(SENT_STATUSES)(
+    'links no configured line once the quotation is %s',
+    (status) => {
+      expect(quoteLinksConfiguredLines({ status })).toBe(false);
+    },
+  );
 });
 
 describe('quoteAcceptKind', () => {

@@ -24,9 +24,13 @@ const stubs = {
 
 const lines = (): QuoteLineItem[] => makeQuote().lineItems;
 
-function mount(items: QuoteLineItem[], slots: Record<string, string> = {}) {
+function mount(
+  items: QuoteLineItem[],
+  slots: Record<string, string> = {},
+  linkConfigured = true,
+) {
   return mountComponent(PortalQuoteArticles, {
-    props: { items },
+    props: { items, linkConfigured },
     slots,
     global: { stubs },
   });
@@ -82,6 +86,45 @@ describe('PortalQuoteArticles', () => {
     });
 
     expect(wrapper.find('[data-testid="empty-note"]').exists()).toBe(false);
+  });
+
+  describe('the link to the product', () => {
+    const ordinary = (): QuoteLineItem => ({
+      ...makeQuote().lineItems[0]!,
+      alias: 'widget-pro',
+    });
+    const configured = (): QuoteLineItem =>
+      makeConfiguredQuoteLine({ alias: 'display' });
+    const linkNames = (wrapper: ReturnType<typeof mount>) =>
+      wrapper
+        .findAll('[data-testid="line-item-name-link"]')
+        .map((link) => link.text());
+
+    it('links every line, in the table and on the card, on a draft', () => {
+      const wrapper = mount([ordinary(), configured()]);
+
+      expect(linkNames(wrapper)).toEqual([
+        'Widget Pro',
+        'Configured Display',
+        'Widget Pro',
+        'Configured Display',
+      ]);
+    });
+
+    it('still links an ordinary line, in the table and on the card, once sent', () => {
+      const wrapper = mount([ordinary()], {}, false);
+
+      expect(linkNames(wrapper)).toEqual(['Widget Pro', 'Widget Pro']);
+    });
+
+    it('leaves a configured name plain, in the table and on the card, once sent', () => {
+      const wrapper = mount([configured()], {}, false);
+
+      expect(linkNames(wrapper)).toEqual([]);
+      expect(
+        wrapper.findAll('[data-testid="line-item-name"]').map((n) => n.text()),
+      ).toEqual(['Configured Display', 'Configured Display']);
+    });
   });
 
   describe('a configured line', () => {

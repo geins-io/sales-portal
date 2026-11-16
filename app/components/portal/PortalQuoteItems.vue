@@ -2,7 +2,11 @@
 import type { QuoteLineItem } from '#shared/types/quote';
 import { productPath } from '#shared/utils/route-helpers';
 
-defineProps<{ items: QuoteLineItem[] }>();
+defineProps<{
+  items: QuoteLineItem[];
+  /** Whether a configured line's name links to its product; a sent quotation's do not. */
+  linkConfigured: boolean;
+}>();
 
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
@@ -62,7 +66,7 @@ function totalPriceOf(item: QuoteLineItem): string {
                 />
                 <div>
                   <NuxtLink
-                    v-if="item.alias"
+                    v-if="item.alias && (linkConfigured || !item.configuration)"
                     :to="localePath(productPath(item.alias))"
                     data-testid="line-item-name-link"
                     class="font-medium hover:underline"
@@ -140,7 +144,7 @@ function totalPriceOf(item: QuoteLineItem): string {
         <div class="min-w-0 flex-1 space-y-2">
           <div>
             <NuxtLink
-              v-if="item.alias"
+              v-if="item.alias && (linkConfigured || !item.configuration)"
               :to="localePath(productPath(item.alias))"
               data-testid="line-item-name-link"
               class="text-sm font-medium hover:underline"

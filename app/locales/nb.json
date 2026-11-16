@@ -1069,7 +1069,7 @@
         "view_request": "Vis forespørselen i kundeportalen",
         "request_lines": "Varer i forespørselen",
         "order_title": "Bestilling bekreftet!",
-        "order_body": "Takk for bestillingen. En bekreftelse er sendt til e-postadressen din.",
+        "order_body": "Takk for bestillingen. En bekreftelse er sendt til e-postadressen som er registrert som kontakt for bedriften din.",
         "order_number": "Ordrenummer",
         "from_quotation": "Bestilt fra tilbud {number}",
         "view_quotation": "Vis tilbudet i kundeportalen",
