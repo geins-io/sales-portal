@@ -34,7 +34,6 @@ const getRequestLocaleMock = vi.fn();
 const getRequestMarketMock = vi.fn();
 
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
-vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
 vi.stubGlobal('getRequestLocale', getRequestLocaleMock);
 vi.stubGlobal('getRequestMarket', getRequestMarketMock);
 
@@ -80,7 +79,6 @@ describe('getPageLinkByTag', () => {
     vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) =>
       fn(),
     );
-    vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
     vi.stubGlobal('getRequestLocale', getRequestLocaleMock);
     vi.stubGlobal('getRequestMarket', getRequestMarketMock);
     vi.stubGlobal('getCookie', getCookieStub);

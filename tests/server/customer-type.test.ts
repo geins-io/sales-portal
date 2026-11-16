@@ -130,13 +130,12 @@ describe('getCustomerType', () => {
     expect(result).toBeUndefined();
   });
 
-  it('returns undefined when preview cookie is set even if authenticated', async () => {
+  it("keeps a signed-in buyer's type in CMS preview: preview is no sign-in of its own", async () => {
     getPreviewCookieMock.mockReturnValue(true);
     signedInWith({ CustomerType: '2' });
 
     const result = await getCustomerType(mockEvent);
 
-    expect(result).toBeUndefined();
-    expect(getAuthCookiesMock).not.toHaveBeenCalled();
+    expect(result).toBe(GeinsCustomerType.OrganizationType);
   });
 });

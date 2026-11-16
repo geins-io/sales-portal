@@ -50,6 +50,8 @@ export const COOKIE_NAMES = {
   /** Server-only: which signed-in buyer in this browser had which cart. */
   CART_OWNER: 'cart_owner',
   PREVIEW_MODE: 'preview_mode',
+  /** Server-only: the Merchant Center preview token, a key to CMS drafts. */
+  CMS_PREVIEW_TOKEN: 'cms_preview_token',
   SPOOFED_BY: 'geins-spoofed-by',
   VAT_DISPLAY: 'vat_display',
 } as const;

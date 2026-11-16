@@ -247,86 +247,50 @@ describe('GET /api/auth/me', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Preview mode — synthetic user from JWT
+  // CMS preview is a key to CMS content, not a sign-in
   // -----------------------------------------------------------------------
-  it('returns synthetic user from JWT in preview mode', async () => {
-    const token = fakeJwt({
-      'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name':
-        'preview-user@example.com',
-      CustomerType: 'PERSON',
-      MemberId: '12345',
-    });
-
+  it('answers signed out in preview when nobody signed in', async () => {
     mockGetPreviewCookie.mockReturnValue(true);
     mockGetAuthCookies.mockReturnValue({
-      authToken: token,
+      authToken: fakeJwt({
+        'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name':
+          'AdminPreview',
+      }),
       refreshToken: undefined,
     });
-
-    const result = await handler(mockEvent);
-
-    expect(result).toEqual({
-      user: {
-        username: 'preview-user@example.com',
-        customerType: 'PERSON',
-        memberId: '12345',
-      },
-      spoofedBy: undefined,
-    });
-    // Should NOT call optionalAuth or CRM getUser
-    expect(mockOptionalAuth).not.toHaveBeenCalled();
-    expect(mockGetUser).not.toHaveBeenCalled();
-  });
-
-  it('returns spoofedBy when JWT contains SpoofedBy claim', async () => {
-    const token = fakeJwt({
-      'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name':
-        'target-user@example.com',
-      CustomerType: 'ORGANIZATION',
-      MemberId: '99',
-      SpoofedBy: 'admin@example.com',
-    });
-
-    mockGetPreviewCookie.mockReturnValue(true);
-    mockGetAuthCookies.mockReturnValue({
-      authToken: token,
-      refreshToken: undefined,
-    });
-
-    const result = await handler(mockEvent);
-
-    expect(result).toEqual({
-      user: {
-        username: 'target-user@example.com',
-        customerType: 'ORGANIZATION',
-        memberId: '99',
-      },
-      spoofedBy: 'admin@example.com',
-    });
-  });
-
-  it('returns null user in preview mode when no auth token', async () => {
-    mockGetPreviewCookie.mockReturnValue(true);
-    mockGetAuthCookies.mockReturnValue({
-      authToken: undefined,
-      refreshToken: undefined,
-    });
+    mockOptionalAuth.mockResolvedValue(null);
 
     const result = await handler(mockEvent);
 
     expect(result).toEqual({ user: null });
   });
 
-  it('returns null user in preview mode when JWT is malformed', async () => {
+  it('answers the buyer who signed in during preview, from Geins', async () => {
     mockGetPreviewCookie.mockReturnValue(true);
     mockGetAuthCookies.mockReturnValue({
-      authToken: 'not-a-valid-jwt',
-      refreshToken: undefined,
+      authToken: 'buyer-token',
+      refreshToken: 'buyer-refresh',
+    });
+    mockOptionalAuth.mockResolvedValue({
+      authToken: 'buyer-token',
+      refreshToken: 'buyer-refresh',
+    });
+    mockGetUser.mockResolvedValue({
+      succeeded: true,
+      tokens: { expiresIn: 3600 },
+      user: { id: 7, email: 'buyer@example.com' },
     });
 
     const result = await handler(mockEvent);
 
-    expect(result).toEqual({ user: null });
+    expect(mockGetUser).toHaveBeenCalledWith(
+      'buyer-refresh',
+      'buyer-token',
+      mockEvent,
+    );
+    expect(result).toMatchObject({
+      user: { id: 7, email: 'buyer@example.com' },
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -359,6 +323,18 @@ describe('GET /api/auth/me', () => {
     });
     expect(mockOptionalAuth).not.toHaveBeenCalled();
     expect(mockGetUser).not.toHaveBeenCalled();
+  });
+
+  it('returns null user in impersonation mode when the JWT is malformed', async () => {
+    mockGetSpoofedByCookie.mockReturnValue('admin@example.com');
+    mockGetAuthCookies.mockReturnValue({
+      authToken: 'not-a-valid-jwt',
+      refreshToken: undefined,
+    });
+
+    const result = await handler(mockEvent);
+
+    expect(result).toEqual({ user: null });
   });
 
   it('returns null user in impersonation mode when no auth token', async () => {

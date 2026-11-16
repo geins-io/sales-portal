@@ -18,11 +18,9 @@ export default defineEventHandler((event) => {
     throw createAppError(ErrorCode.BAD_REQUEST, 'Missing loginToken');
   }
 
-  // Clear any existing auth session and set preview cookies
-  clearAuthCookies(event);
-  setPreviewAuthToken(event, loginToken);
+  // A key to CMS drafts, not a sign-in: a buyer's session stays as it is.
+  setPreviewToken(event, loginToken);
   setPreviewCookie(event);
-  expireUnpartitionedAuthToken(event);
 
   // Redirect to the specified path or home. The shared validator rejects
   // external and protocol-relative URLs (including //evil.com, /\evil.com,

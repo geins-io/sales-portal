@@ -1,4 +1,4 @@
-import { getPreviewCookie } from '../utils/cookies';
+import { getPreviewCookie, getPreviewToken } from '../utils/cookies';
 import { getSessionToken } from '../utils/session';
 
 /**
@@ -9,7 +9,8 @@ import { getSessionToken } from '../utils/session';
  * Preview requests must never be cached at the CDN. Their HTML is rendered
  * against unpublished overlays that would otherwise leak to every other
  * visitor sharing the host. Store-settings preview is driven purely by
- * ?preview=1 (never a cookie); CMS preview still uses the preview_mode cookie.
+ * ?preview=1 (never a cookie); CMS preview carries the preview_mode cookie and
+ * the preview token cookie.
  */
 export default defineEventHandler((event) => {
   const path = event.path || '';
@@ -23,7 +24,10 @@ export default defineEventHandler((event) => {
   }
 
   const query = getQuery(event);
-  const isPreview = query.preview === '1' || getPreviewCookie(event);
+  const isPreview =
+    query.preview === '1' ||
+    getPreviewCookie(event) ||
+    Boolean(getPreviewToken(event));
 
   // Runs after 00.session, so a request it rotated already counts; an expired
   // one carries the cookie deletions.

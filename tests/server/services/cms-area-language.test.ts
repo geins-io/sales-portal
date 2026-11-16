@@ -27,11 +27,8 @@ vi.mock('../../../server/services/_sdk', () => ({
   buildRequestContext: vi.fn().mockReturnValue(undefined),
 }));
 
-const previewCookieMock = vi.fn().mockReturnValue(false);
-
 function stubGlobals() {
   vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
-  vi.stubGlobal('getPreviewCookie', previewCookieMock);
   vi.stubGlobal(
     'getRequestLocale',
     vi.fn(() => currentLocale),
@@ -53,7 +50,7 @@ function mockEvent(hostname = 'test.com') {
 
 const AREA = { family: 'Frontpage', areaName: 'Content' };
 const POPULATED = { containers: [{ id: '1', content: [{ config: {} }] }] };
-/** A container shell with no widgets — what `hasContent` counts as empty. */
+/** A container shell with no widgets. */
 const EMPTY_SHELL = { containers: [{ id: '1', content: [] }] };
 
 /** Every languageId the tenant serves, default language first. */
@@ -73,7 +70,6 @@ describe('getContentArea — language filtering', () => {
     vi.resetModules();
     stubGlobals();
     currentLocale = 'sv-SE';
-    previewCookieMock.mockReturnValue(false);
     const mod = await import('../../../server/services/cms');
     getContentArea = mod.getContentArea;
   });
@@ -126,16 +122,16 @@ describe('getContentArea — language filtering', () => {
     expect(mockAreaGet).toHaveBeenCalledTimes(LOCALES.length * 2);
   });
 
-  it('still falls through to published content when preview has none', async () => {
-    previewCookieMock.mockReturnValue(true);
-    currentLocale = 'de-DE';
-    mockAreaGet.mockImplementation(async (vars: Record<string, unknown>) =>
-      vars.preview ? EMPTY_SHELL : POPULATED,
+  it('reads a preview in the page language, one read per leg', async () => {
+    vi.stubGlobal('getCookie', (_event: unknown, name: string) =>
+      name === 'cms_preview_token' ? 'preview-jwt' : undefined,
     );
+    currentLocale = 'de-DE';
+    mockAreaGet.mockResolvedValue(POPULATED);
 
     const result = await getContentArea(AREA, mockEvent());
 
     expect(result.containers?.[0]?.content).toHaveLength(1);
-    expect(languageIdsSent()).toEqual(['de-DE', 'de-DE', 'de-DE', 'de-DE']);
+    expect(languageIdsSent()).toEqual(['de-DE', 'de-DE']);
   });
 });

@@ -6,7 +6,7 @@ const mockQuery = vi.fn();
 const mockLoadQuery = vi.fn().mockReturnValue('query cmsPagesList');
 const mockWarn = vi.fn();
 const wrapServiceCall = vi.fn(async (fn: () => Promise<unknown>) => fn());
-const getPreviewCookie = vi.fn().mockReturnValue(false);
+const previewToken = vi.fn<() => string | undefined>(() => undefined);
 const getRequestLocale = vi.fn().mockReturnValue('sv-SE');
 const getRequestMarket = vi.fn().mockReturnValue('se');
 
@@ -47,14 +47,15 @@ describe('getListedCmsPage', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
-    getPreviewCookie.mockReturnValue(false);
+    previewToken.mockReturnValue(undefined);
     getRequestLocale.mockReturnValue('sv-SE');
     getRequestMarket.mockReturnValue('se');
     vi.stubGlobal('wrapServiceCall', wrapServiceCall);
-    vi.stubGlobal('getPreviewCookie', getPreviewCookie);
     vi.stubGlobal('getRequestLocale', getRequestLocale);
     vi.stubGlobal('getRequestMarket', getRequestMarket);
-    vi.stubGlobal('getCookie', () => undefined);
+    vi.stubGlobal('getCookie', (_event: unknown, name: string) =>
+      name === 'cms_preview_token' ? previewToken() : undefined,
+    );
     vi.stubGlobal('getRequestHeader', () => undefined);
     ({ getListedCmsPage } = await import('../../../server/services/cms'));
   });
@@ -137,7 +138,7 @@ describe('getListedCmsPage', () => {
     mockQuery.mockResolvedValue(LIST);
 
     await getListedCmsPage({ alias: 'tom-page-test' }, event());
-    getPreviewCookie.mockReturnValue(true);
+    previewToken.mockReturnValue('preview-jwt');
     await getListedCmsPage({ alias: 'tom-page-test' }, event());
     await getListedCmsPage({ alias: 'tom-page-test' }, event());
 
@@ -147,9 +148,9 @@ describe('getListedCmsPage', () => {
   it('leaves the cache empty after a preview read', async () => {
     mockQuery.mockResolvedValue(LIST);
 
-    getPreviewCookie.mockReturnValue(true);
+    previewToken.mockReturnValue('preview-jwt');
     await getListedCmsPage({ alias: 'tom-page-test' }, event());
-    getPreviewCookie.mockReturnValue(false);
+    previewToken.mockReturnValue(undefined);
     await getListedCmsPage({ alias: 'tom-page-test' }, event());
 
     expect(mockQuery).toHaveBeenCalledTimes(2);

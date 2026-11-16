@@ -286,7 +286,7 @@ describe('resolveSession', () => {
     expect(refreshMock).not.toHaveBeenCalled();
   });
 
-  it('never rotates a preview or impersonation token (no refresh cookie)', async () => {
+  it('never rotates an impersonation token (no refresh cookie)', async () => {
     const token = jwt(10);
     const event = makeEvent({ auth_token: token });
 
@@ -490,5 +490,32 @@ describe('optionalAuth', () => {
     const event = makeEvent({ refresh_token: nextRefresh() });
 
     expect(await optionalAuth(event)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The CMS preview token is a key to CMS content, never the session
+// ---------------------------------------------------------------------------
+
+describe('a request carrying a CMS preview token', () => {
+  it('is anonymous without a sign-in, and sends no user token', async () => {
+    const event = makeEvent({ cms_preview_token: jwt(3600) });
+
+    expect(await resolveSession(event)).toEqual({ status: 'anonymous' });
+    expect(buildRequestContext(event)?.userToken).toBeUndefined();
+    expect(getRequestIdentity(event)).toBe(ANONYMOUS_IDENTITY);
+  });
+
+  it("sends the signed-in buyer's own token, never the preview token", async () => {
+    const buyer = jwt(900);
+    const event = makeEvent({
+      cms_preview_token: jwt(3600),
+      auth_token: buyer,
+      refresh_token: nextRefresh(),
+    });
+
+    await resolveSession(event);
+
+    expect(buildRequestContext(event)?.userToken).toBe(buyer);
   });
 });

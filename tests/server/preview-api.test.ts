@@ -16,11 +16,6 @@ const deleteCookieMock = vi.fn();
 const getCookieMock = vi.fn();
 const readBodyMock = vi.fn();
 
-// expirePartitionedAuthToken edits the response's Set-Cookie list, which
-// this test's event does not carry.
-vi.stubGlobal('getResponseHeader', () => undefined);
-vi.stubGlobal('setResponseHeader', vi.fn());
-vi.stubGlobal('splitCookiesString', () => []);
 vi.stubGlobal('setCookie', setCookieMock);
 vi.stubGlobal('getCookie', getCookieMock);
 vi.stubGlobal('deleteCookie', deleteCookieMock);
@@ -58,13 +53,8 @@ vi.stubGlobal('defineEventHandler', (fn: Function) => fn);
 
 // Wire up cookie helpers (they depend on stubbed setCookie/deleteCookie)
 const cookies = await import('../../server/utils/cookies');
-vi.stubGlobal('clearAuthCookies', cookies.clearAuthCookies);
-vi.stubGlobal('setPreviewAuthToken', cookies.setPreviewAuthToken);
+vi.stubGlobal('setPreviewToken', cookies.setPreviewToken);
 vi.stubGlobal('setPreviewCookie', cookies.setPreviewCookie);
-vi.stubGlobal(
-  'expireUnpartitionedAuthToken',
-  cookies.expireUnpartitionedAuthToken,
-);
 vi.stubGlobal('clearPreviewSession', cookies.clearPreviewSession);
 
 // Import handlers (defineEventHandler stub unwraps them to plain functions)
@@ -86,7 +76,7 @@ describe('POST /api/auth/preview', () => {
     expect(result).toEqual({ success: true });
     expect(setCookieMock).toHaveBeenCalledWith(
       mockEvent,
-      'auth_token',
+      'cms_preview_token',
       'jwt-abc',
       expect.objectContaining({ httpOnly: true, maxAge: 3600 }),
     );
@@ -98,15 +88,12 @@ describe('POST /api/auth/preview', () => {
     );
   });
 
-  it('clears existing auth session before setting preview', async () => {
+  it("leaves a signed-in buyer's session alone", async () => {
     readBodyMock.mockResolvedValue({ loginToken: 'jwt-abc' });
     await previewHandler(mockEvent);
 
-    expect(deleteCookieMock).toHaveBeenCalledWith(
-      mockEvent,
-      'auth_token',
-      expect.objectContaining({ path: '/' }),
-    );
+    expect(deleteCookieMock).not.toHaveBeenCalled();
+    expect(setCookieMock).toHaveBeenCalledTimes(2);
   });
 
   it('rejects missing token with 422', async () => {
@@ -134,11 +121,14 @@ describe('POST /api/auth/preview', () => {
 describe('POST /api/auth/preview-exit', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('clears all session cookies and returns success', async () => {
+  it('deletes the preview cookies only and returns success', async () => {
     const result = await previewExitHandler(mockEvent);
 
     expect(result).toEqual({ success: true });
-    expect(deleteCookieMock).toHaveBeenCalledTimes(3); // auth_token + refresh_token + preview_mode
+    expect(deleteCookieMock.mock.calls.map(([, name]) => name)).toEqual([
+      'cms_preview_token',
+      'preview_mode',
+    ]);
   });
 
   it('deletes the preview cookies with their set attributes so partitioned cookies are actually removed', async () => {
@@ -155,7 +145,7 @@ describe('POST /api/auth/preview-exit', () => {
       partitioned: isProd,
     };
 
-    for (const name of ['auth_token', 'refresh_token', 'preview_mode']) {
+    for (const name of ['cms_preview_token', 'preview_mode']) {
       expect(deleteCookieMock).toHaveBeenCalledWith(
         mockEvent,
         name,
