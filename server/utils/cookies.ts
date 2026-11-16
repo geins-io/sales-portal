@@ -120,21 +120,6 @@ export function expirePartitionedAuthToken(event: H3Event) {
   );
 }
 
-/**
- * Lax, so every engine ignores these deletes in a cross-site iframe (Studio
- * preview) and only a top-level page can end the storefront session.
- */
-const UNPARTITIONED_DELETE = '; SameSite=Lax';
-
-/**
- * Deletes a signed-in buyer's plain `auth_token` when preview sets its
- * partitioned one: otherwise both are sent, and the older plain one wins.
- */
-export function expireUnpartitionedAuthToken(event: H3Event) {
-  if (isDevMode()) return;
-  expireAhead(event, [COOKIE_NAMES.AUTH_TOKEN], UNPARTITIONED_DELETE);
-}
-
 // --- Tenant cookie ---
 
 export function setTenantCookie(event: H3Event, tenantId: string) {
@@ -219,16 +204,20 @@ function previewCookieDefaults() {
   };
 }
 
-export function setPreviewAuthToken(
-  event: H3Event,
-  token: string,
-  maxAge: number = 3600,
-) {
-  setCookie(event, COOKIE_NAMES.AUTH_TOKEN, token, {
+/**
+ * The preview token is a key to CMS drafts, not a sign-in, so it never
+ * shares a cookie with the buyer's session.
+ */
+export function setPreviewToken(event: H3Event, token: string) {
+  setCookie(event, COOKIE_NAMES.CMS_PREVIEW_TOKEN, token, {
     httpOnly: true,
     ...previewCookieDefaults(),
-    maxAge,
+    maxAge: 3600,
   });
+}
+
+export function getPreviewToken(event: H3Event): string | undefined {
+  return getCookie(event, COOKIE_NAMES.CMS_PREVIEW_TOKEN) || undefined;
 }
 
 export function setPreviewCookie(event: H3Event) {
@@ -243,31 +232,15 @@ export function getPreviewCookie(event: H3Event): boolean {
   return getCookie(event, COOKIE_NAMES.PREVIEW_MODE) === 'true';
 }
 
-export function clearPreviewCookie(event: H3Event) {
-  deleteCookie(event, COOKIE_NAMES.PREVIEW_MODE, { path: '/' });
-}
-
+/**
+ * Ends the preview and nothing else: a buyer who signed in during it stays
+ * signed in. The deletes repeat the attributes the cookies were set with, or a
+ * partitioned cookie survives.
+ */
 export function clearPreviewSession(event: H3Event) {
-  // Preview cookies are set with previewCookieDefaults() (SameSite=None; Secure;
-  // Partitioned in prod). A delete Set-Cookie only removes a partitioned (CHIPS)
-  // cookie when it repeats Partitioned + SameSite=None + Secure; with a bare
-  // { path: '/' } delete the browser keeps the partitioned cookie, so the
-  // httpOnly auth_token survives exit and /api/auth/me keeps decoding the preview
-  // JWT, leaving the topbar identity on the preview user. Match the set
-  // attributes here, and delete plain auth cookies too, so exit leaves no
-  // session the UI does not show. clearPreviewCookie keeps a path-only delete,
-  // since the regular flows never set preview_mode partitioned.
   const previewAttrs = previewCookieDefaults();
-  deleteCookie(event, COOKIE_NAMES.AUTH_TOKEN, previewAttrs);
-  deleteCookie(event, COOKIE_NAMES.REFRESH_TOKEN, previewAttrs);
+  deleteCookie(event, COOKIE_NAMES.CMS_PREVIEW_TOKEN, previewAttrs);
   deleteCookie(event, COOKIE_NAMES.PREVIEW_MODE, previewAttrs);
-  if (!isDevMode()) {
-    expireAhead(
-      event,
-      [COOKIE_NAMES.AUTH_TOKEN, COOKIE_NAMES.REFRESH_TOKEN],
-      UNPARTITIONED_DELETE,
-    );
-  }
 }
 
 // --- Market cookie ---

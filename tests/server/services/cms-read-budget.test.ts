@@ -27,9 +27,11 @@ vi.mock('../../../server/services/_sdk', () => ({
   buildRequestContext: vi.fn().mockReturnValue({ languageId: 'sv-SE' }),
 }));
 
-const getPreviewCookieMock = vi.fn().mockReturnValue(false);
-vi.stubGlobal('getPreviewCookie', getPreviewCookieMock);
-vi.stubGlobal('getCookie', () => undefined);
+// The preview is decided on the preview token cookie, read through getCookie.
+const previewToken = vi.fn<() => string | undefined>(() => undefined);
+vi.stubGlobal('getCookie', (_event: unknown, name: string) =>
+  name === 'cms_preview_token' ? previewToken() : undefined,
+);
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
 vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
@@ -47,7 +49,7 @@ function argCounts(mock: ReturnType<typeof vi.fn>): number[] {
 describe('CMS reads ask for no limit of their own', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getPreviewCookieMock.mockReturnValue(false);
+    previewToken.mockReturnValue(undefined);
     mockMenuGet.mockResolvedValue({ menuItems: [{ id: 1 }] });
     mockPageGet.mockResolvedValue({ alias: 'about' });
     mockAreaGet.mockResolvedValue({ containers: [] });
@@ -68,7 +70,7 @@ describe('CMS reads ask for no limit of their own', () => {
   });
 
   it('the preview menu read too', async () => {
-    getPreviewCookieMock.mockReturnValue(true);
+    previewToken.mockReturnValue('preview-jwt');
 
     await getMenu({ menuLocationId: 'budget-menu-preview' }, event);
 

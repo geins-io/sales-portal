@@ -1,6 +1,6 @@
 import { CmsMenuSchema } from '../../schemas/api-input';
 import { getMenu } from '../../services/cms';
-import { hasUserToken } from '../../utils/request-identity';
+import { hasCmsUserToken } from '../../utils/request-identity';
 
 export default defineEventHandler(async (event) => {
   const { menuLocationId } = await getValidatedQuery(
@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
   setHeader(
     event,
     'Cache-Control',
-    hasUserToken(event) ? 'private, no-store' : 'private, no-cache',
+    hasCmsUserToken(event) ? 'private, no-store' : 'private, no-cache',
   );
 
   return withErrorHandling(

@@ -21,6 +21,7 @@ import {
 import { hasPageTag } from '#shared/utils/cms-tags';
 import { mergeContainersByVisibility } from '#shared/utils/cms-visibility';
 import { isSafeInternalPath } from '#shared/utils/redirect';
+import { getPreviewToken } from '../utils/cookies';
 import type { CmsAreaContext, CmsContentArea } from '#shared/types/cms';
 import { CMS_AREA_MAX_CATEGORY_IDS } from '../schemas/api-input';
 import { logger } from '../utils/logger';
@@ -116,13 +117,15 @@ function buildCachePrefix(event: H3Event): string {
 }
 
 /**
- * Whether a widget area result carries anything worth rendering. A container
- * with zero widgets counts as empty: the CMS can provision empty container
- * shells, so the containers alone do not say whether an area has content.
+ * The request context for a widget read (menu, page, area). In a CMS preview
+ * it carries the preview token in place of the session token: the token alone
+ * makes Geins answer an area with its draft, spoofed date included. Never add
+ * `preview: true` with it — Geins then answers EVERY area with the draft.
  */
-function hasContent(area: ContentAreaType | null | undefined): boolean {
-  const containers = area?.containers ?? [];
-  return containers.some((c) => (c?.content?.length ?? 0) > 0);
+function cmsRequestContext(event: H3Event) {
+  const previewToken = getPreviewToken(event);
+  const ctx = buildRequestContext(event);
+  return previewToken ? { ...ctx, userToken: previewToken } : ctx;
 }
 
 // =============================================================================
@@ -133,8 +136,8 @@ export async function getMenu(
   args: { menuLocationId: string },
   event: H3Event,
 ): Promise<MenuType> {
-  const preview = getPreviewCookie(event);
-  if (preview) return readMenu(args, event, true);
+  // A preview's draft is no copy to cache or keep.
+  if (getPreviewToken(event)) return readMenu(args, event);
 
   const cacheKey = `${buildCachePrefix(event)}::menu::${args.menuLocationId}`;
   const cached = menuCache.get(cacheKey);
@@ -145,7 +148,7 @@ export async function getMenu(
   const copies = lastGoodFor(lastGoodMenu, event);
   let result: MenuType;
   try {
-    result = await readMenu(args, event, false);
+    result = await readMenu(args, event);
     copies.set(cacheKey, result);
   } catch (error) {
     const lastGood = copies.get(cacheKey);
@@ -162,23 +165,11 @@ export async function getMenu(
 async function readMenu(
   args: { menuLocationId: string },
   event: H3Event,
-  preview: boolean,
 ): Promise<MenuType> {
   const sdk = await getTenantSDK(event);
   const channelVars = getRequestChannelVariables(sdk, event);
-  const ctx = buildRequestContext(event);
+  const ctx = cmsRequestContext(event);
   const queryArgs = { ...args, ...channelVars };
-
-  if (preview) {
-    try {
-      return (await wrapServiceCall(
-        () => sdk.cms.menu.get({ ...queryArgs, preview: true }, ctx),
-        'cms',
-      )) as MenuType;
-    } catch {
-      // Preview fetch failed — fall back to published content
-    }
-  }
 
   let result = (await wrapServiceCall(
     () => sdk.cms.menu.get(queryArgs, ctx),
@@ -198,29 +189,12 @@ async function readMenu(
       ? ctxWithoutLang
       : undefined;
 
-    if (preview) {
-      try {
-        const pResult = (await wrapServiceCall(
-          () =>
-            sdk.cms.menu.get({ ...fallbackBase, preview: true }, fallbackCtx),
-          'cms',
-        )) as MenuType;
-        if (pResult?.menuItems?.length) {
-          result = pResult;
-        }
-      } catch {
-        // Preview fallback failed
-      }
-    }
-
-    if (!result?.menuItems?.length) {
-      const fbResult = (await wrapServiceCall(
-        () => sdk.cms.menu.get(fallbackBase, fallbackCtx),
-        'cms',
-      )) as MenuType;
-      if (fbResult?.menuItems?.length) {
-        result = fbResult;
-      }
+    const fbResult = (await wrapServiceCall(
+      () => sdk.cms.menu.get(fallbackBase, fallbackCtx),
+      'cms',
+    )) as MenuType;
+    if (fbResult?.menuItems?.length) {
+      result = fbResult;
     }
   }
 
@@ -232,29 +206,13 @@ export async function getPage(
   event: H3Event,
 ): Promise<ContentPageType> {
   const sdk = await getTenantSDK(event);
-  const preview = getPreviewCookie(event);
   const channelVars = getRequestChannelVariables(sdk, event);
-  const ctx = buildRequestContext(event);
+  const ctx = cmsRequestContext(event);
   const queryArgs = {
     ...args,
     ...channelVars,
     ...(args.customerType && { customerType: args.customerType }),
   };
-
-  if (preview) {
-    try {
-      return await wrapServiceCall(
-        () =>
-          sdk.cms.page.get(
-            { ...queryArgs, preview: true },
-            ctx,
-          ) as Promise<ContentPageType>,
-        'cms',
-      );
-    } catch {
-      // Preview fetch failed — fall back to published content
-    }
-  }
 
   return wrapServiceCall(
     () => sdk.cms.page.get(queryArgs, ctx) as Promise<ContentPageType>,
@@ -323,8 +281,8 @@ function filtersCacheSegment(filters: CmsWidgetFilter[] | undefined): string {
  * Fetches one display-setting "leg" of a content area: the containers Geins
  * returns for the given `displaySetting` filter (a desktop leg returns the
  * always-visible plus desktop-only containers; a mobile leg returns the
- * always-visible plus mobile-only). Handles preview; getContentArea fetches
- * both legs and merges them.
+ * always-visible plus mobile-only). getContentArea fetches both legs and
+ * merges them.
  *
  * The query always carries `languageId`, so an area Geins filters to another
  * language stays empty instead of resolving to the account's default language.
@@ -338,8 +296,7 @@ async function fetchAreaLeg(
     filters?: CmsWidgetFilter[];
   },
   channelVars: ReturnType<typeof getRequestChannelVariables>,
-  ctx: ReturnType<typeof buildRequestContext>,
-  preview: boolean,
+  ctx: ReturnType<typeof cmsRequestContext>,
   displaySetting: 'mobile' | 'desktop',
 ): Promise<ContentAreaType> {
   const queryArgs = {
@@ -348,22 +305,6 @@ async function fetchAreaLeg(
     displaySetting,
     ...(args.customerType && { customerType: args.customerType }),
   };
-
-  if (preview) {
-    try {
-      const previewResult = (await wrapServiceCall(
-        () =>
-          sdk.cms.area.get(
-            { ...queryArgs, preview: true },
-            ctx,
-          ) as Promise<ContentAreaType>,
-        'cms',
-      )) as ContentAreaType;
-      if (hasContent(previewResult)) return previewResult;
-    } catch {
-      // Preview fetch failed — fall back to published content
-    }
-  }
 
   return (await wrapServiceCall(
     () => sdk.cms.area.get(queryArgs, ctx) as Promise<ContentAreaType>,
@@ -380,7 +321,6 @@ export async function getContentArea(
   },
   event: H3Event,
 ): Promise<CmsContentArea> {
-  const preview = getPreviewCookie(event);
   const filters = buildAreaFilters(args.context);
   // customerType is a query argument that changes the response, so it belongs
   // in the key beside family and areaName, even though it is decoded from the
@@ -392,7 +332,9 @@ export async function getContentArea(
   // other PDP for the whole TTL.
   const cacheKey = `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}::${args.customerType ?? 'any'}::${filtersCacheSegment(filters)}`;
 
-  if (preview) return (await readArea(args, filters, event, true)).area;
+  // A preview's draft is no copy to cache or keep.
+  if (getPreviewToken(event))
+    return (await readArea(args, filters, event)).area;
 
   const cached = areaCache.get(cacheKey);
   if (cached) {
@@ -402,7 +344,7 @@ export async function getContentArea(
   const copies = lastGoodFor(lastGoodArea, event);
   let result: CmsContentArea;
   try {
-    const read = await readArea(args, filters, event, false);
+    const read = await readArea(args, filters, event);
     result = read.area;
     // An area that lost its mobile leg is served, but is no copy to fall back on.
     if (read.complete) copies.set(cacheKey, result);
@@ -427,11 +369,10 @@ async function readArea(
   },
   filters: CmsWidgetFilter[] | undefined,
   event: H3Event,
-  preview: boolean,
 ): Promise<{ area: CmsContentArea; complete: boolean }> {
   const sdk = await getTenantSDK(event);
   const channelVars = getRequestChannelVariables(sdk, event);
-  const ctx = buildRequestContext(event);
+  const ctx = cmsRequestContext(event);
 
   // `context` is our own shape and must not reach the query — only the
   // `filters` it was translated into.
@@ -450,10 +391,8 @@ async function readArea(
   // not User-Agent based). The mobile leg is best-effort: if it fails we still
   // render the desktop set rather than blanking the area.
   const [desktopArea, mobileArea] = await Promise.all([
-    fetchAreaLeg(sdk, legArgs, channelVars, ctx, preview, 'desktop'),
-    fetchAreaLeg(sdk, legArgs, channelVars, ctx, preview, 'mobile').catch(
-      () => null,
-    ),
+    fetchAreaLeg(sdk, legArgs, channelVars, ctx, 'desktop'),
+    fetchAreaLeg(sdk, legArgs, channelVars, ctx, 'mobile').catch(() => null),
   ]);
 
   return {
@@ -485,8 +424,8 @@ export async function getListedCmsPage(
   args: { alias: string },
   event: H3Event,
 ): Promise<ListedCmsPage | null> {
-  // No preview variant: cmsPages has no preview arg; preview only disables caching here.
-  const isCacheable = !getPreviewCookie(event);
+  // Sent without a token, preview or not; a preview only skips the cache.
+  const isCacheable = !getPreviewToken(event);
   const cacheKey = `${buildAnonymousCachePrefix(event)}::cmspages`;
 
   let pages = isCacheable ? cmsPagesCache.get(cacheKey) : undefined;
@@ -561,9 +500,8 @@ export async function getPageLinkByTag(
   args: { tag: string },
   event: H3Event,
 ): Promise<string | null> {
-  const preview = getPreviewCookie(event);
-  const isCacheable = !preview;
-  // No preview variant: cmsPages has no preview arg; preview only disables caching here.
+  // Sent without a token, preview or not; a preview only skips the cache.
+  const isCacheable = !getPreviewToken(event);
   const cacheKey = `${buildAnonymousCachePrefix(event)}::pagelink::${args.tag}`;
 
   if (isCacheable && pageLinkCache.has(cacheKey)) {

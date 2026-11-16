@@ -460,10 +460,10 @@ API routes in `server/api/` automatically have access to:
 
 The CMS service wraps Geins SDK calls for menus, pages, and widget areas with:
 
-- **Language fallback**: Widget areas and menus retry without `languageId` when content doesn't exist for the user's locale. Pages do not fallback (different aliases per language).
-- **Preview mode**: Detects `preview_mode` cookie and passes `preview: true` to SDK. Falls through to published content if preview returns empty.
-- **Display setting**: Passes `mobile`/`desktop` to widget area queries based on `User-Agent` header.
-- **LRU caching**: Menu and area results cached with 60s TTL. The cache is bypassed in preview mode; a signed-in caller gets its own cache key rather than no cache (ADR-014).
+- **Language fallback**: Menus retry without `languageId` when content doesn't exist for the user's locale. Widget areas always carry `languageId` and pages do not fallback (different aliases per language).
+- **Preview mode**: Menu, page and area reads send the Merchant Center preview token (`cms_preview_token` cookie) as the user token, in place of the session token, and never `preview: true`: with that flag Geins answers every area with the draft. The token is a key to CMS drafts, not a sign-in; every other read uses the session.
+- **Display setting**: Widget area queries fetch both the `desktop` and `mobile` legs and merge them; the client shows each container by breakpoint.
+- **LRU caching**: Menu and area results cached with 60s TTL. The cache is bypassed while a preview token is present; a signed-in caller gets its own cache key rather than no cache (ADR-014).
 
 ### Caching
 

@@ -19,6 +19,7 @@ vi.stubGlobal('setHeader', setHeaderMock);
 vi.mock('#shared/constants/storage', () => ({
   COOKIE_NAMES: {
     PREVIEW_MODE: 'preview_mode',
+    CMS_PREVIEW_TOKEN: 'cms_preview_token',
     AUTH_TOKEN: 'auth_token',
     REFRESH_TOKEN: 'refresh_token',
   },
@@ -71,6 +72,12 @@ describe('cache-headers middleware', () => {
 
   it('marks CMS preview-cookie requests as uncacheable', () => {
     cookies.preview_mode = 'true';
+    run('/sv/sv/');
+    expect(headers['cache-control']).toBe('private, no-store');
+  });
+
+  it('marks a request carrying a CMS preview token as uncacheable', () => {
+    cookies.cms_preview_token = 'preview-jwt';
     run('/sv/sv/');
     expect(headers['cache-control']).toBe('private, no-store');
   });

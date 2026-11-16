@@ -1,7 +1,7 @@
 import { CmsPageSchema } from '../../../schemas/api-input';
 import { getListedCmsPage, getPage } from '../../../services/cms';
 import { sanitizeCmsPage } from '../../../utils/cms-sanitize';
-import { hasUserToken } from '../../../utils/request-identity';
+import { hasCmsUserToken } from '../../../utils/request-identity';
 
 export default defineEventHandler(async (event) => {
   const parsed = CmsPageSchema.safeParse({
@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   setHeader(
     event,
     'Cache-Control',
-    hasUserToken(event) ? 'private, no-store' : 'private, no-cache',
+    hasCmsUserToken(event) ? 'private, no-store' : 'private, no-cache',
   );
 
   return withErrorHandling(

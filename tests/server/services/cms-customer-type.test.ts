@@ -29,9 +29,11 @@ vi.mock('../../../server/services/_sdk', () => ({
   buildRequestContext: vi.fn().mockReturnValue(undefined),
 }));
 
-const getPreviewCookieMock = vi.fn().mockReturnValue(false);
-vi.stubGlobal('getPreviewCookie', getPreviewCookieMock);
-vi.stubGlobal('getCookie', () => undefined);
+// The preview is decided on the preview token cookie, read through getCookie.
+const previewToken = vi.fn<() => string | undefined>(() => undefined);
+vi.stubGlobal('getCookie', (_event: unknown, name: string) =>
+  name === 'cms_preview_token' ? previewToken() : undefined,
+);
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
 vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
@@ -45,7 +47,7 @@ const mockEvent = {} as H3Event;
 describe('CMS service customerType threading', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getPreviewCookieMock.mockReturnValue(false);
+    previewToken.mockReturnValue(undefined);
   });
 
   describe('getPage', () => {
@@ -77,8 +79,8 @@ describe('CMS service customerType threading', () => {
       );
     });
 
-    it('passes both customerType and preview when both are active', async () => {
-      getPreviewCookieMock.mockReturnValue(true);
+    it('passes customerType with the preview token, and no preview flag', async () => {
+      previewToken.mockReturnValue('preview-jwt');
       await getPage(
         { alias: '/about', customerType: GeinsCustomerType.PersonType },
         mockEvent,
@@ -88,10 +90,9 @@ describe('CMS service customerType threading', () => {
         {
           alias: '/about',
           ...channelVars,
-          preview: true,
           customerType: GeinsCustomerType.PersonType,
         },
-        undefined,
+        { userToken: 'preview-jwt' },
       );
     });
   });

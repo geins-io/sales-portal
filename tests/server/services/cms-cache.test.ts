@@ -39,7 +39,6 @@ const getCookieStub = (event: CookieBag, name: string) =>
   event?._cookies?.[name];
 
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
-vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
 vi.stubGlobal('getRequestLocale', getRequestLocaleMock);
 vi.stubGlobal('getRequestMarket', getRequestMarketMock);
 vi.stubGlobal('getCustomerType', vi.fn().mockResolvedValue(undefined));
@@ -68,7 +67,6 @@ describe('CMS cache — locale isolation', () => {
     vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) =>
       fn(),
     );
-    vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
     vi.stubGlobal('getRequestLocale', getRequestLocaleMock);
     vi.stubGlobal('getRequestMarket', getRequestMarketMock);
     vi.stubGlobal('getCustomerType', vi.fn().mockResolvedValue(undefined));
@@ -243,7 +241,6 @@ describe('CMS cache — caller isolation', () => {
     vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) =>
       fn(),
     );
-    vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
     vi.stubGlobal('getRequestLocale', getRequestLocaleMock);
     vi.stubGlobal('getRequestMarket', getRequestMarketMock);
     vi.stubGlobal('getCustomerType', vi.fn().mockResolvedValue(undefined));

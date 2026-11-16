@@ -33,7 +33,6 @@ const cookies = await import('../../../../server/utils/cookies');
 const { getSessionToken } = await import('../../../../server/utils/session');
 vi.stubGlobal('clearAuthCookies', cookies.clearAuthCookies);
 vi.stubGlobal('clearSpoofedByCookie', cookies.clearSpoofedByCookie);
-vi.stubGlobal('clearPreviewCookie', cookies.clearPreviewCookie);
 vi.stubGlobal('clearCartCookie', cookies.clearCartCookie);
 vi.stubGlobal('getCartCookie', cookies.getCartCookie);
 vi.stubGlobal('getSessionToken', getSessionToken);
@@ -136,8 +135,29 @@ describe('POST /api/auth/logout', () => {
     await handler(EVENT);
 
     expect(deleted()).toEqual(
-      expect.arrayContaining(['auth_token', 'refresh_token', 'session_only']),
+      expect.arrayContaining([
+        'auth_token',
+        'refresh_token',
+        'session_only',
+        'geins-spoofed-by',
+      ]),
     );
+  });
+
+  it('signs out at Geins too', async () => {
+    await handler(EVENT);
+
+    expect(mockLogout).toHaveBeenCalledWith(EVENT);
+  });
+
+  it('leaves a running CMS preview: it is no sign-in of its own', async () => {
+    jar.set('cms_preview_token', 'preview-jwt');
+    jar.set('preview_mode', 'true');
+
+    await handler(EVENT);
+
+    expect(deleted()).not.toContain('cms_preview_token');
+    expect(deleted()).not.toContain('preview_mode');
   });
 
   it('drops the cart even when the sign-out call to Geins fails', async () => {

@@ -38,9 +38,11 @@ vi.mock('../../../server/services/_sdk', () => ({
   buildRequestContext: vi.fn().mockReturnValue(undefined),
 }));
 
-const getPreviewCookieMock = vi.fn().mockReturnValue(false);
-vi.stubGlobal('getPreviewCookie', getPreviewCookieMock);
-vi.stubGlobal('getCookie', () => undefined);
+// The preview is decided on the preview token cookie, read through getCookie.
+const previewToken = vi.fn<() => string | undefined>(() => undefined);
+vi.stubGlobal('getCookie', (_event: unknown, name: string) =>
+  name === 'cms_preview_token' ? previewToken() : undefined,
+);
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
 vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
@@ -81,7 +83,7 @@ describe('CMS reads on every page', () => {
     vi.clearAllMocks();
     mockMenuGet.mockReset();
     mockAreaGet.mockReset();
-    getPreviewCookieMock.mockReturnValue(false);
+    previewToken.mockReturnValue(undefined);
     identity = 'anon';
   });
 
@@ -151,11 +153,11 @@ describe('CMS reads on every page', () => {
     });
 
     it('neither serves nor keeps a copy for preview', async () => {
-      getPreviewCookieMock.mockReturnValue(true);
+      previewToken.mockReturnValue('preview-jwt');
       mockMenuGet.mockResolvedValue(MENU);
       await getMenu({ menuLocationId: 'preview-only' }, event);
 
-      getPreviewCookieMock.mockReturnValue(false);
+      previewToken.mockReturnValue(undefined);
       mockMenuGet.mockReset();
       mockMenuGet.mockRejectedValue(timedOut());
       await expect(
@@ -165,7 +167,7 @@ describe('CMS reads on every page', () => {
       mockMenuGet.mockResolvedValueOnce(MENU);
       await getMenu({ menuLocationId: 'preview-served' }, event);
       await pastTheTtl();
-      getPreviewCookieMock.mockReturnValue(true);
+      previewToken.mockReturnValue('preview-jwt');
       mockMenuGet.mockReset();
       mockMenuGet.mockRejectedValue(timedOut());
       await expect(

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { H3Event } from 'h3';
+import { getPreviewToken } from './cookies';
 import { getSessionToken } from './session';
 
 /** Cache-key segment for a request that sends no user token. */
@@ -21,6 +22,15 @@ export function hashToken(token: string): string {
  */
 export function hasUserToken(event: H3Event): boolean {
   return Boolean(getSessionToken(event));
+}
+
+/**
+ * Whether a CMS widget read (menu, page, area) is sent with a user token: the
+ * preview token in a CMS preview, else the session token. A response read
+ * with either must not be kept by any cache.
+ */
+export function hasCmsUserToken(event: H3Event): boolean {
+  return Boolean(getPreviewToken(event)) || hasUserToken(event);
 }
 
 /**

@@ -75,6 +75,14 @@ function mockEvent(authToken?: string) {
   } as unknown as import('h3').H3Event;
 }
 
+/** A CMS preview with nobody signed in: the read carries the preview token. */
+function previewEvent() {
+  return {
+    context: { tenant: { hostname: 'test.com' } },
+    _cookies: { cms_preview_token: 'preview-jwt', preview_mode: 'true' },
+  } as unknown as import('h3').H3Event;
+}
+
 // The Merchant API filters CMS content by the account behind the caller's
 // token, so a response fetched under one must not be kept by any shared cache
 // downstream. The condition is "a token was sent", not "a customer type
@@ -114,6 +122,18 @@ describe('CMS page route — cache headers', () => {
       event,
       'Vary',
       expect.anything(),
+    );
+  });
+
+  it('sets private, no-store for a CMS preview, which sends the preview token', async () => {
+    const event = previewEvent();
+
+    await pageHandler(event);
+
+    expect(setHeaderMock).toHaveBeenCalledWith(
+      event,
+      'Cache-Control',
+      'private, no-store',
     );
   });
 
@@ -187,6 +207,18 @@ describe('CMS area route — cache headers', () => {
     );
   });
 
+  it('sets private, no-store for a CMS preview, which sends the preview token', async () => {
+    const event = previewEvent();
+
+    await areaHandler(event);
+
+    expect(setHeaderMock).toHaveBeenCalledWith(
+      event,
+      'Cache-Control',
+      'private, no-store',
+    );
+  });
+
   it('sets private, no-cache for an anonymous request', async () => {
     const event = mockEvent();
 
@@ -239,6 +271,18 @@ describe('CMS menu route — cache headers', () => {
 
   it('sets private, no-store for a request carrying an auth token', async () => {
     const event = mockEvent('token-a');
+
+    await menuHandler(event);
+
+    expect(setHeaderMock).toHaveBeenCalledWith(
+      event,
+      'Cache-Control',
+      'private, no-store',
+    );
+  });
+
+  it('sets private, no-store for a CMS preview, which sends the preview token', async () => {
+    const event = previewEvent();
 
     await menuHandler(event);
 

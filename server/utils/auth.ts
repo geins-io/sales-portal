@@ -35,7 +35,7 @@ async function decideSession(
 ): Promise<SessionState | undefined> {
   const { authToken, refreshToken } = getAuthCookies(event);
 
-  // Preview and impersonation tokens come without a refresh token.
+  // Impersonation (login-as) tokens come without a refresh token.
   if (authToken && !refreshToken) {
     return { status: 'active', tokens: { authToken, refreshToken: '' } };
   }
@@ -138,7 +138,7 @@ export async function optionalAuth(event: H3Event): Promise<AuthTokens | null> {
 
 /**
  * Extracts the customer type from the current user's JWT payload.
- * Returns undefined for anonymous users, invalid tokens, or preview mode.
+ * Returns undefined for anonymous users and invalid tokens.
  *
  * The claim is `CustomerType`, PascalCase, and its value is a numeric enum:
  * 1 is a private person, 2 an organisation, and 0 means unset.
@@ -146,10 +146,6 @@ export async function optionalAuth(event: H3Event): Promise<AuthTokens | null> {
 export async function getCustomerType(
   event: H3Event,
 ): Promise<GeinsCustomerType | undefined> {
-  if (getPreviewCookie(event)) {
-    return undefined;
-  }
-
   const auth = await optionalAuth(event);
   if (!auth) {
     return undefined;

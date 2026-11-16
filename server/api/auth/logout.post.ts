@@ -10,7 +10,6 @@ export default defineEventHandler(async (event) => {
   // Clear the session cookies — always succeeds
   clearAuthCookies(event);
   clearSpoofedByCookie(event);
-  clearPreviewCookie(event);
   // The next buyer in this browser never gets this cart; the owner note keeps
   // it for this buyer's next sign-in.
   clearCartCookie(event);

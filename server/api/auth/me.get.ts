@@ -4,13 +4,13 @@ import { resolveBuyerMarket } from '../../utils/buyer-market-resolver';
 const NAME_CLAIM = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name';
 
 export default defineEventHandler(async (event) => {
-  // Preview mode or impersonation: decode JWT directly — no CRM call.
-  // These tokens have no refresh token, so optionalAuth would fall through
-  // to getUser() which fails → clearAuthCookies → redirect loop.
-  const isPreview = getPreviewCookie(event);
-  const spoofedByCookie = getSpoofedByCookie(event);
+  // Impersonation (login-as): decode the JWT directly, no CRM call. The token
+  // has no refresh token, so optionalAuth would fall through to getUser(),
+  // which fails → clearAuthCookies → redirect loop. A CMS preview is no
+  // sign-in and takes the ordinary path.
+  const spoofedBy = getSpoofedByCookie(event);
 
-  if (isPreview || spoofedByCookie) {
+  if (spoofedBy) {
     const { authToken } = getAuthCookies(event);
     if (!authToken) {
       return { user: null };
@@ -24,8 +24,6 @@ export default defineEventHandler(async (event) => {
     const username = payload[NAME_CLAIM] as string | undefined;
     const customerType = payload.CustomerType as string | undefined;
     const memberId = payload.MemberId as string | undefined;
-    const spoofedBy =
-      spoofedByCookie || (payload.SpoofedBy as string | undefined);
 
     return {
       user: { username, customerType, memberId },

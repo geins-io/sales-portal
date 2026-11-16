@@ -77,7 +77,6 @@ vi.mock('../../../server/services/graphql/unwrap', () => ({
 }));
 
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
-vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
 vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
 vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
 vi.stubGlobal('createAppError', vi.fn());
