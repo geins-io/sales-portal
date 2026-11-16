@@ -42,6 +42,10 @@ vi.stubGlobal(
 const cookieUtils = await import('../../server/utils/cookies');
 vi.stubGlobal('setPreviewAuthToken', cookieUtils.setPreviewAuthToken);
 vi.stubGlobal('setPreviewCookie', cookieUtils.setPreviewCookie);
+vi.stubGlobal(
+  'expireUnpartitionedAuthToken',
+  cookieUtils.expireUnpartitionedAuthToken,
+);
 vi.stubGlobal('clearAuthCookies', cookieUtils.clearAuthCookies);
 
 const mockEvent = {} as H3Event;
@@ -62,6 +66,10 @@ async function importHandler() {
   const fresh = await import('../../server/utils/cookies');
   vi.stubGlobal('setPreviewAuthToken', fresh.setPreviewAuthToken);
   vi.stubGlobal('setPreviewCookie', fresh.setPreviewCookie);
+  vi.stubGlobal(
+    'expireUnpartitionedAuthToken',
+    fresh.expireUnpartitionedAuthToken,
+  );
   vi.stubGlobal('clearAuthCookies', fresh.clearAuthCookies);
 
   const mod = await import('../../server/api/auth/preview-enter.get');

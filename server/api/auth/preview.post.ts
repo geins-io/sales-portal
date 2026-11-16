@@ -6,6 +6,7 @@ export default defineEventHandler(async (event) => {
   clearAuthCookies(event);
   setPreviewAuthToken(event, body.loginToken);
   setPreviewCookie(event);
+  expireUnpartitionedAuthToken(event);
 
   return { success: true };
 });

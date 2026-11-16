@@ -93,6 +93,11 @@ const loginAs = (await import('../../../../server/api/auth/login-as.get'))
 const previewEnter = (
   await import('../../../../server/api/auth/preview-enter.get')
 ).default;
+const previewPost = (await import('../../../../server/api/auth/preview.post'))
+  .default;
+const previewExit = (
+  await import('../../../../server/api/auth/preview-exit.post')
+).default;
 
 function eventFor(url = '/', cookie = ''): h3.H3Event {
   const req = new IncomingMessage(new Socket());
@@ -257,14 +262,88 @@ describe('login-as', () => {
   });
 });
 
-describe('preview-enter', () => {
-  it('sends only the partitioned preview token: its own set replaces the partitioned delete', async () => {
-    const event = eventFor('/api/auth/preview-enter?loginToken=a.b.c');
-    await previewEnter(event);
+// Lax, so a cross-site iframe (Studio preview) cannot apply it.
+const PLAIN_DELETE = 'auth_token=; Max-Age=0; Path=/; SameSite=Lax';
+
+describe.each([
+  [
+    'preview-enter',
+    async () => {
+      const event = eventFor('/api/auth/preview-enter?loginToken=a.b.c');
+      await previewEnter(event);
+      return event;
+    },
+  ],
+  [
+    'preview (POST)',
+    async () => {
+      readValidatedBody.mockResolvedValue({ loginToken: 'a.b.c' });
+      const event = eventFor('/api/auth/preview');
+      await previewPost(event);
+      return event;
+    },
+  ],
+])('%s', (_name, enter: () => Promise<h3.H3Event>) => {
+  it("deletes the signed-in buyer's plain auth_token ahead of the partitioned preview token", async () => {
+    const event = await enter();
+
+    const auth = headersFor(event, 'auth_token');
+    expect(auth).toHaveLength(2);
+    expect(auth[0]).toBe(PLAIN_DELETE);
+    expect(auth[1]).toMatch(/^auth_token=a\.b\.c; .*Partitioned/);
+    expect(headersFor(event, 'refresh_token')).toEqual([
+      'refresh_token=; Max-Age=0; Path=/',
+    ]);
+    expect(headersFor(event, 'preview_mode')).toEqual([
+      expect.stringMatching(/^preview_mode=true; .*Partitioned/),
+    ]);
+  });
+
+  it('sends no partitioned delete: its own set replaces it', async () => {
+    const event = await enter();
+
+    expect(setCookies(event).filter((c) => PARTITIONED_DELETE.test(c))).toEqual(
+      [],
+    );
+  });
+
+  it('in dev, sends only the preview token, which replaces the plain one', async () => {
+    devMode = true;
+    const event = await enter();
 
     const auth = headersFor(event, 'auth_token');
     expect(auth).toHaveLength(1);
-    expect(auth[0]).toMatch(/^auth_token=a\.b\.c; .*Partitioned/);
+    expect(auth[0]).toMatch(/^auth_token=a\.b\.c;/);
+  });
+});
+
+describe('preview-exit', () => {
+  it('deletes the auth cookies both partitioned and plain, so no session is left', async () => {
+    const event = eventFor('/api/auth/preview-exit');
+    await previewExit(event);
+
+    const all = setCookies(event);
+    expect(all.slice(0, 2)).toEqual([
+      PLAIN_DELETE,
+      'refresh_token=; Max-Age=0; Path=/; SameSite=Lax',
+    ]);
+    for (const cookie of ['auth_token', 'refresh_token', 'preview_mode']) {
+      expect(headersFor(event, cookie)).toContain(
+        `${cookie}=; Max-Age=0; Path=/; Secure; SameSite=None; Partitioned`,
+      );
+    }
+  });
+
+  it('in dev, sends one unpartitioned delete per cookie', async () => {
+    devMode = true;
+    const event = eventFor('/api/auth/preview-exit');
+    await previewExit(event);
+
+    expect(setCookies(event).filter(isPartitioned)).toEqual([]);
+    expect(headersFor(event, 'auth_token')).toEqual([
+      'auth_token=; Max-Age=0; Path=/; SameSite=Lax',
+    ]);
+    expect(headersFor(event, 'refresh_token')).toHaveLength(1);
   });
 });
 

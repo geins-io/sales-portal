@@ -14,6 +14,11 @@ const setCookieMock = vi.fn();
 const getCookieMock = vi.fn();
 const deleteCookieMock = vi.fn();
 
+// clearPreviewSession edits the response's Set-Cookie list, which this
+// test's event does not carry.
+vi.stubGlobal('getResponseHeader', () => undefined);
+vi.stubGlobal('setResponseHeader', vi.fn());
+vi.stubGlobal('splitCookiesString', () => []);
 vi.stubGlobal('setCookie', setCookieMock);
 vi.stubGlobal('getCookie', getCookieMock);
 vi.stubGlobal('deleteCookie', deleteCookieMock);

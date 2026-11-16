@@ -61,6 +61,10 @@ const cookies = await import('../../server/utils/cookies');
 vi.stubGlobal('clearAuthCookies', cookies.clearAuthCookies);
 vi.stubGlobal('setPreviewAuthToken', cookies.setPreviewAuthToken);
 vi.stubGlobal('setPreviewCookie', cookies.setPreviewCookie);
+vi.stubGlobal(
+  'expireUnpartitionedAuthToken',
+  cookies.expireUnpartitionedAuthToken,
+);
 vi.stubGlobal('clearPreviewSession', cookies.clearPreviewSession);
 
 // Import handlers (defineEventHandler stub unwraps them to plain functions)

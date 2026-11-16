@@ -88,24 +88,51 @@ export function clearAuthCookies(event: H3Event) {
 }
 
 /**
- * Deletes an `auth_token` set Partitioned (by preview, and by login-as until
- * it moved to a plain cookie): a plain delete leaves it in place, and the
- * browser sends it ahead of a newer token.
+ * Puts `names` deletes, with `attrs`, ahead of the response's other
+ * Set-Cookie headers.
  *
  * Call it after every auth cookie set in the response: h3's `setCookie` keeps
- * one header per name and path, ignoring Partitioned, and drops this one.
- * It goes first in Set-Cookie because a browser without partitioned cookies
- * reads it as a plain delete, which must not land after the new token.
+ * one header per name and path, ignoring Partitioned, and drops these. They go
+ * first because a browser without partitioned cookies reads a partitioned
+ * delete or set as a plain one, and a delete must not land after a new token.
  */
-export function expirePartitionedAuthToken(event: H3Event) {
-  if (isDevMode()) return;
-  const expire = `${COOKIE_NAMES.AUTH_TOKEN}=; Max-Age=0; Path=/; Secure; SameSite=None; Partitioned`;
+function expireAhead(event: H3Event, names: string[], attrs: string) {
   const current = getResponseHeader(event, 'set-cookie');
   const kept =
     typeof current === 'string' || Array.isArray(current)
       ? splitCookiesString(current)
       : [];
-  setResponseHeader(event, 'set-cookie', [expire, ...kept]);
+  const expires = names.map((name) => `${name}=; Max-Age=0; Path=/${attrs}`);
+  setResponseHeader(event, 'set-cookie', [...expires, ...kept]);
+}
+
+/**
+ * Deletes an `auth_token` set Partitioned (by preview, and by login-as until
+ * it moved to a plain cookie): a plain delete leaves it in place, and the
+ * browser sends it ahead of a newer token.
+ */
+export function expirePartitionedAuthToken(event: H3Event) {
+  if (isDevMode()) return;
+  expireAhead(
+    event,
+    [COOKIE_NAMES.AUTH_TOKEN],
+    '; Secure; SameSite=None; Partitioned',
+  );
+}
+
+/**
+ * Lax, so every engine ignores these deletes in a cross-site iframe (Studio
+ * preview) and only a top-level page can end the storefront session.
+ */
+const UNPARTITIONED_DELETE = '; SameSite=Lax';
+
+/**
+ * Deletes a signed-in buyer's plain `auth_token` when preview sets its
+ * partitioned one: otherwise both are sent, and the older plain one wins.
+ */
+export function expireUnpartitionedAuthToken(event: H3Event) {
+  if (isDevMode()) return;
+  expireAhead(event, [COOKIE_NAMES.AUTH_TOKEN], UNPARTITIONED_DELETE);
 }
 
 // --- Tenant cookie ---
@@ -179,7 +206,7 @@ export function setLoginAsAuthToken(event: H3Event, token: string) {
  * SameSite=None without Secure, and Secure requires HTTPS.
  */
 function previewCookieDefaults() {
-  const isProd = !import.meta.dev;
+  const isProd = !isDevMode();
   return {
     sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
     secure: isProd,
@@ -227,12 +254,20 @@ export function clearPreviewSession(event: H3Event) {
   // { path: '/' } delete the browser keeps the partitioned cookie, so the
   // httpOnly auth_token survives exit and /api/auth/me keeps decoding the preview
   // JWT, leaving the topbar identity on the preview user. Match the set
-  // attributes here. clearPreviewCookie keeps a path-only delete, since the
-  // regular flows never set preview_mode partitioned.
+  // attributes here, and delete plain auth cookies too, so exit leaves no
+  // session the UI does not show. clearPreviewCookie keeps a path-only delete,
+  // since the regular flows never set preview_mode partitioned.
   const previewAttrs = previewCookieDefaults();
   deleteCookie(event, COOKIE_NAMES.AUTH_TOKEN, previewAttrs);
   deleteCookie(event, COOKIE_NAMES.REFRESH_TOKEN, previewAttrs);
   deleteCookie(event, COOKIE_NAMES.PREVIEW_MODE, previewAttrs);
+  if (!isDevMode()) {
+    expireAhead(
+      event,
+      [COOKIE_NAMES.AUTH_TOKEN, COOKIE_NAMES.REFRESH_TOKEN],
+      UNPARTITIONED_DELETE,
+    );
+  }
 }
 
 // --- Market cookie ---
