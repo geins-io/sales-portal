@@ -1,7 +1,37 @@
 import { test, expect } from './fixtures';
 import { discoverCategory, waitForHydration } from './helpers';
 
+/**
+ * A token shaped like the Merchant Center's preview token. Geins answers a
+ * token it cannot verify with published content, as it answers an expired one.
+ */
+function placeholderPreviewToken(): string {
+  const part = (value: object) =>
+    Buffer.from(JSON.stringify(value)).toString('base64url');
+  const name = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name';
+  return `${part({ alg: 'HS256', typ: 'JWT' })}.${part({
+    [name]: 'AdminPreview',
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  })}.placeholder`;
+}
+
 test.describe('CMS preview', () => {
+  test('a preview signs nobody in', async ({ page }) => {
+    await page.goto('/');
+    await waitForHydration(page);
+    const start = new URL(page.url());
+
+    await page.goto(
+      `/api/auth/preview-enter?loginToken=${placeholderPreviewToken()}&redirect=${encodeURIComponent(start.pathname)}`,
+    );
+    await page.waitForURL((url) => url.pathname === start.pathname);
+    await waitForHydration(page);
+
+    await expect(page.getByTestId('preview-banner')).toBeVisible();
+    await expect(page.getByTestId('topbar-login')).toBeVisible();
+    await expect(page.getByTestId('topbar-portal')).toHaveCount(0);
+  });
+
   test('exiting preview reloads the localized start page', async ({
     page,
     context,
