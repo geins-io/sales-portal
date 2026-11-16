@@ -4,6 +4,7 @@ import { createToken, getCheckout } from '../../services/checkout';
 import { HOSTED_CHECKOUT_BASE_URL } from '#shared/constants/checkout';
 import { COOKIE_NAMES } from '#shared/constants/storage';
 import { assertCommerceMode } from '../../utils/catalog-mode';
+import { getRequestedLocale } from '../../utils/locale';
 
 const TWO_LETTER = /^[a-z]{2}$/;
 
@@ -20,18 +21,14 @@ export default defineEventHandler(async (event) => {
       const requestUrl = getRequestURL(event);
       const origin = `${requestUrl.protocol}//${requestUrl.host}`;
 
-      // The hosted-checkout redirect URLs must preserve the user's current
-      // locale/market so post-payment landings don't bounce through
-      // middleware. API routes skip middleware 00 resolution, so read the short
-      // codes straight from the cookies set by middleware 00.
-      const marketCookie = getCookie(event, COOKIE_NAMES.MARKET);
-      const localeCookie = getCookie(event, COOKIE_NAMES.LOCALE);
+      // The hosted-checkout redirect URLs return to the language of the page
+      // that asked, so post-payment landings don't bounce through middleware.
+      // The market is the cookie's, as everywhere on the API side.
+      const market = getCookie(event, COOKIE_NAMES.MARKET);
+      const locale = getRequestedLocale(event);
       const prefix =
-        marketCookie &&
-        localeCookie &&
-        TWO_LETTER.test(marketCookie) &&
-        TWO_LETTER.test(localeCookie)
-          ? `/${marketCookie}/${localeCookie}`
+        market && locale && TWO_LETTER.test(market)
+          ? `/${market}/${locale}`
           : '';
 
       // Fetch checkout to discover available payment/shipping methods

@@ -10,6 +10,7 @@ import {
   type VatSide,
 } from './helpers';
 import { localeText } from './locale-text';
+import { apiRoute, isApiCall } from './api-call';
 
 /**
  * Configurator E2E Tests
@@ -167,7 +168,7 @@ function action(page: Page) {
 function changeResponse(page: Page) {
   return page.waitForResponse(
     (response) =>
-      /\/api\/configurations\/[^/]+\/changes$/.test(response.url()) &&
+      isApiCall(response.url(), '/api/configurations/*/changes') &&
       response.request().method() === 'POST',
   );
 }
@@ -281,12 +282,12 @@ test.describe('Configurator', () => {
     try {
       const committed = page.waitForResponse(
         (response) =>
-          /\/api\/configurations\/[^/]+\/commit$/.test(response.url()) &&
+          isApiCall(response.url(), '/api/configurations/*/commit') &&
           response.request().method() === 'POST',
       );
       const added = page.waitForResponse(
         (response) =>
-          /\/api\/configurations\/[^/]+\/cart$/.test(response.url()) &&
+          isApiCall(response.url(), '/api/configurations/*/cart') &&
           response.request().method() === 'POST',
       );
       await commit.click();
@@ -453,16 +454,19 @@ test.describe('Configurator', () => {
     // than a second and a half on the mobile project.
     let release!: () => void;
     const held = new Promise<void>((resolve) => (release = resolve));
-    await page.route('**/api/configurations/*/changes', async (route) => {
-      await held;
-      await route.continue();
-    });
+    await page.route(
+      apiRoute('/api/configurations/*/changes'),
+      async (route) => {
+        await held;
+        await route.continue();
+      },
+    );
 
     let batches = 0;
     page.on('request', (request) => {
       if (
         request.method() === 'POST' &&
-        /\/api\/configurations\/[^/]+\/changes$/.test(request.url())
+        isApiCall(request.url(), '/api/configurations/*/changes')
       ) {
         batches++;
       }
@@ -1044,7 +1048,7 @@ test.describe('Configured line through the cart', () => {
       await expect(commit).toHaveAttribute('aria-busy', 'false');
       const added = page.waitForResponse(
         (response) =>
-          /\/api\/configurations\/[^/]+\/cart$/.test(response.url()) &&
+          isApiCall(response.url(), '/api/configurations/*/cart') &&
           response.request().method() === 'POST',
       );
       await commit.click();
@@ -1083,7 +1087,7 @@ test.describe('Configured line through the cart', () => {
       );
       const reopenedByName = page.waitForResponse(
         (response) =>
-          response.url().endsWith('/api/configurations/reopen') &&
+          isApiCall(response.url(), '/api/configurations/reopen') &&
           response.request().method() === 'POST',
       );
       await name.click();
@@ -1099,7 +1103,7 @@ test.describe('Configured line through the cart', () => {
       const cartPage = page.getByTestId('cart-page');
       const reopened = page.waitForResponse(
         (response) =>
-          response.url().endsWith('/api/configurations/reopen') &&
+          isApiCall(response.url(), '/api/configurations/reopen') &&
           response.request().method() === 'POST',
       );
       await lineIn(cartPage).getByTestId('cart-item-edit').click();
@@ -1136,7 +1140,7 @@ test.describe('Configured line through the cart', () => {
 
       const swapped = page.waitForResponse(
         (response) =>
-          /\/api\/configurations\/[^/]+\/cart$/.test(response.url()) &&
+          isApiCall(response.url(), '/api/configurations/*/cart') &&
           response.request().method() === 'PUT',
       );
       await commit.click();
@@ -1243,7 +1247,7 @@ test.describe('The specification of a configured line', () => {
       await expect(commit).toHaveAttribute('aria-busy', 'false');
       const added = page.waitForResponse(
         (response) =>
-          /\/api\/configurations\/[^/]+\/cart$/.test(response.url()) &&
+          isApiCall(response.url(), '/api/configurations/*/cart') &&
           response.request().method() === 'POST',
       );
       await commit.click();
@@ -1374,7 +1378,7 @@ test.describe('The specification of a configured line, on each VAT side', () => 
       await expect(commit).toHaveAttribute('aria-busy', 'false');
       const added = page.waitForResponse(
         (response) =>
-          /\/api\/configurations\/[^/]+\/cart$/.test(response.url()) &&
+          isApiCall(response.url(), '/api/configurations/*/cart') &&
           response.request().method() === 'POST',
       );
       await commit.click();
@@ -1452,7 +1456,10 @@ test.describe('a guest on a configurable product', () => {
   }) => {
     const adds: string[] = [];
     page.on('request', (request) => {
-      if (request.method() === 'POST' && /\/api\/cart/.test(request.url())) {
+      if (
+        request.method() === 'POST' &&
+        isApiCall(request.url(), '/api/cart/**')
+      ) {
         adds.push(request.url());
       }
     });
@@ -1497,7 +1504,7 @@ test.describe('Configurator refusals a second try cannot fix', () => {
       const unavailable = await unavailableReason(page);
       outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
 
-      await page.route('**/api/configurations', (route) =>
+      await page.route(apiRoute('/api/configurations'), (route) =>
         route.request().method() === 'POST'
           ? route.fulfill(refusal(404, code))
           : route.continue(),
@@ -1532,11 +1539,11 @@ test.describe('Configurator refusals a second try cannot fix', () => {
 
     const adds: string[] = [];
     page.on('request', (request) => {
-      if (/\/api\/configurations\/[^/]+\/cart$/.test(request.url())) {
+      if (isApiCall(request.url(), '/api/configurations/*/cart')) {
         adds.push(request.url());
       }
     });
-    await page.route('**/api/configurations/*/commit', (route) =>
+    await page.route(apiRoute('/api/configurations/*/commit'), (route) =>
       route.fulfill(refusal(409, 'CURRENCY_MISMATCH')),
     );
     await action(page).click();
@@ -1588,18 +1595,21 @@ test.describe('Configurator press straight after typing', () => {
     // backend.
     let release!: () => void;
     const held = new Promise<void>((resolve) => (release = resolve));
-    await page.route('**/api/configurations/*/changes', async (route) => {
-      await held;
-      await route.continue();
-    });
+    await page.route(
+      apiRoute('/api/configurations/*/changes'),
+      async (route) => {
+        await held;
+        await route.continue();
+      },
+    );
 
     const sent = { changes: 0, commits: 0, adds: 0 };
     page.on('request', (request) => {
       if (request.method() !== 'POST') return;
       const url = request.url();
-      if (/\/api\/configurations\/[^/]+\/changes$/.test(url)) sent.changes++;
-      if (/\/api\/configurations\/[^/]+\/commit$/.test(url)) sent.commits++;
-      if (/\/api\/configurations\/[^/]+\/cart$/.test(url)) sent.adds++;
+      if (isApiCall(url, '/api/configurations/*/changes')) sent.changes++;
+      if (isApiCall(url, '/api/configurations/*/commit')) sent.commits++;
+      if (isApiCall(url, '/api/configurations/*/cart')) sent.adds++;
     });
 
     const linesBefore = await cartLineIds(page);
@@ -1614,7 +1624,7 @@ test.describe('Configurator press straight after typing', () => {
       const changed = changeResponse(page);
       const added = page.waitForResponse(
         (response) =>
-          /\/api\/configurations\/[^/]+\/cart$/.test(response.url()) &&
+          isApiCall(response.url(), '/api/configurations/*/cart') &&
           response.request().method() === 'POST',
       );
       // No Enter, no Tab: the press itself blurs the field.
@@ -1659,7 +1669,7 @@ test.describe('Configurator leaving the page', () => {
     page.on('request', (request) => {
       if (
         request.method() === 'DELETE' &&
-        /\/api\/configurations\/[^/]+$/.test(request.url())
+        isApiCall(request.url(), '/api/configurations/*')
       ) {
         urls.push(new URL(request.url()).pathname);
       }

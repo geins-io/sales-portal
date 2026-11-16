@@ -10,6 +10,7 @@ import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
 import { getCompany } from './company';
 import { configurableCheck } from './configurator';
+import { getCatalogueProducts } from './products';
 
 interface RawOrder {
   id?: number | string | null;
@@ -102,7 +103,7 @@ export async function getPurchasedProducts(
 
   const productMap = new Map<
     string,
-    PurchasedProduct & { _latestTime: number }
+    PurchasedProduct & { _latestTime: number; _productId?: number }
   >();
 
   for (const order of orders) {
@@ -169,6 +170,7 @@ export async function getPurchasedProducts(
           ...(item.skuId != null && { skuId: item.skuId }),
           ...(configurable ? { configurable } : {}),
           _latestTime: orderTime,
+          _productId: item.product?.productId ?? undefined,
         });
       } else {
         existing.totalQuantity += quantity;
@@ -194,9 +196,36 @@ export async function getPurchasedProducts(
     }
   }
 
+  // Name, alias and image in the language of the page: the order lines carry
+  // them only in the language each order was placed in.
+  const productIds = [
+    ...new Set(
+      [...productMap.values()]
+        .map((product) => product._productId)
+        .filter((id): id is number => id != null),
+    ),
+  ];
+  const catalogue = productIds.length
+    ? await getCatalogueProducts(productIds, event, requestContext?.userToken)
+    : new Map();
+  for (const product of productMap.values()) {
+    const fromCatalogue =
+      product._productId != null
+        ? catalogue.get(product._productId)
+        : undefined;
+    if (!fromCatalogue) continue;
+    if (fromCatalogue.name) product.name = fromCatalogue.name;
+    if (fromCatalogue.alias) product.alias = fromCatalogue.alias;
+    const image = fromCatalogue.productImages?.[0];
+    if (image?.fileName) {
+      product.imageFileName = image.fileName;
+      product.imageUrl = image.url ?? null;
+    }
+  }
+
   const products = [...productMap.values()]
     .sort((a, b) => b._latestTime - a._latestTime)
-    .map(({ _latestTime: _, ...product }) => product);
+    .map(({ _latestTime: _, _productId: __, ...product }) => product);
 
   return { products, total: products.length };
 }

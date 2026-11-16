@@ -59,6 +59,18 @@ export default createConfigForNuxt()
     },
   })
   .append({
+    // Guard: e2e tests match an /api call by its pathname. Every browser /api
+    // call carries ?locale= (ADR-026), so a whole-URL match misses, and a
+    // missed intercept lets the write it should answer go through for real.
+    files: ['tests/e2e/**/*.ts'],
+    plugins: {
+      'sales-portal': customRules,
+    },
+    rules: {
+      'sales-portal/no-api-url-literal': 'error',
+    },
+  })
+  .append({
     // Guard: e2e specs declare why a test does not run. A bare skip conflates
     // "out of scope", "blocked" and "we don't know", and the last one must
     // fail the run (tests/e2e/reporters/scope-reporter.ts). Only helpers.ts

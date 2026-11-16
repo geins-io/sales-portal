@@ -31,7 +31,10 @@ definePageMeta({ middleware: ['auth', 'feature'], feature: 'lists' });
 // Add-to-cart, add-to-list, and remove-from-list are client actions.
 
 interface ListProduct {
+  /** The alias the item is stored under, whatever its language. */
   alias?: string | null;
+  /** The product page in the language of the page. */
+  canonicalUrl?: string | null;
   name?: string | null;
   articleNumber?: string | null;
   productImages?: Array<{
@@ -409,7 +412,9 @@ function addToCart(product: ListProduct) {
               <!-- Image + info: PDP link when alias is known, plain div otherwise -->
               <NuxtLink
                 v-if="product.alias"
-                :to="localePath(productPath(product.alias))"
+                :to="
+                  localePath(productPath(product.canonicalUrl || product.alias))
+                "
                 data-testid="list-item-product-link"
                 class="flex flex-1 items-stretch hover:underline focus-visible:underline focus-visible:outline-none"
               >
@@ -497,7 +502,11 @@ function addToCart(product: ListProduct) {
                   class="h-9 px-4"
                 >
                   <NuxtLink
-                    :to="localePath(productPath(product.alias))"
+                    :to="
+                      localePath(
+                        productPath(product.canonicalUrl || product.alias),
+                      )
+                    "
                     data-testid="list-item-configure-link"
                   >
                     <SlidersHorizontal class="size-4 shrink-0" />

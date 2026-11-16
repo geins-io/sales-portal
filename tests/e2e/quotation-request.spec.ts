@@ -5,6 +5,7 @@ import {
   outOfScope,
   signedInState,
 } from './helpers';
+import { apiRoute } from './api-call';
 
 /**
  * The "Skicka offertförfrågan" page. Sending a request cannot be undone, so
@@ -152,24 +153,27 @@ async function answerQuotation(
     ...makeQuote(status, extraLines),
     ...(status === 'request_draft' || !sent ? {} : { request: sent }),
   });
-  await page.route(`**/api/quotes/${QUOTE_ID}**`, async (route: Route) => {
-    const request = route.request();
-    const path = new URL(request.url()).pathname;
-    if (path.endsWith('/request') && request.method() === 'PATCH') {
-      sent = request.postDataJSON();
-      calls.patch.push(sent);
-      return route.fulfill({ json: { quote: quote() } });
-    }
-    if (path.endsWith('/release') && request.method() === 'POST') {
-      calls.release += 1;
-      status = 'requested';
-      return route.fulfill({ json: { quote: quote() } });
-    }
-    if (request.method() === 'GET') {
-      return route.fulfill({ json: { quote: quote() } });
-    }
-    return route.fallback();
-  });
+  await page.route(
+    apiRoute(`/api/quotes/${QUOTE_ID}/**`),
+    async (route: Route) => {
+      const request = route.request();
+      const path = new URL(request.url()).pathname;
+      if (path.endsWith('/request') && request.method() === 'PATCH') {
+        sent = request.postDataJSON();
+        calls.patch.push(sent);
+        return route.fulfill({ json: { quote: quote() } });
+      }
+      if (path.endsWith('/release') && request.method() === 'POST') {
+        calls.release += 1;
+        status = 'requested';
+        return route.fulfill({ json: { quote: quote() } });
+      }
+      if (request.method() === 'GET') {
+        return route.fulfill({ json: { quote: quote() } });
+      }
+      return route.fallback();
+    },
+  );
   return calls;
 }
 
@@ -363,7 +367,7 @@ test.describe('Send a quote request', () => {
 
   test('keeps the request on the page when sending fails', async ({ page }) => {
     await answerQuotation(page, 'request_draft');
-    await page.route(`**/api/quotes/${QUOTE_ID}/release`, (route) =>
+    await page.route(apiRoute(`/api/quotes/${QUOTE_ID}/release`), (route) =>
       route.fulfill({ status: 502, json: { message: 'Bad gateway' } }),
     );
 

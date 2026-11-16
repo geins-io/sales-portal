@@ -1,0 +1,23 @@
+# The product as Favorites and saved lists show it. Price, SKUs and stock use
+# the same fragments as the product page, so a card reads what the page does.
+fragment ProductCard on ProductType {
+  productId
+  type
+  alias
+  canonicalUrl
+  name
+  articleNumber
+  productImages {
+    fileName
+    url
+  }
+  unitPrice {
+    ...Price
+  }
+  skus {
+    ...Sku
+  }
+  totalStock {
+    ...Stock
+  }
+}

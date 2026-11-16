@@ -41,6 +41,14 @@ vi.mock('../../../server/services/configurator', () => ({
   configurableCheck: () => isConfigurable,
 }));
 
+// The catalogue in the request language. Empty by default, so a test that
+// does not set it reads the rows as the order carries them.
+const mockGetCatalogueProducts = vi.fn();
+vi.mock('../../../server/services/products', () => ({
+  getCatalogueProducts: (...args: unknown[]) =>
+    mockGetCatalogueProducts(...args),
+}));
+
 vi.mock('../../../server/services/graphql/loader', () => ({
   loadQuery: vi.fn((path: string) => `query:${path}`),
 }));
@@ -99,6 +107,7 @@ describe('orders service', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     isConfigurable.mockImplementation(byType);
+    mockGetCatalogueProducts.mockResolvedValue(new Map());
     ordersService = await import('../../../server/services/orders');
   });
 
@@ -340,6 +349,188 @@ describe('orders service', () => {
         await expect(
           ordersService.getOrder({ publicOrderId: 'abc-123' }, mockEvent),
         ).resolves.toStrictEqual(bare);
+      });
+    });
+
+    // An order line carries its product only in the language the order was
+    // placed in; in any other language its alias is "" and its images null.
+    describe('in the language of the page', () => {
+      const COPPER = {
+        productId: 1031,
+        name: 'Copper pipe 18 mm 5 m EN 1057',
+        alias: 'copper-pipe-18-mm-5-m-en-1057',
+        canonicalUrl: '/se/en/p/pipes/copper-pipe-18-mm-5-m-en-1057',
+        productImages: [{ fileName: 'ror.jpg', url: 'https://cdn/ror.jpg' }],
+      };
+
+      function swedishRow(overrides: Record<string, unknown> = {}) {
+        return {
+          skuId: 10,
+          quantity: 3,
+          product: {
+            productId: 1031,
+            type: 'product',
+            articleNumber: 'ROR-CU-18-5M',
+            name: 'Kopparrör 18 mm 5 m EN 1057',
+            alias: '',
+            canonicalUrl: null,
+            productImages: null,
+          },
+          ...overrides,
+        };
+      }
+
+      async function orderOf(items: unknown[]) {
+        mockOrderGet.mockResolvedValueOnce({
+          publicId: 'abc-123',
+          cart: { items },
+        });
+        return ordersService.getOrder({ publicOrderId: 'abc-123' }, mockEvent);
+      }
+
+      it("takes each row's name, alias, link and images from the catalogue, the rest from the order", async () => {
+        mockGetCatalogueProducts.mockResolvedValue(new Map([[1031, COPPER]]));
+
+        const order = await orderOf([swedishRow()]);
+
+        expect(order?.cart?.items).toEqual([
+          {
+            skuId: 10,
+            quantity: 3,
+            product: {
+              productId: 1031,
+              articleNumber: 'ROR-CU-18-5M',
+              name: 'Copper pipe 18 mm 5 m EN 1057',
+              alias: 'copper-pipe-18-mm-5-m-en-1057',
+              canonicalUrl: '/se/en/p/pipes/copper-pipe-18-mm-5-m-en-1057',
+              productImages: [
+                { fileName: 'ror.jpg', url: 'https://cdn/ror.jpg' },
+              ],
+            },
+          },
+        ]);
+      });
+
+      it('keeps the row as the order carries it for a product the catalogue no longer has', async () => {
+        const order = await orderOf([swedishRow()]);
+
+        expect(order?.cart?.items?.[0]?.product).toMatchObject({
+          name: 'Kopparrör 18 mm 5 m EN 1057',
+          alias: '',
+          productImages: null,
+        });
+      });
+
+      it("keeps the row's images when the catalogue product has none", async () => {
+        mockGetCatalogueProducts.mockResolvedValue(
+          new Map([[1031, { ...COPPER, productImages: [] }]]),
+        );
+        const images = [{ fileName: 'old.jpg', url: 'https://cdn/old' }];
+
+        const order = await orderOf([
+          swedishRow({
+            product: { ...swedishRow().product, productImages: images },
+          }),
+        ]);
+
+        expect(order?.cart?.items?.[0]?.product?.productImages).toEqual(images);
+      });
+
+      it.each([
+        ['no images', null],
+        ['only empty entries', [null, { fileName: '', url: 'https://cdn/x' }]],
+      ])(
+        "keeps the row's images when the catalogue has %s",
+        async (_case, productImages) => {
+          mockGetCatalogueProducts.mockResolvedValue(
+            new Map([[1031, { ...COPPER, productImages }]]),
+          );
+          const images = [{ fileName: 'old.jpg', url: 'https://cdn/old' }];
+
+          const order = await orderOf([
+            swedishRow({
+              product: { ...swedishRow().product, productImages: images },
+            }),
+          ]);
+
+          expect(order?.cart?.items?.[0]?.product?.productImages).toEqual(
+            images,
+          );
+        },
+      );
+
+      it('takes the images that have a file name, an image without a URL as null', async () => {
+        mockGetCatalogueProducts.mockResolvedValue(
+          new Map([
+            [
+              1031,
+              { ...COPPER, productImages: [null, { fileName: 'ror.jpg' }] },
+            ],
+          ]),
+        );
+
+        const order = await orderOf([swedishRow()]);
+
+        expect(order?.cart?.items?.[0]?.product?.productImages).toEqual([
+          { fileName: 'ror.jpg', url: null },
+        ]);
+      });
+
+      it('asks the catalogue without a token when the request has no context', async () => {
+        const sdk = await import('../../../server/services/_sdk');
+        vi.mocked(sdk.buildRequestContext).mockReturnValueOnce(undefined);
+
+        await orderOf([swedishRow()]);
+
+        expect(mockGetCatalogueProducts).toHaveBeenCalledWith(
+          [1031],
+          mockEvent,
+          undefined,
+        );
+      });
+
+      it('asks the catalogue once per order, each product once, with the buyer token', async () => {
+        await orderOf([
+          swedishRow(),
+          swedishRow({ skuId: 11 }),
+          swedishRow({ product: { ...swedishRow().product, productId: 42 } }),
+          null,
+        ]);
+
+        expect(mockGetCatalogueProducts).toHaveBeenCalledOnce();
+        expect(mockGetCatalogueProducts).toHaveBeenCalledWith(
+          [1031, 42],
+          mockEvent,
+          'test-user-token',
+        );
+      });
+
+      it('keeps a configured row configured, its configuration and flag beside the catalogue values', async () => {
+        mockGetCatalogueProducts.mockResolvedValue(new Map([[1031, COPPER]]));
+
+        const order = await orderOf([
+          swedishRow({
+            configurationId: 'cfg-1',
+            configuration: { summary: [{ label: 'Adapter', value: 'S45' }] },
+            product: { ...swedishRow().product, type: 'configurable' },
+          }),
+        ]);
+        const row = order?.cart?.items?.[0];
+
+        expect(row?.configuration).toBeDefined();
+        expect(row?.product).toMatchObject({
+          configurable: true,
+          name: 'Copper pipe 18 mm 5 m EN 1057',
+          alias: 'copper-pipe-18-mm-5-m-en-1057',
+        });
+      });
+
+      it('does not ask the catalogue for an order without product rows', async () => {
+        await orderOf([null]);
+        mockOrderGet.mockResolvedValueOnce({ publicId: 'abc-123', cart: null });
+        await ordersService.getOrder({ publicOrderId: 'abc-123' }, mockEvent);
+
+        expect(mockGetCatalogueProducts).not.toHaveBeenCalled();
       });
     });
   });

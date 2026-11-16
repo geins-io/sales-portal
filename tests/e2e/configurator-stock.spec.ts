@@ -6,6 +6,7 @@ import {
   waitForHydration,
 } from './helpers';
 import { localeText } from './locale-text';
+import { isApiCall } from './api-call';
 
 /**
  * The configurator page's action against the stock, on a real CPQ backend.
@@ -89,8 +90,8 @@ test.describe('Configurator and the stock', () => {
     page.on('request', (request) => {
       if (request.method() !== 'POST') return;
       const url = request.url();
-      if (/\/api\/configurations\/[^/]+\/commit$/.test(url)) sent.commits++;
-      if (/\/api\/configurations\/[^/]+\/cart$/.test(url)) sent.adds++;
+      if (isApiCall(url, '/api/configurations/*/commit')) sent.commits++;
+      if (isApiCall(url, '/api/configurations/*/cart')) sent.adds++;
     });
 
     try {
@@ -101,7 +102,7 @@ test.describe('Configurator and the stock', () => {
 
       const addResponse = page.waitForResponse(
         (r) =>
-          /\/api\/configurations\/[^/]+\/cart$/.test(r.url()) &&
+          isApiCall(r.url(), '/api/configurations/*/cart') &&
           r.request().method() === 'POST',
       );
       await commit.click();

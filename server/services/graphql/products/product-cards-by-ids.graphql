@@ -1,0 +1,19 @@
+query productCardsByIds(
+  $filter: FilterInputType = null
+  $take: Int = null
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  products(
+    filter: $filter
+    take: $take
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    products {
+      ...ProductCard
+    }
+  }
+}

@@ -3,6 +3,7 @@ import { COOKIE_NAMES } from '#shared/constants/storage';
 import { ROUTE_PATHS } from '#shared/constants/route-paths';
 import { isPagePath } from '../utils/is-page-path';
 import { encodeRedirectPath } from '../utils/redirect-path';
+import { sendPageLocaleWithApiCalls } from '../utils/page-locale-fetch';
 import {
   interpretLocaleMarketPrefix,
   resolvableLocaleCodes,
@@ -91,7 +92,7 @@ export default defineEventHandler((event) => {
         defaultMarket: channelSettings.defaultMarket,
       },
     );
-    writeLocaleMarketCookies(event, resolved.market, resolved.locale);
+    adoptPageLocaleMarket(event, resolved.market, resolved.locale);
     event.context.localeMarket = { market, locale };
     event.context.resolvedLocaleMarket = resolved;
     return;
@@ -112,7 +113,7 @@ export default defineEventHandler((event) => {
   // A tenant whose own defaults fail validation would redirect to a URL that
   // corrects to itself, forever.
   if (targetPath === path || `${targetPath}/` === path) {
-    writeLocaleMarketCookies(event, targetMarket, targetLocale);
+    adoptPageLocaleMarket(event, targetMarket, targetLocale);
     event.context.localeMarket = { market: targetMarket, locale: targetLocale };
     return;
   }
@@ -135,7 +136,7 @@ function passThroughWithoutTenantLists(
 ): unknown {
   const [first, second] = segments;
   if (first && second && isTwoLetterCode(first) && isTwoLetterCode(second)) {
-    writeLocaleMarketCookies(event, first, second);
+    adoptPageLocaleMarket(event, first, second);
     event.context.localeMarket = { market: first, locale: second };
     return;
   }
@@ -152,6 +153,10 @@ function passThroughWithoutTenantLists(
   if (segments[0] && TYPE_PREFIX_SEGMENTS.has(segments[0])) {
     return redirectTypePrefixedPath(event, path, query);
   }
+
+  // A page without a prefix still renders; its API calls get the tenant's
+  // default locale rather than whatever the cookie holds.
+  sendPageLocaleWithApiCalls(event, tenantDefaultMarketLocale(event).locale);
 }
 
 /**
@@ -185,6 +190,20 @@ function tenantDefaultMarketLocale(event: import('h3').H3Event): {
     market: channelSettings?.defaultMarket || 'se',
     locale: channelSettings?.defaultLocale?.split('-')[0] || 'sv',
   };
+}
+
+/**
+ * The page's market and locale, from its URL: remembered in the cookies for
+ * the next visit. The locale is also sent with every API call this page's
+ * render makes.
+ */
+function adoptPageLocaleMarket(
+  event: import('h3').H3Event,
+  market: string,
+  locale: string,
+): void {
+  writeLocaleMarketCookies(event, market, locale);
+  sendPageLocaleWithApiCalls(event, locale);
 }
 
 function writeLocaleMarketCookies(

@@ -2,7 +2,7 @@
 title: Internationalization with @nuxtjs/i18n
 status: accepted
 created: 2026-02-09
-updated: 2026-08-26
+updated: 2026-11-12
 author: '@AliHalaki'
 tags: [i18n, nuxt, vue-i18n]
 ---
@@ -58,8 +58,8 @@ ownership of the URL. See ADR-015 for the type-prefix segment that follows the m
 ### SDK / API sync
 
 - `getChannelVariables()` accepts optional `localeOverride` and `marketOverride` parameters
-- `getRequestChannelVariables(sdk, event)` composes `getChannelVariables` with request-level locale and market cookies — all GraphQL services now use this to automatically pipe user preferences
-- Server-side API routes read locale from `locale` cookie via `getRequestLocale()` and market from `market` cookie via `getRequestMarket()`
+- `getRequestChannelVariables(sdk, event)` composes `getChannelVariables` with the request's locale and market — all GraphQL services now use this to automatically pipe user preferences
+- Server-side API routes read the locale via `getRequestLocale()`: the page's URL first, carried with every API call, then the `locale` cookie (superseded in part by [ADR-026](026-api-calls-carry-the-page-language.md)). They read the market via `getRequestMarket()` from the `market` cookie
 
 ## Consequences
 

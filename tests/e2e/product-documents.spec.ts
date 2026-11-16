@@ -84,6 +84,7 @@ test.describe('product documents', () => {
     // may save a PDF instead of showing it, and the tab then stays blank.
     const [opened, request] = await Promise.all([
       context.waitForEvent('page'),
+      // eslint-disable-next-line sales-portal/no-api-url-literal -- the asset's own URL on the CDN, not an /api call
       context.waitForEvent('request', (r) => r.url() === pdf!.url),
       view.click(),
     ]);

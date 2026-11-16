@@ -1,4 +1,5 @@
 import { test as base } from '@playwright/test';
+import { apiRoute } from './api-call';
 
 export * from '@playwright/test';
 
@@ -25,7 +26,30 @@ export function isVideoPlayerUrl(url: string): boolean {
 export const test = base.extend<{
   videoPlayerAbort: undefined;
   libraryImageAccept: undefined;
+  placesRealOrder: boolean;
+  orderPlacementGuard: undefined;
 }>({
+  /**
+   * A test that places a real order says so with
+   * `test.use({ placesRealOrder: true })`. Every other test has its order
+   * placement aborted, so an intercept that misses cannot place one.
+   */
+  placesRealOrder: [false, { option: true }],
+  orderPlacementGuard: [
+    async ({ context, placesRealOrder }, use) => {
+      if (!placesRealOrder) {
+        // A page's own route answers before this one, so a test that answers
+        // create-order itself still gets its answer.
+        await context.route(apiRoute('/api/checkout/create-order'), (route) =>
+          route.request().method() === 'POST'
+            ? route.abort('blockedbyclient')
+            : route.fallback(),
+        );
+      }
+      await use(undefined);
+    },
+    { auto: true },
+  ],
   // A video frame holds `load` until the provider answers, so an outage there
   // times out `goto` on a page that has already rendered.
   videoPlayerAbort: [

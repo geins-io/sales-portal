@@ -9,6 +9,7 @@ import {
   waitForHydration,
 } from './helpers';
 import { localeText } from './locale-text';
+import { apiRoute } from './api-call';
 
 /**
  * The cart's "Skapa offertförfrågan av varukorgen", confirmed in a dialog. The
@@ -87,7 +88,7 @@ async function answerRequest(
   existing: string[] = [],
 ) {
   const names: string[] = [];
-  await page.route('**/api/quotes', (route: Route) =>
+  await page.route(apiRoute('/api/quotes'), (route: Route) =>
     route.request().method() === 'GET'
       ? route.fulfill({
           json: {
@@ -97,7 +98,7 @@ async function answerRequest(
         })
       : route.fallback(),
   );
-  await page.route('**/api/quotes/requests', async (route: Route) => {
+  await page.route(apiRoute('/api/quotes/requests'), async (route: Route) => {
     if (route.request().method() !== 'POST') return route.fallback();
     const { name } = route.request().postDataJSON() as { name: string };
     names.push(name);
@@ -109,7 +110,7 @@ async function answerRequest(
     }
     return route.fulfill({ json: { quote: makeQuote(name) } });
   });
-  await page.route(`**/api/quotes/${QUOTE_ID}`, (route: Route) =>
+  await page.route(apiRoute(`/api/quotes/${QUOTE_ID}`), (route: Route) =>
     route.request().method() === 'GET'
       ? route.fulfill({ json: { quote: makeQuote(names.at(-1) ?? '') } })
       : route.fallback(),

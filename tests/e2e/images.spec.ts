@@ -371,6 +371,7 @@ test.describe('Images from the asset library', () => {
     const currentSrc = await img.evaluate(
       (el: HTMLImageElement) => el.currentSrc,
     );
+    // eslint-disable-next-line sales-portal/no-api-url-literal -- a CDN URL, not an /api call: its query is the size under test
     expect(requests.filter((r) => r.url() === currentSrc)).toHaveLength(1);
   });
 
@@ -578,6 +579,7 @@ test.describe('Images from the asset library', () => {
     expect(Number(url.searchParams.get('height'))).toBeGreaterThanOrEqual(
       banner!.box.height * banner!.dpr,
     );
+    // eslint-disable-next-line sales-portal/no-api-url-literal -- a CDN URL, not an /api call: its query is the size under test
     expect(requests.filter((r) => r.url() === banner!.currentSrc)).toHaveLength(
       1,
     );

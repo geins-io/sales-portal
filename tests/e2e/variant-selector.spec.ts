@@ -6,6 +6,7 @@ import {
   signedInState,
   waitForHydration,
 } from './helpers';
+import { apiRoute } from './api-call';
 
 /**
  * Variant selector E2E Tests
@@ -480,11 +481,14 @@ test.describe('Variant selector and the cart', () => {
     let held = 0;
     let release!: () => void;
     const released = new Promise<void>((resolve) => (release = resolve));
-    await page.route(`**/api/products/${target.alias}?**`, async (route) => {
-      held++;
-      await released;
-      await route.continue();
-    });
+    await page.route(
+      apiRoute(`/api/products/${target.alias}`),
+      async (route) => {
+        held++;
+        await released;
+        await route.continue();
+      },
+    );
 
     const nav = await pick(page, product, own, dimension, target);
     await expect(page).toHaveURL((url) => url.pathname === expected);

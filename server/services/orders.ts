@@ -21,6 +21,7 @@ import type { ConfigurableCandidate } from './configurator';
 import { configurableCheck } from './configurator';
 import { lineConfiguration } from './line-configuration';
 import { amountWriter } from './amount';
+import { getCatalogueProducts } from './products';
 
 /**
  * Puts each row's configurable flag and its configuration, as the buyer reads
@@ -63,12 +64,67 @@ export async function getOrder(
   event: H3Event,
 ): Promise<OrderDetailType | undefined> {
   const { oms } = await getTenantSDK(event);
+  const requestContext = buildRequestContext(event);
   const order = await wrapServiceCall(
-    () => oms.order.get(args, buildRequestContext(event)),
+    () => oms.order.get(args, requestContext),
     'order',
     OrderError,
   );
-  return order ? toOrderDetail(order, configurableCheck(event)) : undefined;
+  if (!order) return undefined;
+  return inPageLanguage(
+    toOrderDetail(order, configurableCheck(event)),
+    event,
+    requestContext?.userToken,
+  );
+}
+
+/**
+ * Each row's product name, alias, link and images in the language of the
+ * page. The order carries them only in the language it was placed in; in any
+ * other its alias is empty and its images null. A product the catalogue no
+ * longer has keeps what the order carries.
+ */
+async function inPageLanguage(
+  order: OrderDetailType,
+  event: H3Event,
+  userToken: string | undefined,
+): Promise<OrderDetailType> {
+  const cart = order.cart;
+  const items = cart?.items;
+  if (!cart || !items) return order;
+  // Typed as a string by the SDK; Geins answers the number.
+  const idOf = (row: OrderDetailItem | null | undefined) =>
+    Number(row?.product?.productId ?? NaN);
+  const productIds = [...new Set(items.map(idOf).filter(Number.isInteger))];
+  if (!productIds.length) return order;
+  const catalogue = await getCatalogueProducts(productIds, event, userToken);
+
+  return {
+    ...order,
+    cart: {
+      ...cart,
+      items: items.map((row) => {
+        const found = catalogue.get(idOf(row));
+        const product = row?.product;
+        if (!found || !product) return row;
+        const images = (found.productImages ?? []).flatMap((image) =>
+          image?.fileName
+            ? [{ fileName: image.fileName, url: image.url ?? null }]
+            : [],
+        );
+        return {
+          ...row,
+          product: {
+            ...product,
+            ...(found.name && { name: found.name }),
+            ...(found.alias && { alias: found.alias }),
+            ...(found.canonicalUrl && { canonicalUrl: found.canonicalUrl }),
+            ...(images.length && { productImages: images }),
+          },
+        };
+      }),
+    },
+  };
 }
 
 /**

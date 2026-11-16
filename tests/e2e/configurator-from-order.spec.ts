@@ -7,6 +7,7 @@ import {
   waitForHydration,
 } from './helpers';
 import { localeText } from './locale-text';
+import { apiRoute, isApiCall } from './api-call';
 
 /**
  * Opening a configured order row in the configurator, end to end on a real CPQ
@@ -153,7 +154,7 @@ async function openOrderRow(page: Page): Promise<void> {
 function replayResponse(page: Page) {
   return page.waitForResponse(
     (r) =>
-      r.url().endsWith('/api/configurations/from-order') &&
+      isApiCall(r.url(), '/api/configurations/from-order') &&
       r.request().method() === 'POST',
   );
 }
@@ -286,7 +287,7 @@ test.describe('Opening a configured order row', () => {
     await expect(commit).toBeEnabled({ timeout: 30_000 });
     const added = page.waitForResponse(
       (r) =>
-        /\/api\/configurations\/[^/]+\/cart$/.test(r.url()) &&
+        isApiCall(r.url(), '/api/configurations/*/cart') &&
         r.request().method() === 'POST',
     );
     await commit.click();
@@ -343,7 +344,7 @@ test.describe('Opening a configured order row', () => {
     await expect(sheet).toBeInViewport({ ratio: 1 });
     const changed = page.waitForResponse(
       (r) =>
-        /\/api\/configurations\/[^/]+\/changes$/.test(r.url()) &&
+        isApiCall(r.url(), '/api/configurations/*/changes') &&
         r.request().method() === 'POST',
     );
     await sheet.locator(`[data-option-id="${other!.id}"]`).click();
@@ -372,7 +373,7 @@ test.describe('Opening a configured order row', () => {
     );
     let replayedAgain = false;
     page.on('request', (request) => {
-      if (request.url().endsWith('/api/configurations/from-order')) {
+      if (isApiCall(request.url(), '/api/configurations/from-order')) {
         replayedAgain = true;
       }
     });
@@ -406,7 +407,7 @@ test.describe('Opening a configured order row', () => {
     await orderedSummary(page);
     // A row the order does not have: the server's own path for a row that
     // carries nothing to replay.
-    await page.route('**/api/configurations/from-order', (route) =>
+    await page.route(apiRoute('/api/configurations/from-order'), (route) =>
       route.continue({
         postData: JSON.stringify({
           ...JSON.parse(route.request().postData() ?? '{}'),

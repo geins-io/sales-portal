@@ -39,6 +39,28 @@ relative URL. So `host`, `cookie` and `x-forwarded-proto` all cross the hop.
 On the client it is a plain `$fetch`; the browser sends host and cookies
 itself.
 
+## The page's language
+
+Every call to our own `/api/*` routes carries the locale of the page that
+makes it, as `?locale=`, and the API reads that before the cookie
+([ADR-026](../adr/026-api-calls-carry-the-page-language.md)). Nothing is
+needed at the call site:
+
+- During SSR, `00.locale-market` wraps the page request's `event.$fetch`, so
+  `useFetch`, `internalFetch` and `useRequestFetch` send the page's locale
+  (`server/utils/page-locale-fetch.ts`).
+- In the browser, the plugin `00.page-locale-fetch.client.ts` adds the locale
+  from `window.location` to every same-origin `/api/` fetch.
+
+The market is not added; it stays the cookie's. A call that names its own
+`locale` keeps it. `localeQuery` from `useLocaleMarket()` still belongs in the
+options of a `useFetch` whose data must load again when the language changes
+inside the app: it is part of the fetch key, which the transport is not.
+
+Because the query is added to every browser `/api/` URL, e2e tests match an
+API call by its pathname (`isApiCall` in `tests/e2e/api-call.ts`), never by
+its whole URL.
+
 ## Why Host matters
 
 `server/plugins/02.tenant-context.ts` resolves the tenant of every request

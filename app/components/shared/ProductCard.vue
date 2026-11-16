@@ -32,6 +32,8 @@ export interface ProductCardItem {
   salePrice?: string | number | null;
   articleNumber?: string | null;
   alias?: string | null;
+  /** The product page, when it differs from the alias's language. */
+  canonicalUrl?: string | null;
   skuId?: number;
   configurable?: boolean;
 }
@@ -133,10 +135,8 @@ const productUrl = computed(() => {
     }
     return localePath(productPath(props.product.alias));
   }
-  if (props.product?.alias) {
-    return localePath(productPath(props.product.alias));
-  }
-  return null;
+  const target = props.product?.canonicalUrl || props.product?.alias;
+  return target ? localePath(productPath(target)) : null;
 });
 
 const skuId = computed(() => {
