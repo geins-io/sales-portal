@@ -138,20 +138,23 @@ interface Calls {
   patch: unknown[];
   release: number;
   messages: { message: string; answerRef?: string }[];
+  deleted: string[];
 }
 
 /**
  * Answers the quotation's read, its thread, details write, release, and
- * the messages the buyer writes, which the thread then holds.
+ * the messages the buyer writes, which the thread then holds until deleted.
+ * Nothing follows them, so each may be deleted.
  */
 async function answerQuotation(
   page: Page,
   initialStatus: string,
   extraLines: object[] = [],
 ) {
-  const calls: Calls = { patch: [], release: 0, messages: [] };
+  const calls: Calls = { patch: [], release: 0, messages: [], deleted: [] };
   const written = () =>
-    calls.messages.map((m, i) => {
+    calls.messages.flatMap((m, i) => {
+      if (calls.deleted.includes(writtenId(i))) return [];
       const parent = calls.messages.findIndex(
         (_p, j) => writtenId(j) === m.answerRef,
       );
@@ -161,6 +164,7 @@ async function answerQuotation(
         side: 'buyer',
         authorName: 'E2E Buyer',
         text: m.message,
+        deletable: true,
         ...(parent >= 0 && {
           replyTo: {
             authorName: 'E2E Buyer',
@@ -194,6 +198,13 @@ async function answerQuotation(
         return route.fulfill({
           json: { message: { id: writtenId(calls.messages.length - 1) } },
         });
+      }
+      if (
+        isApiCall(request.url(), `/api/quotes/${QUOTE_ID}/messages/*`) &&
+        request.method() === 'DELETE'
+      ) {
+        calls.deleted.push(path.split('/').pop()!);
+        return route.fulfill({ json: { deleted: true } });
       }
       // Once sent, the thread holds the request comment, as Geins writes it.
       if (
@@ -569,5 +580,108 @@ test.describe('Write in the quote log', () => {
       timeout: PAGE_TIMEOUT,
     });
     await expect(input).toHaveValue('Hej');
+  });
+
+  test('deletes a message after asking, and the other stays', async ({
+    page,
+  }) => {
+    const calls = await answerQuotation(page, 'requested');
+    await openInApp(page, VIEW_PATH);
+    const open = page.locator('[data-testid="quote-thread-open"]');
+    await expect(open).toHaveText(/Offertlogg/, { timeout: PAGE_TIMEOUT });
+    await open.click();
+    const log = page.locator('[data-testid="quote-thread"]');
+    const input = log.locator('[data-testid="quote-thread-input"]');
+    const entries = log.locator('[data-testid="quote-thread-entry"]');
+    for (const [n, text] of ['Första.', 'Andra.'].entries()) {
+      await input.fill(text);
+      await input.press('ControlOrMeta+Enter');
+      await expect(entries).toHaveCount(n + 1, { timeout: PAGE_TIMEOUT });
+    }
+
+    await entries.first().locator('[data-testid="quote-thread-more"]').click();
+    await page.locator('[data-testid="quote-thread-delete-action"]').click();
+    const dialog = page.locator('[data-testid="quote-action-dialog"]');
+    await expect(dialog).toContainText('Radera meddelandet?');
+    await expect(dialog).toContainText(
+      'Meddelandet tas bort för både dig och säljaren.',
+    );
+    await dialog.locator('[data-testid="quote-action-confirm"]').click();
+
+    await expect(dialog).toHaveCount(0);
+    await expect(entries).toHaveCount(1, { timeout: PAGE_TIMEOUT });
+    await expect(entries.first()).toContainText('Andra.');
+    await expect(input).toBeFocused();
+    expect(calls.deleted).toEqual([writtenId(0)]);
+  });
+
+  test('says so when the message was locked meanwhile, and shows what came in', async ({
+    page,
+  }) => {
+    await answerQuotation(page, 'requested');
+    let answered = false;
+    await page.route(
+      apiRoute(`/api/quotes/${QUOTE_ID}/messages/**`),
+      async (route: Route) => {
+        if (route.request().method() !== 'DELETE') return route.fallback();
+        answered = true;
+        return route.fulfill({ status: 409, json: { message: 'Conflict' } });
+      },
+    );
+    await page.route(
+      apiRoute(`/api/quotes/${QUOTE_ID}/messages`),
+      async (route: Route) => {
+        if (!answered || route.request().method() !== 'GET') {
+          return route.fallback();
+        }
+        const entries = [
+          {
+            id: writtenId(0),
+            at: '2026-11-16T10:00:00.000Z',
+            side: 'buyer',
+            authorName: 'E2E Buyer',
+            text: 'Ja, det kör vi på.',
+          },
+          {
+            id: 'e2e-answer',
+            at: '2026-11-16T10:01:00.000Z',
+            side: 'seller',
+            authorName: 'E2E Seller',
+            text: 'Då beställer vi.',
+          },
+        ];
+        return route.fulfill({
+          json: { thread: { entries, messageCount: entries.length } },
+        });
+      },
+    );
+    await openInApp(page, VIEW_PATH);
+    const open = page.locator('[data-testid="quote-thread-open"]');
+    await expect(open).toHaveText(/Offertlogg/, { timeout: PAGE_TIMEOUT });
+    await open.click();
+    const log = page.locator('[data-testid="quote-thread"]');
+    const input = log.locator('[data-testid="quote-thread-input"]');
+    const entries = log.locator('[data-testid="quote-thread-entry"]');
+    await input.fill('Ja, det kör vi på.');
+    await input.press('ControlOrMeta+Enter');
+    await expect(entries).toHaveCount(1, { timeout: PAGE_TIMEOUT });
+
+    await entries.first().locator('[data-testid="quote-thread-more"]').click();
+    await page.locator('[data-testid="quote-thread-delete-action"]').click();
+    await page
+      .locator('[data-testid="quote-action-dialog"]')
+      .locator('[data-testid="quote-action-confirm"]')
+      .click();
+
+    await expect(log.locator('[data-testid="quote-thread-notice"]')).toHaveText(
+      'Meddelandet kan inte längre raderas. Säljaren har svarat eller offerten har ändrats.',
+      { timeout: PAGE_TIMEOUT },
+    );
+    await expect(entries).toHaveCount(2);
+    await expect(entries.last()).toBeInViewport();
+    await entries.first().locator('[data-testid="quote-thread-more"]').click();
+    await expect(
+      page.locator('[data-testid="quote-thread-delete-action"]'),
+    ).toHaveCount(0);
   });
 });
