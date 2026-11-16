@@ -27,6 +27,11 @@ const createAppErrorMock = vi.fn((code: string, message: string) => {
   return err;
 });
 
+// expirePartitionedAuthToken edits the response's Set-Cookie list, which
+// this test's event does not carry.
+vi.stubGlobal('getResponseHeader', () => undefined);
+vi.stubGlobal('setResponseHeader', vi.fn());
+vi.stubGlobal('splitCookiesString', () => []);
 vi.stubGlobal('setCookie', setCookieMock);
 vi.stubGlobal('getCookie', getCookieMock);
 vi.stubGlobal('deleteCookie', deleteCookieMock);
@@ -48,7 +53,12 @@ const { setSpoofedByCookie, getSpoofedByCookie, clearSpoofedByCookie } =
   cookieUtils;
 
 // Stub Nuxt auto-imports used by the endpoint
-vi.stubGlobal('setPreviewAuthToken', cookieUtils.setPreviewAuthToken);
+vi.stubGlobal('clearAuthCookies', cookieUtils.clearAuthCookies);
+vi.stubGlobal('setLoginAsAuthToken', cookieUtils.setLoginAsAuthToken);
+vi.stubGlobal(
+  'expirePartitionedAuthToken',
+  cookieUtils.expirePartitionedAuthToken,
+);
 vi.stubGlobal('setSpoofedByCookie', cookieUtils.setSpoofedByCookie);
 
 const mockEvent = {} as H3Event;
@@ -77,7 +87,12 @@ async function importHandler() {
 
   // Re-import cookies so auto-import stubs point to fresh module using our mocks
   const freshCookies = await import('../../server/utils/cookies');
-  vi.stubGlobal('setPreviewAuthToken', freshCookies.setPreviewAuthToken);
+  vi.stubGlobal('clearAuthCookies', freshCookies.clearAuthCookies);
+  vi.stubGlobal('setLoginAsAuthToken', freshCookies.setLoginAsAuthToken);
+  vi.stubGlobal(
+    'expirePartitionedAuthToken',
+    freshCookies.expirePartitionedAuthToken,
+  );
   vi.stubGlobal('setSpoofedByCookie', freshCookies.setSpoofedByCookie);
   vi.stubGlobal('clearCartCookie', freshCookies.clearCartCookie);
   vi.stubGlobal('setCartCookie', freshCookies.setCartCookie);

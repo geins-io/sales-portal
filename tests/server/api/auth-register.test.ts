@@ -26,6 +26,8 @@ vi.mock('../../../server/utils/rate-limiter', () => ({
   getClientIp: vi.fn().mockReturnValue('127.0.0.1'),
 }));
 
+vi.stubGlobal('clearSpoofedByCookie', vi.fn());
+vi.stubGlobal('expirePartitionedAuthToken', vi.fn());
 vi.stubGlobal(
   'createAppError',
   vi.fn((code: string, msg: string) => {

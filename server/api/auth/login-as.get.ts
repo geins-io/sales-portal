@@ -9,7 +9,7 @@ import { settleSignInCart } from '../../utils/sign-in-cart';
  *
  * The account page redirects here. This endpoint:
  * 1. Validates the JWT format (not crypto — Geins signs it)
- * 2. Sets the auth token cookie
+ * 2. Replaces any session in this browser with the login token
  * 3. Gives the customer their cart, as a normal sign-in does
  * 4. If SpoofedBy claim is present, sets the impersonation cookie
  * 5. Redirects to /portal (or a custom redirect path)
@@ -31,8 +31,10 @@ export default defineEventHandler(async (event) => {
   // Decode payload to check for SpoofedBy claim
   const spoofedBy = decodeSpoofedBy(loginToken);
 
-  // Set the auth token cookie (same approach as preview-enter)
-  setPreviewAuthToken(event, loginToken);
+  // The previous user's refresh token would otherwise rotate this session
+  // back to that user once the login token nears expiry.
+  clearAuthCookies(event);
+  setLoginAsAuthToken(event, loginToken);
 
   await settleSignInCart(event, loginToken);
 
@@ -40,6 +42,7 @@ export default defineEventHandler(async (event) => {
   if (spoofedBy) {
     setSpoofedByCookie(event, spoofedBy);
   }
+  expirePartitionedAuthToken(event);
 
   // Redirect to the specified path or /portal. The shared validator rejects
   // external and protocol-relative URLs (including //evil.com, /\evil.com,

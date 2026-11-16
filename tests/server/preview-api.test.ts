@@ -16,6 +16,11 @@ const deleteCookieMock = vi.fn();
 const getCookieMock = vi.fn();
 const readBodyMock = vi.fn();
 
+// expirePartitionedAuthToken edits the response's Set-Cookie list, which
+// this test's event does not carry.
+vi.stubGlobal('getResponseHeader', () => undefined);
+vi.stubGlobal('setResponseHeader', vi.fn());
+vi.stubGlobal('splitCookiesString', () => []);
 vi.stubGlobal('setCookie', setCookieMock);
 vi.stubGlobal('getCookie', getCookieMock);
 vi.stubGlobal('deleteCookie', deleteCookieMock);

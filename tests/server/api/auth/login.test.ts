@@ -42,6 +42,8 @@ vi.mock('../../../../server/utils/rate-limiter', () => ({
 }));
 
 const mockSetAuthCookies = vi.fn();
+vi.stubGlobal('clearSpoofedByCookie', vi.fn());
+vi.stubGlobal('expirePartitionedAuthToken', vi.fn());
 vi.stubGlobal('setAuthCookies', mockSetAuthCookies);
 
 const mockGetCartCookie = vi.fn().mockReturnValue(undefined);

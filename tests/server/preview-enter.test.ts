@@ -21,6 +21,11 @@ const createAppErrorMock = vi.fn((code: string, message: string) => {
   return err;
 });
 
+// expirePartitionedAuthToken edits the response's Set-Cookie list, which
+// this test's event does not carry.
+vi.stubGlobal('getResponseHeader', () => undefined);
+vi.stubGlobal('setResponseHeader', vi.fn());
+vi.stubGlobal('splitCookiesString', () => []);
 vi.stubGlobal('setCookie', setCookieMock);
 vi.stubGlobal('deleteCookie', deleteCookieMock);
 vi.stubGlobal('getQuery', getQueryMock);

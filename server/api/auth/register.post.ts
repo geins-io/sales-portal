@@ -48,6 +48,9 @@ export default defineEventHandler(async (event) => {
     refreshToken: tokens.refreshToken!,
     expiresIn: tokens.expiresIn,
   });
+  // A login-as left in this browser would otherwise outrank the new token.
+  clearSpoofedByCookie(event);
+  expirePartitionedAuthToken(event);
 
   return {
     user,

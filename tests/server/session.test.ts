@@ -15,6 +15,11 @@ interface FakeEvent {
   deletedPath: Record<string, string | undefined>;
 }
 
+// expirePartitionedAuthToken edits the response's Set-Cookie list, which
+// this test's event does not carry.
+vi.stubGlobal('getResponseHeader', () => undefined);
+vi.stubGlobal('setResponseHeader', vi.fn());
+vi.stubGlobal('splitCookiesString', () => []);
 vi.stubGlobal(
   'getCookie',
   (event: FakeEvent, name: string) => event.request[name],

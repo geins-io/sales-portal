@@ -7,6 +7,11 @@ const jar = new Map<string, string>();
 const deleteCookie = vi.fn((_event: H3Event, name: string) => {
   jar.delete(name);
 });
+// expirePartitionedAuthToken edits the response's Set-Cookie list, which
+// this test's event does not carry.
+vi.stubGlobal('getResponseHeader', () => undefined);
+vi.stubGlobal('setResponseHeader', vi.fn());
+vi.stubGlobal('splitCookiesString', () => []);
 vi.stubGlobal('deleteCookie', deleteCookie);
 vi.stubGlobal('setCookie', (_event: H3Event, name: string, value: string) => {
   jar.set(name, value);
