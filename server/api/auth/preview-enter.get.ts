@@ -22,6 +22,7 @@ export default defineEventHandler((event) => {
   clearAuthCookies(event);
   setPreviewAuthToken(event, loginToken);
   setPreviewCookie(event);
+  expireUnpartitionedAuthToken(event);
 
   // Redirect to the specified path or home. The shared validator rejects
   // external and protocol-relative URLs (including //evil.com, /\evil.com,

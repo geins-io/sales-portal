@@ -26,6 +26,7 @@
 
 import type { H3Event } from 'h3';
 import { COOKIE_NAMES } from '#shared/constants/storage';
+import { isDevMode } from './dev-mode';
 
 export { COOKIE_NAMES };
 
@@ -83,6 +84,55 @@ export function clearAuthCookies(event: H3Event) {
   deleteCookie(event, COOKIE_NAMES.AUTH_TOKEN, { path: '/' });
   deleteCookie(event, COOKIE_NAMES.REFRESH_TOKEN, { path: '/' });
   deleteCookie(event, COOKIE_NAMES.SESSION_ONLY, { path: '/' });
+  expirePartitionedAuthToken(event);
+}
+
+/**
+ * Puts `names` deletes, with `attrs`, ahead of the response's other
+ * Set-Cookie headers.
+ *
+ * Call it after every auth cookie set in the response: h3's `setCookie` keeps
+ * one header per name and path, ignoring Partitioned, and drops these. They go
+ * first because a browser without partitioned cookies reads a partitioned
+ * delete or set as a plain one, and a delete must not land after a new token.
+ */
+function expireAhead(event: H3Event, names: string[], attrs: string) {
+  const current = getResponseHeader(event, 'set-cookie');
+  const kept =
+    typeof current === 'string' || Array.isArray(current)
+      ? splitCookiesString(current)
+      : [];
+  const expires = names.map((name) => `${name}=; Max-Age=0; Path=/${attrs}`);
+  setResponseHeader(event, 'set-cookie', [...expires, ...kept]);
+}
+
+/**
+ * Deletes an `auth_token` set Partitioned (by preview, and by login-as until
+ * it moved to a plain cookie): a plain delete leaves it in place, and the
+ * browser sends it ahead of a newer token.
+ */
+export function expirePartitionedAuthToken(event: H3Event) {
+  if (isDevMode()) return;
+  expireAhead(
+    event,
+    [COOKIE_NAMES.AUTH_TOKEN],
+    '; Secure; SameSite=None; Partitioned',
+  );
+}
+
+/**
+ * Lax, so every engine ignores these deletes in a cross-site iframe (Studio
+ * preview) and only a top-level page can end the storefront session.
+ */
+const UNPARTITIONED_DELETE = '; SameSite=Lax';
+
+/**
+ * Deletes a signed-in buyer's plain `auth_token` when preview sets its
+ * partitioned one: otherwise both are sent, and the older plain one wins.
+ */
+export function expireUnpartitionedAuthToken(event: H3Event) {
+  if (isDevMode()) return;
+  expireAhead(event, [COOKIE_NAMES.AUTH_TOKEN], UNPARTITIONED_DELETE);
 }
 
 // --- Tenant cookie ---
@@ -133,6 +183,19 @@ export function clearCartOwnerCookie(event: H3Event) {
   deleteCookie(event, COOKIE_NAMES.CART_OWNER, { path: '/' });
 }
 
+// --- Login-as cookie ---
+
+/**
+ * Merchant Center opens login-as as a top-level page, never in an iframe, so
+ * the token is an ordinary first-party cookie that logout can delete.
+ */
+export function setLoginAsAuthToken(event: H3Event, token: string) {
+  setCookie(event, COOKIE_NAMES.AUTH_TOKEN, token, {
+    ...cookieDefaults(),
+    maxAge: 3600,
+  });
+}
+
 // --- Preview cookies ---
 
 /**
@@ -143,7 +206,7 @@ export function clearCartOwnerCookie(event: H3Event) {
  * SameSite=None without Secure, and Secure requires HTTPS.
  */
 function previewCookieDefaults() {
-  const isProd = !import.meta.dev;
+  const isProd = !isDevMode();
   return {
     sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
     secure: isProd,
@@ -191,12 +254,20 @@ export function clearPreviewSession(event: H3Event) {
   // { path: '/' } delete the browser keeps the partitioned cookie, so the
   // httpOnly auth_token survives exit and /api/auth/me keeps decoding the preview
   // JWT, leaving the topbar identity on the preview user. Match the set
-  // attributes here. Regular (non-preview) flows keep the path-only deletes in
-  // clearAuthCookies/clearPreviewCookie since those cookies are not partitioned.
+  // attributes here, and delete plain auth cookies too, so exit leaves no
+  // session the UI does not show. clearPreviewCookie keeps a path-only delete,
+  // since the regular flows never set preview_mode partitioned.
   const previewAttrs = previewCookieDefaults();
   deleteCookie(event, COOKIE_NAMES.AUTH_TOKEN, previewAttrs);
   deleteCookie(event, COOKIE_NAMES.REFRESH_TOKEN, previewAttrs);
   deleteCookie(event, COOKIE_NAMES.PREVIEW_MODE, previewAttrs);
+  if (!isDevMode()) {
+    expireAhead(
+      event,
+      [COOKIE_NAMES.AUTH_TOKEN, COOKIE_NAMES.REFRESH_TOKEN],
+      UNPARTITIONED_DELETE,
+    );
+  }
 }
 
 // --- Market cookie ---

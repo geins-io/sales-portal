@@ -16,6 +16,11 @@ const deleteCookieMock = vi.fn();
 const getCookieMock = vi.fn();
 const readBodyMock = vi.fn();
 
+// expirePartitionedAuthToken edits the response's Set-Cookie list, which
+// this test's event does not carry.
+vi.stubGlobal('getResponseHeader', () => undefined);
+vi.stubGlobal('setResponseHeader', vi.fn());
+vi.stubGlobal('splitCookiesString', () => []);
 vi.stubGlobal('setCookie', setCookieMock);
 vi.stubGlobal('getCookie', getCookieMock);
 vi.stubGlobal('deleteCookie', deleteCookieMock);
@@ -56,6 +61,10 @@ const cookies = await import('../../server/utils/cookies');
 vi.stubGlobal('clearAuthCookies', cookies.clearAuthCookies);
 vi.stubGlobal('setPreviewAuthToken', cookies.setPreviewAuthToken);
 vi.stubGlobal('setPreviewCookie', cookies.setPreviewCookie);
+vi.stubGlobal(
+  'expireUnpartitionedAuthToken',
+  cookies.expireUnpartitionedAuthToken,
+);
 vi.stubGlobal('clearPreviewSession', cookies.clearPreviewSession);
 
 // Import handlers (defineEventHandler stub unwraps them to plain functions)
