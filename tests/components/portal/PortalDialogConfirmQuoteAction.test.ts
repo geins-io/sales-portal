@@ -17,6 +17,10 @@ const stubs = {
   DialogTitle: { template: '<h2 data-testid="title"><slot /></h2>' },
   DialogDescription: { template: '<p data-testid="description"><slot /></p>' },
   DialogFooter: { template: '<div><slot /></div>' },
+  Label: {
+    props: ['for'],
+    template: '<label :for="$props.for" data-testid="label"><slot /></label>',
+  },
   Button: {
     props: ['disabled', 'variant'],
     emits: ['click'],
@@ -100,5 +104,67 @@ describe('PortalDialogConfirmQuoteAction', () => {
         .find('[data-testid="quote-action-confirm"]')
         .attributes('disabled'),
     ).toBe(disabled ? '' : undefined);
+  });
+
+  describe('the message to the seller', () => {
+    const field = (wrapper: ReturnType<typeof mount>) =>
+      wrapper.find('[data-testid="quote-action-message"]');
+
+    it('is an optional, labelled field with the placeholder it is given', () => {
+      const wrapper = mount({
+        message: '',
+        messagePlaceholder: 'T.ex. vad som skulle behöva ändras …',
+      });
+
+      const label = wrapper.find('[data-testid="label"]');
+      expect(label.text()).toBe('portal.quotations.answer_message');
+      expect(label.attributes('for')).toBe(field(wrapper).attributes('id'));
+      expect(field(wrapper).element.tagName).toBe('TEXTAREA');
+      expect(field(wrapper).attributes('placeholder')).toBe(
+        'T.ex. vad som skulle behöva ändras …',
+      );
+    });
+
+    it('stops at 4000 characters and counts what is written', () => {
+      const wrapper = mount({ message: 'Hej' });
+
+      expect(field(wrapper).attributes('maxlength')).toBe('4000');
+      expect(
+        wrapper.find('[data-testid="quote-action-message-count"]').text(),
+      ).toBe('3 / 4000');
+      expect((field(wrapper).element as HTMLTextAreaElement).value).toBe('Hej');
+    });
+
+    it('emits what the buyer writes', async () => {
+      const wrapper = mount({ message: '' });
+
+      await field(wrapper).setValue('Vi har valt en annan lösning');
+
+      expect(wrapper.emitted('update:message')).toEqual([
+        ['Vi har valt en annan lösning'],
+      ]);
+      expect(wrapper.emitted('confirm')).toBeUndefined();
+    });
+
+    it.each([
+      [true, true],
+      [false, false],
+    ])('is disabled while pending=%s', (pending, disabled) => {
+      const wrapper = mount({ message: '', pending });
+
+      expect(field(wrapper).attributes('disabled')).toBe(
+        disabled ? '' : undefined,
+      );
+    });
+
+    it('leaves confirm enabled when the field is empty', () => {
+      const wrapper = mount({ message: '' });
+
+      expect(
+        wrapper
+          .find('[data-testid="quote-action-confirm"]')
+          .attributes('disabled'),
+      ).toBeUndefined();
+    });
   });
 });

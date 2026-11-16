@@ -213,6 +213,33 @@ describe('useQuotesStore', () => {
   });
 
   describe('acceptQuote', () => {
+    it("sends the buyer's message as the body", async () => {
+      mockFetchImpl.mockResolvedValueOnce({
+        quote: { ...mockQuote, status: 'accepted' as const },
+      });
+
+      const store = useQuotesStore();
+      await store.acceptQuote('q-001', 'Tack för offerten');
+
+      expect(mockFetchImpl).toHaveBeenCalledWith('/api/quotes/q-001/accept', {
+        method: 'POST',
+        body: { message: 'Tack för offerten' },
+      });
+    });
+
+    it('sends no body for an empty message', async () => {
+      mockFetchImpl.mockResolvedValueOnce({
+        quote: { ...mockQuote, status: 'accepted' as const },
+      });
+
+      const store = useQuotesStore();
+      await store.acceptQuote('q-001', '');
+
+      expect(mockFetchImpl).toHaveBeenCalledWith('/api/quotes/q-001/accept', {
+        method: 'POST',
+      });
+    });
+
     it('calls POST /api/quotes/:id/accept', async () => {
       const acceptedQuote = { ...mockQuote, status: 'accepted' as const };
       mockFetchImpl.mockResolvedValueOnce({ quote: acceptedQuote });
@@ -741,6 +768,33 @@ describe('useQuotesStore', () => {
   });
 
   describe('rejectQuote', () => {
+    it("sends the buyer's message as the body", async () => {
+      mockFetchImpl.mockResolvedValueOnce({
+        quote: { ...mockQuote, status: 'rejected' as const },
+      });
+
+      const store = useQuotesStore();
+      await store.rejectQuote('q-001', 'Tack för offerten');
+
+      expect(mockFetchImpl).toHaveBeenCalledWith('/api/quotes/q-001/reject', {
+        method: 'POST',
+        body: { message: 'Tack för offerten' },
+      });
+    });
+
+    it('sends no body for an empty message', async () => {
+      mockFetchImpl.mockResolvedValueOnce({
+        quote: { ...mockQuote, status: 'rejected' as const },
+      });
+
+      const store = useQuotesStore();
+      await store.rejectQuote('q-001', '');
+
+      expect(mockFetchImpl).toHaveBeenCalledWith('/api/quotes/q-001/reject', {
+        method: 'POST',
+      });
+    });
+
     it('calls POST /api/quotes/:id/reject without body', async () => {
       const rejectedQuote = { ...mockQuote, status: 'rejected' as const };
       mockFetchImpl.mockResolvedValueOnce({ quote: rejectedQuote });

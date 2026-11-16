@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 type AnyFn = (...args: unknown[]) => unknown;
 
@@ -219,6 +219,7 @@ describe('Quote API Routes', () => {
         message: 'Too many quote responses',
       });
       expect(service).not.toHaveBeenCalled();
+      expect(readBodyMock).not.toHaveBeenCalled();
     });
 
     it('keys the limit on the client IP', async () => {
@@ -465,6 +466,7 @@ describe('Quote API Routes', () => {
       expect(mockAcceptQuote).toHaveBeenCalledWith(
         'quote-uuid-001',
         eventWithId,
+        {},
       );
       expect(result).toEqual({ quote: accepted });
     });
@@ -490,7 +492,7 @@ describe('Quote API Routes', () => {
   // POST /api/quotes/[id]/reject
   // -------------------------------------------------------------------------
   describe('POST /api/quotes/[id]/reject', () => {
-    it('rejects a quote without reading any body', async () => {
+    it('rejects a quote', async () => {
       const eventWithId = {
         ...mockEvent,
         context: { ...mockEvent.context, params: { id: 'quote-uuid-001' } },
@@ -507,6 +509,7 @@ describe('Quote API Routes', () => {
       expect(mockRejectQuote).toHaveBeenCalledWith(
         'quote-uuid-001',
         eventWithId,
+        {},
       );
       expect(result).toEqual({ quote: rejected });
     });
@@ -541,7 +544,79 @@ describe('Quote API Routes', () => {
 
       await expect(handler(event)).resolves.toEqual({ quote: rejected });
       expect(mockGetQuote).not.toHaveBeenCalled();
-      expect(mockRejectQuote).toHaveBeenCalledWith('quote-uuid-001', event);
+      expect(mockRejectQuote).toHaveBeenCalledWith('quote-uuid-001', event, {});
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // The buyer's message with an accept, a decline or a withdrawal
+  // -------------------------------------------------------------------------
+  describe.each([
+    {
+      route: 'accept',
+      service: mockAcceptQuote,
+      load: async () =>
+        (await import('../../../server/api/quotes/[id]/accept.post')).default,
+    },
+    {
+      route: 'reject',
+      service: mockRejectQuote,
+      load: async () =>
+        (await import('../../../server/api/quotes/[id]/reject.post')).default,
+    },
+  ])('POST /api/quotes/[id]/$route message', ({ service, load }) => {
+    const eventWithId = {
+      ...mockEvent,
+      context: { ...mockEvent.context, params: { id: 'quote-uuid-001' } },
+    } as unknown as import('h3').H3Event;
+
+    beforeEach(() => service.mockResolvedValue(mockQuote));
+    // clearAllMocks keeps a return value; the next block reads no body.
+    afterEach(() => readBodyMock.mockReset());
+
+    it('answers without a message when there is no body', async () => {
+      readBodyMock.mockReturnValue(undefined);
+
+      await (
+        await load()
+      )(eventWithId);
+
+      expect(service).toHaveBeenCalledWith('quote-uuid-001', eventWithId, {});
+    });
+
+    it('passes the message on, and nothing else from the body', async () => {
+      readBodyMock.mockReturnValue({
+        message: 'Vi väljer en annan leverantör',
+        status: 'accepted',
+      });
+
+      await (
+        await load()
+      )(eventWithId);
+
+      expect(service).toHaveBeenCalledWith('quote-uuid-001', eventWithId, {
+        message: 'Vi väljer en annan leverantör',
+      });
+    });
+
+    it('takes a message of 4000 characters', async () => {
+      readBodyMock.mockReturnValue({ message: 'x'.repeat(4000) });
+
+      await (
+        await load()
+      )(eventWithId);
+
+      expect(service.mock.calls[0]![2]).toEqual({ message: 'x'.repeat(4000) });
+    });
+
+    it.each([
+      ['a message over 4000 characters', { message: 'x'.repeat(4001) }],
+      ['a message that is not text', { message: 42 }],
+    ])('refuses %s and never calls Geins', async (_label, body) => {
+      readBodyMock.mockReturnValue(body);
+
+      await expect((await load())(eventWithId)).rejects.toThrow();
+      expect(service).not.toHaveBeenCalled();
     });
   });
 

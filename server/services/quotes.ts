@@ -630,6 +630,11 @@ export async function getQuoteNumber(
   return number;
 }
 
+/** The buyer's message to the seller, stored with the status change. */
+interface QuoteAnswerOptions {
+  message?: string;
+}
+
 /**
  * Answer a quotation. Geins answers the mutation with a Boolean, so the
  * quotation is read again for its new status.
@@ -638,7 +643,10 @@ async function respondToQuote(
   queryFile: string,
   quoteId: string,
   event: H3Event,
+  options: QuoteAnswerOptions = {},
 ): Promise<Quote> {
+  // A blank message is left out, so the answer is the one without a message.
+  const message = options.message?.trim();
   const sdk = await getTenantSDK(event);
   const requestContext = buildRequestContext(event);
   const { languageId } = getRequestChannelVariables(sdk, event);
@@ -649,6 +657,7 @@ async function respondToQuote(
         variables: {
           quotationId: quoteId,
           languageId,
+          ...(message && { message }),
         },
         userToken: requestContext?.userToken,
         // No timeout: a quote Geins accepts after a cut would read as failed.
@@ -666,13 +675,31 @@ async function respondToQuote(
 }
 
 /** Accept a quotation via Geins GraphQL API */
-export function acceptQuote(quoteId: string, event: H3Event): Promise<Quote> {
-  return respondToQuote('quotes/accept-quotation.graphql', quoteId, event);
+export function acceptQuote(
+  quoteId: string,
+  event: H3Event,
+  options: QuoteAnswerOptions = {},
+): Promise<Quote> {
+  return respondToQuote(
+    'quotes/accept-quotation.graphql',
+    quoteId,
+    event,
+    options,
+  );
 }
 
-/** Reject a quotation via Geins GraphQL API */
-export function rejectQuote(quoteId: string, event: H3Event): Promise<Quote> {
-  return respondToQuote('quotes/reject-quotation.graphql', quoteId, event);
+/** Reject a quotation, or withdraw a request, via Geins GraphQL API */
+export function rejectQuote(
+  quoteId: string,
+  event: H3Event,
+  options: QuoteAnswerOptions = {},
+): Promise<Quote> {
+  return respondToQuote(
+    'quotes/reject-quotation.graphql',
+    quoteId,
+    event,
+    options,
+  );
 }
 
 /**

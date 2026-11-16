@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { GeinsPaymentType } from '@geins/types';
 import {
   QUOTE_LINE_MAX_QUANTITY,
+  QUOTE_MESSAGE_MAX_LENGTH,
   QUOTE_NAME_MAX_LENGTH,
   QUOTE_REQUEST_MAX_LINES,
 } from '#shared/constants/quote';
@@ -408,6 +409,13 @@ export const FinalizeQuoteSchema = z
   .optional()
   .transform((body) => body ?? {});
 export type FinalizeQuoteInput = z.infer<typeof FinalizeQuoteSchema>;
+
+// An accept, a decline or a withdrawal; a bare POST sends no message.
+export const QuoteAnswerSchema = z
+  .object({ message: z.string().max(QUOTE_MESSAGE_MAX_LENGTH).optional() })
+  .optional()
+  .transform((body) => body ?? {});
+export type QuoteAnswerInput = z.infer<typeof QuoteAnswerSchema>;
 
 // Saved-list schemas removed — saved lists are entirely client-side
 // (SDK ListsSession + localStorage). See `docs/patterns/lists.md`.
