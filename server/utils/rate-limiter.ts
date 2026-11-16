@@ -247,6 +247,14 @@ export const quoteDraftRateLimiter = new RateLimiter({
   prefix: 'quote-draft',
 });
 
+// Messages in a quotation's thread. Its own budget, so a conversation never
+// uses up the room for answering a quotation.
+export const quoteMessageRateLimiter = new RateLimiter({
+  limit: 60,
+  windowMs: 60000,
+  prefix: 'quote-message',
+});
+
 export const reviewPostRateLimiter = new RateLimiter({
   limit: 5,
   windowMs: 15 * 60 * 1000, // 15 minutes

@@ -1,0 +1,19 @@
+mutation createQuotationMessage(
+  $quotationId: Guid!
+  $message: String!
+  $answerRef: Guid
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  createQuotationMessage(
+    quotationId: $quotationId
+    message: $message
+    answerRef: $answerRef
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    id
+  }
+}

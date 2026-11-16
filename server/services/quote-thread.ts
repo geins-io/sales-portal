@@ -6,7 +6,12 @@ import type {
   QuoteThreadEvent,
   QuoteThreadEventType,
 } from '#shared/types/quote';
-import { getTenantSDK, buildRequestContext } from './_sdk';
+import type { QuoteMessageInput } from '../schemas/api-input';
+import {
+  getTenantSDK,
+  buildRequestContext,
+  getRequestChannelVariables,
+} from './_sdk';
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
 
@@ -187,4 +192,37 @@ export async function getQuoteThread(
   return buildQuoteThread(
     (unwrapGraphQL(result) as RawQuotationMessage[] | null) ?? [],
   );
+}
+
+/** Write a message in the quotation's thread as the signed-in buyer. */
+export async function createQuoteMessage(
+  quoteId: string,
+  input: QuoteMessageInput,
+  event: H3Event,
+): Promise<{ id: string }> {
+  const sdk = await getTenantSDK(event);
+  const result = await wrapServiceCall(
+    () =>
+      sdk.core.graphql.mutation({
+        queryAsString: loadQuery('quotes/create-quotation-message.graphql'),
+        variables: {
+          quotationId: quoteId,
+          message: input.message,
+          ...(input.answerRef ? { answerRef: input.answerRef } : {}),
+          ...getRequestChannelVariables(sdk, event),
+        },
+        userToken: buildRequestContext(event)?.userToken,
+        // No timeout: a message Geins saves after a cut would read as failed.
+        requestOptions: { context: { timeoutMs: 0 } },
+      }),
+    'quotes',
+  );
+  const created = unwrapGraphQL(result) as { id?: string } | null;
+  if (!created?.id) {
+    throw createAppError(
+      ErrorCode.EXTERNAL_API_ERROR,
+      `Geins answered no message for quote ${quoteId}`,
+    );
+  }
+  return { id: created.id };
 }

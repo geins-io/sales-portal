@@ -417,6 +417,13 @@ export const QuoteAnswerSchema = z
   .transform((body) => body ?? {});
 export type QuoteAnswerInput = z.infer<typeof QuoteAnswerSchema>;
 
+// A message in a quotation's thread, counted as it is sent: trimmed.
+export const QuoteMessageSchema = z.object({
+  message: z.string().trim().min(1).max(QUOTE_MESSAGE_MAX_LENGTH),
+  answerRef: z.guid().optional(),
+});
+export type QuoteMessageInput = z.infer<typeof QuoteMessageSchema>;
+
 // Saved-list schemas removed — saved lists are entirely client-side
 // (SDK ListsSession + localStorage). See `docs/patterns/lists.md`.
 
