@@ -904,6 +904,11 @@
         "cancel_reply": "Peruuta vastaus",
         "send_failed": "Viestiä ei voitu lähettää. Yritä uudelleen.",
         "too_long": "{count} / {max} merkkiä",
+        "delete": "Poista",
+        "delete_title": "Poistetaanko viesti?",
+        "delete_body": "Viesti poistetaan sekä sinulta että myyjältä.",
+        "delete_failed": "Viestiä ei voitu poistaa. Yritä uudelleen.",
+        "delete_locked": "Viestiä ei voi enää poistaa. Myyjä on vastannut tai tarjous on muuttunut.",
         "event": {
           "request_sent": "lähetti tarjouspyynnön",
           "quote_sent": "lähetti tarjouksen",

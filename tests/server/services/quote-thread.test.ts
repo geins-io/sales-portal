@@ -25,15 +25,23 @@ vi.mock('../../../server/services/graphql/loader', () => ({
 vi.stubGlobal('createAppError', (code: string, message: string) =>
   Object.assign(new Error(message), { code }),
 );
-vi.stubGlobal('ErrorCode', { EXTERNAL_API_ERROR: 'EXTERNAL_API_ERROR' });
+vi.stubGlobal('ErrorCode', {
+  EXTERNAL_API_ERROR: 'EXTERNAL_API_ERROR',
+  NOT_FOUND: 'NOT_FOUND',
+  CONFLICT: 'CONFLICT',
+});
 
 const mockWrapServiceCall = vi.fn(
   async (fn: () => Promise<unknown>, _area: string) => fn(),
 );
 vi.stubGlobal('wrapServiceCall', mockWrapServiceCall);
 
-const { buildQuoteThread, getQuoteThread, createQuoteMessage } =
-  await import('../../../server/services/quote-thread');
+const {
+  buildQuoteThread,
+  getQuoteThread,
+  createQuoteMessage,
+  deleteQuoteMessage,
+} = await import('../../../server/services/quote-thread');
 
 type Message = Parameters<typeof buildQuoteThread>[0][number];
 
@@ -485,6 +493,98 @@ describe('buildQuoteThread', () => {
       expect(buildQuoteThread([])).toEqual({ entries: [], messageCount: 0 });
     });
   });
+  describe('which messages the buyer may delete', () => {
+    /** A chat message the buyer wrote, which Geins still lets them change. */
+    const own = (overrides: Partial<Message> = {}) =>
+      message({
+        type: 'FROM_CUSTOMER',
+        authorName: 'Anna Berg',
+        editable: true,
+        tags: [{ key: 'source', value: 'chat' }],
+        ...overrides,
+      });
+
+    const deletable = (messages: Message[]) =>
+      buildQuoteThread(messages)
+        .entries.filter((e) => e.deletable)
+        .map((e) => e.id);
+
+    it('lets the buyer delete their last message', () => {
+      expect(deletable([own({ id: 'mine' })])).toEqual(['mine']);
+    });
+
+    it('locks it once the seller writes after it, reply or not', () => {
+      expect(
+        deletable([
+          own({ timestamp: '2026-11-10T08:00:00Z' }),
+          message({ timestamp: '2026-11-10T09:00:00Z', answerRef: null }),
+        ]),
+      ).toEqual([]);
+    });
+
+    it('locks it once an event happens after it', () => {
+      expect(
+        deletable([
+          own({ timestamp: '2026-11-10T08:00:00Z' }),
+          message({
+            timestamp: '2026-11-10T09:00:00Z',
+            message: null,
+            tags: statusTags('extend', 'PENDING', 'PENDING'),
+          }),
+        ]),
+      ).toEqual([]);
+    });
+
+    it("locks it once the buyer's own status change follows", () => {
+      expect(
+        deletable([
+          own({ timestamp: '2026-11-10T08:00:00Z' }),
+          own({
+            timestamp: '2026-11-10T09:00:00Z',
+            editable: false,
+            tags: statusTags('accept', 'PENDING', 'ACCEPTED'),
+          }),
+        ]),
+      ).toEqual([]);
+    });
+
+    it('lets the buyer delete two messages in a row', () => {
+      expect(
+        deletable([
+          message({ timestamp: '2026-11-10T07:00:00Z' }),
+          own({ id: 'first', timestamp: '2026-11-10T08:00:00Z' }),
+          own({ id: 'second', timestamp: '2026-11-10T09:00:00Z' }),
+        ]),
+      ).toEqual(['first', 'second']);
+    });
+
+    it('reads "after" by time, whatever order Geins answers in', () => {
+      expect(
+        deletable([
+          message({ timestamp: '2026-11-10T09:00:00Z' }),
+          own({ id: 'mine', timestamp: '2026-11-10T08:00:00Z' }),
+          own({ id: 'latest', timestamp: '2026-11-10T10:00:00Z' }),
+        ]),
+      ).toEqual(['latest']);
+    });
+
+    it('keeps a message Geins no longer lets the buyer change', () => {
+      expect(deletable([own({ editable: false })])).toEqual([]);
+      expect(deletable([own({ editable: null })])).toEqual([]);
+      expect(deletable([own({ editable: undefined })])).toEqual([]);
+    });
+
+    it("never offers the seller's messages", () => {
+      expect(deletable([message({ editable: true })])).toEqual([]);
+    });
+
+    it('never offers the request comment or a status change', () => {
+      expect(deletable([own({ tags: [] })])).toEqual([]);
+      expect(
+        deletable([own({ tags: statusTags('accept', 'PENDING', 'ACCEPTED') })]),
+      ).toEqual([]);
+    });
+  });
 });
 
 describe('getQuoteThread', () => {
@@ -606,5 +706,113 @@ describe('createQuoteMessage', () => {
     await expect(
       createQuoteMessage('q-1', { message: 'Ja', answerRef: PARENT }, event),
     ).rejects.toThrow('not found');
+  });
+});
+
+describe('deleteQuoteMessage', () => {
+  const event = {} as H3Event;
+
+  const own = (overrides: Partial<Message> = {}) =>
+    message({
+      id: 'mine',
+      type: 'FROM_CUSTOMER',
+      editable: true,
+      tags: [{ key: 'source', value: 'chat' }],
+      ...overrides,
+    });
+
+  function thread(...messages: Message[]) {
+    mockGraphqlQuery.mockResolvedValue({ getQuotationMessages: messages });
+  }
+
+  beforeEach(() => {
+    mockGraphqlMutation.mockResolvedValue({ deleteQuotationMessage: true });
+  });
+
+  it('reads the thread again, then deletes the message as the buyer', async () => {
+    thread(own());
+
+    await deleteQuoteMessage('q-1', 'mine', event);
+
+    expect(mockGraphqlQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variables: { quotationId: 'q-1' },
+        userToken: 'user-token',
+      }),
+    );
+    expect(mockGraphqlMutation).toHaveBeenCalledWith({
+      queryAsString: 'query:quotes/delete-quotation-message.graphql',
+      variables: { quotationId: 'q-1', messageId: 'mine', ...CHANNEL },
+      userToken: 'user-token',
+      requestOptions: { context: { timeoutMs: 0 } },
+    });
+    expect(mockWrapServiceCall.mock.calls.map((c) => c[1])).toEqual([
+      'quotes',
+      'quotes',
+    ]);
+  });
+
+  it('refuses a message the seller has written after, without asking Geins', async () => {
+    thread(
+      own({ timestamp: '2026-11-10T08:00:00Z' }),
+      message({ timestamp: '2026-11-10T09:00:00Z' }),
+    );
+
+    await expect(
+      deleteQuoteMessage('q-1', 'mine', event),
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: 'Message mine on quote q-1 can no longer be deleted',
+    });
+    expect(mockGraphqlMutation).not.toHaveBeenCalled();
+  });
+
+  it('answers not found for a message the buyer cannot see, without asking Geins', async () => {
+    thread(own());
+
+    await expect(
+      deleteQuoteMessage('q-1', 'someone-else', event),
+    ).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      message: 'No message someone-else on quote q-1',
+    });
+    expect(mockGraphqlMutation).not.toHaveBeenCalled();
+  });
+
+  it('deletes without a user token when the request carries no context', async () => {
+    const { buildRequestContext } =
+      await import('../../../server/services/_sdk');
+    // The thread read asks for the context first, then the delete.
+    vi.mocked(buildRequestContext)
+      .mockReturnValueOnce(undefined)
+      .mockReturnValueOnce(undefined);
+    thread(own());
+
+    await deleteQuoteMessage('q-1', 'mine', event);
+
+    expect(mockGraphqlMutation).toHaveBeenCalledWith(
+      expect.objectContaining({ userToken: undefined }),
+    );
+  });
+
+  it('fails when Geins answers that nothing was deleted', async () => {
+    thread(own());
+    mockGraphqlMutation.mockResolvedValue({ deleteQuotationMessage: false });
+
+    await expect(
+      deleteQuoteMessage('q-1', 'mine', event),
+    ).rejects.toMatchObject({
+      code: 'EXTERNAL_API_ERROR',
+      message: 'Geins deleted no message mine on quote q-1',
+    });
+  });
+
+  it('fails when Geins refuses the delete', async () => {
+    thread(own());
+    mockGraphqlMutation.mockRejectedValue(new Error('not editable'));
+
+    await expect(deleteQuoteMessage('q-1', 'mine', event)).rejects.toThrow(
+      'not editable',
+    );
   });
 });

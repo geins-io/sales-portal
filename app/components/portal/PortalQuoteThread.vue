@@ -9,6 +9,7 @@ import {
   CornerUpLeft,
   MessageSquare,
   MoreHorizontal,
+  Trash2,
 } from 'lucide-vue-next';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
@@ -16,8 +17,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
+import PortalDialogConfirmQuoteAction from './PortalDialogConfirmQuoteAction.vue';
 import PortalQuoteThreadComposer, {
   type QuoteReplyTarget,
 } from './PortalQuoteThreadComposer.vue';
@@ -28,6 +31,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '~/components/ui/sheet';
+import { internalFetch } from '~/utils/internal-fetch';
 import {
   getQuoteStatusLabelKey,
   getQuoteStatusVariant,
@@ -97,6 +101,7 @@ function onMenuCloseFocus(event: Event) {
 const rereadAfterWrite = () => refresh({ dedupe: 'cancel' });
 
 async function onSent() {
+  notice.value = null;
   await rereadAfterWrite();
   await scrollToEnd();
 }
@@ -107,6 +112,45 @@ async function onFailed() {
   const id = replyTo.value?.id;
   if (id && !thread.value?.entries.some((e) => e.id === id)) {
     replyTo.value = null;
+  }
+}
+
+/** What went wrong with a delete, above the field until the next try. */
+const notice = ref<string | null>(null);
+const deleting = ref<QuoteThreadEntry | null>(null);
+const deletePending = ref(false);
+
+function onDeleteOpen(value: boolean) {
+  if (!value && !deletePending.value) deleting.value = null;
+}
+
+async function confirmDelete() {
+  const entry = deleting.value;
+  if (!entry || deletePending.value) return;
+  deletePending.value = true;
+  notice.value = null;
+  let status: number | undefined;
+  try {
+    await internalFetch(
+      `/api/quotes/${encodeURIComponent(props.quoteId)}/messages/${encodeURIComponent(entry.id)}`,
+      { method: 'DELETE' },
+    );
+    if (replyTo.value?.id === entry.id) replyTo.value = null;
+  } catch (err) {
+    status = (err as { statusCode?: number }).statusCode ?? 0;
+  } finally {
+    deletePending.value = false;
+    deleting.value = null;
+  }
+  await rereadAfterWrite();
+  if (status === undefined) {
+    composer.value?.focus();
+  } else if (status === 409) {
+    // Something came in after the message: show the buyer what.
+    notice.value = t('portal.quotations.thread.delete_locked');
+    await scrollToEnd();
+  } else if (status !== 404) {
+    notice.value = t('portal.quotations.thread.delete_failed');
   }
 }
 
@@ -192,6 +236,7 @@ const hasChange = (entry: QuoteThreadEntry) =>
 
       <div
         ref="list"
+        data-testid="quote-thread-list"
         class="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-5"
         aria-live="polite"
       >
@@ -300,6 +345,17 @@ const hasChange = (entry: QuoteThreadEntry) =>
                       <CornerUpLeft class="size-4" />
                       {{ t('portal.quotations.thread.reply') }}
                     </DropdownMenuItem>
+                    <template v-if="entry.deletable">
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        variant="destructive"
+                        data-testid="quote-thread-delete-action"
+                        @select="deleting = entry"
+                      >
+                        <Trash2 class="size-4" />
+                        {{ t('portal.quotations.thread.delete') }}
+                      </DropdownMenuItem>
+                    </template>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -323,6 +379,14 @@ const hasChange = (entry: QuoteThreadEntry) =>
         </template>
       </div>
 
+      <p
+        v-if="notice"
+        role="alert"
+        class="text-destructive px-6 pt-3 text-sm"
+        data-testid="quote-thread-notice"
+      >
+        {{ notice }}
+      </p>
       <PortalQuoteThreadComposer
         v-if="thread"
         ref="composer"
@@ -333,4 +397,15 @@ const hasChange = (entry: QuoteThreadEntry) =>
       />
     </SheetContent>
   </Sheet>
+
+  <PortalDialogConfirmQuoteAction
+    :open="!!deleting"
+    :title="t('portal.quotations.thread.delete_title')"
+    :description="t('portal.quotations.thread.delete_body')"
+    :confirm-label="t('portal.quotations.thread.delete')"
+    destructive
+    :pending="deletePending"
+    @update:open="onDeleteOpen"
+    @confirm="confirmDelete"
+  />
 </template>

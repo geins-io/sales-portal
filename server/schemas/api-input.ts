@@ -424,6 +424,10 @@ export const QuoteMessageSchema = z.object({
 });
 export type QuoteMessageInput = z.infer<typeof QuoteMessageSchema>;
 
+export const QuoteMessageParamsSchema = z.object({
+  messageId: z.guid(),
+});
+
 // Saved-list schemas removed — saved lists are entirely client-side
 // (SDK ListsSession + localStorage). See `docs/patterns/lists.md`.
 

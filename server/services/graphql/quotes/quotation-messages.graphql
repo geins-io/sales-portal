@@ -6,6 +6,7 @@ query getQuotationMessages($quotationId: Guid!) {
     message
     timestamp
     answerRef
+    editable
     tags {
       key
       value

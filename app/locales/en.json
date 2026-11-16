@@ -904,6 +904,11 @@
         "cancel_reply": "Cancel reply",
         "send_failed": "The message could not be sent. Try again.",
         "too_long": "{count} / {max} characters",
+        "delete": "Delete",
+        "delete_title": "Delete the message?",
+        "delete_body": "The message is removed for you and the seller.",
+        "delete_failed": "The message could not be deleted. Try again.",
+        "delete_locked": "The message can no longer be deleted. The seller has replied or the quotation has changed.",
         "event": {
           "request_sent": "sent the request",
           "quote_sent": "sent the quotation",

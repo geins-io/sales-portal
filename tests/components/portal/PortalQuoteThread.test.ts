@@ -45,6 +45,23 @@ vi.mock('../../../app/components/ui/dropdown-menu', () => ({
       '<button type="button" v-bind="$attrs" @click="$emit(\'select\')"><slot /></button>',
     emits: ['select'],
   },
+  DropdownMenuSeparator: { template: '<hr />' },
+}));
+
+// The dialog renders inline while open, so its copy and buttons can be read.
+vi.mock('../../../app/components/ui/dialog', () => ({
+  Dialog: {
+    template: '<div v-if="open"><slot /></div>',
+    props: ['open'],
+    emits: ['update:open'],
+  },
+  DialogContent: { template: '<div v-bind="$attrs"><slot /></div>' },
+  DialogHeader: { template: '<div><slot /></div>' },
+  DialogFooter: { template: '<div><slot /></div>' },
+  DialogTitle: { template: '<h3 data-testid="dialog-title"><slot /></h3>' },
+  DialogDescription: {
+    template: '<p data-testid="dialog-description"><slot /></p>',
+  },
 }));
 
 vi.mock('../../../app/utils/internal-fetch', () => ({
@@ -520,6 +537,228 @@ describe('PortalQuoteThread', () => {
           ).value,
         ).toBe('Det går bra.');
       });
+    });
+  });
+
+  describe('deleting', () => {
+    const MINE: QuoteThreadEntry = {
+      id: '0b6f4c2a-1d3e-4f5a-8b7c-9d0e1f2a3b4c',
+      at: '2026-11-10T10:00:00Z',
+      side: 'buyer',
+      authorName: 'Anna Berg',
+      text: 'Ja, det kör vi på.',
+      deletable: true,
+    };
+    const LOCKED: QuoteThreadEntry = {
+      id: '5c4d3e2f-1a0b-4c9d-8e7f-6a5b4c3d2e1f',
+      at: '2026-11-10T08:00:00Z',
+      side: 'buyer',
+      authorName: 'Anna Berg',
+      text: 'Går det att leverera i december?',
+    };
+    const ANSWER: QuoteThreadEntry = {
+      id: '9e8d7c6b-5a4f-4e3d-2c1b-0a9f8e7d6c5b',
+      at: '2026-11-10T09:00:00Z',
+      side: 'seller',
+      authorName: 'Erik Sälj',
+      text: 'Ja, vecka 50.',
+    };
+
+    const deleteOn = (w: Awaited<ReturnType<typeof mountThread>>, i: number) =>
+      entries(w)[i]!.find('[data-testid="quote-thread-delete-action"]');
+    const dialog = (w: Awaited<ReturnType<typeof mountThread>>) =>
+      w.find('[data-testid="quote-action-dialog"]');
+    const notice = (w: Awaited<ReturnType<typeof mountThread>>) =>
+      w.find('[data-testid="quote-thread-notice"]');
+
+    async function confirmDelete(
+      w: Awaited<ReturnType<typeof mountThread>>,
+      i: number,
+    ) {
+      await deleteOn(w, i).trigger('click');
+      await w.find('[data-testid="quote-action-confirm"]').trigger('click');
+      await flushPromises();
+    }
+
+    beforeEach(() => {
+      fetchMock.mockResolvedValue({ deleted: true });
+    });
+
+    it('offers "Radera" only on a message the buyer may delete', async () => {
+      data.value = { thread: thread([LOCKED, ANSWER, MINE], 3) };
+      const wrapper = await mountThread();
+
+      expect(deleteOn(wrapper, 0).exists()).toBe(false);
+      expect(deleteOn(wrapper, 1).exists()).toBe(false);
+      expect(deleteOn(wrapper, 2).text()).toBe(
+        'portal.quotations.thread.delete',
+      );
+    });
+
+    it('"Radera" asks first, and cancelling sends nothing', async () => {
+      data.value = { thread: thread([MINE], 1) };
+      const wrapper = await mountThread();
+      expect(dialog(wrapper).exists()).toBe(false);
+
+      await deleteOn(wrapper, 0).trigger('click');
+
+      expect(wrapper.find('[data-testid="dialog-title"]').text()).toBe(
+        'portal.quotations.thread.delete_title',
+      );
+      expect(wrapper.find('[data-testid="dialog-description"]').text()).toBe(
+        'portal.quotations.thread.delete_body',
+      );
+      const confirm = wrapper.find('[data-testid="quote-action-confirm"]');
+      expect(confirm.text()).toBe('portal.quotations.thread.delete');
+      // A delete carries no message to the seller.
+      expect(
+        wrapper.find('[data-testid="quote-action-message"]').exists(),
+      ).toBe(false);
+
+      await wrapper
+        .find('[data-testid="quote-action-cancel"]')
+        .trigger('click');
+
+      expect(dialog(wrapper).exists()).toBe(false);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('deletes on confirm, reads the thread again, and drops a reply to it', async () => {
+      data.value = { thread: thread([MINE], 1) };
+      const wrapper = mountComponent(PortalQuoteThread, {
+        props: { quoteId: 'q 1', subtitle: '2611-2-0024-00 · Verktyg' },
+        attachTo: document.body,
+      });
+      await flushPromises();
+      await entries(wrapper)[0]!
+        .find('[data-testid="quote-thread-reply-action"]')
+        .trigger('click');
+      refresh.mockClear();
+      refresh.mockImplementationOnce(async () => {
+        data.value = { thread: thread([], 0) };
+      });
+
+      await confirmDelete(wrapper, 0);
+
+      expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
+        `/api/quotes/q%201/messages/${MINE.id}`,
+        { method: 'DELETE' },
+      );
+      expect(refresh).toHaveBeenCalledExactlyOnceWith({ dedupe: 'cancel' });
+      expect(dialog(wrapper).exists()).toBe(false);
+      expect(entries(wrapper)).toHaveLength(0);
+      expect(
+        wrapper.find('[data-testid="quote-thread-replying"]').exists(),
+      ).toBe(false);
+      expect(notice(wrapper).exists()).toBe(false);
+      // The ⋯ that opened the menu is gone with its message.
+      expect(document.activeElement).toBe(
+        wrapper.find('[data-testid="quote-thread-input"]').element,
+      );
+      wrapper.unmount();
+    });
+
+    it('holds the confirm button while the delete runs', async () => {
+      data.value = { thread: thread([MINE], 1) };
+      const wrapper = await mountThread();
+      let finish: (value: unknown) => void = () => {};
+      fetchMock.mockReturnValueOnce(new Promise((r) => (finish = r)));
+
+      await deleteOn(wrapper, 0).trigger('click');
+      await wrapper
+        .find('[data-testid="quote-action-confirm"]')
+        .trigger('click');
+
+      expect(
+        wrapper.find('[data-testid="quote-action-confirm"]').attributes(),
+      ).toHaveProperty('disabled');
+      finish({ deleted: true });
+      await flushPromises();
+    });
+
+    describe('when the message became locked meanwhile', () => {
+      beforeEach(() => {
+        fetchMock.mockRejectedValue(
+          Object.assign(new Error('409'), { statusCode: 409 }),
+        );
+      });
+
+      it('reads again, scrolls to the newest entry, and says so', async () => {
+        data.value = { thread: thread([MINE], 1) };
+        const wrapper = await mountThread();
+        const list = wrapper.find('[data-testid="quote-thread-list"]')
+          .element as HTMLElement;
+        Object.defineProperty(list, 'scrollHeight', { value: 840 });
+        list.scrollTop = 0;
+        refresh.mockClear();
+        refresh.mockImplementationOnce(async () => {
+          data.value = {
+            thread: thread([{ ...MINE, deletable: undefined }, ANSWER], 2),
+          };
+        });
+
+        await confirmDelete(wrapper, 0);
+
+        expect(refresh).toHaveBeenCalledExactlyOnceWith({ dedupe: 'cancel' });
+        expect(dialog(wrapper).exists()).toBe(false);
+        expect(notice(wrapper).attributes('role')).toBe('alert');
+        expect(notice(wrapper).text()).toBe(
+          'portal.quotations.thread.delete_locked',
+        );
+        expect(deleteOn(wrapper, 0).exists()).toBe(false);
+        expect(entries(wrapper)).toHaveLength(2);
+        expect(list.scrollTop).toBe(840);
+      });
+
+      it('clears the notice on the next send', async () => {
+        data.value = { thread: thread([MINE], 1) };
+        const wrapper = await mountThread();
+        await confirmDelete(wrapper, 0);
+        expect(notice(wrapper).exists()).toBe(true);
+        fetchMock.mockResolvedValue({ message: { id: 'm-9' } });
+
+        await wrapper
+          .find('[data-testid="quote-thread-input"]')
+          .setValue('Ok.');
+        await wrapper
+          .find('[data-testid="quote-thread-send"]')
+          .trigger('click');
+        await flushPromises();
+
+        expect(notice(wrapper).exists()).toBe(false);
+      });
+    });
+
+    it('reads again and says nothing when the message is already gone', async () => {
+      fetchMock.mockRejectedValue(
+        Object.assign(new Error('404'), { statusCode: 404 }),
+      );
+      data.value = { thread: thread([MINE], 1) };
+      const wrapper = await mountThread();
+      refresh.mockClear();
+
+      await confirmDelete(wrapper, 0);
+
+      expect(refresh).toHaveBeenCalledExactlyOnceWith({ dedupe: 'cancel' });
+      expect(dialog(wrapper).exists()).toBe(false);
+      expect(notice(wrapper).exists()).toBe(false);
+    });
+
+    it('reads again and says the delete failed on any other answer', async () => {
+      fetchMock.mockRejectedValue(
+        Object.assign(new Error('502'), { statusCode: 502 }),
+      );
+      data.value = { thread: thread([MINE], 1) };
+      const wrapper = await mountThread();
+      refresh.mockClear();
+
+      await confirmDelete(wrapper, 0);
+
+      expect(refresh).toHaveBeenCalledExactlyOnceWith({ dedupe: 'cancel' });
+      expect(dialog(wrapper).exists()).toBe(false);
+      expect(notice(wrapper).text()).toBe(
+        'portal.quotations.thread.delete_failed',
+      );
     });
   });
 });

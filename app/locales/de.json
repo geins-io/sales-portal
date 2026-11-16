@@ -904,6 +904,11 @@
         "cancel_reply": "Antwort abbrechen",
         "send_failed": "Die Nachricht konnte nicht gesendet werden. Bitte versuchen Sie es erneut.",
         "too_long": "{count} / {max} Zeichen",
+        "delete": "Löschen",
+        "delete_title": "Nachricht löschen?",
+        "delete_body": "Die Nachricht wird für Sie und den Verkäufer entfernt.",
+        "delete_failed": "Die Nachricht konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.",
+        "delete_locked": "Die Nachricht kann nicht mehr gelöscht werden. Der Verkäufer hat geantwortet oder das Angebot wurde geändert.",
         "event": {
           "request_sent": "hat die Anfrage gesendet",
           "quote_sent": "hat das Angebot gesendet",

@@ -904,6 +904,11 @@
         "cancel_reply": "Avbryt svar",
         "send_failed": "Meddelandet kunde inte skickas. Försök igen.",
         "too_long": "{count} / {max} tecken",
+        "delete": "Radera",
+        "delete_title": "Radera meddelandet?",
+        "delete_body": "Meddelandet tas bort för både dig och säljaren.",
+        "delete_failed": "Meddelandet kunde inte raderas. Försök igen.",
+        "delete_locked": "Meddelandet kan inte längre raderas. Säljaren har svarat eller offerten har ändrats.",
         "event": {
           "request_sent": "skickade förfrågan",
           "quote_sent": "skickade offerten",

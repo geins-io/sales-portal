@@ -1,0 +1,15 @@
+mutation deleteQuotationMessage(
+  $quotationId: Guid!
+  $messageId: Guid!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  deleteQuotationMessage(
+    quotationId: $quotationId
+    messageId: $messageId
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  )
+}

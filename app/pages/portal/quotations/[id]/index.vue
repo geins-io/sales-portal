@@ -870,6 +870,7 @@ const customerSummary = computed(() => {
         :description="actionCopy.description"
         :confirm-label="actionCopy.confirm"
         :destructive="actionCopy.destructive"
+        with-message
         :message-placeholder="actionCopy.messagePlaceholder"
         :pending="store.isActionLoading"
         @confirm="runAction"
