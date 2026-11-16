@@ -107,8 +107,7 @@ const heading = computed(
             >
               <span data-testid="order-item-article-number">{{
                 item.articleNumber
-              }}</span
-              ><span v-if="item.skuName"
+              }}</span><span v-if="item.skuName"
                 ><template v-if="item.articleNumber"> &bull; </template
                 >{{ item.skuName }}</span
               >
