@@ -1069,7 +1069,7 @@
         "view_request": "Anfrage im Kundenportal ansehen",
         "request_lines": "Artikel in der Anfrage",
         "order_title": "Bestellung bestätigt!",
-        "order_body": "Vielen Dank für Ihre Bestellung. Eine Bestätigung wurde an Ihre E-Mail-Adresse gesendet.",
+        "order_body": "Vielen Dank für Ihre Bestellung. Eine Bestätigung wurde an die E-Mail-Adresse gesendet, die als Kontakt für Ihr Unternehmen hinterlegt ist.",
         "order_number": "Bestellnummer",
         "from_quotation": "Bestellt aus Angebot {number}",
         "view_quotation": "Angebot im Kundenportal ansehen",

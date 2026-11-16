@@ -1069,7 +1069,7 @@
         "view_request": "View request in the customer portal",
         "request_lines": "Items in the request",
         "order_title": "Order confirmed!",
-        "order_body": "Thank you for your order. A confirmation has been sent to your email.",
+        "order_body": "Thank you for your order. A confirmation has been sent to the email address registered as your company's contact.",
         "order_number": "Order number",
         "from_quotation": "Ordered from quotation {number}",
         "view_quotation": "View quotation in the customer portal",
