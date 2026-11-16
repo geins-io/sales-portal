@@ -440,6 +440,56 @@ describe('the quotation view of a request draft', () => {
       expect(mockRefresh).not.toHaveBeenCalled();
     });
 
+    /** A save that worked, then one that fails: the page says only the error. */
+    async function saveThenFail() {
+      geinsAnswers();
+      await wrapper
+        .findAll('[data-testid="draft-line-more"]')[0]!
+        .trigger('click');
+      await vi.advanceTimersByTimeAsync(AMOUNT_SAVE_DELAY_MS);
+      await flushPromises();
+      expect(find('quote-save-state').text()).toBe(
+        'portal.quotations.draft.saved',
+      );
+
+      mockUpdateDraft.mockImplementationOnce(async () => {
+        mockStoreError.value = 'portal.quotations.draft.save_failed';
+        return null;
+      });
+      mockReread.mockResolvedValue({ quote: mockData.value!.quote });
+      await find('quick-add').trigger('click');
+      await flushPromises();
+    }
+
+    it('says only that the change failed when a save fails after one that worked', async () => {
+      await mountWith(draft());
+      await saveThenFail();
+
+      expect(find('draft-error').text()).toBe(
+        'portal.quotations.draft.save_failed',
+      );
+      expect(find('quote-save-state').exists()).toBe(false);
+    });
+
+    it('says all is saved again once the next save works', async () => {
+      await mountWith(draft());
+      await saveThenFail();
+
+      // The store clears its error when a save works.
+      const answer = mockUpdateDraft.getMockImplementation()!;
+      mockUpdateDraft.mockImplementation(async (id, update) => {
+        mockStoreError.value = null;
+        return answer(id, update);
+      });
+      await find('quick-add').trigger('click');
+      await flushPromises();
+
+      expect(find('draft-error').exists()).toBe(false);
+      expect(find('quote-save-state').text()).toBe(
+        'portal.quotations.draft.saved',
+      );
+    });
+
     it('keeps the draft on the page when the re-read fails too, and saves the next change', async () => {
       await mountWith(draft());
       mockUpdateDraft.mockImplementationOnce(async () => {
