@@ -610,6 +610,10 @@ describe('PortalQuoteThread', () => {
       );
       const confirm = wrapper.find('[data-testid="quote-action-confirm"]');
       expect(confirm.text()).toBe('portal.quotations.thread.delete');
+      // A delete carries no message to the seller.
+      expect(
+        wrapper.find('[data-testid="quote-action-message"]').exists(),
+      ).toBe(false);
 
       await wrapper
         .find('[data-testid="quote-action-cancel"]')

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
  * Confirm an answer to a quotation before it is sent — withdraw, decline,
- * accept. None of them can be undone. The buyer may add a message to the
- * seller, which Geins stores with the status change.
+ * accept. None of them can be undone. With `withMessage`, the buyer may add
+ * a message to the seller, which Geins stores with the status change.
  */
 import { QUOTE_MESSAGE_MAX_LENGTH } from '#shared/constants/quote';
 import {
@@ -24,6 +24,8 @@ defineProps<{
   /** Opting out (withdraw, decline) is shown as destructive. */
   destructive?: boolean;
   pending?: boolean;
+  /** A field for a message to the seller, sent with the answer. */
+  withMessage?: boolean;
   messagePlaceholder?: string;
 }>();
 
@@ -44,7 +46,7 @@ const { t } = useI18n();
         <DialogTitle>{{ title }}</DialogTitle>
         <DialogDescription>{{ description }}</DialogDescription>
       </DialogHeader>
-      <div class="space-y-2">
+      <div v-if="withMessage" class="space-y-2">
         <Label for="quote-action-message">{{
           t('portal.quotations.answer_message')
         }}</Label>

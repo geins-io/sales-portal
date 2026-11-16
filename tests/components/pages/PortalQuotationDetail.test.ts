@@ -231,21 +231,23 @@ const defaultStubs = {
   // The dialog itself is covered in PortalDialogConfirmQuoteAction.test.ts;
   // here it only has to show what the page passes and hand back the answer.
   PortalDialogConfirmQuoteAction: {
-    props: [
-      'open',
-      'title',
-      'description',
-      'confirmLabel',
-      'destructive',
-      'pending',
-      'message',
-      'messagePlaceholder',
-    ],
+    props: {
+      open: null,
+      title: null,
+      description: null,
+      confirmLabel: null,
+      destructive: null,
+      pending: null,
+      message: null,
+      messagePlaceholder: null,
+      // Boolean, so the page's bare `with-message` reads as true.
+      withMessage: Boolean,
+    },
     emits: ['update:open', 'confirm', 'update:message'],
     template: `<div v-if="open" data-testid="quote-action-dialog" :data-destructive="String(!!destructive)" :data-pending="String(!!pending)">
       <h2 data-testid="dialog-title">{{ title }}</h2>
       <p data-testid="dialog-description">{{ description }}</p>
-      <textarea data-testid="quote-action-message" :value="message" :placeholder="messagePlaceholder" @input="$emit('update:message', $event.target.value)" />
+      <textarea v-if="withMessage" data-testid="quote-action-message" :value="message" :placeholder="messagePlaceholder" @input="$emit('update:message', $event.target.value)" />
       <button data-testid="quote-action-cancel" @click="$emit('update:open', false)">cancel</button>
       <button data-testid="quote-action-confirm" @click="$emit('confirm')">{{ confirmLabel }}</button>
     </div>`,

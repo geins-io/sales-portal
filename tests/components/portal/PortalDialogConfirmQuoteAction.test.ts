@@ -29,7 +29,7 @@ const stubs = {
   },
 };
 
-function mount(props: Record<string, unknown> = {}) {
+function mountDialog(props: Record<string, unknown> = {}) {
   return mountComponent(PortalDialogConfirmQuoteAction, {
     props: {
       open: true,
@@ -41,6 +41,8 @@ function mount(props: Record<string, unknown> = {}) {
     global: { stubs },
   });
 }
+
+const mount = mountDialog;
 
 describe('PortalDialogConfirmQuoteAction', () => {
   it('renders nothing while closed', () => {
@@ -106,9 +108,23 @@ describe('PortalDialogConfirmQuoteAction', () => {
     ).toBe(disabled ? '' : undefined);
   });
 
+  it('has no message field unless asked for one', () => {
+    const wrapper = mount({ messagePlaceholder: 'Skriv …' });
+
+    expect(wrapper.find('[data-testid="quote-action-message"]').exists()).toBe(
+      false,
+    );
+    expect(wrapper.find('[data-testid="label"]').exists()).toBe(false);
+    expect(
+      wrapper.find('[data-testid="quote-action-message-count"]').exists(),
+    ).toBe(false);
+  });
+
   describe('the message to the seller', () => {
     const field = (wrapper: ReturnType<typeof mount>) =>
       wrapper.find('[data-testid="quote-action-message"]');
+    const mount = (props: Record<string, unknown> = {}) =>
+      mountDialog({ withMessage: true, ...props });
 
     it('is an optional, labelled field with the placeholder it is given', () => {
       const wrapper = mount({
