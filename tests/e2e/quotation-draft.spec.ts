@@ -33,8 +33,14 @@ test.use({ storageState: signedInState });
 test.describe.configure({ mode: 'serial', timeout: 180_000 });
 
 const PAGE_TIMEOUT = 20000;
-/** Long enough for a save, short of the undo window. */
+/** The page showing an answer it has, short of the undo window. */
 const SAVE_TIMEOUT = 8000;
+/**
+ * The page's own cap on a save (`DRAFT_WRITE_TIMEOUT_MS`, 20 s) plus the
+ * amount delay: past it the page has given up itself. Most saves answer within
+ * a second; Geins held some for 10–11 s while other e2e runs used the buyer.
+ */
+const SAVE_ANSWER_TIMEOUT = 21_000;
 const LIST_PATH = '/se/sv/portal/quotations';
 const OFF = 'quotes and quoteRequests are not both on for this tenant';
 /** How long the set-up keeps asking Geins for a draft; a create can take 70 s. */
@@ -296,6 +302,24 @@ async function openDraft(page: Page, id: string) {
   });
 }
 
+/** Make a change that saves the draft, and wait for Geins to take it. */
+async function savedAfter(
+  page: Page,
+  id: string,
+  change: () => Promise<unknown>,
+) {
+  const [answer] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.request().method() === 'PATCH' &&
+        new URL(response.url()).pathname === `/api/quotes/${id}/request`,
+      { timeout: SAVE_ANSWER_TIMEOUT },
+    ),
+    change(),
+  ]);
+  expect(answer.ok(), `the draft save answered ${answer.status()}`).toBe(true);
+}
+
 /** "All changes saved" once nothing waits. */
 async function expectSaved(page: Page) {
   await expect(page.getByTestId('quote-save-state')).toHaveText(
@@ -331,17 +355,19 @@ test.describe('Edit a request draft', () => {
     const nameField = page.getByTestId('quote-name-input');
     await expect(nameField).toBeFocused();
     await nameField.fill(renamed);
-    await nameField.press('Enter');
+    await savedAfter(page, id, () => nameField.press('Enter'));
     await expect(page.getByTestId('quote-title')).toHaveText(renamed);
     await expectSaved(page);
 
     // An amount, typed.
     const amount = rowFor(page, a.name).getByRole('spinbutton');
-    await amount.fill('3');
-    await amount.press('Tab');
+    await savedAfter(page, id, async () => {
+      await amount.fill('3');
+      await amount.press('Tab');
+    });
     await expectSaved(page);
 
-    await quickAdd(page, c);
+    await savedAfter(page, id, () => quickAdd(page, c));
     await expect(rowFor(page, c.name)).toBeVisible({ timeout: SAVE_TIMEOUT });
     await expectSaved(page);
 
@@ -353,7 +379,7 @@ test.describe('Edit a request draft', () => {
 
     // Remove b for real; leaving the view saves it.
     await rowFor(page, b.name).getByTestId('quote-item-remove').click();
-    await page.getByTestId('back-link').click();
+    await savedAfter(page, id, () => page.getByTestId('back-link').click());
     await page.waitForURL(new RegExp(`${LIST_PATH}$`), {
       timeout: PAGE_TIMEOUT,
     });
@@ -418,7 +444,9 @@ test.describe('Edit a request draft', () => {
     await expect(card).toBeVisible();
     await expect(page.getByTestId('quote-items-table')).toBeHidden();
 
-    await card.getByRole('button', { name: /increase/i }).click();
+    await savedAfter(page, id, () =>
+      card.getByRole('button', { name: /increase/i }).click(),
+    );
     await expectSaved(page);
     await expect(page.getByTestId('quote-continue')).toBeVisible();
 
@@ -435,7 +463,10 @@ test.describe('Edit a request draft', () => {
       .getByTestId('quote-item-remove-mobile')
       .click();
     await card.getByTestId('quote-item-remove-mobile').click();
-    await page.getByTestId('delete-draft-confirm').click();
+    // The removal waiting for undo is saved before the draft goes.
+    await savedAfter(page, id, () =>
+      page.getByTestId('delete-draft-confirm').click(),
+    );
     await page.waitForURL(new RegExp(`${LIST_PATH}$`), {
       timeout: PAGE_TIMEOUT,
     });

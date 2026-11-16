@@ -147,6 +147,7 @@ export function useQuoteDraftEditing({
 
     if (!answer) {
       failures++;
+      saved.value = false;
       await onFailed();
       return;
     }
@@ -162,6 +163,7 @@ export function useQuoteDraftEditing({
       .then(runSave)
       .catch(() => {
         failures++;
+        saved.value = false;
       })
       .finally(() => {
         queued.value--;

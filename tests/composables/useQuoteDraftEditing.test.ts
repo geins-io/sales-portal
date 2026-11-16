@@ -613,6 +613,39 @@ describe('useQuoteDraftEditing', () => {
       expect(editing.saved.value).toBe(false);
     });
 
+    it('is no longer saved once a later save fails, until one works again', async () => {
+      const editing = setup([line('line-a', 11, 1), line('line-b', 12, 1)]);
+      geinsAnswers();
+      editing.rename('Ny');
+      await editing.flush();
+      expect(editing.saved.value).toBe(true);
+
+      save.mockResolvedValueOnce(null);
+      editing.rename('Nyare');
+      await editing.flush();
+      expect(editing.saved.value).toBe(false);
+
+      editing.rename('Nyast');
+      await editing.flush();
+      expect(editing.saved.value).toBe(true);
+    });
+
+    it('is no longer saved once a later save throws', async () => {
+      const editing = setup([line('line-a', 11, 1)]);
+      geinsAnswers();
+      editing.rename('Ny');
+      await editing.flush();
+
+      // The name still waits after a throw, so the flush sends it again.
+      save
+        .mockRejectedValueOnce(new Error('unexpected'))
+        .mockRejectedValueOnce(new Error('unexpected'));
+      editing.rename('Nyare');
+      await editing.flush();
+
+      expect(editing.saved.value).toBe(false);
+    });
+
     it('moves on once a save that got no answer gives up', async () => {
       const editing = setup([line('line-a', 11, 1), line('line-b', 12, 1)]);
       const stuck = deferred();
