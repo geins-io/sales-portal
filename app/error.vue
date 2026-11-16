@@ -111,8 +111,7 @@ const handleBack = () => {
       <p v-if="supportEmail" class="error-page__muted mt-8 text-sm">
         {{ t('errors.contact_support_prefix') }}
         <a :href="`mailto:${supportEmail}`" class="error-page__link underline">
-          {{ t('errors.contact_support_link') }} </a
-        >.
+          {{ t('errors.contact_support_link') }} </a>.
       </p>
 
       <!-- Debug Info (Development Only) -->

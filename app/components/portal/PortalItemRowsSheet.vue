@@ -87,8 +87,7 @@ const open = ref(false);
                 >
                   <span data-testid="item-rows-article-number">{{
                     item.articleNumber
-                  }}</span
-                  ><span v-if="item.skuName"
+                  }}</span><span v-if="item.skuName"
                     ><template v-if="item.articleNumber"> &bull; </template
                     >{{ item.skuName }}</span
                   >

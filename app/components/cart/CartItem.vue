@@ -277,8 +277,7 @@ const maxQuantity = computed(() => {
                 v-if="regularTotalFormatted"
                 class="text-muted-foreground mr-1.5 text-xs font-normal line-through"
                 data-testid="cart-item-regular-price"
-                >{{ regularTotalFormatted }}</span
-              ><span
+                >{{ regularTotalFormatted }}</span><span
                 :class="{ 'text-danger': onSale }"
                 data-testid="cart-item-total-price"
                 >{{ totalFormatted }}</span
