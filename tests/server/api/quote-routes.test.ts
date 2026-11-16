@@ -30,8 +30,10 @@ vi.mock('../../../server/services/quotes', () => ({
 }));
 
 const mockGetQuoteThread = vi.fn();
+const mockCreateQuoteMessage = vi.fn();
 vi.mock('../../../server/services/quote-thread', () => ({
   getQuoteThread: (...args: unknown[]) => mockGetQuoteThread(...args),
+  createQuoteMessage: (...args: unknown[]) => mockCreateQuoteMessage(...args),
 }));
 
 const mockGetCart = vi.fn();
@@ -62,7 +64,11 @@ vi.mock('../../../server/utils/auth', () => ({
 // Rate limiter — uses useStorage('kv'), must stay mocked
 const mockRateLimitCheck = vi.fn();
 const mockDraftRateLimitCheck = vi.fn();
+const mockMessageRateLimitCheck = vi.fn();
 vi.mock('../../../server/utils/rate-limiter', () => ({
+  quoteMessageRateLimiter: {
+    check: (...args: unknown[]) => mockMessageRateLimitCheck(...args),
+  },
   quoteRespondRateLimiter: {
     check: (...args: unknown[]) => mockRateLimitCheck(...args),
   },
@@ -186,6 +192,11 @@ describe('Quote API Routes', () => {
     mockDraftRateLimitCheck.mockResolvedValue({
       allowed: true,
       remaining: 119,
+      resetTime: 0,
+    });
+    mockMessageRateLimitCheck.mockResolvedValue({
+      allowed: true,
+      remaining: 59,
       resetTime: 0,
     });
   });
@@ -385,6 +396,120 @@ describe('Quote API Routes', () => {
       await expect((await loadHandler())(eventWithId())).rejects.toThrow(
         'Bad Gateway',
       );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // POST /api/quotes/[id]/messages
+  // -------------------------------------------------------------------------
+  describe('POST /api/quotes/[id]/messages', () => {
+    const PARENT = '3f2b8c1e-5d4a-4e6b-9c7d-1a2b3c4d5e6f';
+    const eventWithId = () =>
+      ({
+        ...mockEvent,
+        context: { ...mockEvent.context, params: { id: 'quote-uuid-001' } },
+      }) as unknown as import('h3').H3Event;
+    const loadHandler = async () =>
+      (await import('../../../server/api/quotes/[id]/messages.post')).default;
+
+    beforeEach(() => {
+      mockCreateQuoteMessage.mockResolvedValue({ id: 'm-9' });
+    });
+    // The body stub outlives a test; the routes after these read none.
+    afterEach(() => {
+      readBodyMock.mockReset();
+    });
+
+    it('writes the trimmed text and answers the new message', async () => {
+      readBodyMock.mockReturnValue({
+        message: '  Hej, går det att leverera?\n',
+      });
+      const event = eventWithId();
+
+      const result = await (await loadHandler())(event);
+
+      expect(mockRequireAuth).toHaveBeenCalledWith(event);
+      expect(mockCreateQuoteMessage).toHaveBeenCalledWith(
+        'quote-uuid-001',
+        { message: 'Hej, går det att leverera?' },
+        event,
+      );
+      expect(result).toEqual({ message: { id: 'm-9' } });
+    });
+
+    it('passes the message it answers on', async () => {
+      readBodyMock.mockReturnValue({ message: 'Ja', answerRef: PARENT });
+
+      await (
+        await loadHandler()
+      )(eventWithId());
+
+      expect(mockCreateQuoteMessage.mock.calls[0]![1]).toEqual({
+        message: 'Ja',
+        answerRef: PARENT,
+      });
+    });
+
+    it('takes a text of exactly 4000 characters', async () => {
+      readBodyMock.mockReturnValue({ message: 'x'.repeat(4000) });
+
+      await (
+        await loadHandler()
+      )(eventWithId());
+
+      expect(mockCreateQuoteMessage.mock.calls[0]![1]).toEqual({
+        message: 'x'.repeat(4000),
+      });
+    });
+
+    it.each([
+      ['an empty text', { message: '' }],
+      ['a text of only spaces', { message: '  \n ' }],
+      ['a text over 4000 characters', { message: 'x'.repeat(4001) }],
+      ['no text', {}],
+      ['an answerRef that is not a Guid', { message: 'Ja', answerRef: 'm-1' }],
+    ])('refuses %s and writes nothing', async (_label, body) => {
+      readBodyMock.mockReturnValue(body);
+
+      await expect((await loadHandler())(eventWithId())).rejects.toThrow();
+      expect(mockCreateQuoteMessage).not.toHaveBeenCalled();
+    });
+
+    it('fails when Geins does not take the message', async () => {
+      readBodyMock.mockReturnValue({ message: 'Hej' });
+      mockCreateQuoteMessage.mockRejectedValue(new Error('Bad Gateway'));
+
+      await expect((await loadHandler())(eventWithId())).rejects.toThrow(
+        'Bad Gateway',
+      );
+    });
+
+    it('writes nothing without a signed-in buyer, and counts nothing', async () => {
+      mockRequireAuth.mockRejectedValue(new Error('Authentication required'));
+      readBodyMock.mockReturnValue({ message: 'Hej' });
+
+      await expect((await loadHandler())(eventWithId())).rejects.toThrow(
+        'Authentication required',
+      );
+      expect(mockMessageRateLimitCheck).not.toHaveBeenCalled();
+      expect(mockCreateQuoteMessage).not.toHaveBeenCalled();
+    });
+
+    it('answers 429 on its own limit, keyed on the client IP', async () => {
+      mockMessageRateLimitCheck.mockResolvedValue({
+        allowed: false,
+        remaining: 0,
+        resetTime: 0,
+      });
+      readBodyMock.mockReturnValue({ message: 'Hej' });
+
+      await expect((await loadHandler())(eventWithId())).rejects.toMatchObject({
+        statusCode: 429,
+        message: 'Too many quote messages',
+      });
+      expect(mockMessageRateLimitCheck).toHaveBeenCalledWith('203.0.113.7');
+      expect(mockRateLimitCheck).not.toHaveBeenCalled();
+      expect(mockCreateQuoteMessage).not.toHaveBeenCalled();
     });
   });
 

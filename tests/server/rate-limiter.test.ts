@@ -3,6 +3,7 @@ import {
   RateLimiter,
   getClientIp,
   quoteDraftRateLimiter,
+  quoteMessageRateLimiter,
   quoteRespondRateLimiter,
 } from '../../server/utils/rate-limiter';
 import type { H3Event } from 'h3';
@@ -309,6 +310,29 @@ describe('RateLimiter', () => {
 
       vi.advanceTimersByTime(60001);
       expect((await quoteDraftRateLimiter.check('10.0.0.1')).allowed).toBe(
+        true,
+      );
+    });
+  });
+
+  describe('quoteMessageRateLimiter', () => {
+    it('allows 60 messages a minute per IP, apart from the responses, then blocks', async () => {
+      for (let i = 0; i < 60; i++) {
+        expect((await quoteMessageRateLimiter.check('10.0.0.1')).allowed).toBe(
+          true,
+        );
+      }
+
+      expect((await quoteMessageRateLimiter.check('10.0.0.1')).allowed).toBe(
+        false,
+      );
+      expect(mockStore.has('rate-limit:quote-message:10.0.0.1')).toBe(true);
+      expect((await quoteRespondRateLimiter.check('10.0.0.1')).allowed).toBe(
+        true,
+      );
+
+      vi.advanceTimersByTime(60001);
+      expect((await quoteMessageRateLimiter.check('10.0.0.1')).allowed).toBe(
         true,
       );
     });

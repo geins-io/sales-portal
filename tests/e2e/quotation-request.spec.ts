@@ -137,15 +137,38 @@ function makeQuote(status: string, extraLines: object[] = []) {
 interface Calls {
   patch: unknown[];
   release: number;
+  messages: { message: string; answerRef?: string }[];
 }
 
-/** Answers the quotation's read, its thread, details write and release. */
+/**
+ * Answers the quotation's read, its thread, details write, release, and
+ * the messages the buyer writes, which the thread then holds.
+ */
 async function answerQuotation(
   page: Page,
   initialStatus: string,
   extraLines: object[] = [],
 ) {
-  const calls: Calls = { patch: [], release: 0 };
+  const calls: Calls = { patch: [], release: 0, messages: [] };
+  const written = () =>
+    calls.messages.map((m, i) => {
+      const parent = calls.messages.findIndex(
+        (_p, j) => writtenId(j) === m.answerRef,
+      );
+      return {
+        id: writtenId(i),
+        at: new Date(Date.UTC(2026, 10, 16, 10, i)).toISOString(),
+        side: 'buyer',
+        authorName: 'E2E Buyer',
+        text: m.message,
+        ...(parent >= 0 && {
+          replyTo: {
+            authorName: 'E2E Buyer',
+            text: calls.messages[parent]!.message,
+          },
+        }),
+      };
+    });
   let status = initialStatus;
   // Once sent, the quotation reads back what the details write carried.
   let sent: object | undefined;
@@ -162,6 +185,15 @@ async function answerQuotation(
         sent = request.postDataJSON();
         calls.patch.push(sent);
         return route.fulfill({ json: { quote: quote() } });
+      }
+      if (
+        isApiCall(request.url(), `/api/quotes/${QUOTE_ID}/messages`) &&
+        request.method() === 'POST'
+      ) {
+        calls.messages.push(request.postDataJSON());
+        return route.fulfill({
+          json: { message: { id: writtenId(calls.messages.length - 1) } },
+        });
       }
       // Once sent, the thread holds the request comment, as Geins writes it.
       if (
@@ -186,8 +218,9 @@ async function answerQuotation(
                   },
                 },
               ];
+        const all = [...entries, ...written()];
         return route.fulfill({
-          json: { thread: { entries, messageCount: entries.length } },
+          json: { thread: { entries: all, messageCount: all.length } },
         });
       }
       if (path.endsWith('/release') && request.method() === 'POST') {
@@ -203,6 +236,10 @@ async function answerQuotation(
   );
   return calls;
 }
+
+/** A Guid for the n-th message the buyer writes, as Geins ids look. */
+const writtenId = (n: number) =>
+  `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
 /** Nothing links to the page yet, so the app's own router takes the buyer there. */
 async function openInApp(page: Page, to: string) {
@@ -453,5 +490,84 @@ test.describe('Send a quote request', () => {
     await expect(page.locator('[data-testid="quote-detail"]')).toBeVisible({
       timeout: PAGE_TIMEOUT,
     });
+  });
+});
+
+test.describe('Write in the quote log', () => {
+  test('writes a message, then replies to it, and the thread shows both', async ({
+    page,
+  }) => {
+    const calls = await answerQuotation(page, 'requested');
+    await openInApp(page, VIEW_PATH);
+    const open = page.locator('[data-testid="quote-thread-open"]');
+    await expect(open).toHaveText(/Offertlogg/, { timeout: PAGE_TIMEOUT });
+    await open.click();
+
+    const log = page.locator('[data-testid="quote-thread"]');
+    await expect(log.locator('[data-testid="quote-thread-empty"]')).toHaveText(
+      'Inga meddelanden än. Skriv till din säljare om du har frågor om offerten.',
+      { timeout: PAGE_TIMEOUT },
+    );
+    const input = log.locator('[data-testid="quote-thread-input"]');
+    const send = log.locator('[data-testid="quote-thread-send"]');
+    await expect(send).toBeDisabled();
+
+    await input.fill('Går det att få dem i gult?');
+    await input.press('ControlOrMeta+Enter');
+
+    const entries = log.locator('[data-testid="quote-thread-entry"]');
+    await expect(entries).toHaveCount(1, { timeout: PAGE_TIMEOUT });
+    await expect(input).toHaveValue('');
+    await expect(open.locator('[data-testid="quote-thread-count"]')).toHaveText(
+      '1',
+    );
+
+    await entries.first().locator('[data-testid="quote-thread-more"]').click();
+    await page.locator('[data-testid="quote-thread-reply-action"]').click();
+    await expect(
+      log.locator('[data-testid="quote-thread-replying"]'),
+    ).toContainText('Svarar E2E Buyer');
+    await expect(input).toBeFocused();
+    await input.fill('Eller i blått.');
+    await send.click();
+
+    await expect(entries).toHaveCount(2, { timeout: PAGE_TIMEOUT });
+    await expect(
+      entries.nth(1).locator('[data-testid="quote-thread-reply"]'),
+    ).toContainText('Går det att få dem i gult?');
+    await expect(
+      log.locator('[data-testid="quote-thread-replying"]'),
+    ).toHaveCount(0);
+    expect(calls.messages).toEqual([
+      { message: 'Går det att få dem i gult?' },
+      { message: 'Eller i blått.', answerRef: writtenId(0) },
+    ]);
+  });
+
+  test('keeps the text when a send fails, and says so', async ({ page }) => {
+    await answerQuotation(page, 'requested');
+    await page.route(
+      apiRoute(`/api/quotes/${QUOTE_ID}/messages`),
+      async (route: Route) =>
+        route.request().method() === 'POST'
+          ? route.fulfill({ status: 502, json: { message: 'Bad Gateway' } })
+          : route.fallback(),
+    );
+    await openInApp(page, VIEW_PATH);
+    await page
+      .locator('[data-testid="quote-thread-open"]')
+      .click({ timeout: PAGE_TIMEOUT });
+
+    const log = page.locator('[data-testid="quote-thread"]');
+    const input = log.locator('[data-testid="quote-thread-input"]');
+    await input.fill('Hej');
+    await log.locator('[data-testid="quote-thread-send"]').click();
+
+    await expect(
+      log.locator('[data-testid="quote-thread-send-error"]'),
+    ).toHaveText('Meddelandet kunde inte skickas. Försök igen.', {
+      timeout: PAGE_TIMEOUT,
+    });
+    await expect(input).toHaveValue('Hej');
   });
 });

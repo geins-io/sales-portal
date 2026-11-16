@@ -3,28 +3,36 @@ import type { H3Event } from 'h3';
 import type { QuoteThreadEntry } from '#shared/types/quote';
 
 const mockGraphqlQuery = vi.fn();
+const mockGraphqlMutation = vi.fn();
+const CHANNEL = { channelId: '1|se', languageId: 'sv-SE', marketId: 'se' };
 vi.mock('../../../server/services/_sdk', () => ({
   getTenantSDK: vi.fn().mockResolvedValue({
-    core: { graphql: { query: (...a: unknown[]) => mockGraphqlQuery(...a) } },
+    core: {
+      graphql: {
+        query: (...a: unknown[]) => mockGraphqlQuery(...a),
+        mutation: (...a: unknown[]) => mockGraphqlMutation(...a),
+      },
+    },
   }),
   buildRequestContext: vi.fn().mockReturnValue({ userToken: 'user-token' }),
+  getRequestChannelVariables: vi.fn(() => CHANNEL),
 }));
 
 vi.mock('../../../server/services/graphql/loader', () => ({
   loadQuery: vi.fn((path: string) => `query:${path}`),
 }));
-vi.mock('../../../server/services/graphql/unwrap', () => ({
-  unwrapGraphQL: vi.fn((r: { getQuotationMessages?: unknown }) =>
-    r ? r.getQuotationMessages : r,
-  ),
-}));
+
+vi.stubGlobal('createAppError', (code: string, message: string) =>
+  Object.assign(new Error(message), { code }),
+);
+vi.stubGlobal('ErrorCode', { EXTERNAL_API_ERROR: 'EXTERNAL_API_ERROR' });
 
 const mockWrapServiceCall = vi.fn(
   async (fn: () => Promise<unknown>, _area: string) => fn(),
 );
 vi.stubGlobal('wrapServiceCall', mockWrapServiceCall);
 
-const { buildQuoteThread, getQuoteThread } =
+const { buildQuoteThread, getQuoteThread, createQuoteMessage } =
   await import('../../../server/services/quote-thread');
 
 type Message = Parameters<typeof buildQuoteThread>[0][number];
@@ -527,5 +535,76 @@ describe('getQuoteThread', () => {
     mockGraphqlQuery.mockRejectedValue(new Error('enum'));
 
     await expect(getQuoteThread('q-1', event)).rejects.toThrow('enum');
+  });
+});
+
+describe('createQuoteMessage', () => {
+  const event = {} as H3Event;
+  const PARENT = '3f2b8c1e-5d4a-4e6b-9c7d-1a2b3c4d5e6f';
+
+  beforeEach(() => {
+    mockGraphqlMutation.mockResolvedValue({
+      createQuotationMessage: message({ id: 'm-new', type: 'FROM_CUSTOMER' }),
+    });
+  });
+
+  it('writes the message as the buyer and answers its id', async () => {
+    const created = await createQuoteMessage('q-1', { message: 'Hej' }, event);
+
+    expect(mockGraphqlMutation).toHaveBeenCalledWith({
+      queryAsString: 'query:quotes/create-quotation-message.graphql',
+      variables: { quotationId: 'q-1', message: 'Hej', ...CHANNEL },
+      userToken: 'user-token',
+      // A message Geins saves after a cut would read as failed and be sent twice.
+      requestOptions: { context: { timeoutMs: 0 } },
+    });
+    expect(mockWrapServiceCall.mock.calls[0]?.[1]).toBe('quotes');
+    expect(created).toEqual({ id: 'm-new' });
+  });
+
+  it('names the message it answers', async () => {
+    await createQuoteMessage(
+      'q-1',
+      { message: 'Ja', answerRef: PARENT },
+      event,
+    );
+
+    expect(mockGraphqlMutation.mock.calls[0]?.[0].variables).toEqual({
+      quotationId: 'q-1',
+      message: 'Ja',
+      answerRef: PARENT,
+      ...CHANNEL,
+    });
+  });
+
+  it('writes without a user token when the request carries no context', async () => {
+    const { buildRequestContext } =
+      await import('../../../server/services/_sdk');
+    vi.mocked(buildRequestContext).mockReturnValueOnce(undefined);
+
+    await createQuoteMessage('q-1', { message: 'Hej' }, event);
+
+    expect(mockGraphqlMutation).toHaveBeenCalledWith(
+      expect.objectContaining({ userToken: undefined }),
+    );
+  });
+
+  it('fails when Geins answers no message', async () => {
+    mockGraphqlMutation.mockResolvedValue({ createQuotationMessage: null });
+
+    await expect(
+      createQuoteMessage('q-1', { message: 'Hej' }, event),
+    ).rejects.toMatchObject({
+      code: 'EXTERNAL_API_ERROR',
+      message: 'Geins answered no message for quote q-1',
+    });
+  });
+
+  it('fails when Geins refuses the message', async () => {
+    mockGraphqlMutation.mockRejectedValue(new Error('not found'));
+
+    await expect(
+      createQuoteMessage('q-1', { message: 'Ja', answerRef: PARENT }, event),
+    ).rejects.toThrow('not found');
   });
 });

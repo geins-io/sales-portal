@@ -1,12 +1,26 @@
 <script setup lang="ts">
 /**
- * The conversation on a quotation and its events, read only: a button with
- * the message count, and a sheet from the right with the thread oldest first.
+ * The quote log: a button with the message count, and a sheet from the right
+ * with the conversation and its events oldest first, and a field to write in.
  */
 import { nextTick } from 'vue';
-import { ArrowRight, MessageSquare } from 'lucide-vue-next';
+import {
+  ArrowRight,
+  CornerUpLeft,
+  MessageSquare,
+  MoreHorizontal,
+} from 'lucide-vue-next';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu';
+import PortalQuoteThreadComposer, {
+  type QuoteReplyTarget,
+} from './PortalQuoteThreadComposer.vue';
 import {
   Sheet,
   SheetContent,
@@ -18,7 +32,11 @@ import {
   getQuoteStatusLabelKey,
   getQuoteStatusVariant,
 } from '~/utils/quote-status';
-import type { QuoteThread, QuoteThreadEntry } from '#shared/types/quote';
+import type {
+  QuoteStatus,
+  QuoteThread,
+  QuoteThreadEntry,
+} from '#shared/types/quote';
 
 const props = defineProps<{
   quoteId: string;
@@ -42,11 +60,54 @@ const count = computed(() => thread.value?.messageCount ?? 0);
 const open = ref(false);
 const list = ref<HTMLElement | null>(null);
 
+async function scrollToEnd() {
+  await nextTick();
+  if (list.value) list.value.scrollTop = list.value.scrollHeight;
+}
+
 async function openThread() {
   open.value = true;
   await refresh();
-  await nextTick();
-  if (list.value) list.value.scrollTop = list.value.scrollHeight;
+  await scrollToEnd();
+}
+
+const replyTo = ref<QuoteReplyTarget | null>(null);
+const composer = ref<{ focus: () => void } | null>(null);
+let focusComposer = false;
+
+function startReply(entry: QuoteThreadEntry) {
+  replyTo.value = {
+    id: entry.id,
+    name: authorOf(entry),
+    text: entry.text ?? eventText(entry),
+  };
+  focusComposer = true;
+}
+
+/** The menu gives focus back to ⋯ as it closes; after "Svara" the field takes it. */
+function onMenuCloseFocus(event: Event) {
+  if (!focusComposer) return;
+  focusComposer = false;
+  event.preventDefault();
+  composer.value?.focus();
+}
+
+// After a write the read must start anew: a read still on its way may have
+// left before the write landed.
+const rereadAfterWrite = () => refresh({ dedupe: 'cancel' });
+
+async function onSent() {
+  await rereadAfterWrite();
+  await scrollToEnd();
+}
+
+/** A reply whose message is gone from the thread goes again as a plain one. */
+async function onFailed() {
+  await rereadAfterWrite();
+  const id = replyTo.value?.id;
+  if (id && !thread.value?.entries.some((e) => e.id === id)) {
+    replyTo.value = null;
+  }
 }
 
 function initials(name: string) {
@@ -77,6 +138,17 @@ function eventText(entry: QuoteThreadEntry) {
 /** Geins may send no name; the side still says who. */
 function authorOf(entry: QuoteThreadEntry) {
   return entry.authorName || t(`portal.quotations.thread.author.${entry.side}`);
+}
+
+/**
+ * A status pill outlined so it reads on the entry's tint. A solid badge has
+ * white text, which on a white pill takes the badge's colour instead.
+ */
+function outlined(status: QuoteStatus) {
+  return [
+    'bg-card border-current/30',
+    getQuoteStatusVariant(status) === 'success-solid' && 'text-success',
+  ];
 }
 
 const hasChange = (entry: QuoteThreadEntry) =>
@@ -145,38 +217,36 @@ const hasChange = (entry: QuoteThreadEntry) =>
             :key="entry.id"
             data-testid="quote-thread-entry"
             :data-side="entry.side"
-            class="border-border bg-card rounded-lg border px-4 py-3"
-            :class="entry.side === 'buyer' ? 'ml-8 sm:ml-16' : 'mr-8 sm:mr-16'"
+            class="rounded-[0.375rem] border px-4 py-3"
+            :class="
+              entry.side === 'buyer'
+                ? 'border-success/20 bg-success/8 ml-8 sm:ml-16'
+                : 'border-info/20 bg-info/8 mr-8 sm:mr-16'
+            "
           >
             <div
               v-if="entry.replyTo"
-              class="bg-muted mb-3 rounded-md px-3 py-2 text-xs"
+              class="bg-card/70 mb-3 rounded-[4px] px-3 py-2 text-xs"
               data-testid="quote-thread-reply"
             >
-              <p class="text-muted-foreground/80">
+              <p class="text-foreground/70">
                 {{ entry.replyTo.authorName }}
               </p>
               <p
-                class="text-muted-foreground line-clamp-2 whitespace-pre-line"
+                class="text-foreground/70 line-clamp-2 whitespace-pre-line"
                 v-text="entry.replyTo.text || '—'"
               />
             </div>
 
             <header class="flex items-start gap-3">
               <span
-                class="border-border flex size-8 shrink-0 items-center justify-center rounded-md border text-xs font-medium"
+                class="border-border bg-card flex size-8 shrink-0 items-center justify-center rounded-md border text-xs font-medium"
                 aria-hidden="true"
               >
                 {{ initials(authorOf(entry)) }}
               </span>
-              <p class="min-w-0 flex-1 text-sm">
-                <span class="font-medium">{{ authorOf(entry) }}</span>
-                <span
-                  v-if="entry.event"
-                  class="text-muted-foreground ml-1.5 text-xs italic"
-                  data-testid="quote-thread-event"
-                  >{{ eventText(entry) }}</span
-                >
+              <p class="min-w-0 flex-1 truncate text-sm font-medium">
+                {{ authorOf(entry) }}
               </p>
               <div class="flex shrink-0 items-center gap-2">
                 <span
@@ -184,22 +254,64 @@ const hasChange = (entry: QuoteThreadEntry) =>
                   class="hidden items-center gap-1 sm:flex"
                   data-testid="quote-thread-change"
                 >
-                  <Badge :variant="getQuoteStatusVariant(entry.event!.from!)">
+                  <Badge
+                    :variant="getQuoteStatusVariant(entry.event!.from!)"
+                    :class="outlined(entry.event!.from!)"
+                  >
                     {{ t(getQuoteStatusLabelKey(entry.event!.from!)) }}
                   </Badge>
-                  <ArrowRight class="text-muted-foreground size-3" />
-                  <Badge :variant="getQuoteStatusVariant(entry.event!.to!)">
+                  <ArrowRight
+                    class="text-foreground/70 size-3"
+                    aria-hidden="true"
+                  />
+                  <Badge
+                    :variant="getQuoteStatusVariant(entry.event!.to!)"
+                    :class="outlined(entry.event!.to!)"
+                  >
                     {{ t(getQuoteStatusLabelKey(entry.event!.to!)) }}
                   </Badge>
                 </span>
                 <time
                   :datetime="entry.at"
-                  class="text-muted-foreground text-xs whitespace-nowrap"
+                  class="text-foreground/70 text-xs whitespace-nowrap"
                 >
                   {{ formatWhen(entry.at) }}
                 </time>
+                <DropdownMenu>
+                  <DropdownMenuTrigger as-child>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      class="-mr-2"
+                      :aria-label="t('portal.quotations.thread.more')"
+                      data-testid="quote-thread-more"
+                    >
+                      <MoreHorizontal class="size-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    @close-auto-focus="onMenuCloseFocus"
+                  >
+                    <DropdownMenuItem
+                      data-testid="quote-thread-reply-action"
+                      @select="startReply(entry)"
+                    >
+                      <CornerUpLeft class="size-4" />
+                      {{ t('portal.quotations.thread.reply') }}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </header>
+
+            <p
+              v-if="entry.event"
+              class="text-foreground/70 mt-2 pl-11 text-xs italic"
+              data-testid="quote-thread-event"
+            >
+              {{ eventText(entry) }}
+            </p>
 
             <p
               v-if="entry.text"
@@ -210,6 +322,15 @@ const hasChange = (entry: QuoteThreadEntry) =>
           </article>
         </template>
       </div>
+
+      <PortalQuoteThreadComposer
+        v-if="thread"
+        ref="composer"
+        v-model:reply-to="replyTo"
+        :quote-id="quoteId"
+        @sent="onSent"
+        @failed="onFailed"
+      />
     </SheetContent>
   </Sheet>
 </template>
