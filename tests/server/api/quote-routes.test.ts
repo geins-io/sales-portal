@@ -31,9 +31,11 @@ vi.mock('../../../server/services/quotes', () => ({
 
 const mockGetQuoteThread = vi.fn();
 const mockCreateQuoteMessage = vi.fn();
+const mockDeleteQuoteMessage = vi.fn();
 vi.mock('../../../server/services/quote-thread', () => ({
   getQuoteThread: (...args: unknown[]) => mockGetQuoteThread(...args),
   createQuoteMessage: (...args: unknown[]) => mockCreateQuoteMessage(...args),
+  deleteQuoteMessage: (...args: unknown[]) => mockDeleteQuoteMessage(...args),
 }));
 
 const mockGetCart = vi.fn();
@@ -122,6 +124,15 @@ vi.stubGlobal(
   'readValidatedBody',
   vi.fn(async (_event: unknown, validator: (raw: unknown) => unknown) =>
     validator(readBodyMock(_event)),
+  ),
+);
+vi.stubGlobal(
+  'getValidatedRouterParams',
+  vi.fn(async (_event: unknown, validator: (raw: unknown) => unknown) =>
+    validator(
+      (_event as { context?: { params?: Record<string, string> } })?.context
+        ?.params,
+    ),
   ),
 );
 vi.stubGlobal(
@@ -510,6 +521,87 @@ describe('Quote API Routes', () => {
       expect(mockMessageRateLimitCheck).toHaveBeenCalledWith('203.0.113.7');
       expect(mockRateLimitCheck).not.toHaveBeenCalled();
       expect(mockCreateQuoteMessage).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // DELETE /api/quotes/[id]/messages/[messageId]
+  // -------------------------------------------------------------------------
+  describe('DELETE /api/quotes/[id]/messages/[messageId]', () => {
+    const MESSAGE = '3f2b8c1e-5d4a-4e6b-9c7d-1a2b3c4d5e6f';
+    const eventFor = (messageId: string) =>
+      ({
+        ...mockEvent,
+        context: {
+          ...mockEvent.context,
+          params: { id: 'quote-uuid-001', messageId },
+        },
+      }) as unknown as import('h3').H3Event;
+    const loadHandler = async () =>
+      (
+        await import('../../../server/api/quotes/[id]/messages/[messageId].delete')
+      ).default;
+
+    beforeEach(() => {
+      mockDeleteQuoteMessage.mockResolvedValue(undefined);
+    });
+
+    it("deletes the buyer's message and says so", async () => {
+      const event = eventFor(MESSAGE);
+
+      const result = await (await loadHandler())(event);
+
+      expect(mockRequireAuth).toHaveBeenCalledWith(event);
+      expect(mockDeleteQuoteMessage).toHaveBeenCalledWith(
+        'quote-uuid-001',
+        MESSAGE,
+        event,
+      );
+      expect(result).toEqual({ deleted: true });
+    });
+
+    it('passes a locked message on as the refusal it is', async () => {
+      mockDeleteQuoteMessage.mockRejectedValue(
+        Object.assign(new Error('Message can no longer be deleted'), {
+          statusCode: 409,
+        }),
+      );
+
+      await expect(
+        (await loadHandler())(eventFor(MESSAGE)),
+      ).rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    it('refuses a message id that is not a Guid and deletes nothing', async () => {
+      await expect((await loadHandler())(eventFor('m-1'))).rejects.toThrow();
+      expect(mockDeleteQuoteMessage).not.toHaveBeenCalled();
+    });
+
+    it('deletes nothing without a signed-in buyer, and counts nothing', async () => {
+      mockRequireAuth.mockRejectedValue(new Error('Authentication required'));
+
+      await expect((await loadHandler())(eventFor(MESSAGE))).rejects.toThrow(
+        'Authentication required',
+      );
+      expect(mockMessageRateLimitCheck).not.toHaveBeenCalled();
+      expect(mockDeleteQuoteMessage).not.toHaveBeenCalled();
+    });
+
+    it("answers 429 on the conversation's limit, keyed on the client IP", async () => {
+      mockMessageRateLimitCheck.mockResolvedValue({
+        allowed: false,
+        remaining: 0,
+        resetTime: 0,
+      });
+
+      await expect(
+        (await loadHandler())(eventFor(MESSAGE)),
+      ).rejects.toMatchObject({
+        statusCode: 429,
+        message: 'Too many quote messages',
+      });
+      expect(mockMessageRateLimitCheck).toHaveBeenCalledWith('203.0.113.7');
+      expect(mockDeleteQuoteMessage).not.toHaveBeenCalled();
     });
   });
 

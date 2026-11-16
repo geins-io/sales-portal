@@ -23,6 +23,8 @@ export interface RawQuotationMessage {
   message?: string | null;
   timestamp: string;
   answerRef?: string | null;
+  /** Geins still lets the buyer change it: no seller reply names it. */
+  editable?: boolean | null;
   tags?: { key?: string | null; value?: string | null }[] | null;
 }
 
@@ -165,9 +167,34 @@ function oldestFirst(entries: QuoteThreadEntry[]): QuoteThreadEntry[] {
   return [...entries].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 }
 
+/**
+ * Marks the buyer's own messages they may still delete: Geins allows it, and
+ * nothing has happened after it. Geins locks a message only when the seller
+ * replies to it; here any later seller entry or event locks it.
+ */
+function markDeletable(
+  entries: QuoteThreadEntry[],
+  editable: Set<string>,
+): QuoteThreadEntry[] {
+  let locked = false;
+  const marked = [...entries];
+  for (let i = marked.length - 1; i >= 0; i--) {
+    const entry = marked[i]!;
+    if (entry.side === 'seller' || entry.event) {
+      locked = true;
+    } else if (!locked && entry.text && editable.has(entry.id)) {
+      marked[i] = { ...entry, deletable: true };
+    }
+  }
+  return marked;
+}
+
 /** The quotation's messages as the buyer reads them, oldest first. */
 export function buildQuoteThread(messages: RawQuotationMessage[]): QuoteThread {
-  const entries = oldestFirst(entriesFromMessages(messages));
+  const entries = markDeletable(
+    oldestFirst(entriesFromMessages(messages)),
+    new Set(messages.filter((m) => m.editable).map((m) => m.id)),
+  );
   return {
     entries,
     messageCount: entries.filter((e) => e.text).length,
@@ -225,4 +252,52 @@ export async function createQuoteMessage(
     );
   }
   return { id: created.id };
+}
+
+/**
+ * Delete a message of the signed-in buyer's. The thread is read again first,
+ * so a message the seller has answered or an event has followed is refused
+ * here, not only hidden in the page.
+ */
+export async function deleteQuoteMessage(
+  quoteId: string,
+  messageId: string,
+  event: H3Event,
+): Promise<void> {
+  const { entries } = await getQuoteThread(quoteId, event);
+  const entry = entries.find((e) => e.id === messageId);
+  if (!entry) {
+    throw createAppError(
+      ErrorCode.NOT_FOUND,
+      `No message ${messageId} on quote ${quoteId}`,
+    );
+  }
+  if (!entry.deletable) {
+    throw createAppError(
+      ErrorCode.CONFLICT,
+      `Message ${messageId} on quote ${quoteId} can no longer be deleted`,
+    );
+  }
+  const sdk = await getTenantSDK(event);
+  const result = await wrapServiceCall(
+    () =>
+      sdk.core.graphql.mutation({
+        queryAsString: loadQuery('quotes/delete-quotation-message.graphql'),
+        variables: {
+          quotationId: quoteId,
+          messageId,
+          ...getRequestChannelVariables(sdk, event),
+        },
+        userToken: buildRequestContext(event)?.userToken,
+        // No timeout: a delete Geins makes after a cut would read as failed.
+        requestOptions: { context: { timeoutMs: 0 } },
+      }),
+    'quotes',
+  );
+  if (unwrapGraphQL(result) !== true) {
+    throw createAppError(
+      ErrorCode.EXTERNAL_API_ERROR,
+      `Geins deleted no message ${messageId} on quote ${quoteId}`,
+    );
+  }
 }

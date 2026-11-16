@@ -280,6 +280,8 @@ export interface QuoteThreadEntry {
   event?: QuoteThreadEvent;
   /** The message this one answers, when it is still there. */
   replyTo?: { authorName?: string; text?: string };
+  /** The buyer may delete it: their own message, nothing after it yet. */
+  deletable?: true;
 }
 
 export interface QuoteThread {

@@ -904,6 +904,11 @@
         "cancel_reply": "Avbryt svar",
         "send_failed": "Meldingen kunne ikke sendes. Prøv igjen.",
         "too_long": "{count} / {max} tegn",
+        "delete": "Slett",
+        "delete_title": "Slette meldingen?",
+        "delete_body": "Meldingen fjernes for både deg og selgeren.",
+        "delete_failed": "Meldingen kunne ikke slettes. Prøv igjen.",
+        "delete_locked": "Meldingen kan ikke lenger slettes. Selgeren har svart, eller tilbudet er endret.",
         "event": {
           "request_sent": "sendte forespørselen",
           "quote_sent": "sendte tilbudet",

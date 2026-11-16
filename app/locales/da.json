@@ -904,6 +904,11 @@
         "cancel_reply": "Annuller svar",
         "send_failed": "Beskeden kunne ikke sendes. Prøv igen.",
         "too_long": "{count} / {max} tegn",
+        "delete": "Slet",
+        "delete_title": "Slet beskeden?",
+        "delete_body": "Beskeden fjernes for både dig og sælgeren.",
+        "delete_failed": "Beskeden kunne ikke slettes. Prøv igen.",
+        "delete_locked": "Beskeden kan ikke længere slettes. Sælgeren har svaret, eller tilbuddet er ændret.",
         "event": {
           "request_sent": "sendte forespørgslen",
           "quote_sent": "sendte tilbuddet",
