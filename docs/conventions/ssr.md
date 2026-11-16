@@ -402,16 +402,16 @@ See [ADR-015](../adr/015-type-prefixed-routing.md) for full context.
 
 ### CMS Language Fallback
 
-CMS widget areas and menus may only exist for one language (e.g. Swedish-only start page). The CMS service layer (`server/services/cms.ts`) handles this:
+A CMS menu may only exist for one language (e.g. a Swedish-only main menu). The CMS service layer (`server/services/cms.ts`) handles this:
 
 1. Query with user's `languageId` (from request locale)
 2. If empty, retry **without** `languageId` — SDK falls back to its default locale
 3. `languageId` is stripped from both query variables AND `RequestContext` (SDK merges both)
-4. In preview mode, fallback tries `preview: true` first, then non-preview
+4. In a CMS preview the fallback read keeps the preview token
 
-**Pages do NOT fallback** — they are language-specific with different aliases per language. Missing page = genuine 404.
+**Widget areas and pages do NOT fallback.** An area query always carries `languageId`, so an area filtered to another language stays empty; pages are language-specific with different aliases per language. Missing page = genuine 404.
 
-CMS area queries pass `displaySetting` (`mobile`/`desktop`) derived from the `User-Agent` header.
+CMS area queries fetch both `displaySetting` legs (`desktop` and `mobile`) and merge them; the client shows each container by breakpoint.
 
 ## Reference Implementation
 
