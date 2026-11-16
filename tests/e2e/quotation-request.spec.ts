@@ -5,7 +5,7 @@ import {
   outOfScope,
   signedInState,
 } from './helpers';
-import { apiRoute } from './api-call';
+import { apiRoute, isApiCall } from './api-call';
 
 /**
  * The "Skicka offertförfrågan" page. Sending a request cannot be undone, so
@@ -139,7 +139,7 @@ interface Calls {
   release: number;
 }
 
-/** Answers the quotation's read, details write and release. */
+/** Answers the quotation's read, its thread, details write and release. */
 async function answerQuotation(
   page: Page,
   initialStatus: string,
@@ -162,6 +162,33 @@ async function answerQuotation(
         sent = request.postDataJSON();
         calls.patch.push(sent);
         return route.fulfill({ json: { quote: quote() } });
+      }
+      // Once sent, the thread holds the request comment, as Geins writes it.
+      if (
+        isApiCall(request.url(), `/api/quotes/${QUOTE_ID}/messages`) &&
+        request.method() === 'GET'
+      ) {
+        const comment = (sent as { comment?: string } | undefined)?.comment;
+        const entries =
+          status === 'request_draft' || !comment
+            ? []
+            : [
+                {
+                  id: 'e2e-comment',
+                  at: new Date().toISOString(),
+                  side: 'buyer',
+                  authorName: 'E2E Buyer',
+                  text: comment,
+                  event: {
+                    type: 'request_sent',
+                    from: 'request_draft',
+                    to: 'requested',
+                  },
+                },
+              ];
+        return route.fulfill({
+          json: { thread: { entries, messageCount: entries.length } },
+        });
       }
       if (path.endsWith('/release') && request.method() === 'POST') {
         calls.release += 1;
@@ -292,9 +319,26 @@ test.describe('Send a quote request', () => {
     await expect(
       meta.locator('[data-testid="quote-meta-goods-label"]'),
     ).toContainText('Lastbrygga B');
+    // The comment is read in the thread, as the request it was sent with.
     await expect(
       meta.locator('[data-testid="quote-meta-comment"]'),
-    ).toContainText('Leverans till lager 2');
+    ).toHaveCount(0);
+    const open = page.locator('[data-testid="quote-thread-open"]');
+    await expect(open.locator('[data-testid="quote-thread-count"]')).toHaveText(
+      '1',
+    );
+    await open.click();
+    const entry = page.locator(
+      '[data-testid="quote-thread"] [data-testid="quote-thread-entry"]',
+    );
+    await expect(entry).toHaveCount(1, { timeout: PAGE_TIMEOUT });
+    await expect(entry).toHaveAttribute('data-side', 'buyer');
+    await expect(
+      entry.locator('[data-testid="quote-thread-event"]'),
+    ).toHaveText('skickade förfrågan');
+    await expect(entry.locator('[data-testid="quote-thread-text"]')).toHaveText(
+      'Leverans till lager 2',
+    );
   });
 
   test('shows a configured line with its configuration', async ({ page }) => {

@@ -8,7 +8,7 @@ import {
   type VNode,
 } from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
-import { Hash, MessageSquare, Tag, Truck } from 'lucide-vue-next';
+import { Hash, Tag, Truck } from 'lucide-vue-next';
 import { defaultMountOptions } from '../../utils/component';
 import type { Quote, QuoteStatus } from '../../../shared/types/quote';
 import { makeQuote } from '../../fixtures/quote';
@@ -247,6 +247,12 @@ const defaultStubs = {
     template:
       '<img data-testid="geins-image" :data-file-name="fileName" :data-type="type" :alt="alt" />',
     props: ['fileName', 'type', 'alt', 'aspectRatio', 'sizes', 'loading'],
+  },
+  // The thread reads its own data; covered in PortalQuoteThread.test.ts.
+  PortalQuoteThread: {
+    props: ['quoteId', 'subtitle'],
+    template:
+      '<div data-testid="quote-thread-stub" :data-quote-id="quoteId" :data-subtitle="subtitle" />',
   },
 };
 
@@ -1425,7 +1431,7 @@ describe('PortalQuotationDetail', () => {
       const row = (wrapper: Wrapper, id: string) =>
         wrapper.find(`[data-testid="quote-meta-${id}"]`);
 
-      it('adds the four rows after the status, in the prototype order', async () => {
+      it('adds the three rows after the status, in the prototype order', async () => {
         const wrapper = await mountWith(
           makeQuote({ status: 'requested', request: SENT }),
         );
@@ -1437,10 +1443,19 @@ describe('PortalQuotationDetail', () => {
           'your-reference',
           'desired-date',
           'goods-label',
-          'comment',
           'expires',
           'terms',
         ]);
+      });
+
+      // The comment is read in the thread now, as "sent the request".
+      it('shows no comment row', async () => {
+        const wrapper = await mountWith(
+          makeQuote({ status: 'pending', request: SENT }),
+        );
+
+        expect(row(wrapper, 'comment').exists()).toBe(false);
+        expect(wrapper.text()).not.toContain('Leverans till lager 2');
       });
 
       it('labels each row and shows what was sent', async () => {
@@ -1453,9 +1468,6 @@ describe('PortalQuotationDetail', () => {
         );
         expect(row(wrapper, 'goods-label').text()).toBe(
           'portal.quotations.goods_label' + 'Lastbrygga B',
-        );
-        expect(row(wrapper, 'comment').text()).toBe(
-          'portal.quotations.comment' + SENT.comment,
         );
         const date = row(wrapper, 'desired-date');
         expect(date.text()).toContain('portal.quotations.desired_date');
@@ -1478,7 +1490,6 @@ describe('PortalQuotationDetail', () => {
         expect(iconOf('your-reference')).toBe(Hash);
         expect(iconOf('desired-date')).toBe(Truck);
         expect(iconOf('goods-label')).toBe(Tag);
-        expect(iconOf('comment')).toBe(MessageSquare);
       });
 
       it('shows only the ones that are set', async () => {
@@ -1494,7 +1505,6 @@ describe('PortalQuotationDetail', () => {
           'created',
           'status',
           'desired-date',
-          'comment',
           'expires',
           'terms',
         ]);
@@ -1522,15 +1532,53 @@ describe('PortalQuotationDetail', () => {
           makeQuote({ status: 'request_draft', request: SENT }),
         );
 
-        for (const id of [
-          'your-reference',
-          'desired-date',
-          'goods-label',
-          'comment',
-        ]) {
+        for (const id of ['your-reference', 'desired-date', 'goods-label']) {
           expect(row(wrapper, id).exists()).toBe(false);
         }
       });
+    });
+  });
+
+  describe('the thread', () => {
+    it.each(['requested', 'pending', 'finalized', 'rejected'] as const)(
+      'offers the thread on a %s quotation, named by number and name',
+      async (status) => {
+        const wrapper = await mountWith(
+          makeQuote({ status, quoteNumber: '2611-2-0024-00', name: 'Verktyg' }),
+        );
+
+        const thread = wrapper.find('[data-testid="quote-thread-stub"]');
+        expect(thread.attributes('data-quote-id')).toBe('q-001');
+        expect(thread.attributes('data-subtitle')).toBe(
+          '2611-2-0024-00 · Verktyg',
+        );
+      },
+    );
+
+    it('names the thread by number alone when the quotation has no name', async () => {
+      const wrapper = await mountWith(
+        makeQuote({ quoteNumber: '2611-2-0024-00', name: undefined }),
+      );
+
+      expect(
+        wrapper
+          .find('[data-testid="quote-thread-stub"]')
+          .attributes('data-subtitle'),
+      ).toBe('2611-2-0024-00');
+    });
+
+    it('offers no thread on a request draft, which has none', async () => {
+      const wrapper = await mountWith(makeQuote({ status: 'request_draft' }));
+
+      expect(wrapper.find('[data-testid="quote-thread-stub"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it("reads the quotation alone: the thread's read is the thread's own", async () => {
+      await mountWith(pending());
+
+      expect(mockUseFetch).toHaveBeenCalledTimes(1);
     });
   });
 

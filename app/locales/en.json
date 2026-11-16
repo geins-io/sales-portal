@@ -886,6 +886,30 @@
       }
     },
     "quotations": {
+      "thread": {
+        "author": {
+          "buyer": "The buyer",
+          "seller": "The seller"
+        },
+        "open": "Quotation messages",
+        "title": "Quotation messages",
+        "empty": "No messages yet.",
+        "load_failed": "The messages could not be loaded.",
+        "event": {
+          "request_sent": "sent the request",
+          "quote_sent": "sent the quotation",
+          "accepted": "accepted the quotation",
+          "confirmed": "confirmed the quotation",
+          "declined": "declined the quotation",
+          "withdrawn": "withdrew the request",
+          "quote_rejected": "rejected the quotation",
+          "request_rejected": "rejected the request",
+          "ordered": "placed the order",
+          "canceled": "canceled the quotation",
+          "expired": "marked the quotation as expired",
+          "extended": "set a new expiry date"
+        }
+      },
       "title": "Quotations and requests",
       "subtitle": "Continue your drafts, follow your submitted requests and respond to quotations.",
       "search_placeholder": "Search name or quote no…",

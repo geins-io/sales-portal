@@ -239,3 +239,51 @@ export interface QuoteRequestUpdate extends QuoteRequestDetails {
   name?: string;
   items?: QuoteRequestLine[];
 }
+
+// ---------------------------------------------------------------------------
+// Quote thread: the quotation's messages, oldest first
+// ---------------------------------------------------------------------------
+
+/**
+ * What a message written with a status change did. `declined` and
+ * `withdrawn` are the buyer's; `quote_rejected` and `request_rejected` the
+ * seller's.
+ */
+export type QuoteThreadEventType =
+  | 'request_sent'
+  | 'quote_sent'
+  | 'accepted'
+  | 'confirmed'
+  | 'declined'
+  | 'withdrawn'
+  | 'quote_rejected'
+  | 'request_rejected'
+  | 'ordered'
+  | 'canceled'
+  | 'expired'
+  | 'extended';
+
+export interface QuoteThreadEvent {
+  type: QuoteThreadEventType;
+  /** The status change; each only when it is a known status. */
+  from?: QuoteStatus;
+  to?: QuoteStatus;
+}
+
+export interface QuoteThreadEntry {
+  id: string;
+  /** An instant (ISO 8601). */
+  at: string;
+  side: 'buyer' | 'seller';
+  authorName?: string;
+  text?: string;
+  event?: QuoteThreadEvent;
+  /** The message this one answers, when it is still there. */
+  replyTo?: { authorName?: string; text?: string };
+}
+
+export interface QuoteThread {
+  entries: QuoteThreadEntry[];
+  /** Entries with text: what the button counts. */
+  messageCount: number;
+}
