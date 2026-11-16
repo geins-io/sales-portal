@@ -187,6 +187,9 @@ describe('CMS reads in preview send the preview token, never a preview flag', ()
 
     expect(mockQuery).toHaveBeenCalledTimes(1);
     expect(mockQuery.mock.calls[0]).toHaveLength(1);
+    const [options] = mockQuery.mock.calls[0]!;
+    expect(options).not.toHaveProperty('userToken');
+    expect(options.variables).not.toHaveProperty('userToken');
   });
 
   it('pageLink: no user token, preview or not', async () => {
@@ -197,6 +200,9 @@ describe('CMS reads in preview send the preview token, never a preview flag', ()
 
     expect(mockQuery).toHaveBeenCalledTimes(1);
     expect(mockQuery.mock.calls[0]).toHaveLength(1);
+    const [options] = mockQuery.mock.calls[0]!;
+    expect(options).not.toHaveProperty('userToken');
+    expect(options.variables).not.toHaveProperty('userToken');
   });
 });
 

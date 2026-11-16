@@ -2,7 +2,7 @@ import { CmsAreaSchema } from '../../schemas/api-input';
 import { getContentArea } from '../../services/cms';
 import { sanitizeCmsArea } from '../../utils/cms-sanitize';
 import { logger } from '../../utils/logger';
-import { hasUserToken } from '../../utils/request-identity';
+import { hasCmsUserToken } from '../../utils/request-identity';
 
 export default defineEventHandler(async (event) => {
   const { family, areaName, productAlias, brandAlias, categoryIds } =
@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
   setHeader(
     event,
     'Cache-Control',
-    hasUserToken(event) ? 'private, no-store' : 'private, no-cache',
+    hasCmsUserToken(event) ? 'private, no-store' : 'private, no-cache',
   );
 
   return withErrorHandling(
