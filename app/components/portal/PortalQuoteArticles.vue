@@ -4,7 +4,11 @@ import { Card, CardContent } from '~/components/ui/card';
 import CheckoutCardHeader from '~/components/checkout/CheckoutCardHeader.vue';
 import type { QuoteLineItem } from '#shared/types/quote';
 
-defineProps<{ items: QuoteLineItem[] }>();
+defineProps<{
+  items: QuoteLineItem[];
+  /** Whether a configured line's name links to its product; a sent quotation's do not. */
+  linkConfigured: boolean;
+}>();
 
 defineSlots<{
   /** In place of the table when there are no lines. */
@@ -21,7 +25,11 @@ const { t } = useI18n();
       :title="t('portal.quotations.items_heading')"
     />
     <CardContent class="px-6 pt-4">
-      <PortalQuoteItems v-if="items.length" :items="items" />
+      <PortalQuoteItems
+        v-if="items.length"
+        :items="items"
+        :link-configured="linkConfigured"
+      />
       <slot v-else name="empty" />
     </CardContent>
   </Card>

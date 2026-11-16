@@ -70,6 +70,13 @@ export function quoteDiscountLabel(
     : t('discount.discount');
 }
 
+/** A configured line links to its product on a draft only; from `requested` on it is plain. */
+export function quoteLinksConfiguredLines(
+  quote: Pick<Quote, 'status'>,
+): boolean {
+  return quote.status === 'request_draft';
+}
+
 /**
  * The quotation's lines, as the order parts render them: the desktop table and
  * the mobile sheet. Keyed by position, as two lines can carry one SKU.
@@ -78,6 +85,7 @@ export function quoteRows(
   quote: Quote | null | undefined,
   incVat: boolean,
 ): PortalItemRow[] {
+  const linkConfigured = !!quote && quoteLinksConfiguredLines(quote);
   return (quote?.lineItems ?? []).map((item, index) => ({
     key: `row-${index}`,
     name: item.name,
@@ -91,7 +99,7 @@ export function quoteRows(
       : item.totalPriceExVatFormatted,
     imageFileName: item.imageFileName ?? null,
     imageUrl: item.imageUrl ?? null,
-    alias: item.alias ?? null,
+    alias: item.configuration && !linkConfigured ? null : (item.alias ?? null),
     ...(item.configuration && {
       configuration: item.configuration,
       unitPrice: item.linePrices?.unit,

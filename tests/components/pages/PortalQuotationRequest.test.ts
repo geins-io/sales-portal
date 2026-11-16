@@ -8,7 +8,7 @@ import type {
   QuoteStatus,
 } from '../../../shared/types/quote';
 import type { Company } from '../../../shared/types/company';
-import { makeQuote } from '../../fixtures/quote';
+import { makeConfiguredQuoteLine, makeQuote } from '../../fixtures/quote';
 import { mockShowIncVat } from '../../setup-components';
 
 // The shared mock fills `{name}` placeholders, and keys carry none; this one
@@ -321,6 +321,27 @@ describe('PortalQuotationRequest', () => {
       expect(
         wrapper.find('[data-testid="quote-request-banner"]').text(),
       ).toContain('portal.quotations.request.banner_title');
+    });
+
+    it('words the line under the banner title lighter than the title, in the readable shade', async () => {
+      const wrapper = await mountWith(draft());
+
+      const [, line] = wrapper.findAll(
+        '[data-testid="quote-request-banner"] p',
+      );
+      expect(line!.classes()).toContain('text-foreground/58');
+      expect(line!.classes()).not.toContain('text-muted-foreground');
+    });
+
+    it('links a configured draft line to its product, as before', async () => {
+      const line = makeConfiguredQuoteLine({ alias: 'display' });
+      const wrapper = await mountWith(draft({ lineItems: [line] }));
+
+      expect(
+        wrapper
+          .findAll('[data-testid="line-item-name-link"]')
+          .map((link) => link.text()),
+      ).toEqual(['Configured Display', 'Configured Display']);
     });
 
     it("titles the page with the draft's name", async () => {

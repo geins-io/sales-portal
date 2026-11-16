@@ -9,7 +9,11 @@ import { Card, CardContent } from '~/components/ui/card';
 import CheckoutCardHeader from '~/components/checkout/CheckoutCardHeader.vue';
 import { useAuthStore } from '~/stores/auth';
 import { useQuotesStore } from '~/stores/quotes';
-import { quoteAmounts, quoteCanOrder } from '~/utils/quote-view';
+import {
+  quoteAmounts,
+  quoteCanOrder,
+  quoteLinksConfiguredLines,
+} from '~/utils/quote-view';
 import {
   quoteCheckoutCompany,
   quotePaymentOptions,
@@ -155,7 +159,7 @@ function formatDate(iso: string): string {
               })
             }}
           </p>
-          <p class="text-muted-foreground mt-0.5 text-sm">
+          <p class="text-foreground/58 mt-0.5 text-sm">
             {{ t('portal.quotations.order.banner_body') }}
           </p>
         </div>
@@ -170,7 +174,10 @@ function formatDate(iso: string): string {
 
       <div class="flex flex-col gap-8 lg:flex-row lg:items-start">
         <div class="min-w-0 flex-1 space-y-6">
-          <PortalQuoteArticles :items="quote.lineItems" />
+          <PortalQuoteArticles
+            :items="quote.lineItems"
+            :link-configured="quoteLinksConfiguredLines(quote)"
+          />
 
           <CheckoutCompanyInfo
             v-if="company"
