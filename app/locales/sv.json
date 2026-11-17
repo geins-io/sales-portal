@@ -913,6 +913,7 @@
         "event": {
           "request_sent": "skickade förfrågan",
           "quote_sent": "skickade offerten",
+          "revision_sent": "skickade en ny version",
           "accepted": "accepterade offerten",
           "confirmed": "bekräftade offerten",
           "declined": "avböjde offerten",
@@ -920,9 +921,13 @@
           "quote_rejected": "avvisade offerten",
           "request_rejected": "avvisade förfrågan",
           "ordered": "lade ordern",
+          "ordered_number": "lade order {number}",
           "canceled": "avbröt offerten",
           "expired": "satte offerten som utgången",
           "extended": "satte ett nytt utgångsdatum"
+        },
+        "event_system": {
+          "expired": "Offerten gick ut"
         }
       },
       "title": "Offerter och förfrågningar",

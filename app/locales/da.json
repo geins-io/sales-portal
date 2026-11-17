@@ -913,6 +913,7 @@
         "event": {
           "request_sent": "sendte forespørgslen",
           "quote_sent": "sendte tilbuddet",
+          "revision_sent": "sendte en ny version",
           "accepted": "accepterede tilbuddet",
           "confirmed": "bekræftede tilbuddet",
           "declined": "afviste tilbuddet",
@@ -920,9 +921,13 @@
           "quote_rejected": "afviste tilbuddet",
           "request_rejected": "afviste forespørgslen",
           "ordered": "afgav ordren",
+          "ordered_number": "afgav ordre {number}",
           "canceled": "annullerede tilbuddet",
           "expired": "markerede tilbuddet som udløbet",
           "extended": "satte en ny udløbsdato"
+        },
+        "event_system": {
+          "expired": "Tilbuddet udløb"
         }
       },
       "title": "Tilbud og forespørgsler",

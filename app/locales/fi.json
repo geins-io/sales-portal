@@ -913,6 +913,7 @@
         "event": {
           "request_sent": "lähetti tarjouspyynnön",
           "quote_sent": "lähetti tarjouksen",
+          "revision_sent": "lähetti uuden version",
           "accepted": "hyväksyi tarjouksen",
           "confirmed": "vahvisti tarjouksen",
           "declined": "hylkäsi tarjouksen",
@@ -920,9 +921,13 @@
           "quote_rejected": "hylkäsi tarjouksen",
           "request_rejected": "hylkäsi tarjouspyynnön",
           "ordered": "teki tilauksen",
+          "ordered_number": "teki tilauksen {number}",
           "canceled": "perui tarjouksen",
           "expired": "merkitsi tarjouksen vanhentuneeksi",
           "extended": "asetti uuden voimassaolopäivän"
+        },
+        "event_system": {
+          "expired": "Tarjous vanheni"
         }
       },
       "title": "Tarjoukset ja pyynnöt",

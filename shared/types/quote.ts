@@ -252,6 +252,7 @@ export interface QuoteRequestUpdate extends QuoteRequestDetails {
 export type QuoteThreadEventType =
   | 'request_sent'
   | 'quote_sent'
+  | 'revision_sent'
   | 'accepted'
   | 'confirmed'
   | 'declined'
@@ -268,13 +269,16 @@ export interface QuoteThreadEvent {
   /** The status change; each only when it is a known status. */
   from?: QuoteStatus;
   to?: QuoteStatus;
+  /** A placed order's number, when the quotation names it. */
+  orderNumber?: string;
 }
 
 export interface QuoteThreadEntry {
   id: string;
   /** An instant (ISO 8601). */
   at: string;
-  side: 'buyer' | 'seller';
+  /** `system`: a change nobody made, such as expiry. */
+  side: 'buyer' | 'seller' | 'system';
   authorName?: string;
   text?: string;
   event?: QuoteThreadEvent;

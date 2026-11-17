@@ -1,0 +1,20 @@
+query getQuotationHistory($quotationId: Guid!) {
+  getQuotationCart(quotationId: $quotationId) {
+    id
+    quotation {
+      orderId
+      customer {
+        firstName
+        lastName
+      }
+      statusHistory {
+        timestamp
+        action
+        statusFrom
+        statusTo
+        actor
+        quotationNumber
+      }
+    }
+  }
+}

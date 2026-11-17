@@ -913,6 +913,7 @@
         "event": {
           "request_sent": "sent the request",
           "quote_sent": "sent the quotation",
+          "revision_sent": "sent a new version",
           "accepted": "accepted the quotation",
           "confirmed": "confirmed the quotation",
           "declined": "declined the quotation",
@@ -920,9 +921,13 @@
           "quote_rejected": "rejected the quotation",
           "request_rejected": "rejected the request",
           "ordered": "placed the order",
+          "ordered_number": "placed order {number}",
           "canceled": "canceled the quotation",
           "expired": "marked the quotation as expired",
           "extended": "set a new expiry date"
+        },
+        "event_system": {
+          "expired": "The quotation expired"
         }
       },
       "title": "Quotations and requests",

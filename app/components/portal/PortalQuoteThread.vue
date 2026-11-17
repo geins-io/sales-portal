@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
 import PortalDialogConfirmQuoteAction from './PortalDialogConfirmQuoteAction.vue';
+import PortalQuoteLogEvent from './PortalQuoteLogEvent.vue';
 import PortalQuoteThreadComposer, {
   type QuoteReplyTarget,
 } from './PortalQuoteThreadComposer.vue';
@@ -36,11 +37,8 @@ import {
   getQuoteStatusLabelKey,
   getQuoteStatusVariant,
 } from '~/utils/quote-status';
-import type {
-  QuoteStatus,
-  QuoteThread,
-  QuoteThreadEntry,
-} from '#shared/types/quote';
+import { QUOTE_EVENT_ICONS, outlinedStatusClass } from '~/utils/quote-log';
+import type { QuoteThread, QuoteThreadEntry } from '#shared/types/quote';
 
 const props = defineProps<{
   quoteId: string;
@@ -176,25 +174,27 @@ function formatWhen(iso: string) {
   });
 }
 
-/** What happened, as a phrase after the author's name. */
+/** What happened, as a phrase after the author's name, or alone for expiry. */
 function eventText(entry: QuoteThreadEntry) {
-  return t(`portal.quotations.thread.event.${entry.event!.type}`);
+  const { type, orderNumber } = entry.event!;
+  if (entry.side === 'system') {
+    return t(`portal.quotations.thread.event_system.${type}`);
+  }
+  if (type === 'ordered' && orderNumber) {
+    return t('portal.quotations.thread.event.ordered_number', {
+      number: orderNumber,
+    });
+  }
+  return t(`portal.quotations.thread.event.${type}`);
 }
+
+/** An event nobody wrote anything with is a line in the history, not a box. */
+const isLine = (entry: QuoteThreadEntry) =>
+  !!entry.event && !entry.text && !entry.replyTo;
 
 /** Geins may send no name; the side still says who. */
 function authorOf(entry: QuoteThreadEntry) {
   return entry.authorName || t(`portal.quotations.thread.author.${entry.side}`);
-}
-
-/**
- * A status pill outlined so it reads on the entry's tint. A solid badge has
- * white text, which on a white pill takes the badge's colour instead.
- */
-function outlined(status: QuoteStatus) {
-  return [
-    'bg-card border-current/30',
-    getQuoteStatusVariant(status) === 'success-solid' && 'text-success',
-  ];
 }
 
 const hasChange = (entry: QuoteThreadEntry) =>
@@ -263,10 +263,21 @@ const hasChange = (entry: QuoteThreadEntry) =>
           }}
         </p>
 
-        <template v-if="thread">
+        <template v-for="entry in thread?.entries ?? []" :key="entry.id">
+          <PortalQuoteLogEvent
+            v-if="isLine(entry)"
+            data-testid="quote-thread-event-line"
+            :data-side="entry.side"
+            :icon="QUOTE_EVENT_ICONS[entry.event!.type]"
+            :actor="entry.side === 'system' ? undefined : authorOf(entry)"
+            :label="eventText(entry)"
+            :from="entry.event!.from"
+            :to="entry.event!.to"
+            :datetime="entry.at"
+            :when="formatWhen(entry.at)"
+          />
           <article
-            v-for="entry in thread.entries"
-            :key="entry.id"
+            v-else
             data-testid="quote-thread-entry"
             :data-side="entry.side"
             class="rounded-[0.375rem] border px-4 py-3"
@@ -308,7 +319,7 @@ const hasChange = (entry: QuoteThreadEntry) =>
                 >
                   <Badge
                     :variant="getQuoteStatusVariant(entry.event!.from!)"
-                    :class="outlined(entry.event!.from!)"
+                    :class="outlinedStatusClass(entry.event!.from!)"
                   >
                     {{ t(getQuoteStatusLabelKey(entry.event!.from!)) }}
                   </Badge>
@@ -318,7 +329,7 @@ const hasChange = (entry: QuoteThreadEntry) =>
                   />
                   <Badge
                     :variant="getQuoteStatusVariant(entry.event!.to!)"
-                    :class="outlined(entry.event!.to!)"
+                    :class="outlinedStatusClass(entry.event!.to!)"
                   >
                     {{ t(getQuoteStatusLabelKey(entry.event!.to!)) }}
                   </Badge>
