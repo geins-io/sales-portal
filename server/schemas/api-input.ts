@@ -424,7 +424,9 @@ export const QuoteMessageSchema = z.object({
 });
 export type QuoteMessageInput = z.infer<typeof QuoteMessageSchema>;
 
-export const QuoteMessageParamsSchema = z.object({
+export const QuoteIdParamsSchema = z.object({ id: z.guid() });
+
+export const QuoteMessageParamsSchema = QuoteIdParamsSchema.extend({
   messageId: z.guid(),
 });
 

@@ -1,5 +1,8 @@
 import { createQuoteMessage } from '../../../services/quote-thread';
-import { QuoteMessageSchema } from '../../../schemas/api-input';
+import {
+  QuoteIdParamsSchema,
+  QuoteMessageSchema,
+} from '../../../schemas/api-input';
 import {
   quoteMessageRateLimiter,
   getClientIp,
@@ -13,10 +16,13 @@ export default defineEventHandler(async (event) => {
     throw createAppError(ErrorCode.RATE_LIMITED, 'Too many quote messages');
   }
 
+  const { id } = await getValidatedRouterParams(
+    event,
+    QuoteIdParamsSchema.parse,
+  );
   const input = await readValidatedBody(event, QuoteMessageSchema.parse);
-  const id = getRouterParam(event, 'id');
 
-  const message = await createQuoteMessage(id as string, input, event);
+  const message = await createQuoteMessage(id, input, event);
 
   return { message };
 });

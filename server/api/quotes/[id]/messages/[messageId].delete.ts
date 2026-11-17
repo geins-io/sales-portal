@@ -13,13 +13,12 @@ export default defineEventHandler(async (event) => {
     throw createAppError(ErrorCode.RATE_LIMITED, 'Too many quote messages');
   }
 
-  const { messageId } = await getValidatedRouterParams(
+  const { id, messageId } = await getValidatedRouterParams(
     event,
     QuoteMessageParamsSchema.parse,
   );
-  const id = getRouterParam(event, 'id');
 
-  await deleteQuoteMessage(id as string, messageId, event);
+  await deleteQuoteMessage(id, messageId, event);
 
   return { deleted: true };
 });
