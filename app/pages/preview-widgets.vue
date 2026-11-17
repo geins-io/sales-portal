@@ -10,7 +10,8 @@ import { Button } from '~/components/ui/button';
  * directly on the browser response (not via internal SSR fetch).
  * The API endpoint then redirects to the storefront homepage.
  *
- * Without redirect param: shows a status page with "Browse site" button.
+ * Without redirect param: shows a status page with "Browse site" button,
+ * unless the token carries a page draft, which lands on its page.
  */
 definePageMeta({ layout: false });
 
@@ -39,29 +40,15 @@ if (loginToken && redirect === 'true') {
   await navigateTo(target, { external: true });
 }
 
-// Without redirect → activate preview via API and show status page
-const authError = ref<string | null>(null);
+// Without redirect → the same entry, back to this status page, on the server
+// and on a client-side navigation alike. `home` lets a page-draft preview land
+// on its page instead of here. Cookies are set by preview-enter, so returning
+// here without a token shows the status page.
 const isReady = ref(false);
 
 if (loginToken && redirect !== 'true') {
-  // Client-side: call the API directly (browser makes real HTTP request)
-  if (import.meta.client) {
-    try {
-      await $fetch('/api/auth/preview', {
-        method: 'POST',
-        body: { loginToken },
-      });
-      isReady.value = true;
-    } catch {
-      authError.value = 'Invalid or expired preview token';
-    }
-  } else {
-    // SSR: redirect to the GET endpoint which sets cookies properly.
-    // Do NOT include loginToken in the redirect URL — cookies are already set
-    // by preview-enter, so returning here without a token shows the status page.
-    const target = `/api/auth/preview-enter?loginToken=${encodeURIComponent(loginToken)}&redirect=${encodeURIComponent('/preview-widgets')}`;
-    await navigateTo(target, { external: true });
-  }
+  const target = `/api/auth/preview-enter?loginToken=${encodeURIComponent(loginToken)}&redirect=${encodeURIComponent('/preview-widgets')}&home=${encodeURIComponent(localePath('/'))}`;
+  await navigateTo(target, { external: true });
 } else if (!loginToken && isPreview) {
   // Returned from preview-enter with cookies set — show success state
   isReady.value = true;
@@ -71,37 +58,8 @@ if (loginToken && redirect !== 'true') {
 <template>
   <div class="flex min-h-screen items-center justify-center bg-gray-50">
     <div class="w-full max-w-md space-y-6 rounded-lg bg-white p-8 shadow-lg">
-      <!-- Error state -->
-      <div v-if="authError" class="space-y-4 text-center">
-        <div
-          class="mx-auto flex size-12 items-center justify-center rounded-full bg-red-100"
-        >
-          <svg
-            class="size-6 text-red-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </div>
-        <h1 class="text-lg font-semibold text-gray-900">Preview Failed</h1>
-        <p class="text-sm text-gray-500">{{ authError }}</p>
-        <a
-          :href="localePath('/')"
-          class="inline-block rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800"
-        >
-          Go to site
-        </a>
-      </div>
-
       <!-- Success state (cookies set, preview active) -->
-      <div v-else-if="isReady || isPreview" class="space-y-4 text-center">
+      <div v-if="isReady || isPreview" class="space-y-4 text-center">
         <div
           class="mx-auto flex size-12 items-center justify-center rounded-full bg-green-100"
         >

@@ -26,9 +26,6 @@ describe('previewLandingPath', () => {
     expect(await previewLandingPath(event, 'jwt', '/se/sv')).toBe(
       '/se/sv/test-page-draft',
     );
-    expect(await previewLandingPath(event, 'jwt', '/')).toBe(
-      '/test-page-draft',
-    );
     expect(mockReadPreviewPageDraft).toHaveBeenCalledWith(
       event,
       'jwt',
@@ -75,6 +72,22 @@ describe('previewLandingPath', () => {
     expect(await previewLandingPath(event, 'jwt', '/se/sv/')).toBe('/se/sv/');
   });
 
+  it('keeps a bare / , where a two-letter alias would read as a market prefix', async () => {
+    mockReadPreviewPageDraft.mockResolvedValue({ ...PAGE_DRAFT, title: 'Om' });
+
+    expect(await previewLandingPath(event, 'jwt', '/')).toBe('/');
+    expect(
+      await previewLandingPath(event, 'jwt', '/preview-widgets', '/'),
+    ).toBe('/preview-widgets');
+    expect(mockReadPreviewPageDraft).not.toHaveBeenCalled();
+  });
+
+  it('lands a two-letter alias under its prefix', async () => {
+    mockReadPreviewPageDraft.mockResolvedValue({ ...PAGE_DRAFT, title: 'Om' });
+
+    expect(await previewLandingPath(event, 'jwt', '/se/sv/')).toBe('/se/sv/om');
+  });
+
   it('never moves a path that is not a start page, and reads nothing for it', async () => {
     expect(await previewLandingPath(event, 'jwt', '/preview-widgets')).toBe(
       '/preview-widgets',
@@ -83,5 +96,59 @@ describe('previewLandingPath', () => {
       '/se/sv/c/kablar',
     );
     expect(mockReadPreviewPageDraft).not.toHaveBeenCalled();
+  });
+
+  // Merchant Center links a page draft without `redirect=true`, so the preview
+  // is sent to the status page; the page passes the start page it would link.
+  describe('sent to the preview status page', () => {
+    it('lands a page draft on its alias under the given start page', async () => {
+      expect(
+        await previewLandingPath(event, 'jwt', '/preview-widgets', '/se/sv/'),
+      ).toBe('/se/sv/test-page-draft');
+      expect(mockReadPreviewPageDraft).toHaveBeenCalledWith(
+        event,
+        'jwt',
+        '/se/sv/',
+      );
+    });
+
+    it('keeps the status page for an area draft, no draft, an empty alias or a failed read', async () => {
+      mockReadPreviewPageDraft.mockResolvedValueOnce(null);
+      mockReadPreviewPageDraft.mockResolvedValueOnce({
+        ...PAGE_DRAFT,
+        title: 'Привет',
+      });
+      mockReadPreviewPageDraft.mockRejectedValueOnce(new Error('timed out'));
+
+      for (let i = 0; i < 3; i++) {
+        expect(
+          await previewLandingPath(event, 'jwt', '/preview-widgets', '/se/sv/'),
+        ).toBe('/preview-widgets');
+      }
+    });
+
+    it.each([
+      undefined,
+      '',
+      'https://evil.example/se/sv/',
+      '//evil.example/',
+      '/\\evil.example/',
+      '/se/sv/../x',
+      '/se/sv/c/kablar',
+      '/se/sv/?x=1',
+      '/SE/sv/',
+    ])('ignores home %j and keeps the status page', async (home) => {
+      expect(
+        await previewLandingPath(event, 'jwt', '/preview-widgets', home),
+      ).toBe('/preview-widgets');
+      expect(mockReadPreviewPageDraft).not.toHaveBeenCalled();
+    });
+
+    it('uses home only for the status page, never for another path', async () => {
+      expect(
+        await previewLandingPath(event, 'jwt', '/se/sv/c/kablar', '/se/sv/'),
+      ).toBe('/se/sv/c/kablar');
+      expect(mockReadPreviewPageDraft).not.toHaveBeenCalled();
+    });
   });
 });

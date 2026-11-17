@@ -158,6 +158,7 @@ describe('preview-enter endpoint', () => {
       mockEvent,
       'some-token',
       '/se/sv/',
+      undefined,
     );
     expect(sendRedirectMock).toHaveBeenCalledWith(
       mockEvent,
@@ -178,6 +179,41 @@ describe('preview-enter endpoint', () => {
       mockEvent,
       'some-token',
       '/',
+      undefined,
+    );
+  });
+
+  it('hands the start page from ?home= to the landing', async () => {
+    getQueryMock.mockReturnValue({
+      loginToken: 'some-token',
+      redirect: '/preview-widgets',
+      home: '/se/sv/',
+    });
+    const handler = await importHandler();
+    await handler(mockEvent);
+
+    expect(previewLandingPathMock).toHaveBeenCalledWith(
+      mockEvent,
+      'some-token',
+      '/preview-widgets',
+      '/se/sv/',
+    );
+  });
+
+  it('never hands an unsafe home to the landing', async () => {
+    getQueryMock.mockReturnValue({
+      loginToken: 'some-token',
+      redirect: '/preview-widgets',
+      home: '//evil.com',
+    });
+    const handler = await importHandler();
+    await handler(mockEvent);
+
+    expect(previewLandingPathMock).toHaveBeenCalledWith(
+      mockEvent,
+      'some-token',
+      '/preview-widgets',
+      undefined,
     );
   });
 });
