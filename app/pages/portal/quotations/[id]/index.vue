@@ -473,6 +473,7 @@ const customerSummary = computed(() => {
       class="border-border rounded-lg border bg-white p-6"
     >
       <div
+        data-testid="quote-toolbar"
         class="border-border flex flex-wrap items-center justify-between gap-4 border-b pb-4"
       >
         <NuxtLink
@@ -498,6 +499,11 @@ const customerSummary = computed(() => {
             <Check class="size-3.5" />{{ t('portal.quotations.draft.saved') }}
           </template>
         </p>
+        <PortalQuoteThread
+          v-if="!isDraft"
+          :quote-id="quoteId"
+          :subtitle="threadSubtitle"
+        />
       </div>
 
       <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -652,13 +658,6 @@ const customerSummary = computed(() => {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-            </div>
-            <!-- Its own row: beside the title it squeezes the title in this narrow column. -->
-            <div v-if="!isDraft" class="mt-3">
-              <PortalQuoteThread
-                :quote-id="quoteId"
-                :subtitle="threadSubtitle"
-              />
             </div>
           </header>
 
