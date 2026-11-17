@@ -14,6 +14,7 @@ import {
   type ApiCart,
 } from '../helpers';
 import { ALLOW_ORDERS_FOR, BASE_URL } from '../target';
+import { apiGet } from '../api-call';
 
 /**
  * Order placement — the one spec in this suite that mutates the real backend.
@@ -119,7 +120,7 @@ function annotate(description: string): void {
  * the gate should not rest on the order its dependencies happen to run in.
  */
 async function resolvedTenantId(page: Page): Promise<string> {
-  const response = await page.request.get('/api/config');
+  const response = await apiGet(page.request, '/api/config');
   expect(
     response.ok(),
     `/api/config answered ${response.status()}, so the tenant behind ${BASE_URL} is unknown`,
@@ -137,7 +138,7 @@ async function resolvedTenantId(page: Page): Promise<string> {
  * once, after it is 200.
  */
 async function orderStatus(page: Page, publicId: string): Promise<number> {
-  return (await page.request.get(`/api/orders/${publicId}`)).status();
+  return (await apiGet(page.request, `/api/orders/${publicId}`)).status();
 }
 
 /** One rendered order line: what the detail page shows for it. */

@@ -10,6 +10,7 @@ import {
   signedInState,
 } from './helpers';
 import { BASE_URL } from './target';
+import { apiGet } from './api-call';
 
 /**
  * Search E2E Tests
@@ -291,7 +292,7 @@ test.describe('Search results add to cart', () => {
       (cookie) => cookie.name === 'cart_id',
     )?.value;
     if (!cartId) return { lines: [] };
-    const response = await page.request.get('/api/cart', {
+    const response = await apiGet(page.request, '/api/cart', {
       params: { cartId },
     });
     expect(response.ok(), '/api/cart did not answer 200').toBe(true);

@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { apiGet } from './api-call';
 
 /**
  * Unregistered hostname
@@ -63,7 +64,7 @@ test.describe('Unregistered hostname', () => {
   }) => {
     const headers = { host: UNREGISTERED_HOST, accept: 'application/json' };
     const page = await request.get('/se/sv/', { headers, maxRedirects: 0 });
-    const config = await request.get('/api/config', { headers });
+    const config = await apiGet(request, '/api/config', { headers });
 
     expect(config.status()).toBe(page.status());
     expect(config.status()).toBe(404);

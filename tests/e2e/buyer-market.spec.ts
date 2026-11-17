@@ -6,7 +6,7 @@ import {
   outOfScope,
   waitForHydration,
 } from './helpers';
-import { apiRoute } from './api-call';
+import { apiRoute, apiGet } from './api-call';
 
 /**
  * An organization buyer who signs in on another market lands on the market of
@@ -38,7 +38,7 @@ test.describe('Buyer market on sign-in', () => {
     page,
     context,
   }) => {
-    const configResponse = await page.request.get('/api/config');
+    const configResponse = await apiGet(page.request, '/api/config');
     expect(configResponse.ok(), 'GET /api/config must succeed').toBe(true);
     const config = await configResponse.json();
     const markets: string[] = config?.availableMarkets ?? [];
@@ -81,7 +81,7 @@ test.describe('Buyer market on sign-in', () => {
     ]);
     expect(login.ok(), `sign-in answered HTTP ${login.status()}`).toBe(true);
 
-    const companyResponse = await page.request.get('/api/portal/company');
+    const companyResponse = await apiGet(page.request, '/api/portal/company');
     outOfScope(
       !companyResponse.ok(),
       'tenant-config',

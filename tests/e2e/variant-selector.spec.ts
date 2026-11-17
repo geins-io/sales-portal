@@ -6,7 +6,7 @@ import {
   signedInState,
   waitForHydration,
 } from './helpers';
-import { apiRoute } from './api-call';
+import { apiRoute, apiGet } from './api-call';
 
 /**
  * Variant selector E2E Tests
@@ -70,7 +70,7 @@ let discovered: VariantProduct[] | null = null;
  */
 async function discoverVariantProducts(page: Page): Promise<VariantProduct[]> {
   if (discovered) return discovered;
-  const list = await page.request.get('/api/product-lists/products', {
+  const list = await apiGet(page.request, '/api/product-lists/products', {
     params: { take: '100', filter: JSON.stringify({ sort: 'ALPHABETICAL' }) },
   });
   expect(list.ok()).toBe(true);
@@ -82,7 +82,7 @@ async function discoverVariantProducts(page: Page): Promise<VariantProduct[]> {
   for (let i = 0; i < aliases.length; i += 10) {
     const batch = await Promise.all(
       aliases.slice(i, i + 10).map(async (alias) => {
-        const res = await page.request.get(`/api/products/${alias}`);
+        const res = await apiGet(page.request, `/api/products/${alias}`);
         if (!res.ok()) return null;
         const body = await res.json();
         const product = body.product ?? body;
@@ -122,7 +122,7 @@ async function productOf(page: Page, dimensions: 'one' | 'several') {
 }
 
 async function canonicalPath(page: Page, alias: string): Promise<string> {
-  const res = await page.request.get(`/api/products/${alias}`);
+  const res = await apiGet(page.request, `/api/products/${alias}`);
   expect(res.ok()).toBe(true);
   const body = await res.json();
   return (body.product ?? body).canonicalUrl as string;
@@ -364,7 +364,7 @@ test.describe('Variant selector', () => {
     const product = await productOf(page, 'one');
     const [dimension] = Object.keys(product.variants[0]!.selection) as [string];
     const imageOf = async (alias: string): Promise<string | null> => {
-      const res = await page.request.get(`/api/products/${alias}`);
+      const res = await apiGet(page.request, `/api/products/${alias}`);
       expect(res.ok()).toBe(true);
       const body = await res.json();
       return (body.product ?? body).productImages?.[0]?.fileName ?? null;
@@ -424,7 +424,10 @@ test.describe('Variant selector and the cart', () => {
     const [dimension] = Object.keys(own.selection) as [string];
     const target = targetOn(product, own, dimension);
     const expected = await canonicalPath(page, target.alias);
-    const targetRes = await page.request.get(`/api/products/${target.alias}`);
+    const targetRes = await apiGet(
+      page.request,
+      `/api/products/${target.alias}`,
+    );
     const targetBody = await targetRes.json();
     const articleNumber = (targetBody.product ?? targetBody).skus[0]
       .articleNumber as string;

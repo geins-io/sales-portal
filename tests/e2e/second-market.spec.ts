@@ -1,6 +1,7 @@
 import { test, expect, type APIRequestContext } from './fixtures';
 import { outOfScope, waitForHydration } from './helpers';
 import { BASE_URL } from './target';
+import { apiGet } from './api-call';
 
 /**
  * Second-market category page, signed out.
@@ -24,7 +25,7 @@ interface MarketTarget {
 async function secondMarketTarget(
   request: APIRequestContext,
 ): Promise<MarketTarget | null> {
-  const response = await request.get('/api/config');
+  const response = await apiGet(request, '/api/config');
   expect(response.ok(), 'GET /api/config must succeed').toBe(true);
   const config = await response.json();
 
@@ -38,7 +39,7 @@ async function secondMarketTarget(
     .toLowerCase();
   expect(locale, 'tenant config must carry a locale').not.toBe('');
 
-  const menuResponse = await request.get('/api/cms/menu', {
+  const menuResponse = await apiGet(request, '/api/cms/menu', {
     params: { menuLocationId: 'main', locale, market },
   });
   expect(menuResponse.ok(), 'GET /api/cms/menu must succeed').toBe(true);
@@ -122,7 +123,7 @@ test.describe('Second-market category page', () => {
     request,
   }) => {
     const { market, categoryPath } = target!;
-    const response = await request.get('/api/markets');
+    const response = await apiGet(request, '/api/markets');
     expect(response.ok(), 'GET /api/markets must succeed').toBe(true);
     const currencies: Record<string, string> = await response.json();
     const currency = currencies[market];

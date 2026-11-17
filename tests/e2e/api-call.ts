@@ -1,3 +1,5 @@
+import type { APIRequestContext, APIResponse } from '@playwright/test';
+
 /**
  * Matching a call to one of our own `/api` routes by its pathname alone.
  *
@@ -28,4 +30,29 @@ export function isApiCall(url: string | URL, path: string): boolean {
 /** For `page.route`, `context.route` and `unroute`: the call by its pathname. */
 export function apiRoute(path: string): (url: URL) => boolean {
   return (url) => isApiCall(url, path);
+}
+
+/** The statuses ofetch retries a GET on (ofetch 1.5.1, `retryStatusCodes`). */
+const RETRY_STATUSES = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
+
+/**
+ * A GET of one of our own `/api` routes, retried once the way the page's
+ * `useFetch`/`$fetch` (ofetch) retries it: on the statuses above, or when the
+ * call threw. Without it, one stalled Geins call fails a test that a buyer
+ * would not have noticed. Writes never go through here: ofetch does not retry
+ * them either. The lint rule `sales-portal/api-get-through-helper` holds
+ * tests/e2e to it.
+ */
+export async function apiGet(
+  request: APIRequestContext,
+  url: string,
+  options?: Parameters<APIRequestContext['get']>[1],
+): Promise<APIResponse> {
+  try {
+    const response = await request.get(url, options);
+    if (!RETRY_STATUSES.has(response.status())) return response;
+  } catch {
+    // ofetch counts a call without an answer as a 500 and retries it.
+  }
+  return request.get(url, options);
 }

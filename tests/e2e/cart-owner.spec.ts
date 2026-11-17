@@ -6,6 +6,7 @@ import {
   outOfScope,
   waitForHydration,
 } from './helpers';
+import { apiGet } from './api-call';
 
 /**
  * Buyers taking turns in one browser. Each buyer gets their own cart, never
@@ -89,7 +90,7 @@ async function signOut(page: Page): Promise<void> {
  */
 async function emptyCarts(page: Page, cartIds: Set<string>): Promise<void> {
   for (const cartId of cartIds) {
-    const response = await page.request.get('/api/cart', {
+    const response = await apiGet(page.request, '/api/cart', {
       params: { cartId },
     });
     if (!response.ok()) continue;

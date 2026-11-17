@@ -5,6 +5,7 @@ import {
   outOfScope,
   waitForHydration,
 } from './helpers';
+import { apiGet } from './api-call';
 
 /**
  * A session whose auth cookie has expired while the refresh cookie is still
@@ -33,7 +34,7 @@ async function cookieValue(page: Page, name: string) {
 }
 
 async function signedInUser(page: Page) {
-  const response = await page.request.get('/api/auth/me');
+  const response = await apiGet(page.request, '/api/auth/me');
   expect(response.ok()).toBe(true);
   return (await response.json())?.user ?? null;
 }
@@ -44,7 +45,7 @@ test.describe('Session refresh', () => {
   test('an expired auth cookie next to a valid refresh cookie', async ({
     page,
   }) => {
-    const config = await (await page.request.get('/api/config')).json();
+    const config = await (await apiGet(page.request, '/api/config')).json();
     const cmsSlot = config?.cms?.slots?.frontpage_content;
 
     await login(page);
@@ -70,7 +71,7 @@ test.describe('Session refresh', () => {
     await test.step('user-scoped reads answer for the buyer', async () => {
       await dropAuthCookie(page);
 
-      const orders = await page.request.get('/api/orders');
+      const orders = await apiGet(page.request, '/api/orders');
 
       expect(orders.status()).toBe(200);
       expect(Array.isArray((await orders.json())?.orders)).toBe(true);
@@ -80,7 +81,7 @@ test.describe('Session refresh', () => {
       expect(cmsSlot, 'the tenant has no frontpage_content slot').toBeTruthy();
       await dropAuthCookie(page);
 
-      const response = await page.request.get('/api/cms/area', {
+      const response = await apiGet(page.request, '/api/cms/area', {
         params: { family: cmsSlot.family, areaName: cmsSlot.areaName },
       });
 
@@ -105,7 +106,7 @@ test.describe('Session refresh', () => {
       extraHTTPHeaders: { cookie: 'refresh_token=not-a-refresh-token' },
     });
 
-    const response = await request.get('/api/orders');
+    const response = await apiGet(request, '/api/orders');
 
     expect(response.status()).toBe(401);
     expect((await response.json())?.data?.code).toBe('SESSION_EXPIRED');

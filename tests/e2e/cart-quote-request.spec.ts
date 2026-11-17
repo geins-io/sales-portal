@@ -9,7 +9,7 @@ import {
   waitForHydration,
 } from './helpers';
 import { localeText } from './locale-text';
-import { apiRoute } from './api-call';
+import { apiRoute, apiGet } from './api-call';
 
 /**
  * The cart's "Skapa offertförfrågan av varukorgen", confirmed in a dialog. The
@@ -146,7 +146,7 @@ async function expectedName(page: Page): Promise<string> {
  * wrong-shaped answer fails instead of turning the flow tests into skips.
  */
 async function quoteRequestsOn(page: Page): Promise<boolean> {
-  const response = await page.request.get('/api/config');
+  const response = await apiGet(page.request, '/api/config');
   expect(response.ok(), '/api/config did not answer 200').toBe(true);
   const { features } = await response.json();
   expect(

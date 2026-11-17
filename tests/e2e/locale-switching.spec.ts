@@ -24,6 +24,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test, expect, type Page } from './fixtures';
 import { outOfScope, waitForHydration } from './helpers';
+import { apiGet } from './api-call';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../..');
 
@@ -131,7 +132,7 @@ if (collisions.length > 0) {
 
 /** Full BCP-47 locale tags this tenant actually offers, from its own config. */
 async function tenantAvailableLocales(page: Page): Promise<string[]> {
-  const response = await page.request.get('/api/config');
+  const response = await apiGet(page.request, '/api/config');
   expect(response.ok(), 'GET /api/config must succeed').toBe(true);
 
   const config = await response.json();

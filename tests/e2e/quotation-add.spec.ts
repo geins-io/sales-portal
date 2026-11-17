@@ -12,6 +12,7 @@ import {
 } from './helpers';
 import { localeText } from './locale-text';
 import { unitsAvailable, type StockedCandidate } from './product-choice';
+import { apiGet } from './api-call';
 
 /**
  * "Lägg till i offertförfrågan" on the product page, against Geins: the test
@@ -70,7 +71,7 @@ function draftName(testInfo: TestInfo, width: string): string {
 }
 
 async function listDrafts(page: Page): Promise<ListedDraft[] | null> {
-  const response = await page.request.get('/api/quotes');
+  const response = await apiGet(page.request, '/api/quotes');
   if (!response.ok()) return null;
   const { quotes = [] } = (await response.json()) as { quotes?: ListedDraft[] };
   return quotes.filter((quote) => quote.status === 'request_draft');
@@ -113,7 +114,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function quoteRequestsOn(page: Page): Promise<boolean> {
-  const response = await page.request.get('/api/config');
+  const response = await apiGet(page.request, '/api/config');
   expect(response.ok(), '/api/config did not answer 200').toBe(true);
   const { features } = await response.json();
   return (
@@ -127,7 +128,7 @@ async function quoteRequestsOn(page: Page): Promise<boolean> {
  * from a cart, and Geins leaves a line short of stock out of a cart.
  */
 async function plainProduct(page: Page, amount: number): Promise<Product> {
-  const response = await page.request.get('/api/product-lists/products', {
+  const response = await apiGet(page.request, '/api/product-lists/products', {
     params: { take: '50', filter: JSON.stringify({ sort: 'ALPHABETICAL' }) },
   });
   expect(response.ok()).toBe(true);
@@ -155,7 +156,7 @@ async function buyersCart(page: Page) {
     (c) => c.name === 'cart_id',
   );
   if (!cookie) return { id: null, lines: [] };
-  const response = await page.request.get('/api/cart', {
+  const response = await apiGet(page.request, '/api/cart', {
     params: { cartId: cookie.value },
   });
   const cart = response.ok()
@@ -271,7 +272,7 @@ for (const width of ['desktop', 'mobile'] as const) {
       timeout: PAGE_TIMEOUT,
     });
     const id = page.url().split('/').pop()!;
-    const read = await page.request.get(`/api/quotes/${id}`);
+    const read = await apiGet(page.request, `/api/quotes/${id}`);
     expect(read.ok()).toBe(true);
     const { quote } = (await read.json()) as {
       quote: { name: string; lineItems: { skuId: number; quantity: number }[] };

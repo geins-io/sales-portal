@@ -14,6 +14,7 @@ import {
   type ApiCart,
 } from './helpers';
 import { localeText } from './locale-text';
+import { apiGet } from './api-call';
 
 /**
  * Cart E2E Tests
@@ -386,7 +387,7 @@ test.describe('Cart values', () => {
     const cartId = (await page.context().cookies()).find(
       (cookie) => cookie.name === 'cart_id',
     )?.value;
-    const response = await page.request.get('/api/cart', {
+    const response = await apiGet(page.request, '/api/cart', {
       params: { cartId: cartId! },
     });
     expect(response.ok(), '/api/cart did not answer 200').toBe(true);
@@ -632,7 +633,7 @@ test.describe('Cart layout', () => {
     await addToCart(page, first.alias);
     const cartId = await cartIdOf(page);
 
-    const response = await page.request.get('/api/product-lists/products', {
+    const response = await apiGet(page.request, '/api/product-lists/products', {
       params: { take: '60', filter: JSON.stringify({ sort: 'ALPHABETICAL' }) },
     });
     expect(response.ok()).toBe(true);
@@ -794,13 +795,17 @@ test.describe('Cart layout', () => {
     // The whole catalogue, a page at a time: a sale can sit on any product.
     const rows: Row[] = [];
     for (let skip = 0; ; skip += 100) {
-      const response = await page.request.get('/api/product-lists/products', {
-        params: {
-          take: '100',
-          skip: String(skip),
-          filter: JSON.stringify({ sort: 'ALPHABETICAL' }),
+      const response = await apiGet(
+        page.request,
+        '/api/product-lists/products',
+        {
+          params: {
+            take: '100',
+            skip: String(skip),
+            filter: JSON.stringify({ sort: 'ALPHABETICAL' }),
+          },
         },
-      });
+      );
       expect(response.ok()).toBe(true);
       const batch: Row[] = (await response.json()).products ?? [];
       rows.push(...batch);

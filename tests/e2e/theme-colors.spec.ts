@@ -7,6 +7,7 @@ import {
   signedInState,
   waitForHydration,
 } from './helpers';
+import { apiGet } from './api-call';
 
 /**
  * Tenant theme color application — Safari/WebKit regression guard.
@@ -219,7 +220,9 @@ test.describe('Tenant button text colours', () => {
   test('both button variants paint their text from their own variable (simulated values)', async ({
     page,
   }) => {
-    const config = (await (await page.request.get('/api/config')).json()) as {
+    const config = (await (
+      await apiGet(page.request, '/api/config')
+    ).json()) as {
       theme: { colors: Record<string, string | null | undefined> };
     };
     expect(

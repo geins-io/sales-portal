@@ -6,6 +6,7 @@ import {
   waitForHydration,
 } from './helpers';
 import { localeText } from './locale-text';
+import { apiGet } from './api-call';
 
 /**
  * A product sold in several SKUs of its own, not as sibling products. Geins
@@ -37,7 +38,7 @@ interface Sku {
 }
 
 async function productSkus(page: Page): Promise<Sku[]> {
-  const response = await page.request.get(`/api/products/${ALIAS}`);
+  const response = await apiGet(page.request, `/api/products/${ALIAS}`);
   if (!response.ok()) return [];
   return ((await response.json()) as { skus?: Sku[] }).skus ?? [];
 }
@@ -116,7 +117,9 @@ test('the buyer picks a SKU and the picked SKU is the one added', async ({
 
     cartId = await cartIdOf(page);
     if (!cartId) throw new Error('the add left no cart cookie');
-    const cart = await page.request.get('/api/cart', { params: { cartId } });
+    const cart = await apiGet(page.request, '/api/cart', {
+      params: { cartId },
+    });
     const items =
       ((await cart.json()) as { items?: { id: string; skuId: number }[] })
         .items ?? [];
