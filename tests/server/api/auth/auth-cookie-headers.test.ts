@@ -76,6 +76,11 @@ vi.stubGlobal('ErrorCode', {
   UNAUTHORIZED: 'UNAUTHORIZED',
 });
 vi.stubGlobal('getSessionToken', () => undefined);
+// The preview landing reads Geins; its own tests cover it. Here it keeps the path.
+vi.stubGlobal(
+  'previewLandingPath',
+  async (_event: unknown, _token: string, path: string) => path,
+);
 
 // Every cookie helper runs for real, as the Nitro auto-import would.
 const cookies = await import('../../../../server/utils/cookies');

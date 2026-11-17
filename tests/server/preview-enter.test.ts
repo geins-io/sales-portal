@@ -14,6 +14,10 @@ const setCookieMock = vi.fn();
 const deleteCookieMock = vi.fn();
 const getQueryMock = vi.fn();
 const sendRedirectMock = vi.fn();
+// Keeps the path unless a test says otherwise; its own tests live beside it.
+const previewLandingPathMock = vi.fn(
+  async (_event: unknown, _token: string, path: string) => path,
+);
 const createAppErrorMock = vi.fn((code: string, message: string) => {
   const err = new Error(message);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -46,6 +50,7 @@ async function importHandler() {
   vi.stubGlobal('deleteCookie', deleteCookieMock);
   vi.stubGlobal('getQuery', getQueryMock);
   vi.stubGlobal('sendRedirect', sendRedirectMock);
+  vi.stubGlobal('previewLandingPath', previewLandingPathMock);
   vi.stubGlobal('createAppError', createAppErrorMock);
   vi.stubGlobal('ErrorCode', { BAD_REQUEST: 'BAD_REQUEST' });
   vi.stubGlobal(
@@ -67,13 +72,13 @@ describe('preview-enter endpoint', () => {
   it('throws BAD_REQUEST when loginToken is missing', async () => {
     getQueryMock.mockReturnValue({});
     const handler = await importHandler();
-    expect(() => handler(mockEvent)).toThrow('Missing loginToken');
+    await expect(handler(mockEvent)).rejects.toThrow('Missing loginToken');
   });
 
   it('sets the preview token and the preview flag, and deletes nothing', async () => {
     getQueryMock.mockReturnValue({ loginToken: 'some-token' });
     const handler = await importHandler();
-    handler(mockEvent);
+    await handler(mockEvent);
 
     expect(setCookieMock).toHaveBeenCalledWith(
       mockEvent,
@@ -94,7 +99,7 @@ describe('preview-enter endpoint', () => {
   it('redirects to / by default', async () => {
     getQueryMock.mockReturnValue({ loginToken: 'some-token' });
     const handler = await importHandler();
-    handler(mockEvent);
+    await handler(mockEvent);
     expect(sendRedirectMock).toHaveBeenCalledWith(mockEvent, '/', 302);
   });
 
@@ -104,7 +109,7 @@ describe('preview-enter endpoint', () => {
       redirect: '/se/sv/',
     });
     const handler = await importHandler();
-    handler(mockEvent);
+    await handler(mockEvent);
     expect(sendRedirectMock).toHaveBeenCalledWith(mockEvent, '/se/sv/', 302);
   });
 
@@ -114,7 +119,7 @@ describe('preview-enter endpoint', () => {
       redirect: 'https://evil.com',
     });
     const handler = await importHandler();
-    handler(mockEvent);
+    await handler(mockEvent);
     expect(sendRedirectMock).toHaveBeenCalledWith(mockEvent, '/', 302);
   });
 
@@ -126,7 +131,7 @@ describe('preview-enter endpoint', () => {
       redirect: '//evil.com',
     });
     const handler = await importHandler();
-    handler(mockEvent);
+    await handler(mockEvent);
     expect(sendRedirectMock).toHaveBeenCalledWith(mockEvent, '/', 302);
   });
 
@@ -136,7 +141,43 @@ describe('preview-enter endpoint', () => {
       redirect: '/\\evil.com',
     });
     const handler = await importHandler();
-    handler(mockEvent);
+    await handler(mockEvent);
     expect(sendRedirectMock).toHaveBeenCalledWith(mockEvent, '/', 302);
+  });
+
+  it('redirects to where the preview lands, from the token and the safe path', async () => {
+    previewLandingPathMock.mockResolvedValueOnce('/se/sv/test-page-draft');
+    getQueryMock.mockReturnValue({
+      loginToken: 'some-token',
+      redirect: '/se/sv/',
+    });
+    const handler = await importHandler();
+    await handler(mockEvent);
+
+    expect(previewLandingPathMock).toHaveBeenCalledWith(
+      mockEvent,
+      'some-token',
+      '/se/sv/',
+    );
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      mockEvent,
+      '/se/sv/test-page-draft',
+      302,
+    );
+  });
+
+  it('never hands an unsafe redirect to the landing', async () => {
+    getQueryMock.mockReturnValue({
+      loginToken: 'some-token',
+      redirect: '//evil.com',
+    });
+    const handler = await importHandler();
+    await handler(mockEvent);
+
+    expect(previewLandingPathMock).toHaveBeenCalledWith(
+      mockEvent,
+      'some-token',
+      '/',
+    );
   });
 });

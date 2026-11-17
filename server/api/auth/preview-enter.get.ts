@@ -10,7 +10,7 @@ import { isSafeInternalPath } from '#shared/utils/redirect';
  * The loginToken is a short-lived JWT from the CMS Studio — it's safe
  * in a URL param since it's a one-time use token over HTTPS.
  */
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   const query = getQuery(event);
   const loginToken = query.loginToken as string | undefined;
 
@@ -28,5 +28,9 @@ export default defineEventHandler((event) => {
   const redirectPath = query.redirect;
   const safePath = isSafeInternalPath(redirectPath) ? redirectPath : '/';
 
-  return sendRedirect(event, safePath, 302);
+  return sendRedirect(
+    event,
+    await previewLandingPath(event, loginToken, safePath),
+    302,
+  );
 });
