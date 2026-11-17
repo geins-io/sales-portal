@@ -5,7 +5,7 @@ import {
   outOfScope,
   signedInState,
 } from './helpers';
-import { apiRoute, isApiCall } from './api-call';
+import { apiGet, apiRoute, isApiCall } from './api-call';
 
 /**
  * The "Skicka offertförfrågan" page. Sending a request cannot be undone, so
@@ -506,7 +506,7 @@ test.describe('Send a quote request', () => {
 
 /** Whether this tenant lets the buyer write in the quote log: `quotes` and `quoteConversation` on. */
 async function quoteConversationOn(page: Page): Promise<boolean> {
-  const response = await page.request.get('/api/config');
+  const response = await apiGet(page.request, '/api/config');
   expect(response.ok(), '/api/config did not answer 200').toBe(true);
   const { features } = await response.json();
   return (
