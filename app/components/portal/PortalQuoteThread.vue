@@ -8,6 +8,7 @@ import { nextTick } from 'vue';
 import {
   ArrowRight,
   CornerUpLeft,
+  MessageSquare,
   MoreHorizontal,
   Trash2,
 } from 'lucide-vue-next';
@@ -211,6 +212,7 @@ const hasChange = (entry: QuoteThreadEntry) =>
     data-testid="quote-thread-open"
     @click="openThread"
   >
+    <MessageSquare v-if="canWrite" class="size-4" />
     {{ t('portal.quotations.thread.open') }}
     <Badge
       v-if="count"
