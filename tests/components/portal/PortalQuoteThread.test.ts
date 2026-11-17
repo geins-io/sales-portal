@@ -253,20 +253,13 @@ describe('PortalQuoteThread', () => {
             text: 'Vi återkallar denna',
             event: { type: 'canceled', from: 'pending', to: 'canceled' },
           },
-          {
-            id: 'd',
-            at: '2026-11-12T08:00:00Z',
-            side: 'seller',
-            authorName: 'Sara Lind',
-            event: { type: 'ordered', to: 'finalized' },
-          },
         ],
         1,
       ),
     };
     const wrapper = await mountThread();
 
-    const [canceled, ordered] = entries(wrapper);
+    const [canceled] = entries(wrapper);
     expect(canceled!.find('[data-testid="quote-thread-event"]').text()).toBe(
       'portal.quotations.thread.event.canceled',
     );
@@ -280,28 +273,202 @@ describe('PortalQuoteThread', () => {
     expect(change.text()).toContain('portal.quotations.status_pending');
     expect(change.text()).toContain('portal.quotations.status_canceled');
     expect(change.classes()).toContain('sm:flex');
+  });
 
-    expect(ordered!.find('[data-testid="quote-thread-event"]').text()).toBe(
+  describe('an event nobody wrote anything with', () => {
+    const eventLines = (w: Awaited<ReturnType<typeof mountThread>>) =>
+      w.findAll('[data-testid="quote-thread-event-line"]');
+
+    it('is a thin line, not a box: icon, who, what, the change and the time, no menu', async () => {
+      data.value = {
+        thread: thread([
+          {
+            id: 'history-1',
+            at: '2026-11-16T12:26:23Z',
+            side: 'buyer',
+            authorName: 'Anna Berg',
+            event: { type: 'accepted', from: 'pending', to: 'accepted' },
+          },
+        ]),
+      };
+      const wrapper = await mountThread();
+
+      expect(entries(wrapper)).toHaveLength(0);
+      const [line] = eventLines(wrapper);
+      expect(line!.attributes('data-side')).toBe('buyer');
+      expect(
+        line!
+          .find('[data-testid="quote-thread-event-icon"] [data-name]')
+          .attributes('data-name'),
+      ).toBe('circle-check');
+      expect(
+        line!.find('[data-testid="quote-thread-event-actor"]').text(),
+      ).toBe('Anna Berg');
+      expect(line!.find('[data-testid="quote-thread-event"]').text()).toBe(
+        'portal.quotations.thread.event.accepted',
+      );
+      expect(line!.find('[data-testid="quote-thread-event-text"]').text()).toBe(
+        'Anna Berg portal.quotations.thread.event.accepted',
+      );
+      const change = line!.find('[data-testid="quote-thread-change"]');
+      expect(change.text()).toContain('portal.quotations.status_pending');
+      expect(change.text()).toContain('portal.quotations.status_accepted');
+      expect(change.classes()).toContain('sm:flex');
+      expect(line!.find('time').attributes('datetime')).toBe(
+        '2026-11-16T12:26:23Z',
+      );
+      expect(line!.find('[data-testid="quote-thread-more"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('shows no change when the status stays or is not known', async () => {
+      data.value = {
+        thread: thread([
+          {
+            id: 'history-1',
+            at: '2026-11-16T12:00:00Z',
+            side: 'seller',
+            authorName: 'Erik Sälj',
+            event: { type: 'revision_sent', from: 'pending', to: 'pending' },
+          },
+          {
+            id: 'history-2',
+            at: '2026-11-16T12:01:00Z',
+            side: 'seller',
+            event: { type: 'quote_sent', to: 'pending' },
+          },
+        ]),
+      };
+      const wrapper = await mountThread();
+
+      for (const line of eventLines(wrapper)) {
+        expect(line.find('[data-testid="quote-thread-change"]').exists()).toBe(
+          false,
+        );
+      }
+    });
+
+    it('names the side when there is no name', async () => {
+      data.value = {
+        thread: thread([
+          {
+            id: 'e',
+            at: '2026-11-09T21:24:48Z',
+            side: 'seller',
+            event: { type: 'quote_sent' },
+          },
+        ]),
+      };
+      const wrapper = await mountThread();
+
+      const [line] = eventLines(wrapper);
+      expect(line!.attributes('data-side')).toBe('seller');
+      expect(
+        line!.find('[data-testid="quote-thread-event-actor"]').text(),
+      ).toBe('portal.quotations.thread.author.seller');
+      expect(line!.find('[data-testid="quote-thread-event"]').text()).toBe(
+        'portal.quotations.thread.event.quote_sent',
+      );
+    });
+
+    it('says the quotation expired, with no one doing it', async () => {
+      data.value = {
+        thread: thread([
+          {
+            id: 'history-1',
+            at: '2026-11-16T00:00:00Z',
+            side: 'system',
+            event: { type: 'expired', from: 'pending', to: 'expired' },
+          },
+        ]),
+      };
+      const wrapper = await mountThread();
+
+      const [line] = eventLines(wrapper);
+      expect(
+        line!.find('[data-testid="quote-thread-event-actor"]').exists(),
+      ).toBe(false);
+      expect(line!.find('[data-testid="quote-thread-event"]').text()).toBe(
+        'portal.quotations.thread.event_system.expired',
+      );
+    });
+
+    it('stays a box when it answers a message', async () => {
+      data.value = {
+        thread: thread([
+          {
+            id: 'm-2',
+            at: '2026-11-16T12:00:00Z',
+            side: 'seller',
+            event: { type: 'quote_sent', to: 'pending' },
+            replyTo: { authorName: 'Anna Berg', text: 'Pris?' },
+          },
+        ]),
+      };
+      const wrapper = await mountThread();
+
+      expect(eventLines(wrapper)).toHaveLength(0);
+      expect(entries(wrapper)).toHaveLength(1);
+    });
+  });
+
+  it('names the placed order by its number, in a box and on a line', async () => {
+    data.value = {
+      thread: thread(
+        [
+          {
+            id: 'm-1',
+            at: '2026-11-16T11:00:00Z',
+            side: 'buyer',
+            authorName: 'Anna Berg',
+            text: 'Beställt',
+            event: { type: 'ordered', to: 'finalized', orderNumber: '100512' },
+          },
+          {
+            id: 'history-1',
+            at: '2026-11-16T12:00:00Z',
+            side: 'buyer',
+            authorName: 'Anna Berg',
+            event: { type: 'ordered', to: 'finalized', orderNumber: '100512' },
+          },
+          {
+            id: 'history-2',
+            at: '2026-11-16T13:00:00Z',
+            side: 'buyer',
+            event: { type: 'ordered', to: 'finalized' },
+          },
+        ],
+        1,
+      ),
+    };
+    const wrapper = await mountThread();
+
+    expect(
+      wrapper
+        .findAll('[data-testid="quote-thread-event"]')
+        .map((e) => e.text()),
+    ).toEqual([
+      'portal.quotations.thread.event.ordered_number {"number":"100512"}',
+      'portal.quotations.thread.event.ordered_number {"number":"100512"}',
       'portal.quotations.thread.event.ordered',
-    );
-    expect(ordered!.find('[data-testid="quote-thread-text"]').exists()).toBe(
-      false,
-    );
-    expect(ordered!.find('[data-testid="quote-thread-change"]').exists()).toBe(
-      false,
-    );
+    ]);
   });
 
   it('names the side when Geins gives no name', async () => {
     data.value = {
-      thread: thread([
-        {
-          id: 'e',
-          at: '2026-11-09T21:24:48Z',
-          side: 'seller',
-          event: { type: 'quote_sent' },
-        },
-      ]),
+      thread: thread(
+        [
+          {
+            id: 'e',
+            at: '2026-11-09T21:24:48Z',
+            side: 'seller',
+            text: 'Hej',
+            event: { type: 'quote_sent' },
+          },
+        ],
+        1,
+      ),
     };
     const wrapper = await mountThread();
 
@@ -410,6 +577,7 @@ describe('PortalQuoteThread', () => {
       id: '7a1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e',
       at: '2026-11-09T21:24:48Z',
       side: 'seller',
+      text: 'Här är offerten.',
       event: { type: 'quote_sent', from: 'requested', to: 'pending' },
     };
 
@@ -436,7 +604,7 @@ describe('PortalQuoteThread', () => {
       expect(composer(wrapper).exists()).toBe(false);
     });
 
-    it('offers "Svara" in the menu of every entry, labelled for a screen reader', async () => {
+    it('offers "Svara" in the menu of every box, labelled for a screen reader', async () => {
       data.value = { thread: thread([QUOTE_SENT, SELLER_MESSAGE], 1) };
       const wrapper = await mountThread();
 
@@ -495,7 +663,12 @@ describe('PortalQuoteThread', () => {
     });
 
     it('quotes what happened when the entry has no text, and the side when it has no name', async () => {
-      data.value = { thread: thread([QUOTE_SENT]) };
+      // A bare event is a line with no menu; one that answers a message is a box.
+      data.value = {
+        thread: thread([
+          { ...QUOTE_SENT, text: undefined, replyTo: { text: 'Pris?' } },
+        ]),
+      };
       const wrapper = await mountThread();
 
       await replyOn(wrapper, 0).trigger('click');

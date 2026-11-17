@@ -913,6 +913,7 @@
         "event": {
           "request_sent": "hat die Anfrage gesendet",
           "quote_sent": "hat das Angebot gesendet",
+          "revision_sent": "hat eine neue Version gesendet",
           "accepted": "hat das Angebot angenommen",
           "confirmed": "hat das Angebot bestätigt",
           "declined": "hat das Angebot abgelehnt",
@@ -920,9 +921,13 @@
           "quote_rejected": "hat das Angebot zurückgewiesen",
           "request_rejected": "hat die Anfrage zurückgewiesen",
           "ordered": "hat die Bestellung aufgegeben",
+          "ordered_number": "hat die Bestellung {number} aufgegeben",
           "canceled": "hat das Angebot storniert",
           "expired": "hat das Angebot als abgelaufen markiert",
           "extended": "hat ein neues Ablaufdatum gesetzt"
+        },
+        "event_system": {
+          "expired": "Das Angebot ist abgelaufen"
         }
       },
       "title": "Angebote und Anfragen",

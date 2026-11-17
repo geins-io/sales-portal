@@ -16,6 +16,7 @@ import {
 import { getQuote } from './quotes';
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
+import { logger } from '../utils/logger';
 
 /** `QuotationMessage` as the merchant API answers it. */
 export interface RawQuotationMessage {
@@ -30,7 +31,32 @@ export interface RawQuotationMessage {
   tags?: { key?: string | null; value?: string | null }[] | null;
 }
 
-const SIDE_OF_TYPE: Record<string, QuoteThreadEntry['side']> = {
+/** A row of the quotation's `statusHistory`, as the merchant API answers it. */
+export interface RawQuotationStatusChange {
+  timestamp: string;
+  action: string;
+  statusFrom?: string | null;
+  statusTo: string;
+  /** `CUSTOMER`, `SELLER`, `SYSTEM` or `EXTERNAL` (synced from Monitor). */
+  actor: string;
+  quotationNumber?: string | null;
+}
+
+interface RawPerson {
+  firstName?: string | null;
+  lastName?: string | null;
+}
+
+/** What the thread reads of the quotation beside its messages. */
+export interface RawThreadQuotation {
+  orderId?: string | null;
+  customer?: RawPerson | null;
+  statusHistory?: RawQuotationStatusChange[] | null;
+}
+
+type Side = QuoteThreadEntry['side'];
+
+const SIDE_OF_TYPE: Record<string, Side> = {
   FROM_CUSTOMER: 'buyer',
   TO_CUSTOMER: 'seller',
 };
@@ -78,24 +104,82 @@ function textOf(m: RawQuotationMessage): string | undefined {
   return m.message?.trim() ? m.message : undefined;
 }
 
+/** What a status change is called, when it names a known one. */
+function nameEvent(
+  action: string,
+  fromValue: string | null | undefined,
+  toValue: string,
+  byBuyer: boolean,
+): QuoteThreadEvent | undefined {
+  const from = fromValue ? statusOf(fromValue) : undefined;
+  const to = statusOf(toValue);
+  let type =
+    EVENT_OF_ACTION[action.toLowerCase()] ??
+    (to ? EVENT_OF_STATUS[to] : undefined);
+  if (!type) return undefined;
+  if (type === 'quote_rejected') {
+    if (from === 'requested') type = byBuyer ? 'withdrawn' : 'request_rejected';
+    else if (byBuyer) type = 'declined';
+  }
+  return { type, ...(from ? { from } : {}), ...(to ? { to } : {}) };
+}
+
 /** The status change a message was written with, when it names a known one. */
 function eventOf(m: RawQuotationMessage): QuoteThreadEvent | undefined {
   const action = tag(m, 'action');
   const fromTag = tag(m, 'statusFrom');
   const toTag = tag(m, 'statusTo');
   if (!action || !fromTag || !toTag) return undefined;
-  const from = statusOf(fromTag);
-  const to = statusOf(toTag);
-  let type =
-    EVENT_OF_ACTION[action.toLowerCase()] ??
-    (to ? EVENT_OF_STATUS[to] : undefined);
-  if (!type) return undefined;
-  if (type === 'quote_rejected') {
-    const byBuyer = SIDE_OF_TYPE[m.type] === 'buyer';
-    if (from === 'requested') type = byBuyer ? 'withdrawn' : 'request_rejected';
-    else if (byBuyer) type = 'declined';
-  }
-  return { type, ...(from ? { from } : {}), ...(to ? { to } : {}) };
+  return nameEvent(action, fromTag, toTag, SIDE_OF_TYPE[m.type] === 'buyer');
+}
+
+interface HistoryEvent {
+  index: number;
+  row: RawQuotationStatusChange;
+  at: number;
+  side: Side;
+  event: QuoteThreadEvent;
+}
+
+/**
+ * The history rows the buyer sees, oldest first. A `revise` is never shown on
+ * its own: it names the `send` of the new version after it, which answers a
+ * request ("sent the quotation") or replaces a sent quotation ("sent a new
+ * version").
+ */
+function eventsFromHistory(rows: RawQuotationStatusChange[]): HistoryEvent[] {
+  const events: HistoryEvent[] = [];
+  let revise: RawQuotationStatusChange | undefined;
+  const sorted = [...rows].sort(
+    (a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp),
+  );
+  sorted.forEach((row, index) => {
+    const action = row.action.toLowerCase();
+    if (action === 'revise') {
+      revise = row;
+      return;
+    }
+    const byBuyer = row.actor === 'CUSTOMER';
+    let event = nameEvent(action, row.statusFrom, row.statusTo, byBuyer);
+    if (action === 'send' && revise) {
+      const from = statusOf(revise.statusFrom ?? '');
+      revise = undefined;
+      event = event && {
+        ...event,
+        type: from === 'requested' ? 'quote_sent' : 'revision_sent',
+        ...(from ? { from } : {}),
+      };
+    }
+    if (!event) return;
+    // Monitor and Geins act for the seller; only expiry is nobody's doing.
+    const side: Side = byBuyer
+      ? 'buyer'
+      : row.actor === 'SYSTEM' && event.type === 'expired'
+        ? 'system'
+        : 'seller';
+    events.push({ index, row, at: Date.parse(row.timestamp), side, event });
+  });
+  return events;
 }
 
 /** Leaves out what is undefined, so an entry carries only what it has. */
@@ -103,6 +187,15 @@ function defined<T extends object>(value: T): T {
   return Object.fromEntries(
     Object.entries(value).filter(([, v]) => v !== undefined),
   ) as T;
+}
+
+function nameOf(person: RawPerson | null | undefined): string | undefined {
+  return (
+    [person?.firstName, person?.lastName]
+      .map((part) => part?.trim())
+      .filter(Boolean)
+      .join(' ') || undefined
+  );
 }
 
 /**
@@ -127,20 +220,40 @@ function requestCommentOf(
   return first;
 }
 
-/** Each message the buyer may see as an entry; a blank plain one is dropped. */
+/**
+ * Each message the buyer may see as an entry; a blank plain one is dropped.
+ * A message written with a status change takes its history row's name: the
+ * two share the instant and the new status. The history rows left over come
+ * back in `unmatched`.
+ */
 function entriesFromMessages(
   messages: RawQuotationMessage[],
-): QuoteThreadEntry[] {
+  history: HistoryEvent[],
+): { entries: QuoteThreadEntry[]; unmatched: HistoryEvent[] } {
   const shown = messages.filter((m) => SIDE_OF_TYPE[m.type]);
   const byId = new Map(shown.map((m) => [m.id, m]));
   const comment = requestCommentOf(shown);
+  const unmatched = [...history];
+  const take = (match: (h: HistoryEvent) => boolean) => {
+    const i = unmatched.findIndex(match);
+    return i < 0 ? undefined : unmatched.splice(i, 1)[0];
+  };
+  // The comment is written just before the release, so it stands for it.
+  if (comment) take((h) => h.event.type === 'request_sent');
   const entries: QuoteThreadEntry[] = [];
 
   for (const m of shown) {
-    const event: QuoteThreadEvent | undefined =
+    let event: QuoteThreadEvent | undefined =
       m === comment
         ? { type: 'request_sent', from: 'request_draft', to: 'requested' }
         : eventOf(m);
+    if (event && m !== comment) {
+      const at = Date.parse(m.timestamp);
+      const to = tag(m, 'statusTo')!.toLowerCase();
+      event =
+        take((h) => h.at === at && h.row.statusTo.toLowerCase() === to)
+          ?.event ?? event;
+    }
     const text = textOf(m);
     if (!event && !text) continue;
     const parent = m.answerRef ? byId.get(m.answerRef) : undefined;
@@ -161,7 +274,25 @@ function entriesFromMessages(
       }),
     );
   }
-  return entries;
+  return { entries, unmatched };
+}
+
+/**
+ * A history row nobody wrote anything with. The buyer's side is named after
+ * the quotation's buyer; the seller's side by the side alone, since the
+ * quotation's owner need not be who acted.
+ */
+function entryFromHistory(
+  h: HistoryEvent,
+  quotation: RawThreadQuotation,
+): QuoteThreadEntry {
+  return defined({
+    id: `history-${h.index}`,
+    at: h.row.timestamp,
+    side: h.side,
+    authorName: h.side === 'buyer' ? nameOf(quotation.customer) : undefined,
+    event: h.event,
+  });
 }
 
 /** Oldest first; entries of the same instant keep their order. */
@@ -191,10 +322,30 @@ function markDeletable(
   return marked;
 }
 
-/** The quotation's messages as the buyer reads them, oldest first. */
-export function buildQuoteThread(messages: RawQuotationMessage[]): QuoteThread {
+/**
+ * The quotation's messages and status changes as the buyer reads them,
+ * oldest first. Without a history (a quotation from before Geins kept one),
+ * the messages alone.
+ */
+export function buildQuoteThread(
+  messages: RawQuotationMessage[],
+  quotation?: RawThreadQuotation | null,
+): QuoteThread {
+  const { entries: fromMessages, unmatched } = entriesFromMessages(
+    messages,
+    eventsFromHistory(quotation?.statusHistory ?? []),
+  );
+  const orderNumber = quotation?.orderId || undefined;
+  const all = [
+    ...fromMessages,
+    ...unmatched.map((h) => entryFromHistory(h, quotation!)),
+  ].map((entry) =>
+    orderNumber && entry.event?.type === 'ordered'
+      ? { ...entry, event: { ...entry.event, orderNumber } }
+      : entry,
+  );
   const entries = markDeletable(
-    oldestFirst(entriesFromMessages(messages)),
+    oldestFirst(all),
     new Set(messages.filter((m) => m.editable).map((m) => m.id)),
   );
   return {
@@ -224,26 +375,71 @@ async function onReadableQuote<T>(
   }
 }
 
-/** The thread of a quotation the signed-in buyer can read. */
-export async function getQuoteThread(
+/**
+ * Read the messages and the status history side by side. `historyRequired`
+ * fails the read with the history; otherwise a failed history read leaves
+ * the messages alone.
+ */
+async function readQuoteThread(
   quoteId: string,
   event: H3Event,
+  historyRequired: boolean,
 ): Promise<QuoteThread> {
   const sdk = await getTenantSDK(event);
-  const result = await onReadableQuote(quoteId, event, () =>
+  const userToken = buildRequestContext(event)?.userToken;
+  const read = (file: string) =>
     wrapServiceCall(
       () =>
         sdk.core.graphql.query({
-          queryAsString: loadQuery('quotes/quotation-messages.graphql'),
+          queryAsString: loadQuery(file),
           variables: { quotationId: quoteId },
-          userToken: buildRequestContext(event)?.userToken,
+          userToken,
         }),
       'quotes',
-    ),
+    );
+  const history = read('quotes/quotation-history.graphql').then((result) => {
+    const cart = (
+      result as {
+        getQuotationCart?: { quotation?: RawThreadQuotation | null } | null;
+      } | null
+    )?.getQuotationCart;
+    if (!cart && historyRequired) {
+      throw createAppError(
+        ErrorCode.EXTERNAL_API_ERROR,
+        `Geins answered no status history for quote ${quoteId}`,
+      );
+    }
+    return cart?.quotation;
+  });
+  const [messages, quotation] = await onReadableQuote(quoteId, event, () =>
+    Promise.all([
+      read('quotes/quotation-messages.graphql'),
+      historyRequired
+        ? history
+        : history.catch((error: unknown) => {
+            logger.warn('[quotes] status history unavailable; messages only', {
+              quoteId,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            return null;
+          }),
+    ]),
   );
   return buildQuoteThread(
-    (unwrapGraphQL(result) as RawQuotationMessage[] | null) ?? [],
+    (unwrapGraphQL(messages) as RawQuotationMessage[] | null) ?? [],
+    quotation,
   );
+}
+
+/**
+ * The thread of a quotation the signed-in buyer can read. The history only
+ * adds events: without it the messages still show.
+ */
+export function getQuoteThread(
+  quoteId: string,
+  event: H3Event,
+): Promise<QuoteThread> {
+  return readQuoteThread(quoteId, event, false);
 }
 
 /** Write a message in the quotation's thread as the signed-in buyer. */
@@ -291,7 +487,8 @@ export async function deleteQuoteMessage(
   messageId: string,
   event: H3Event,
 ): Promise<void> {
-  const { entries } = await getQuoteThread(quoteId, event);
+  // Without the history an event after the message could go unseen.
+  const { entries } = await readQuoteThread(quoteId, event, true);
   const entry = entries.find((e) => e.id === messageId);
   if (!entry) {
     throw createAppError(
