@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { H3Event } from 'h3';
+import { createError, type H3Event } from 'h3';
 import type { QuoteThreadEntry } from '#shared/types/quote';
 
 const mockGraphqlQuery = vi.fn();
@@ -16,6 +16,11 @@ vi.mock('../../../server/services/_sdk', () => ({
   }),
   buildRequestContext: vi.fn().mockReturnValue({ userToken: 'user-token' }),
   getRequestChannelVariables: vi.fn(() => CHANNEL),
+}));
+
+const mockGetQuote = vi.fn();
+vi.mock('../../../server/services/quotes', () => ({
+  getQuote: (...a: unknown[]) => mockGetQuote(...a),
 }));
 
 vi.mock('../../../server/services/graphql/loader', () => ({
@@ -75,6 +80,7 @@ const lines = (entries: QuoteThreadEntry[]) =>
 beforeEach(() => {
   vi.clearAllMocks();
   ids = 0;
+  mockGetQuote.mockResolvedValue({ id: 'q-1' });
 });
 
 describe('buildQuoteThread', () => {
@@ -814,5 +820,119 @@ describe('deleteQuoteMessage', () => {
     await expect(deleteQuoteMessage('q-1', 'mine', event)).rejects.toThrow(
       'not editable',
     );
+  });
+});
+
+describe('a log call Geins fails', () => {
+  const event = {} as H3Event;
+  const refused = new Error('Quotation not found');
+  const notFound = () =>
+    createError({ statusCode: 404, message: 'Quote q-1 not found' });
+  const ownThread = () =>
+    mockGraphqlQuery.mockResolvedValue({
+      getQuotationMessages: [
+        message({
+          id: 'mine',
+          type: 'FROM_CUSTOMER',
+          editable: true,
+          tags: [{ key: 'source', value: 'chat' }],
+        }),
+      ],
+    });
+
+  describe.each([
+    {
+      call: 'the thread read',
+      fail: () => mockGraphqlQuery.mockRejectedValue(refused),
+      answer: () =>
+        mockGraphqlQuery.mockResolvedValue({ getQuotationMessages: [] }),
+      run: () => getQuoteThread('q-1', event),
+    },
+    {
+      call: 'the message write',
+      fail: () => mockGraphqlMutation.mockRejectedValue(refused),
+      answer: () =>
+        mockGraphqlMutation.mockResolvedValue({
+          createQuotationMessage: { id: 'm-new' },
+        }),
+      run: () => createQuoteMessage('q-1', { message: 'Hej' }, event),
+    },
+    {
+      call: "the delete's thread read",
+      fail: () => mockGraphqlQuery.mockRejectedValue(refused),
+      answer: () => {
+        ownThread();
+        mockGraphqlMutation.mockResolvedValue({ deleteQuotationMessage: true });
+      },
+      run: () => deleteQuoteMessage('q-1', 'mine', event),
+    },
+    {
+      call: 'the delete',
+      fail: () => {
+        ownThread();
+        mockGraphqlMutation.mockRejectedValue(refused);
+      },
+      answer: () => {
+        ownThread();
+        mockGraphqlMutation.mockResolvedValue({ deleteQuotationMessage: true });
+      },
+      run: () => deleteQuoteMessage('q-1', 'mine', event),
+    },
+  ])('$call', ({ fail, answer, run }) => {
+    it('answers 404 when the buyer cannot read the quotation either', async () => {
+      fail();
+      const missing = notFound();
+      mockGetQuote.mockRejectedValue(missing);
+
+      await expect(run()).rejects.toBe(missing);
+      expect(mockGetQuote).toHaveBeenCalledWith('q-1', event);
+    });
+
+    it('keeps its own failure when the buyer can read the quotation', async () => {
+      fail();
+
+      await expect(run()).rejects.toBe(refused);
+      expect(mockGetQuote).toHaveBeenCalledOnce();
+    });
+
+    it('keeps its own failure when the quotation read fails otherwise', async () => {
+      fail();
+      mockGetQuote.mockRejectedValue(
+        createError({ statusCode: 502, message: 'Bad Gateway' }),
+      );
+
+      await expect(run()).rejects.toBe(refused);
+    });
+
+    it('reads no quotation when Geins answers', async () => {
+      answer();
+
+      await run();
+
+      expect(mockGetQuote).not.toHaveBeenCalled();
+    });
+  });
+
+  it.each([
+    [
+      'no message',
+      () => {
+        mockGraphqlMutation.mockResolvedValue({ createQuotationMessage: null });
+        return createQuoteMessage('q-1', { message: 'Hej' }, event);
+      },
+    ],
+    [
+      'nothing deleted',
+      () => {
+        ownThread();
+        mockGraphqlMutation.mockResolvedValue({
+          deleteQuotationMessage: false,
+        });
+        return deleteQuoteMessage('q-1', 'mine', event);
+      },
+    ],
+  ])('reads no quotation when Geins answers %s', async (_label, run) => {
+    await expect(run()).rejects.toMatchObject({ code: 'EXTERNAL_API_ERROR' });
+    expect(mockGetQuote).not.toHaveBeenCalled();
   });
 });

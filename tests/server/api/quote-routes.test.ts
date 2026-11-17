@@ -126,14 +126,19 @@ vi.stubGlobal(
     validator(readBodyMock(_event)),
   ),
 );
+// As h3 does it: the params through the parser, a refusal answered 400.
 vi.stubGlobal(
   'getValidatedRouterParams',
-  vi.fn(async (_event: unknown, validator: (raw: unknown) => unknown) =>
-    validator(
-      (_event as { context?: { params?: Record<string, string> } })?.context
-        ?.params,
-    ),
-  ),
+  vi.fn(async (_event: unknown, validator: (raw: unknown) => unknown) => {
+    try {
+      return validator(
+        (_event as { context?: { params?: Record<string, string> } })?.context
+          ?.params,
+      );
+    } catch {
+      throw Object.assign(new Error('Validation Error'), { statusCode: 400 });
+    }
+  }),
 );
 vi.stubGlobal(
   'getRouterParam',
@@ -150,6 +155,9 @@ const mockTokens = {
   authToken: 'auth-token-abc',
   refreshToken: 'refresh-token-xyz',
 };
+
+/** A quotation id as Geins writes one; the log routes take nothing else. */
+const QUOTE = '5c8e2f14-7a3b-4d9e-8f21-6b0c3e9a7d42';
 
 const mockQuote = {
   id: 'quote-uuid-001',
@@ -359,7 +367,7 @@ describe('Quote API Routes', () => {
     const eventWithId = () =>
       ({
         ...mockEvent,
-        context: { ...mockEvent.context, params: { id: 'quote-uuid-001' } },
+        context: { ...mockEvent.context, params: { id: QUOTE } },
       }) as unknown as import('h3').H3Event;
     const loadHandler = async () =>
       (await import('../../../server/api/quotes/[id]/messages.get')).default;
@@ -383,7 +391,7 @@ describe('Quote API Routes', () => {
       const result = await (await loadHandler())(event);
 
       expect(mockRequireAuth).toHaveBeenCalledWith(event);
-      expect(mockGetQuoteThread).toHaveBeenCalledWith('quote-uuid-001', event);
+      expect(mockGetQuoteThread).toHaveBeenCalledWith(QUOTE, event);
       expect(setHeader).toHaveBeenCalledWith(
         event,
         'Cache-Control',
@@ -418,7 +426,7 @@ describe('Quote API Routes', () => {
     const eventWithId = () =>
       ({
         ...mockEvent,
-        context: { ...mockEvent.context, params: { id: 'quote-uuid-001' } },
+        context: { ...mockEvent.context, params: { id: QUOTE } },
       }) as unknown as import('h3').H3Event;
     const loadHandler = async () =>
       (await import('../../../server/api/quotes/[id]/messages.post')).default;
@@ -441,7 +449,7 @@ describe('Quote API Routes', () => {
 
       expect(mockRequireAuth).toHaveBeenCalledWith(event);
       expect(mockCreateQuoteMessage).toHaveBeenCalledWith(
-        'quote-uuid-001',
+        QUOTE,
         { message: 'Hej, går det att leverera?' },
         event,
       );
@@ -534,7 +542,7 @@ describe('Quote API Routes', () => {
         ...mockEvent,
         context: {
           ...mockEvent.context,
-          params: { id: 'quote-uuid-001', messageId },
+          params: { id: QUOTE, messageId },
         },
       }) as unknown as import('h3').H3Event;
     const loadHandler = async () =>
@@ -553,7 +561,7 @@ describe('Quote API Routes', () => {
 
       expect(mockRequireAuth).toHaveBeenCalledWith(event);
       expect(mockDeleteQuoteMessage).toHaveBeenCalledWith(
-        'quote-uuid-001',
+        QUOTE,
         MESSAGE,
         event,
       );
@@ -572,8 +580,10 @@ describe('Quote API Routes', () => {
       ).rejects.toMatchObject({ statusCode: 409 });
     });
 
-    it('refuses a message id that is not a Guid and deletes nothing', async () => {
-      await expect((await loadHandler())(eventFor('m-1'))).rejects.toThrow();
+    it('answers 400 for a message id that is not a Guid and deletes nothing', async () => {
+      await expect(
+        (await loadHandler())(eventFor('m-1')),
+      ).rejects.toMatchObject({ statusCode: 400 });
       expect(mockDeleteQuoteMessage).not.toHaveBeenCalled();
     });
 
@@ -602,6 +612,81 @@ describe('Quote API Routes', () => {
       });
       expect(mockMessageRateLimitCheck).toHaveBeenCalledWith('203.0.113.7');
       expect(mockDeleteQuoteMessage).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // The quotation id on the three log routes
+  // -------------------------------------------------------------------------
+  describe.each([
+    {
+      route: 'GET /api/quotes/[id]/messages',
+      load: () => import('../../../server/api/quotes/[id]/messages.get'),
+      service: mockGetQuoteThread,
+      params: (id: string) => ({ id }),
+    },
+    {
+      route: 'POST /api/quotes/[id]/messages',
+      load: () => import('../../../server/api/quotes/[id]/messages.post'),
+      service: mockCreateQuoteMessage,
+      params: (id: string) => ({ id }),
+    },
+    {
+      route: 'DELETE /api/quotes/[id]/messages/[messageId]',
+      load: () =>
+        import('../../../server/api/quotes/[id]/messages/[messageId].delete'),
+      service: mockDeleteQuoteMessage,
+      params: (id: string) => ({
+        id,
+        messageId: '3f2b8c1e-5d4a-4e6b-9c7d-1a2b3c4d5e6f',
+      }),
+    },
+  ])('$route: the quotation id', ({ load, service, params }) => {
+    const ZERO = '00000000-0000-0000-0000-000000000000';
+    const eventFor = (id: string) =>
+      ({
+        ...mockEvent,
+        context: { ...mockEvent.context, params: params(id) },
+      }) as unknown as import('h3').H3Event;
+    const handler = async () =>
+      (await load()).default as (
+        event: import('h3').H3Event,
+      ) => Promise<unknown>;
+
+    beforeEach(() => {
+      readBodyMock.mockReturnValue({ message: 'Hej' });
+      service.mockResolvedValue({});
+    });
+    afterEach(() => {
+      readBodyMock.mockReset();
+    });
+
+    it.each(['not-a-guid', '5c8e2f14-7a3b-4d9e-8f21', `${QUOTE}x`])(
+      'answers 400 for %j and asks Geins nothing',
+      async (id) => {
+        await expect((await handler())(eventFor(id))).rejects.toMatchObject({
+          statusCode: 400,
+        });
+        expect(service).not.toHaveBeenCalled();
+      },
+    );
+
+    it('passes a well-formed id on, the zero Guid too', async () => {
+      await (
+        await handler()
+      )(eventFor(ZERO));
+
+      expect(service.mock.calls[0]![0]).toBe(ZERO);
+    });
+
+    it.each([404, 502])('answers %i when the service does', async (code) => {
+      service.mockRejectedValue(
+        Object.assign(new Error('refused'), { statusCode: code }),
+      );
+
+      await expect((await handler())(eventFor(QUOTE))).rejects.toMatchObject({
+        statusCode: code,
+      });
     });
   });
 

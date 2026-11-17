@@ -1,4 +1,5 @@
 import type { H3Event } from 'h3';
+import { H3Error } from 'h3';
 import type {
   QuoteStatus,
   QuoteThread,
@@ -12,6 +13,7 @@ import {
   buildRequestContext,
   getRequestChannelVariables,
 } from './_sdk';
+import { getQuote } from './quotes';
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
 
@@ -201,20 +203,43 @@ export function buildQuoteThread(messages: RawQuotationMessage[]): QuoteThread {
   };
 }
 
+/**
+ * A log call that Geins fails answers 404 when the buyer cannot read the
+ * quotation either, as the quotation itself does; any other failure stands.
+ */
+async function onReadableQuote<T>(
+  quoteId: string,
+  event: H3Event,
+  call: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await call();
+  } catch (error) {
+    await getQuote(quoteId, event).catch((readError: unknown) => {
+      if (readError instanceof H3Error && readError.statusCode === 404) {
+        throw readError;
+      }
+    });
+    throw error;
+  }
+}
+
 /** The thread of a quotation the signed-in buyer can read. */
 export async function getQuoteThread(
   quoteId: string,
   event: H3Event,
 ): Promise<QuoteThread> {
   const sdk = await getTenantSDK(event);
-  const result = await wrapServiceCall(
-    () =>
-      sdk.core.graphql.query({
-        queryAsString: loadQuery('quotes/quotation-messages.graphql'),
-        variables: { quotationId: quoteId },
-        userToken: buildRequestContext(event)?.userToken,
-      }),
-    'quotes',
+  const result = await onReadableQuote(quoteId, event, () =>
+    wrapServiceCall(
+      () =>
+        sdk.core.graphql.query({
+          queryAsString: loadQuery('quotes/quotation-messages.graphql'),
+          variables: { quotationId: quoteId },
+          userToken: buildRequestContext(event)?.userToken,
+        }),
+      'quotes',
+    ),
   );
   return buildQuoteThread(
     (unwrapGraphQL(result) as RawQuotationMessage[] | null) ?? [],
@@ -228,21 +253,23 @@ export async function createQuoteMessage(
   event: H3Event,
 ): Promise<{ id: string }> {
   const sdk = await getTenantSDK(event);
-  const result = await wrapServiceCall(
-    () =>
-      sdk.core.graphql.mutation({
-        queryAsString: loadQuery('quotes/create-quotation-message.graphql'),
-        variables: {
-          quotationId: quoteId,
-          message: input.message,
-          ...(input.answerRef ? { answerRef: input.answerRef } : {}),
-          ...getRequestChannelVariables(sdk, event),
-        },
-        userToken: buildRequestContext(event)?.userToken,
-        // No timeout: a message Geins saves after a cut would read as failed.
-        requestOptions: { context: { timeoutMs: 0 } },
-      }),
-    'quotes',
+  const result = await onReadableQuote(quoteId, event, () =>
+    wrapServiceCall(
+      () =>
+        sdk.core.graphql.mutation({
+          queryAsString: loadQuery('quotes/create-quotation-message.graphql'),
+          variables: {
+            quotationId: quoteId,
+            message: input.message,
+            ...(input.answerRef ? { answerRef: input.answerRef } : {}),
+            ...getRequestChannelVariables(sdk, event),
+          },
+          userToken: buildRequestContext(event)?.userToken,
+          // No timeout: a message Geins saves after a cut would read as failed.
+          requestOptions: { context: { timeoutMs: 0 } },
+        }),
+      'quotes',
+    ),
   );
   const created = unwrapGraphQL(result) as { id?: string } | null;
   if (!created?.id) {
@@ -279,20 +306,22 @@ export async function deleteQuoteMessage(
     );
   }
   const sdk = await getTenantSDK(event);
-  const result = await wrapServiceCall(
-    () =>
-      sdk.core.graphql.mutation({
-        queryAsString: loadQuery('quotes/delete-quotation-message.graphql'),
-        variables: {
-          quotationId: quoteId,
-          messageId,
-          ...getRequestChannelVariables(sdk, event),
-        },
-        userToken: buildRequestContext(event)?.userToken,
-        // No timeout: a delete Geins makes after a cut would read as failed.
-        requestOptions: { context: { timeoutMs: 0 } },
-      }),
-    'quotes',
+  const result = await onReadableQuote(quoteId, event, () =>
+    wrapServiceCall(
+      () =>
+        sdk.core.graphql.mutation({
+          queryAsString: loadQuery('quotes/delete-quotation-message.graphql'),
+          variables: {
+            quotationId: quoteId,
+            messageId,
+            ...getRequestChannelVariables(sdk, event),
+          },
+          userToken: buildRequestContext(event)?.userToken,
+          // No timeout: a delete Geins makes after a cut would read as failed.
+          requestOptions: { context: { timeoutMs: 0 } },
+        }),
+      'quotes',
+    ),
   );
   if (unwrapGraphQL(result) !== true) {
     throw createAppError(
