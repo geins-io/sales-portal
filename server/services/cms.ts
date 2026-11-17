@@ -9,6 +9,7 @@ import type { H3Event } from 'h3';
 import { LRUCache } from 'lru-cache';
 import {
   getTenantSDK,
+  getChannelVariables,
   getRequestChannelVariables,
   buildRequestContext,
 } from './_sdk';
@@ -21,7 +22,9 @@ import {
 import { hasPageTag } from '#shared/utils/cms-tags';
 import { mergeContainersByVisibility } from '#shared/utils/cms-visibility';
 import { isSafeInternalPath } from '#shared/utils/redirect';
+import { parseLocaleMarketPrefix } from '#shared/utils/locale-market';
 import { getPreviewToken } from '../utils/cookies';
+import { toCmsPageAlias } from '../utils/cms-page-alias';
 import type { CmsAreaContext, CmsContentArea } from '#shared/types/cms';
 import { CMS_AREA_MAX_CATEGORY_IDS } from '../schemas/api-input';
 import { logger } from '../utils/logger';
@@ -120,7 +123,9 @@ function buildCachePrefix(event: H3Event): string {
  * The request context for a widget read (menu, page, area). In a CMS preview
  * it carries the preview token in place of the session token: the token alone
  * makes Geins answer an area with its draft, spoofed date included. Never add
- * `preview: true` with it — Geins then answers EVERY area with the draft.
+ * `preview: true` with it — Geins then answers EVERY area with the draft. Only
+ * page reads send the flag (getPage, readPreviewPageDraft), because a page
+ * draft comes with nothing less.
  */
 function cmsRequestContext(event: H3Event) {
   const previewToken = getPreviewToken(event);
@@ -213,11 +218,103 @@ export async function getPage(
     ...channelVars,
     ...(args.customerType && { customerType: args.customerType }),
   };
+  const read = (preview?: true) =>
+    wrapServiceCall(
+      () =>
+        sdk.cms.page.get(
+          preview ? { ...queryArgs, preview } : queryArgs,
+          ctx,
+        ) as Promise<ContentPageType>,
+      'cms',
+    );
 
-  return wrapServiceCall(
-    () => sdk.cms.page.get(queryArgs, ctx) as Promise<ContentPageType>,
-    'cms',
+  if (!getPreviewToken(event)) return read();
+
+  // A page draft comes only with `preview: true`, and then for every alias and
+  // with its own id, never the published page's: only its title ties it to a URL.
+  const [own, draft] = await Promise.allSettled([read(), read(true)]);
+  const match =
+    draft.status === 'fulfilled'
+      ? draftOfPage(
+          draft.value,
+          args.alias,
+          own.status === 'fulfilled' ? own.value : undefined,
+        )
+      : null;
+  if (match) return match;
+  if (own.status === 'rejected') throw own.reason;
+  return own.value;
+}
+
+/**
+ * The answer when it is the page draft for this alias, else null: its title
+ * gives the alias, or the published page on the alias has the same title.
+ */
+function draftOfPage(
+  answer: ContentPageType,
+  alias: string,
+  own: ContentPageType | undefined,
+): ContentPageType | null {
+  if (!isPageDraft(answer)) return null;
+  const draftAlias = toCmsPageAlias(answer.title);
+  if (draftAlias === alias) return answer;
+  if (own?.id && answer.title && own.title === answer.title) return answer;
+  logger.warn('[cms] preview page draft is not this page', {
+    alias,
+    draftAlias,
+  });
+  return null;
+}
+
+/**
+ * A page draft with blocks, not an area's. Measured: an area answers with its
+ * family and a named page area; a page with no family and page area 0.
+ */
+function isPageDraft(answer: ContentPageType): boolean {
+  return (
+    Boolean(answer.containers?.length) &&
+    !answer.familyName &&
+    !answer.pageArea?.name &&
+    !Number(answer.pageArea?.id ?? 0)
   );
+}
+
+/** The landing read is cut short: past it, the preview lands as before. */
+const PREVIEW_LANDING_TIMEOUT_MS = 2500;
+
+/**
+ * The page draft a preview token carries, or null when it carries none: with
+ * `preview: true` Geins answers the token's draft whatever the alias, so the
+ * alias here is a placeholder the SDK insists on. Language and market come
+ * from the path the preview lands under, never the cookie.
+ */
+export async function readPreviewPageDraft(
+  event: H3Event,
+  previewToken: string,
+  path: string,
+): Promise<ContentPageType | null> {
+  try {
+    const sdk = await getTenantSDK(event);
+    const prefix = parseLocaleMarketPrefix(path);
+    const channelVars = getChannelVariables(
+      sdk,
+      prefix?.locale,
+      prefix?.market,
+      event.context.tenant?.config?.channelSettings?.locales,
+    );
+    const answer = (await wrapServiceCall(
+      () =>
+        sdk.cms.page.get(
+          { alias: 'preview', ...channelVars, preview: true },
+          { userToken: previewToken },
+          { timeoutMs: PREVIEW_LANDING_TIMEOUT_MS },
+        ),
+      'cms',
+    )) as ContentPageType;
+    return isPageDraft(answer) ? answer : null;
+  } catch {
+    return null;
+  }
 }
 
 /** One entry of the Geins `filters` argument (PageWidgetCollectionFilterInputType). */
