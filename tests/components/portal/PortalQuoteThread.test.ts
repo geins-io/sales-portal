@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
 import type { Ref } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 import { flushPromises } from '@vue/test-utils';
+import { MessageSquare } from 'lucide-vue-next';
 import { mountComponent } from '../../utils/component';
 import type { QuoteThread, QuoteThreadEntry } from '#shared/types/quote';
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
@@ -146,12 +147,37 @@ describe('PortalQuoteThread', () => {
     expect(options).toMatchObject({ lazy: true, server: false });
   });
 
-  it('labels the button with no icon: the log is an overview first', async () => {
-    const wrapper = await mountThread();
+  describe('the button', () => {
+    const button = (w: Awaited<ReturnType<typeof mountThread>>) =>
+      w.find('[data-testid="quote-thread-open"]');
 
-    const button = wrapper.find('[data-testid="quote-thread-open"]');
-    expect(button.text()).toContain('portal.quotations.thread.open');
-    expect(button.find('.icon').exists()).toBe(false);
+    beforeEach(() => {
+      data.value = { thread: thread([], 3) };
+    });
+
+    it('shows the chat icon, the label, then the count with the conversation on', async () => {
+      const wrapper = await mountThread();
+
+      const children = button(wrapper).element.children;
+      expect(children).toHaveLength(2);
+      expect(children[0]!.classList).toContain('icon');
+      expect(button(wrapper).findComponent(MessageSquare).exists()).toBe(true);
+      expect(children[1]!.getAttribute('data-testid')).toBe(
+        'quote-thread-count',
+      );
+      expect(button(wrapper).text()).toBe('portal.quotations.thread.open 3');
+    });
+
+    it('shows the label and the count, with no icon, with the conversation off', async () => {
+      setFeatures({ quotes: { enabled: true } });
+      const wrapper = await mountThread();
+
+      expect(button(wrapper).find('.icon').exists()).toBe(false);
+      expect(button(wrapper).text()).toBe('portal.quotations.thread.open 3');
+      expect(
+        button(wrapper).find('[data-testid="quote-thread-count"]').exists(),
+      ).toBe(true);
+    });
   });
 
   it('opens the sheet from the button, and reads the thread again', async () => {

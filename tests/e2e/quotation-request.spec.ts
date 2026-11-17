@@ -564,7 +564,7 @@ test.describe('Write in the quote log', () => {
     await openInApp(page, VIEW_PATH);
     const open = page.locator('[data-testid="quote-thread-open"]');
     await expect(open).toHaveText(/Offertlogg/, { timeout: PAGE_TIMEOUT });
-    await expect(open.locator('svg')).toHaveCount(0);
+    await expect(open.locator('svg')).toHaveCount(1);
     await open.click();
 
     const log = page.locator('[data-testid="quote-thread"]');
