@@ -183,8 +183,16 @@ export const FeatureAccessSchema = z.union([
 export const FeatureConfigSchema = z.object({
   enabled: z.boolean(),
   access: FeatureAccessSchema.optional(),
-  /** Only features.quotes carries it, written by Studio's boolean-choice card. */
-  quoteRequests: z.enum(['enabled', 'disabled']).optional(),
+  /**
+   * Only features.quotes carries these. Studio writes a boolean; the older
+   * boolean-choice card wrote 'enabled' | 'disabled'. tenant.ts reads both.
+   */
+  quoteRequests: z
+    .union([z.enum(['enabled', 'disabled']), z.boolean()])
+    .optional(),
+  quoteConversation: z
+    .union([z.enum(['enabled', 'disabled']), z.boolean()])
+    .optional(),
 });
 
 /**

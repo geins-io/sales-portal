@@ -894,6 +894,7 @@
         "open": "Offertlogg",
         "title": "Offertlogg",
         "empty": "Inga meddelanden än. Skriv till din säljare om du har frågor om offerten.",
+        "empty_read_only": "Inga meddelanden än.",
         "load_failed": "Det gick inte att ladda meddelandena.",
         "placeholder": "Skriv ett meddelande till säljaren …",
         "send": "Skicka",

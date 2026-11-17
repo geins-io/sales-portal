@@ -894,6 +894,7 @@
         "open": "Quotation log",
         "title": "Quotation log",
         "empty": "No messages yet. Write to your seller if you have questions about the quotation.",
+        "empty_read_only": "No messages yet.",
         "load_failed": "The messages could not be loaded.",
         "placeholder": "Write a message to the seller …",
         "send": "Send",

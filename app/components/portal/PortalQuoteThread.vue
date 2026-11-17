@@ -1,13 +1,13 @@
 <script setup lang="ts">
 /**
  * The quote log: a button with the message count, and a sheet from the right
- * with the conversation and its events oldest first, and a field to write in.
+ * with the conversation and its events oldest first. With the tenant's
+ * quoteConversation on, also a field to write in and a menu to reply and delete.
  */
 import { nextTick } from 'vue';
 import {
   ArrowRight,
   CornerUpLeft,
-  MessageSquare,
   MoreHorizontal,
   Trash2,
 } from 'lucide-vue-next';
@@ -51,6 +51,8 @@ const props = defineProps<{
 const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
 const { timezone } = useTenant();
+const { canWriteInQuoteConversation } = useFeatureAccess();
+const canWrite = computed(() => canWriteInQuoteConversation());
 
 // Read after the page, so the quotation never waits for its thread.
 const { data, error, refresh } = useFetch<{ thread: QuoteThread }>(
@@ -209,7 +211,6 @@ const hasChange = (entry: QuoteThreadEntry) =>
     data-testid="quote-thread-open"
     @click="openThread"
   >
-    <MessageSquare class="size-4" />
     {{ t('portal.quotations.thread.open') }}
     <Badge
       v-if="count"
@@ -253,7 +254,13 @@ const hasChange = (entry: QuoteThreadEntry) =>
           class="text-muted-foreground py-10 text-center text-sm"
           data-testid="quote-thread-empty"
         >
-          {{ t('portal.quotations.thread.empty') }}
+          {{
+            t(
+              canWrite
+                ? 'portal.quotations.thread.empty'
+                : 'portal.quotations.thread.empty_read_only',
+            )
+          }}
         </p>
 
         <template v-if="thread">
@@ -322,7 +329,7 @@ const hasChange = (entry: QuoteThreadEntry) =>
                 >
                   {{ formatWhen(entry.at) }}
                 </time>
-                <DropdownMenu>
+                <DropdownMenu v-if="canWrite">
                   <DropdownMenuTrigger as-child>
                     <Button
                       variant="ghost"
@@ -388,7 +395,7 @@ const hasChange = (entry: QuoteThreadEntry) =>
         {{ notice }}
       </p>
       <PortalQuoteThreadComposer
-        v-if="thread"
+        v-if="thread && canWrite"
         ref="composer"
         v-model:reply-to="replyTo"
         :quote-id="quoteId"

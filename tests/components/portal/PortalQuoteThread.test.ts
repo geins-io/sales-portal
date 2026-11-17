@@ -1,8 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
 import type { Ref } from 'vue';
+import { createPinia, setActivePinia } from 'pinia';
 import { flushPromises } from '@vue/test-utils';
 import { mountComponent } from '../../utils/component';
 import type { QuoteThread, QuoteThreadEntry } from '#shared/types/quote';
+import type { PublicTenantConfig } from '#shared/types/tenant-config';
+import { useTenant } from '../../../app/composables/useTenant';
+import { useAuthStore } from '../../../app/stores/auth';
+
+// Escapes the tier-wide mock (tests/setup-components.ts): the tenant's
+// quoteConversation reaches the log through the real useFeatureAccess.
+vi.unmock('../../../app/composables/useFeatureAccess');
 
 // `t` shows the values it is given, so an interpolation can be read.
 vi.mock('vue-i18n', async () => {
@@ -104,10 +112,25 @@ async function mountThread() {
 const entries = (w: Awaited<ReturnType<typeof mountThread>>) =>
   w.findAll('[data-testid="quote-thread-entry"]');
 
+const { tenant } = useTenant();
+
+function setFeatures(features: PublicTenantConfig['features']) {
+  assert.isDefined(tenant.value);
+  tenant.value.features = features;
+}
+
+const CONVERSATION_ON = {
+  quotes: { enabled: true },
+  quoteConversation: { enabled: true },
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   (data as Ref<{ thread: QuoteThread } | null>).value = null;
   error.value = null;
+  setActivePinia(createPinia());
+  setFeatures(CONVERSATION_ON);
+  useAuthStore().user = { userId: '1', username: 'buyer@example.com' };
 });
 
 describe('PortalQuoteThread', () => {
@@ -121,6 +144,14 @@ describe('PortalQuoteThread', () => {
     ];
     expect(url).toBe('/api/quotes/q%201/messages');
     expect(options).toMatchObject({ lazy: true, server: false });
+  });
+
+  it('labels the button with no icon: the log is an overview first', async () => {
+    const wrapper = await mountThread();
+
+    const button = wrapper.find('[data-testid="quote-thread-open"]');
+    expect(button.text()).toContain('portal.quotations.thread.open');
+    expect(button.find('.icon').exists()).toBe(false);
   });
 
   it('opens the sheet from the button, and reads the thread again', async () => {
@@ -758,6 +789,82 @@ describe('PortalQuoteThread', () => {
       expect(dialog(wrapper).exists()).toBe(false);
       expect(notice(wrapper).text()).toBe(
         'portal.quotations.thread.delete_failed',
+      );
+    });
+  });
+  it('has the field and the menu when quotes and quoteConversation are enabled', async () => {
+    data.value = {
+      thread: thread(
+        [
+          {
+            id: 'm-1',
+            at: '2026-11-10T10:00:00Z',
+            side: 'seller',
+            authorName: 'Erik Sälj',
+            text: 'Hej',
+          },
+        ],
+        1,
+      ),
+    };
+    const wrapper = await mountThread();
+
+    expect(wrapper.find('[data-testid="quote-thread-composer"]').exists()).toBe(
+      true,
+    );
+    expect(wrapper.find('[data-testid="quote-thread-more"]').exists()).toBe(
+      true,
+    );
+  });
+
+  describe('with the conversation off', () => {
+    const MESSAGE: QuoteThreadEntry = {
+      id: '0b6f4c2a-1d3e-4f5a-8b7c-9d0e1f2a3b4c',
+      at: '2026-11-10T10:00:00Z',
+      side: 'buyer',
+      authorName: 'Anna Berg',
+      text: 'Ja, det kör vi på.',
+      deletable: true,
+    };
+
+    async function mountReadOnly(features: PublicTenantConfig['features']) {
+      setFeatures(features);
+      data.value = { thread: thread([MESSAGE], 1) };
+      const wrapper = await mountThread();
+
+      expect(entries(wrapper)).toHaveLength(1);
+      expect(
+        entries(wrapper)[0]!.find('[data-testid="quote-thread-text"]').text(),
+      ).toBe('Ja, det kör vi på.');
+      expect(
+        wrapper.find('[data-testid="quote-thread-composer"]').exists(),
+      ).toBe(false);
+      expect(wrapper.find('[data-testid="quote-thread-more"]').exists()).toBe(
+        false,
+      );
+      expect(
+        wrapper.find('[data-testid="quote-thread-delete-action"]').exists(),
+      ).toBe(false);
+    }
+
+    it('shows the log to read, with no field and no menu, when quoteConversation is disabled', async () => {
+      await mountReadOnly({
+        quotes: { enabled: true },
+        quoteConversation: { enabled: false },
+      });
+    });
+
+    it('shows the log to read, with no field and no menu, when the tenant stores no quoteConversation', async () => {
+      await mountReadOnly({ quotes: { enabled: true } });
+    });
+
+    it('says the log is empty without asking the buyer to write', async () => {
+      setFeatures({ quotes: { enabled: true } });
+      data.value = { thread: thread([]) };
+      const wrapper = await mountThread();
+
+      expect(wrapper.find('[data-testid="quote-thread-empty"]').text()).toBe(
+        'portal.quotations.thread.empty_read_only',
       );
     });
   });

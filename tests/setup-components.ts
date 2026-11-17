@@ -304,6 +304,7 @@ vi.mock('../app/composables/useFeatureAccess', async () => {
       canAccess: (_featureName: string) => true,
       canConfigure: () => true,
       canRequestQuotes: () => true,
+      canWriteInQuoteConversation: () => true,
       pageTypeOf: (product: { configurable?: boolean } | null | undefined) =>
         resolveProductPageType(product, { authenticated: true }),
     }),

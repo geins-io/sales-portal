@@ -189,7 +189,7 @@ export interface StringFieldCoverage {
 export type ThemeColorKey = keyof ThemeColors;
 
 /** Feature flags `buildTenantConfig` derives from another feature, never seeded. */
-export type DerivedFeatureKey = 'quoteRequests';
+export type DerivedFeatureKey = 'quoteRequests' | 'quoteConversation';
 
 /**
  * The 14 feature keys seeded for every tenant, plus the derived ones. The
