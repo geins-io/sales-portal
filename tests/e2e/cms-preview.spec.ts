@@ -32,6 +32,56 @@ test.describe('CMS preview', () => {
     await expect(page.getByTestId('topbar-portal')).toHaveCount(0);
   });
 
+  // Merchant Center's link for a page draft carries no `redirect=true`. The
+  // status page hands preview-enter its start page as `home`, so a page draft
+  // can land on its page; a real draft needs a real token and is proved by hand.
+  // A token with no page draft keeps the status page.
+  for (const how of ['a full load', 'a client-side navigation'] as const) {
+    test(`a link without redirect enters with the start page as home, on ${how}`, async ({
+      page,
+    }) => {
+      await page.goto('/');
+      await waitForHydration(page);
+      const start = new URL(page.url()).pathname;
+
+      const entries: URL[] = [];
+      page.on('request', (request) => {
+        const url = new URL(request.url());
+        if (url.pathname === '/api/auth/preview-enter') entries.push(url);
+      });
+      const link = `/preview-widgets?loginToken=${placeholderPreviewToken()}`;
+      if (how === 'a full load') {
+        await page.goto(link);
+      } else {
+        await page.evaluate((to) => {
+          const app = (
+            document.querySelector('#__nuxt') as unknown as {
+              __vue_app__: {
+                config: {
+                  globalProperties: { $router: { push(to: string): unknown } };
+                };
+              };
+            }
+          ).__vue_app__;
+          return app.config.globalProperties.$router.push(to);
+        }, link);
+      }
+
+      // The locale middleware puts the status page under the start page's prefix.
+      await page.waitForURL(
+        (url) =>
+          url.pathname.endsWith('/preview-widgets') &&
+          !url.searchParams.has('loginToken'),
+      );
+      await expect(
+        page.getByRole('heading', { name: 'Preview Mode Active' }),
+      ).toBeVisible();
+      expect(entries).toHaveLength(1);
+      expect(entries[0]!.searchParams.get('redirect')).toBe('/preview-widgets');
+      expect(entries[0]!.searchParams.get('home')).toBe(start);
+    });
+  }
+
   test('exiting preview reloads the localized start page', async ({
     page,
     context,

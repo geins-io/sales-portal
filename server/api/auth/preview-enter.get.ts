@@ -27,10 +27,12 @@ export default defineEventHandler(async (event) => {
   // javascript:...) so this endpoint can't be used as an open-redirect.
   const redirectPath = query.redirect;
   const safePath = isSafeInternalPath(redirectPath) ? redirectPath : '/';
+  // The start page the status page links to, for the landing only.
+  const home = isSafeInternalPath(query.home) ? query.home : undefined;
 
   return sendRedirect(
     event,
-    await previewLandingPath(event, loginToken, safePath),
+    await previewLandingPath(event, loginToken, safePath, home),
     302,
   );
 });
