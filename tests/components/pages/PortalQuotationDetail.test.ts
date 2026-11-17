@@ -1769,6 +1769,22 @@ describe('PortalQuotationDetail', () => {
       ).toBe('2611-2-0024-00');
     });
 
+    it('sits in the toolbar beside the back link, not under the title', async () => {
+      const wrapper = await mountWith(pending());
+
+      const toolbar = wrapper.find('[data-testid="quote-toolbar"]');
+      expect(toolbar.find('[data-testid="back-link"]').exists()).toBe(true);
+      expect(toolbar.find('[data-testid="quote-thread-stub"]').exists()).toBe(
+        true,
+      );
+      expect(
+        wrapper
+          .find('[data-testid="quote-header"]')
+          .find('[data-testid="quote-thread-stub"]')
+          .exists(),
+      ).toBe(false);
+    });
+
     it('offers no thread on a request draft, which has none', async () => {
       const wrapper = await mountWith(makeQuote({ status: 'request_draft' }));
 
