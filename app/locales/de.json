@@ -894,6 +894,7 @@
         "open": "Angebotsprotokoll",
         "title": "Angebotsprotokoll",
         "empty": "Noch keine Nachrichten. Schreiben Sie Ihrem Verkäufer, wenn Sie Fragen zum Angebot haben.",
+        "empty_read_only": "Noch keine Nachrichten.",
         "load_failed": "Die Nachrichten konnten nicht geladen werden.",
         "placeholder": "Nachricht an den Verkäufer schreiben …",
         "send": "Senden",

@@ -147,6 +147,7 @@ const SERVER_CHECKOUT = 'tests/unit/api/checkout.test.ts';
 const SERVER_ORDER_GET = 'tests/server/api/orders/[id]-get.test.ts';
 const SERVER_CART = 'tests/server/api/cart.test.ts';
 const SERVER_QUOTE_ROUTES = 'tests/server/api/quote-routes.test.ts';
+const QUOTE_THREAD = 'tests/components/portal/PortalQuoteThread.test.ts';
 const SERVER_REGISTER = 'tests/server/api/auth-register.test.ts';
 const AUTH_CARD = 'tests/components/auth/AuthCard.test.ts';
 const AUTH_SHEET = 'tests/components/auth/AuthSheet.test.ts';
@@ -2291,6 +2292,52 @@ export const CONFIG_COVERAGE_MAP = {
         'over the tenant config in the event, so both cases write the ' +
         'configured value; the pages ask canRequestQuotes in useFeatureAccess. ' +
         'The derivation from quotes.quoteRequests is tested in tenant.test.ts.',
+    }),
+    quoteConversation: namedFeature({
+      consumer: 'server/utils/feature-access.ts:83',
+      cells: {
+        enabledTrue: [
+          {
+            spec: SERVER_QUOTE_ROUTES,
+            title:
+              'writes the message when quotes and quoteConversation are both enabled',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: QUOTE_THREAD,
+            title:
+              'has the field and the menu when quotes and quoteConversation are enabled',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
+        enabledFalse: [
+          {
+            spec: SERVER_QUOTE_ROUTES,
+            title:
+              'answers 403 when quoteConversation is disabled and quotes is enabled',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: QUOTE_THREAD,
+            title:
+              'shows the log to read, with no field and no menu, when quoteConversation is disabled',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
+      },
+      access: accessNeverRead(
+        'buildTenantConfig derives it from features.quotes as { enabled } ' +
+          'with no access rule, and the routes check it after sign-in.',
+      ),
+      note:
+        'The message write and delete routes run the real ' +
+        'assertQuoteConversationAccess over the tenant config in the event; ' +
+        'the quote log asks canWriteInQuoteConversation in useFeatureAccess. ' +
+        'The derivation from quotes.quoteConversation is tested in tenant.test.ts.',
     }),
     registration: {
       enabled: {

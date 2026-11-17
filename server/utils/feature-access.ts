@@ -69,6 +69,27 @@ export async function assertQuoteRequestAccess(event: H3Event): Promise<void> {
 }
 
 /**
+ * Throws 403 unless this request's buyer may write in the quote log: signed
+ * in, with `quotes` and `quoteConversation` both open to them. The same answer
+ * as `canWriteInQuoteConversation` in the pages.
+ */
+export async function assertQuoteConversationAccess(
+  event: H3Event,
+): Promise<void> {
+  const user = { authenticated: !!getSessionToken(event) };
+  const allowed =
+    user.authenticated &&
+    (await canAccessFeatureServer(event, 'quotes', user)) &&
+    (await canAccessFeatureServer(event, 'quoteConversation', user));
+  if (!allowed) {
+    throw createError({
+      statusCode: 403,
+      message: 'Access denied: the quote conversation is not available',
+    });
+  }
+}
+
+/**
  * The session for a route behind a feature: optional when the feature is
  * enabled with `access: 'all'`, required otherwise. Only that explicit rule
  * opens the route; a stored feature without a rule keeps requiring sign-in.

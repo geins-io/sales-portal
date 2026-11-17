@@ -894,6 +894,7 @@
         "open": "Tarjousloki",
         "title": "Tarjousloki",
         "empty": "Ei vielä viestejä. Kirjoita myyjälle, jos sinulla on kysyttävää tarjouksesta.",
+        "empty_read_only": "Ei vielä viestejä.",
         "load_failed": "Viestejä ei voitu ladata.",
         "placeholder": "Kirjoita viesti myyjälle …",
         "send": "Lähetä",

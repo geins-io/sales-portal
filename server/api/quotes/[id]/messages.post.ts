@@ -7,9 +7,11 @@ import {
   quoteMessageRateLimiter,
   getClientIp,
 } from '../../../utils/rate-limiter';
+import { assertQuoteConversationAccess } from '../../../utils/feature-access';
 
 export default defineEventHandler(async (event) => {
   await requireAuth(event);
+  await assertQuoteConversationAccess(event);
 
   const { allowed } = await quoteMessageRateLimiter.check(getClientIp(event));
   if (!allowed) {

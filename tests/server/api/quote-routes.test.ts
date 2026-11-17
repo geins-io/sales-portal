@@ -195,6 +195,24 @@ function eventOn(
 
 const mockEvent = eventOn(true, true);
 
+/** An event for a message route, on a tenant whose switches are as given; one left out is not stored. */
+function conversationEvent(
+  params: Record<string, string>,
+  switches: { quotes?: boolean; quoteConversation?: boolean } = {
+    quotes: true,
+    quoteConversation: true,
+  },
+): import('h3').H3Event {
+  const event = eventOn(switches.quotes, true);
+  if (switches.quoteConversation !== undefined) {
+    event.context.tenant.config!.features.quoteConversation = {
+      enabled: switches.quoteConversation,
+    };
+  }
+  event.context.params = params;
+  return event;
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -409,6 +427,21 @@ describe('Quote API Routes', () => {
       expect(mockGetQuoteThread).not.toHaveBeenCalled();
     });
 
+    it('reads the thread when the tenant has the conversation off', async () => {
+      mockGetQuoteThread.mockResolvedValue({ entries: [], messageCount: 0 });
+
+      const result = await (
+        await loadHandler()
+      )(
+        conversationEvent(
+          { id: QUOTE },
+          { quotes: true, quoteConversation: false },
+        ),
+      );
+
+      expect(result).toEqual({ thread: { entries: [], messageCount: 0 } });
+    });
+
     it('fails when the thread cannot be read', async () => {
       mockGetQuoteThread.mockRejectedValue(new Error('Bad Gateway'));
 
@@ -423,11 +456,7 @@ describe('Quote API Routes', () => {
   // -------------------------------------------------------------------------
   describe('POST /api/quotes/[id]/messages', () => {
     const PARENT = '3f2b8c1e-5d4a-4e6b-9c7d-1a2b3c4d5e6f';
-    const eventWithId = () =>
-      ({
-        ...mockEvent,
-        context: { ...mockEvent.context, params: { id: QUOTE } },
-      }) as unknown as import('h3').H3Event;
+    const eventWithId = () => conversationEvent({ id: QUOTE });
     const loadHandler = async () =>
       (await import('../../../server/api/quotes/[id]/messages.post')).default;
 
@@ -530,6 +559,44 @@ describe('Quote API Routes', () => {
       expect(mockRateLimitCheck).not.toHaveBeenCalled();
       expect(mockCreateQuoteMessage).not.toHaveBeenCalled();
     });
+
+    describe('the quotes and quoteConversation switches', () => {
+      const send = async (switches: {
+        quotes?: boolean;
+        quoteConversation?: boolean;
+      }) => {
+        readBodyMock.mockReturnValue({ message: 'Hej' });
+        return (await loadHandler())(
+          conversationEvent({ id: QUOTE }, switches),
+        );
+      };
+      const expectRefused = async (sent: Promise<unknown>) => {
+        await expect(sent).rejects.toMatchObject({
+          statusCode: 403,
+          message: 'Access denied: the quote conversation is not available',
+        });
+        expect(mockMessageRateLimitCheck).not.toHaveBeenCalled();
+        expect(mockCreateQuoteMessage).not.toHaveBeenCalled();
+      };
+
+      it('writes the message when quotes and quoteConversation are both enabled', async () => {
+        expect(await send({ quotes: true, quoteConversation: true })).toEqual({
+          message: { id: 'm-9' },
+        });
+      });
+
+      it('answers 403 when quoteConversation is disabled and quotes is enabled', async () => {
+        await expectRefused(send({ quotes: true, quoteConversation: false }));
+      });
+
+      it('answers 403 when quotes is disabled and quoteConversation is enabled', async () => {
+        await expectRefused(send({ quotes: false, quoteConversation: true }));
+      });
+
+      it('answers 403 when the tenant stores no quoteConversation', async () => {
+        await expectRefused(send({ quotes: true }));
+      });
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -538,13 +605,7 @@ describe('Quote API Routes', () => {
   describe('DELETE /api/quotes/[id]/messages/[messageId]', () => {
     const MESSAGE = '3f2b8c1e-5d4a-4e6b-9c7d-1a2b3c4d5e6f';
     const eventFor = (messageId: string) =>
-      ({
-        ...mockEvent,
-        context: {
-          ...mockEvent.context,
-          params: { id: QUOTE, messageId },
-        },
-      }) as unknown as import('h3').H3Event;
+      conversationEvent({ id: QUOTE, messageId });
     const loadHandler = async () =>
       (
         await import('../../../server/api/quotes/[id]/messages/[messageId].delete')
@@ -613,6 +674,29 @@ describe('Quote API Routes', () => {
       expect(mockMessageRateLimitCheck).toHaveBeenCalledWith('203.0.113.7');
       expect(mockDeleteQuoteMessage).not.toHaveBeenCalled();
     });
+
+    it.each([
+      [
+        'quoteConversation is disabled',
+        { quotes: true, quoteConversation: false },
+      ],
+      ['the tenant stores no quoteConversation', { quotes: true }],
+      ['quotes is disabled', { quotes: false, quoteConversation: true }],
+    ])(
+      'answers 403 when %s, and counts and deletes nothing',
+      async (_case, switches) => {
+        await expect(
+          (await loadHandler())(
+            conversationEvent({ id: QUOTE, messageId: MESSAGE }, switches),
+          ),
+        ).rejects.toMatchObject({
+          statusCode: 403,
+          message: 'Access denied: the quote conversation is not available',
+        });
+        expect(mockMessageRateLimitCheck).not.toHaveBeenCalled();
+        expect(mockDeleteQuoteMessage).not.toHaveBeenCalled();
+      },
+    );
   });
 
   // -------------------------------------------------------------------------
@@ -643,11 +727,7 @@ describe('Quote API Routes', () => {
     },
   ])('$route: the quotation id', ({ load, service, params }) => {
     const ZERO = '00000000-0000-0000-0000-000000000000';
-    const eventFor = (id: string) =>
-      ({
-        ...mockEvent,
-        context: { ...mockEvent.context, params: params(id) },
-      }) as unknown as import('h3').H3Event;
+    const eventFor = (id: string) => conversationEvent(params(id));
     const handler = async () =>
       (await load()).default as (
         event: import('h3').H3Event,

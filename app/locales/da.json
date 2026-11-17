@@ -894,6 +894,7 @@
         "open": "Tilbudslog",
         "title": "Tilbudslog",
         "empty": "Ingen beskeder endnu. Skriv til din sælger, hvis du har spørgsmål om tilbuddet.",
+        "empty_read_only": "Ingen beskeder endnu.",
         "load_failed": "Beskederne kunne ikke indlæses.",
         "placeholder": "Skriv en besked til sælgeren …",
         "send": "Send",

@@ -621,7 +621,7 @@ describe('StoreSettingsSchema', () => {
       }
     });
 
-    it.each(['enabled', 'disabled'] as const)(
+    it.each(['enabled', 'disabled', true, false] as const)(
       'keeps the quoteRequests choice %s of the Studio quotes card',
       (choice) => {
         const result = StoreSettingsSchema.safeParse(
@@ -636,10 +636,34 @@ describe('StoreSettingsSchema', () => {
       },
     );
 
-    it('refuses a quoteRequests value other than enabled or disabled', () => {
+    it('refuses a quoteRequests value other than enabled, disabled, true or false', () => {
       const result = StoreSettingsSchema.safeParse(
         createMinimalConfig({
           features: { quotes: { enabled: true, quoteRequests: 'yes' } },
+        }),
+      );
+      expect(result.success).toBe(false);
+    });
+
+    it.each(['enabled', 'disabled', true, false] as const)(
+      'keeps the quoteConversation choice %s of the Studio quotes card',
+      (choice) => {
+        const result = StoreSettingsSchema.safeParse(
+          createMinimalConfig({
+            features: { quotes: { enabled: true, quoteConversation: choice } },
+          }),
+        );
+        expect(result.success && result.data.features.quotes).toEqual({
+          enabled: true,
+          quoteConversation: choice,
+        });
+      },
+    );
+
+    it('refuses a quoteConversation value other than enabled, disabled, true or false', () => {
+      const result = StoreSettingsSchema.safeParse(
+        createMinimalConfig({
+          features: { quotes: { enabled: true, quoteConversation: 'yes' } },
         }),
       );
       expect(result.success).toBe(false);

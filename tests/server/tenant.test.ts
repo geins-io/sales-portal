@@ -1146,26 +1146,26 @@ describe('Tenant utilities', () => {
       };
     }
 
+    // Parse, defaults, merge and derivation, down to the features that
+    // /api/config serves.
+    async function build(
+      features: Record<string, unknown>,
+      overrides?: Record<string, unknown>,
+    ) {
+      const candidate = { ...fullCandidate(), features, overrides };
+      const out = parseStoreSettingsResilient(candidate, 'h');
+      if (!out) throw new Error('candidate did not parse');
+      const event = {
+        context: { tenant: { config: buildTenantConfig(out) } },
+      } as unknown as H3Event;
+      const config = await getPublicConfig(event);
+      if (!config) throw new Error('no public config');
+      return config.features;
+    }
+
     // Studio keeps the request switch on the quotes card:
     // "quotes": { "enabled": true|false, "quoteRequests": "enabled"|"disabled" }.
     describe('quote requests from the quotes card', () => {
-      // Parse, defaults, merge and derivation, down to the features that
-      // /api/config serves.
-      async function build(
-        features: Record<string, unknown>,
-        overrides?: Record<string, unknown>,
-      ) {
-        const candidate = { ...fullCandidate(), features, overrides };
-        const out = parseStoreSettingsResilient(candidate, 'h');
-        if (!out) throw new Error('candidate did not parse');
-        const event = {
-          context: { tenant: { config: buildTenantConfig(out) } },
-        } as unknown as H3Event;
-        const config = await getPublicConfig(event);
-        if (!config) throw new Error('no public config');
-        return config.features;
-      }
-
       it('1. no quotes key: quotes on by default, quote requests off', async () => {
         const features = await build({});
         expect(features.quotes).toEqual({ enabled: true });
@@ -1228,6 +1228,28 @@ describe('Tenant utilities', () => {
         expect(features.quoteRequests).toEqual({ enabled: false });
       });
 
+      it('7b. quotes enabled with quoteRequests true (the Studio boolean): both on', async () => {
+        const features = await build({
+          quotes: { enabled: true, quoteRequests: true },
+        });
+        expect(features.quotes).toEqual({ enabled: true });
+        expect(features.quoteRequests).toEqual({ enabled: true });
+      });
+
+      it('6b. quotes enabled with quoteRequests false (the Studio boolean): quote requests off', async () => {
+        const features = await build({
+          quotes: { enabled: true, quoteRequests: false },
+        });
+        expect(features.quoteRequests).toEqual({ enabled: false });
+      });
+
+      it('8b. quotes disabled with quoteRequests true: both off', async () => {
+        const features = await build({
+          quotes: { enabled: false, quoteRequests: true },
+        });
+        expect(features.quoteRequests).toEqual({ enabled: false });
+      });
+
       it('ignores a top-level quoteRequests key', async () => {
         expect(
           (await build({ quotes: { enabled: true }, quoteRequests: true }))
@@ -1265,6 +1287,89 @@ describe('Tenant utilities', () => {
         );
         expect(features.quotes).toEqual({ enabled: false });
         expect(features.quoteRequests).toEqual({ enabled: false });
+      });
+    });
+
+    // The conversation switch sits on the same card:
+    // "quotes": { ..., "quoteConversation": "enabled"|"disabled" }.
+    describe('the quote conversation from the quotes card', () => {
+      it.each([
+        ['no quotes key', {}],
+        [
+          'quotes enabled with no quoteConversation',
+          { quotes: { enabled: true } },
+        ],
+        [
+          'quotes enabled with quoteConversation disabled',
+          { quotes: { enabled: true, quoteConversation: 'disabled' } },
+        ],
+        [
+          'quotes enabled with quoteConversation false',
+          { quotes: { enabled: true, quoteConversation: false } },
+        ],
+        [
+          'quotes disabled with quoteConversation true',
+          { quotes: { enabled: false, quoteConversation: true } },
+        ],
+        [
+          'quotes disabled with quoteConversation enabled',
+          { quotes: { enabled: false, quoteConversation: 'enabled' } },
+        ],
+        [
+          'quotes enabled with quoteConversation yes (the leaf is stripped)',
+          { quotes: { enabled: true, quoteConversation: 'yes' } },
+        ],
+        [
+          'a top-level quoteConversation key only',
+          { quotes: { enabled: true }, quoteConversation: { enabled: true } },
+        ],
+      ])('%s: the conversation is off', async (_case, features) => {
+        expect((await build(features)).quoteConversation).toEqual({
+          enabled: false,
+        });
+      });
+
+      it('quotes enabled with quoteConversation enabled: on, and quotes keeps its own shape', async () => {
+        const features = await build({
+          quotes: {
+            enabled: true,
+            access: 'authenticated',
+            quoteConversation: 'enabled',
+          },
+        });
+        expect(features.quoteConversation).toEqual({ enabled: true });
+        expect(features.quotes).toEqual({
+          enabled: true,
+          access: 'authenticated',
+        });
+      });
+
+      it('quotes enabled with quoteConversation true (the Studio boolean): on', async () => {
+        const features = await build({
+          quotes: { enabled: true, quoteConversation: true },
+        });
+        expect(features.quoteConversation).toEqual({ enabled: true });
+        expect(features.quotes).toEqual({ enabled: true });
+      });
+
+      it('is independent of quoteRequests', async () => {
+        const features = await build({
+          quotes: {
+            enabled: true,
+            quoteRequests: 'enabled',
+            quoteConversation: 'disabled',
+          },
+        });
+        expect(features.quoteRequests).toEqual({ enabled: true });
+        expect(features.quoteConversation).toEqual({ enabled: false });
+      });
+
+      it('derives quoteConversation after the override layer', async () => {
+        const features = await build(
+          { quotes: { enabled: true, quoteConversation: 'enabled' } },
+          { features: { quotes: { enabled: false } } },
+        );
+        expect(features.quoteConversation).toEqual({ enabled: false });
       });
     });
 

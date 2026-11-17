@@ -894,6 +894,7 @@
         "open": "Tilbudslogg",
         "title": "Tilbudslogg",
         "empty": "Ingen meldinger ennå. Skriv til selgeren din hvis du har spørsmål om tilbudet.",
+        "empty_read_only": "Ingen meldinger ennå.",
         "load_failed": "Meldingene kunne ikke lastes inn.",
         "placeholder": "Skriv en melding til selgeren …",
         "send": "Send",

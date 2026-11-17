@@ -160,4 +160,39 @@ describe('useFeatureAccess', () => {
       expect(useFeatureAccess().canRequestQuotes()).toBe(false);
     });
   });
+
+  describe('canWriteInQuoteConversation', () => {
+    const ON = {
+      quotes: { enabled: true, access: 'authenticated' },
+      quoteConversation: { enabled: true },
+    };
+
+    beforeEach(() => {
+      mockAuthStore.isAuthenticated = true;
+    });
+
+    it('lets a signed-in buyer write when quotes and quoteConversation are enabled', () => {
+      mockFeatures.value = ON;
+      expect(useFeatureAccess().canWriteInQuoteConversation()).toBe(true);
+    });
+
+    it.each([
+      [
+        'quoteConversation is disabled',
+        { ...ON, quoteConversation: { enabled: false } },
+      ],
+      ['quotes is disabled', { ...ON, quotes: { enabled: false } }],
+      ['no quoteConversation is stored', { quotes: ON.quotes }],
+      ['no tenant config yet', undefined],
+    ])('refuses when %s', (_case, features) => {
+      mockFeatures.value = features;
+      expect(useFeatureAccess().canWriteInQuoteConversation()).toBe(false);
+    });
+
+    it('refuses a signed-out visitor, whatever the switches', () => {
+      mockFeatures.value = ON;
+      mockAuthStore.isAuthenticated = false;
+      expect(useFeatureAccess().canWriteInQuoteConversation()).toBe(false);
+    });
+  });
 });

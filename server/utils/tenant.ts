@@ -454,11 +454,17 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
       rawFeatures[key] = value;
     }
   }
-  // Studio keeps the request switch on the quotes card; the portal reads it as
-  // its own flag. A top-level quoteRequests key is overwritten.
+  // Studio keeps the request and conversation switches under quotes; the
+  // portal reads each as its own flag. Both the boolean and the older
+  // 'enabled' mean on. A top-level key of either name is overwritten.
   const { quotes } = rawFeatures;
+  const on = (value: boolean | 'enabled' | 'disabled' | undefined) =>
+    value === true || value === 'enabled';
   rawFeatures.quoteRequests = {
-    enabled: quotes?.enabled === true && quotes.quoteRequests === 'enabled',
+    enabled: quotes?.enabled === true && on(quotes.quoteRequests),
+  };
+  rawFeatures.quoteConversation = {
+    enabled: quotes?.enabled === true && on(quotes.quoteConversation),
   };
   const features = normalizeFeatureAccess(rawFeatures, merged.hostname);
 

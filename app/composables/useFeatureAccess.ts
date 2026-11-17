@@ -33,9 +33,23 @@ export function useFeatureAccess() {
     );
   }
 
+  /**
+   * Whether this buyer may write, reply and delete in the quote log: signed
+   * in, with `quotes` and `quoteConversation` both open to them. The server
+   * asks the same with `assertQuoteConversationAccess`.
+   */
+  function canWriteInQuoteConversation(): boolean {
+    return (
+      auth.isAuthenticated &&
+      canAccess('quotes') &&
+      canAccess('quoteConversation')
+    );
+  }
+
   return {
     canAccess,
     canRequestQuotes,
+    canWriteInQuoteConversation,
     canConfigure: () => canConfigure(user()),
     pageTypeOf: (product: { configurable?: boolean } | null | undefined) =>
       resolveProductPageType(product, user()),

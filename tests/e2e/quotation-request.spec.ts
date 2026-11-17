@@ -5,7 +5,7 @@ import {
   outOfScope,
   signedInState,
 } from './helpers';
-import { apiRoute, isApiCall } from './api-call';
+import { apiGet, apiRoute, isApiCall } from './api-call';
 
 /**
  * The "Skicka offertförfrågan" page. Sending a request cannot be undone, so
@@ -504,7 +504,59 @@ test.describe('Send a quote request', () => {
   });
 });
 
+/** Whether this tenant lets the buyer write in the quote log: `quotes` and `quoteConversation` on. */
+async function quoteConversationOn(page: Page): Promise<boolean> {
+  const response = await apiGet(page.request, '/api/config');
+  expect(response.ok(), '/api/config did not answer 200').toBe(true);
+  const { features } = await response.json();
+  return (
+    features?.quotes?.enabled === true &&
+    features?.quoteConversation?.enabled === true
+  );
+}
+
+test.describe('Read the quote log with the conversation off', () => {
+  test.beforeEach(async ({ page }) => {
+    outOfScope(
+      await quoteConversationOn(page),
+      'tenant-config',
+      'quoteConversation is on for this tenant',
+    );
+  });
+
+  test('shows the log to read, with no field, and an empty text that asks for nothing', async ({
+    page,
+  }) => {
+    await answerQuotation(page, 'requested');
+    await openInApp(page, VIEW_PATH);
+    const open = page.locator('[data-testid="quote-thread-open"]');
+    await expect(open).toHaveText(/Offertlogg/, { timeout: PAGE_TIMEOUT });
+    await expect(open.locator('svg')).toHaveCount(0);
+    await open.click();
+
+    const log = page.locator('[data-testid="quote-thread"]');
+    await expect(log.locator('[data-testid="quote-thread-empty"]')).toHaveText(
+      'Inga meddelanden än.',
+      { timeout: PAGE_TIMEOUT },
+    );
+    await expect(log.locator('[data-testid="quote-thread-input"]')).toHaveCount(
+      0,
+    );
+    await expect(log.locator('[data-testid="quote-thread-more"]')).toHaveCount(
+      0,
+    );
+  });
+});
+
 test.describe('Write in the quote log', () => {
+  test.beforeEach(async ({ page }) => {
+    outOfScope(
+      !(await quoteConversationOn(page)),
+      'tenant-config',
+      'quotes or quoteConversation is off for this tenant',
+    );
+  });
+
   test('writes a message, then replies to it, and the thread shows both', async ({
     page,
   }) => {
@@ -512,6 +564,7 @@ test.describe('Write in the quote log', () => {
     await openInApp(page, VIEW_PATH);
     const open = page.locator('[data-testid="quote-thread-open"]');
     await expect(open).toHaveText(/Offertlogg/, { timeout: PAGE_TIMEOUT });
+    await expect(open.locator('svg')).toHaveCount(0);
     await open.click();
 
     const log = page.locator('[data-testid="quote-thread"]');
