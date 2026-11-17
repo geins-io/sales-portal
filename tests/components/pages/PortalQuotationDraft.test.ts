@@ -95,6 +95,7 @@ vi.mock('../../../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({
     canAccess: () => true,
     canRequestQuotes: () => mockCanRequestQuotes.value,
+    canWriteInQuoteConversation: () => true,
   }),
 }));
 
