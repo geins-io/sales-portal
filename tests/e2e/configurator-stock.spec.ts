@@ -6,7 +6,7 @@ import {
   waitForHydration,
 } from './helpers';
 import { localeText } from './locale-text';
-import { isApiCall } from './api-call';
+import { isApiCall, apiGet } from './api-call';
 
 /**
  * The configurator page's action against the stock, on a real CPQ backend.
@@ -49,14 +49,16 @@ async function cartIdOf(page: Page): Promise<string | undefined> {
 }
 
 async function lines(page: Page, cartId: string): Promise<Line[]> {
-  const response = await page.request.get('/api/cart', { params: { cartId } });
+  const response = await apiGet(page.request, '/api/cart', {
+    params: { cartId },
+  });
   if (!response.ok()) return [];
   return ((await response.json()) as { items?: Line[] }).items ?? [];
 }
 
 /** The product's one SKU, when it is configurable and has exactly one unit. */
 async function skuWithOneUnit(page: Page): Promise<number | null> {
-  const response = await page.request.get(`/api/products/${ALIAS}`);
+  const response = await apiGet(page.request, `/api/products/${ALIAS}`);
   if (!response.ok()) return null;
   const product = (await response.json()) as {
     configurable?: boolean;

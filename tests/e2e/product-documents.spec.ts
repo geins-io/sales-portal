@@ -1,6 +1,7 @@
 import { stat } from 'node:fs/promises';
 import { test, expect, type Page } from './fixtures';
 import { outOfScope, waitForHydration } from './helpers';
+import { apiGet } from './api-call';
 
 /**
  * Product files in the PDP's Documents tab: listed, viewed in a new tab,
@@ -19,7 +20,10 @@ interface FileAsset {
 }
 
 async function productFiles(page: Page): Promise<FileAsset[]> {
-  const response = await page.request.get(`/api/products/${DOCUMENTS_ALIAS}`);
+  const response = await apiGet(
+    page.request,
+    `/api/products/${DOCUMENTS_ALIAS}`,
+  );
   if (!response.ok()) return [];
   const product = await response.json();
   return (product?.assets ?? []).filter(

@@ -1,5 +1,6 @@
 import { test, expect, type APIRequestContext } from './fixtures';
 import { outOfScope, pricesShownSignedOut, waitForHydration } from './helpers';
+import { apiGet } from './api-call';
 
 /**
  * Basic Application E2E Tests
@@ -24,7 +25,7 @@ interface TenantConfigTitle {
 async function expectedDefaultTitle(
   request: APIRequestContext,
 ): Promise<string> {
-  const config = (await (await request.get('/api/config')).json()) as
+  const config = (await (await apiGet(request, '/api/config')).json()) as
     TenantConfigTitle | undefined;
   return (
     config?.seo?.defaultTitle ||

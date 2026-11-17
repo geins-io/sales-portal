@@ -5,7 +5,7 @@ import {
   outOfScope,
   signedInState,
 } from './helpers';
-import { apiRoute } from './api-call';
+import { apiRoute, apiGet } from './api-call';
 
 /**
  * The order-from-quotation page. Placing an order cannot be undone, so the
@@ -28,7 +28,7 @@ interface ListedQuote {
 }
 
 async function listQuotes(page: Page): Promise<ListedQuote[]> {
-  const response = await page.request.get('/api/quotes');
+  const response = await apiGet(page.request, '/api/quotes');
   expect(response.ok(), '/api/quotes did not answer 200').toBe(true);
   return ((await response.json()) as { quotes: ListedQuote[] }).quotes;
 }
@@ -48,7 +48,7 @@ async function findQuote(
 ): Promise<FullQuote | undefined> {
   for (const listed of await listQuotes(page)) {
     if (listed.status !== status) continue;
-    const response = await page.request.get(`/api/quotes/${listed.id}`);
+    const response = await apiGet(page.request, `/api/quotes/${listed.id}`);
     if (!response.ok()) continue;
     const { quote } = (await response.json()) as { quote: FullQuote };
     if (!!quote.requiresConfirmation === requiresConfirmation) return quote;
@@ -65,7 +65,7 @@ const findOrderable = (page: Page) => findQuote(page, 'pending', false);
  * finalized now carries it. Finalize is answered by the test.
  */
 async function mockFinalize(page: Page, quote: FullQuote) {
-  const ordersResponse = await page.request.get('/api/orders');
+  const ordersResponse = await apiGet(page.request, '/api/orders');
   expect(ordersResponse.ok(), '/api/orders did not answer 200').toBe(true);
   const { orders } = (await ordersResponse.json()) as {
     orders: Array<{ id: number | string; publicId?: string | null }>;

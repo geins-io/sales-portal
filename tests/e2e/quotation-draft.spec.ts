@@ -11,7 +11,7 @@ import {
   waitForHydration,
 } from './helpers';
 import { localeText } from './locale-text';
-import { apiRoute } from './api-call';
+import { apiRoute, apiGet } from './api-call';
 
 /**
  * A request draft edited in the quotation view, against Geins: each test makes
@@ -78,7 +78,7 @@ interface ListedDraft {
 
 /** The account's request drafts, or null when the list could not be read. */
 async function listDrafts(page: Page): Promise<ListedDraft[] | null> {
-  const response = await page.request.get('/api/quotes');
+  const response = await apiGet(page.request, '/api/quotes');
   if (!response.ok()) return null;
   const { quotes = [] } = (await response.json()) as { quotes?: ListedDraft[] };
   return quotes.filter((quote) => quote.status === 'request_draft');
@@ -92,7 +92,7 @@ interface DraftProduct {
 }
 
 async function quoteRequestsOn(page: Page): Promise<boolean> {
-  const response = await page.request.get('/api/config');
+  const response = await apiGet(page.request, '/api/config');
   expect(response.ok(), '/api/config did not answer 200').toBe(true);
   const { features } = await response.json();
   return (
@@ -109,7 +109,7 @@ async function plainProducts(
   page: Page,
   count: number,
 ): Promise<DraftProduct[]> {
-  const response = await page.request.get('/api/product-lists/products', {
+  const response = await apiGet(page.request, '/api/product-lists/products', {
     params: { take: '50', filter: JSON.stringify({ sort: 'ALPHABETICAL' }) },
   });
   expect(response.ok()).toBe(true);
@@ -214,7 +214,8 @@ async function makeDraft(
 
 /** Clean-up: a draft still there is deleted. */
 async function deleteDraft(page: Page, id: string) {
-  if ((await page.request.get(`/api/quotes/${id}`)).status() === 404) return;
+  if ((await apiGet(page.request, `/api/quotes/${id}`)).status() === 404)
+    return;
   const answer = await page.request.delete(`/api/quotes/${id}`);
   expect(answer.ok(), `draft ${id} was left in Geins`).toBe(true);
 }
@@ -252,7 +253,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function readDraft(page: Page, id: string) {
-  const response = await page.request.get(`/api/quotes/${id}`);
+  const response = await apiGet(page.request, `/api/quotes/${id}`);
   expect(response.ok(), `/api/quotes/${id} did not answer 200`).toBe(true);
   const { quote } = await response.json();
   return quote as {
@@ -423,7 +424,9 @@ test.describe('Edit a request draft', () => {
     await page.waitForURL(new RegExp(`${LIST_PATH}$`), {
       timeout: PAGE_TIMEOUT,
     });
-    expect((await page.request.get(`/api/quotes/${id}`)).status()).toBe(404);
+    expect((await apiGet(page.request, `/api/quotes/${id}`)).status()).toBe(
+      404,
+    );
   });
 
   test('works the same at phone width', async ({ page }, testInfo) => {
@@ -470,6 +473,8 @@ test.describe('Edit a request draft', () => {
     await page.waitForURL(new RegExp(`${LIST_PATH}$`), {
       timeout: PAGE_TIMEOUT,
     });
-    expect((await page.request.get(`/api/quotes/${id}`)).status()).toBe(404);
+    expect((await apiGet(page.request, `/api/quotes/${id}`)).status()).toBe(
+      404,
+    );
   });
 });

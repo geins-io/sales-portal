@@ -71,6 +71,18 @@ export default createConfigForNuxt()
     },
   })
   .append({
+    // Guard: e2e tests read our /api routes with apiGet, which retries a failed
+    // GET once as the page does. Preflight reports the server's raw answer.
+    files: ['tests/e2e/**/*.ts'],
+    ignores: ['tests/e2e/preflight/**'],
+    plugins: {
+      'sales-portal': customRules,
+    },
+    rules: {
+      'sales-portal/api-get-through-helper': 'error',
+    },
+  })
+  .append({
     // Guard: e2e specs declare why a test does not run. A bare skip conflates
     // "out of scope", "blocked" and "we don't know", and the last one must
     // fail the run (tests/e2e/reporters/scope-reporter.ts). Only helpers.ts

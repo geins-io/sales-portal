@@ -7,7 +7,7 @@ import {
   waitForHydration,
 } from './helpers';
 import { localeText } from './locale-text';
-import { apiRoute, isApiCall } from './api-call';
+import { apiRoute, isApiCall, apiGet } from './api-call';
 
 /**
  * Opening a configured order row in the configurator, end to end on a real CPQ
@@ -92,7 +92,7 @@ function locate(sections: WireSection[]): {
  */
 async function orderedSummary(page: Page): Promise<SummaryRow[]> {
   for (let attempt = 0; attempt < 3; attempt++) {
-    const response = await page.request.get(`/api/orders/${ORDER_ID}`);
+    const response = await apiGet(page.request, `/api/orders/${ORDER_ID}`);
     expect(
       response.ok(),
       `order ${ORDER_ID} answered ${response.status()} — the test account lost the order this spec was placed for`,
@@ -299,7 +299,9 @@ test.describe('Opening a configured order row', () => {
       await expect(page.getByTestId('cart-drawer')).toBeVisible();
       await expect(page).not.toHaveURL(/[?&](order|row)=/);
 
-      const cart = await page.request.get('/api/cart', { params: { cartId } });
+      const cart = await apiGet(page.request, '/api/cart', {
+        params: { cartId },
+      });
       const { items } = (await cart.json()) as {
         items: { id: string; configuration?: { summary: SummaryRow[] } }[];
       };

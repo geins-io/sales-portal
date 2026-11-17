@@ -9,6 +9,7 @@ import {
   signedInState,
   waitForHydration,
 } from './helpers';
+import { apiGet } from './api-call';
 
 /**
  * Images from the asset library: sized by its CDN, served in a format the
@@ -33,7 +34,7 @@ async function libraryProduct(
   page: Page,
   images = 1,
 ): Promise<ListedProduct | undefined> {
-  const response = await page.request.get('/api/product-lists/products', {
+  const response = await apiGet(page.request, '/api/product-lists/products', {
     params: { take: '20', filter: JSON.stringify({ sort: 'ALPHABETICAL' }) },
   });
   expect(response.ok()).toBe(true);
@@ -100,7 +101,7 @@ async function cartIdOf(page: Page): Promise<string | undefined> {
 async function cartLines(page: Page): Promise<{ id: string }[]> {
   const cartId = await cartIdOf(page);
   if (!cartId) return [];
-  const cart = await page.request.get('/api/cart', { params: { cartId } });
+  const cart = await apiGet(page.request, '/api/cart', { params: { cartId } });
   if (!cart.ok()) return [];
   return ((await cart.json()) as { items?: { id: string }[] }).items ?? [];
 }

@@ -10,7 +10,7 @@ import {
   type VatSide,
 } from './helpers';
 import { localeText } from './locale-text';
-import { apiRoute, isApiCall } from './api-call';
+import { apiRoute, isApiCall, apiGet } from './api-call';
 
 /**
  * Configurator E2E Tests
@@ -197,7 +197,7 @@ async function cartLineIds(page: Page): Promise<string[]> {
     (cookie) => cookie.name === 'cart_id',
   )?.value;
   if (!cartId) return [];
-  const response = await page.request.get('/api/cart', {
+  const response = await apiGet(page.request, '/api/cart', {
     params: { cartId },
   });
   if (!response.ok()) return [];
@@ -403,7 +403,7 @@ test.describe('Configurator', () => {
     // The seed's own list page, read from the product rather than named: the
     // category is the catalogue's, not the fixture's.
     const product = await (
-      await page.request.get(`/api/products/${SEED_ALIAS}`)
+      await apiGet(page.request, `/api/products/${SEED_ALIAS}`)
     ).json();
     const listUrl: string | undefined = product?.primaryCategory?.canonicalUrl;
     expect(listUrl, `${SEED_ALIAS} has no primary category`).toBeTruthy();
@@ -905,7 +905,7 @@ function editTarget(document: WireDocument): EditTarget | null {
  * and a choice to change. Asked of a session that is released straight away.
  */
 async function suitsTheCart(page: Page, alias: string): Promise<boolean> {
-  const response = await page.request.get(`/api/products/${alias}`);
+  const response = await apiGet(page.request, `/api/products/${alias}`);
   if (!response.ok()) return false;
   const product = (await response.json()) as {
     productId?: number;
@@ -932,7 +932,7 @@ async function cartProduct(page: Page): Promise<string | null> {
   if (await isConfigurable(page, CART_SEED_ALIAS)) {
     return (await suitsTheCart(page, CART_SEED_ALIAS)) ? CART_SEED_ALIAS : null;
   }
-  const response = await page.request.get('/api/product-lists/products', {
+  const response = await apiGet(page.request, '/api/product-lists/products', {
     params: {
       take: String(CANDIDATES),
       filter: JSON.stringify({ sort: 'ALPHABETICAL' }),
@@ -1011,7 +1011,9 @@ async function cartIdOf(page: Page): Promise<string | undefined> {
 }
 
 async function readLines(page: Page, cartId: string): Promise<CartLine[]> {
-  const response = await page.request.get('/api/cart', { params: { cartId } });
+  const response = await apiGet(page.request, '/api/cart', {
+    params: { cartId },
+  });
   expect(response.ok(), 'the cart could not be read').toBe(true);
   return ((await response.json()) as { items?: CartLine[] }).items ?? [];
 }
@@ -1715,7 +1717,7 @@ test.describe('Configurator leaving the page', () => {
 
     const id = await openedSession(page);
     const session = async () =>
-      (await page.request.get(`/api/configurations/${id}`)).status();
+      (await apiGet(page.request, `/api/configurations/${id}`)).status();
     expect(await session()).toBe(200);
 
     // A full load: the page is not unmounted, only hidden.

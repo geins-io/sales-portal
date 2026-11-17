@@ -7,7 +7,7 @@ import {
   waitForHydration,
 } from './helpers';
 import { localeText } from './locale-text';
-import { apiRoute, isApiCall } from './api-call';
+import { apiRoute, isApiCall, apiGet } from './api-call';
 
 /**
  * Editing a configured cart line, end to end on a real CPQ backend.
@@ -97,7 +97,9 @@ interface Line {
 }
 
 async function lines(page: Page, cartId: string): Promise<Line[]> {
-  const response = await page.request.get('/api/cart', { params: { cartId } });
+  const response = await apiGet(page.request, '/api/cart', {
+    params: { cartId },
+  });
   if (!response.ok()) return [];
   return ((await response.json()) as { items?: Line[] }).items ?? [];
 }
@@ -309,7 +311,8 @@ test.describe('Editing a configured cart line', () => {
         line.configuration?.configurationId,
       );
       expect(steelOf(kept)).toBe(steelOf(line));
-      const released = await page.request.get(
+      const released = await apiGet(
+        page.request,
         `/api/configurations/${document.configurationId}`,
       );
       expect(released.status()).toBe(410);

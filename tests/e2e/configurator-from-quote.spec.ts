@@ -6,7 +6,7 @@ import {
   signedInState,
   waitForHydration,
 } from './helpers';
-import { isApiCall } from './api-call';
+import { isApiCall, apiGet } from './api-call';
 
 /**
  * Opening a configured line of a quotation draft in the configurator, end to
@@ -58,7 +58,7 @@ interface WireSection {
 
 /** The standing draft's id, or null where this buyer has no such draft. */
 async function draftId(page: Page): Promise<string | null> {
-  const response = await page.request.get('/api/quotes');
+  const response = await apiGet(page.request, '/api/quotes');
   if (!response.ok()) return null;
   const { quotes } = (await response.json()) as {
     quotes: { id: string; quoteNumber: string; status: string }[];
@@ -68,7 +68,7 @@ async function draftId(page: Page): Promise<string | null> {
 }
 
 async function configuredLine(page: Page, id: string): Promise<DraftLine> {
-  const response = await page.request.get(`/api/quotes/${id}`);
+  const response = await apiGet(page.request, `/api/quotes/${id}`);
   expect(response.ok(), `draft ${DRAFT_NUMBER} could not be read`).toBe(true);
   const { quote } = (await response.json()) as {
     quote: { lineItems: DraftLine[] };

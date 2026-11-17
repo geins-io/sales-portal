@@ -20,6 +20,7 @@ import {
   type ApiQuote,
   type ProductListRow,
 } from './helpers';
+import { apiGet } from './api-call';
 
 /**
  * Portal E2E Tests
@@ -49,7 +50,7 @@ const PAGE_TIMEOUT = 20000;
 async function fetchListedQuotes(
   page: Page,
 ): Promise<{ id: string; status: string }[]> {
-  const response = await page.request.get('/api/quotes');
+  const response = await apiGet(page.request, '/api/quotes');
   expect(response.ok(), '/api/quotes did not answer 200').toBe(true);
   return (
     (await response.json()) as {
@@ -226,7 +227,7 @@ test.describe('Portal Overview', () => {
   test('the overview arrives with its pending quotations and does not read them again', async ({
     page,
   }) => {
-    const listed = await page.request.get('/api/quotes');
+    const listed = await apiGet(page.request, '/api/quotes');
     expect(listed.ok(), '/api/quotes did not answer 200').toBe(true);
     const { quotes } = (await listed.json()) as {
       quotes: { status: string }[];
@@ -567,7 +568,7 @@ test.describe('Portal Order Values', () => {
       // number with the page's own fallback: the cart summary's fee, then the
       // order's. A formatted "0,00 kr" is no fee.
       const rawOrder = (
-        await (await page.request.get(`/api/orders/${publicId}`)).json()
+        await (await apiGet(page.request, `/api/orders/${publicId}`)).json()
       )?.order;
       const shippingAmount: number | undefined = inc
         ? (rawOrder?.cart?.summary?.shipping?.feeIncVat ??
@@ -924,7 +925,7 @@ test.describe('Portal Quotations', () => {
     // The contact row is the seller. A request the buyer sent has no owner
     // until a seller takes it, so the row follows the quotation's data.
     const id = new URL(page.url()).pathname.split('/').pop();
-    const response = await page.request.get(`/api/quotes/${id}`);
+    const response = await apiGet(page.request, `/api/quotes/${id}`);
     expect(response.ok(), `/api/quotes/${id} did not answer 200`).toBe(true);
     const { quote } = (await response.json()) as {
       quote: { seller?: { name: string } | null };
@@ -1573,13 +1574,13 @@ test.describe('Portal bulk adds that leave a configurable product out', () => {
   async function findConfiguredOrder(
     page: Page,
   ): Promise<{ publicId: string; rows: DetailRow[] } | null> {
-    const response = await page.request.get('/api/orders');
+    const response = await apiGet(page.request, '/api/orders');
     expect(response.ok(), '/api/orders did not answer 200').toBe(true);
     const orders: { publicId?: string }[] =
       (await response.json())?.orders ?? [];
     for (const { publicId } of orders) {
       if (!publicId) continue;
-      const detail = await page.request.get(`/api/orders/${publicId}`);
+      const detail = await apiGet(page.request, `/api/orders/${publicId}`);
       if (!detail.ok()) continue;
       const order = (await detail.json())?.order;
       const rows: DetailRow[] = (order?.cart?.items ?? []).filter(
@@ -1603,7 +1604,7 @@ test.describe('Portal bulk adds that leave a configurable product out', () => {
       (await page.context().cookies()).find((c) => c.name === 'cart_id')
         ?.value ?? null;
     if (!cartId) return { cartId, lines: [] };
-    const response = await page.request.get('/api/cart', {
+    const response = await apiGet(page.request, '/api/cart', {
       params: { cartId },
     });
     expect(response.ok(), '/api/cart did not answer 200').toBe(true);

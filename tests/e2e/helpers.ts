@@ -15,6 +15,7 @@ import {
 } from './target';
 import { purchaseCandidates, type StockedCandidate } from './product-choice';
 import { signedOutSeesPrices } from './price-visibility';
+import { apiGet } from './api-call';
 
 export { e2eCredentials, hasE2ECredentials };
 
@@ -111,7 +112,7 @@ export function noteOutOfScope(reason: ScopeReason, detail: string): void {
  * so a broken or wrong-shaped read would turn a caller's assertions into a skip.
  */
 export async function pricesShownSignedOut(page: Page): Promise<boolean> {
-  const response = await page.request.get('/api/config');
+  const response = await apiGet(page.request, '/api/config');
   expect(response.ok(), '/api/config did not answer 200').toBe(true);
   const { features } = await response.json();
   expect(
@@ -154,7 +155,7 @@ type ListedProduct = DiscoveredProduct & StockedCandidate;
  * timestamp the response does not carry. The alias sort only breaks ties.
  */
 async function fetchProductCandidates(page: Page): Promise<ListedProduct[]> {
-  const response = await page.request.get('/api/product-lists/products', {
+  const response = await apiGet(page.request, '/api/product-lists/products', {
     params: { take: '20', filter: JSON.stringify({ sort: 'ALPHABETICAL' }) },
   });
   expect(response.ok()).toBe(true);
@@ -195,7 +196,7 @@ export async function isConfigurable(
   page: Page,
   alias: string,
 ): Promise<boolean> {
-  const response = await page.request.get(`/api/products/${alias}`);
+  const response = await apiGet(page.request, `/api/products/${alias}`);
   if (!response.ok()) return false;
   return (await response.json())?.configurable === true;
 }
@@ -241,7 +242,7 @@ export async function fetchProductPrice(
   page: Page,
   alias: string,
 ): Promise<ApiPrice> {
-  const response = await page.request.get(`/api/products/${alias}`);
+  const response = await apiGet(page.request, `/api/products/${alias}`);
   expect(response.ok(), `/api/products/${alias} did not answer 200`).toBe(true);
 
   // `/api/products/<alias>` returns the product object itself, not a wrapper.
@@ -316,7 +317,7 @@ export async function fetchProductCatalogue(
   let count: number;
   let skip = 0;
   do {
-    const response = await page.request.get('/api/product-lists/products', {
+    const response = await apiGet(page.request, '/api/product-lists/products', {
       params: {
         take: String(CATALOGUE_PAGE),
         skip: String(skip),
@@ -484,7 +485,7 @@ export async function discoverCategory(
   page: Page,
 ): Promise<DiscoveredCategory> {
   // Fetch the main menu — items have a `type` field (category, brand, page, etc.)
-  const menuResponse = await page.request.get('/api/cms/menu', {
+  const menuResponse = await apiGet(page.request, '/api/cms/menu', {
     params: { menuLocationId: 'main' },
   });
 
@@ -893,7 +894,7 @@ export async function fetchCart(page: Page): Promise<ApiCart> {
     'no cart_id cookie — nothing reached the cart, so there is no cart to read',
   ).toBeTruthy();
 
-  const response = await page.request.get('/api/cart', {
+  const response = await apiGet(page.request, '/api/cart', {
     params: { cartId: cartId! },
   });
   expect(response.ok(), '/api/cart did not answer 200').toBe(true);
@@ -1021,7 +1022,7 @@ export async function fetchOrder(
   page: Page,
   publicId: string,
 ): Promise<ApiOrder> {
-  const response = await page.request.get(`/api/orders/${publicId}`);
+  const response = await apiGet(page.request, `/api/orders/${publicId}`);
   expect(response.ok(), `/api/orders/${publicId} did not answer 200`).toBe(
     true,
   );
@@ -1165,7 +1166,7 @@ export async function fetchOrders(
   page: Page,
   limit = ORDERS_READ_IN_FULL,
 ): Promise<ApiOrder[]> {
-  const response = await page.request.get('/api/orders');
+  const response = await apiGet(page.request, '/api/orders');
   expect(response.ok(), '/api/orders did not answer 200').toBe(true);
 
   const orders: { publicId?: string; createdAt?: string }[] =
@@ -1401,7 +1402,7 @@ export async function fetchQuote(
   id: string,
   side: VatSide,
 ): Promise<ApiQuote> {
-  const response = await page.request.get(`/api/quotes/${id}`);
+  const response = await apiGet(page.request, `/api/quotes/${id}`);
   expect(response.ok(), `/api/quotes/${id} did not answer 200`).toBe(true);
 
   const quote = (await response.json())?.quote;
@@ -1458,7 +1459,7 @@ export async function fetchQuoteList(
   page: Page,
   side: VatSide,
 ): Promise<ApiQuoteListItem[]> {
-  const response = await page.request.get('/api/quotes');
+  const response = await apiGet(page.request, '/api/quotes');
   expect(response.ok(), '/api/quotes did not answer 200').toBe(true);
 
   const listed: {
@@ -1541,7 +1542,7 @@ export async function fetchProductsByAliases(
   page: Page,
   aliases: string[],
 ): Promise<ApiAliasPrice[]> {
-  const response = await page.request.get('/api/products/by-aliases', {
+  const response = await apiGet(page.request, '/api/products/by-aliases', {
     params: { aliases: aliases.join(',') },
   });
   expect(response.ok(), '/api/products/by-aliases did not answer 200').toBe(
