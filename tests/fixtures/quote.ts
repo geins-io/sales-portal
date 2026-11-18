@@ -149,16 +149,12 @@ export function makeQuoteListItem(
     id: 'q-001',
     quoteNumber: 'Q-2024-001',
     contactName: 'Jane Doe',
-    contactEmail: 'jane@example.com',
     status: 'pending',
     total: 1500,
     totalFormatted: '1 500,00 kr',
     totalExVat: 1200,
     totalExVatFormatted: '1 200,00 kr',
-    currency: 'SEK',
-    itemCount: 3,
     createdAt: '2024-03-01T10:00:00Z',
-    updatedAt: '2024-03-01T10:00:00Z',
     ...overrides,
   };
 }

@@ -932,7 +932,8 @@
       },
       "title": "Angebote und Anfragen",
       "subtitle": "Setzen Sie Ihre Entwürfe fort, verfolgen Sie Ihre gesendeten Anfragen und antworten Sie auf Angebote.",
-      "search_placeholder": "Name oder Angebotsnr. suchen…",
+      "search_placeholder": "Name, Angebotsnr. oder {format}…",
+      "date_letters": { "year": "JJJJ", "month": "MM", "day": "TT" },
       "filters": {
         "all": "Alle",
         "drafts": "Entwürfe",

@@ -932,7 +932,8 @@
       },
       "title": "Tilbud og forespørgsler",
       "subtitle": "Fortsæt med dine kladder, følg dine sendte forespørgsler, og svar på tilbud.",
-      "search_placeholder": "Søg navn eller tilbudsnr.…",
+      "search_placeholder": "Søg navn, tilbudsnr. eller {format}…",
+      "date_letters": { "year": "ÅÅÅÅ", "month": "MM", "day": "DD" },
       "filters": {
         "all": "Alle",
         "drafts": "Kladder",

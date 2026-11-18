@@ -1,12 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ref } from 'vue';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { ref, type Ref } from 'vue';
 import { flushPromises } from '@vue/test-utils';
 import { mountComponent } from '../../utils/component';
 import type { QuoteListItem } from '../../../shared/types/quote';
 import { makeQuoteListItem as makeQuote } from '../../fixtures/quote';
-import { mockShowIncVat } from '../../setup-components';
+import { mockShowIncVat, mockTenantTimezone } from '../../setup-components';
 
-// Mock useFetch — returns reactive refs
+// Two reads: the page of rows, and the tab counts beside it.
 const mockData = ref<{
   quotes: QuoteListItem[];
   total: number;
@@ -15,13 +15,26 @@ const mockPending = ref(false);
 const mockError = ref<Error | null>(null);
 const mockRefresh = vi.fn();
 
+const mockCounts = ref<{ counts: Record<string, number> } | null>(null);
+const mockCountsPending = ref(false);
+const mockCountsError = ref<Error | null>(null);
+const mockCountsRefresh = vi.fn();
+
 const useFetchMock = vi.fn(
-  (_url: string | (() => string), _options?: Record<string, unknown>) => ({
-    data: mockData,
-    pending: mockPending,
-    error: mockError,
-    refresh: mockRefresh,
-  }),
+  (url: string | (() => string), _options?: Record<string, unknown>) =>
+    url === '/api/quotes/counts'
+      ? {
+          data: mockCounts,
+          pending: mockCountsPending,
+          error: mockCountsError,
+          refresh: mockCountsRefresh,
+        }
+      : {
+          data: mockData,
+          pending: mockPending,
+          error: mockError,
+          refresh: mockRefresh,
+        },
 );
 
 vi.mock('#app/composables/fetch', () => ({
@@ -99,6 +112,10 @@ const defaultStubs = {
 
 type Wrapper = ReturnType<typeof mountComponent>;
 
+function mountPage(): Wrapper {
+  return mountComponent(PortalQuotations, { global: { stubs: defaultStubs } });
+}
+
 /** Reka's tab trigger activates on a left-button mousedown, not on click. */
 async function chooseTab(wrapper: Wrapper, filter: string) {
   await wrapper
@@ -115,15 +132,52 @@ function counts(wrapper: Wrapper): Record<string, string> {
   );
 }
 
+/** The query the page reads its rows with, as it stands now. */
+function listQuery(): Record<string, unknown> {
+  const call = useFetchMock.mock.calls.find(([url]) => url === '/api/quotes');
+  return (call?.[1]?.query as Ref<Record<string, unknown>>).value;
+}
+
+/** Types a search and lets the debounce pass. */
+async function search(wrapper: Wrapper, term: string) {
+  await wrapper.find('[data-testid="quotations-search"]').setValue(term);
+  await vi.advanceTimersByTimeAsync(300);
+}
+
+function rowIds(wrapper: Wrapper) {
+  return wrapper
+    .find('table')
+    .findAll('[data-testid="quotation-row"]')
+    .map((row) => row.attributes('data-id'));
+}
+
+function makeQuotes(count: number): QuoteListItem[] {
+  return Array.from({ length: count }, (_, i) =>
+    makeQuote({
+      id: `q-${String(i + 1).padStart(3, '0')}`,
+      quoteNumber: `Q-${String(i + 1).padStart(4, '0')}`,
+      name: `Request ${i + 1}`,
+    }),
+  );
+}
+
 // A page left mounted re-renders on every later `mockData` change.
 
 describe('PortalQuotations page', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     mockData.value = null;
     mockPending.value = false;
     mockError.value = null;
+    mockCounts.value = {
+      counts: { all: 6, drafts: 2, requests: 1, quotations: 3 },
+    };
+    mockCountsPending.value = false;
+    mockCountsError.value = null;
     mockShowIncVat.value = true;
+    mockTenantTimezone.value = undefined;
     mockRefresh.mockClear();
+    mockCountsRefresh.mockClear();
     useFetchMock.mockClear();
     mockUpdateDraft.mockReset();
     mockDeleteDraft.mockReset();
@@ -131,29 +185,38 @@ describe('PortalQuotations page', () => {
     mockCanRequestQuotes.value = true;
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   describe('page structure', () => {
     it('renders inside PortalShell', () => {
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
+      const wrapper = mountPage();
       expect(wrapper.find('[data-testid="portal-shell"]').exists()).toBe(true);
     });
 
-    it('calls useFetch with /api/quotes', () => {
-      mountComponent(PortalQuotations, { global: { stubs: defaultStubs } });
-      expect(useFetchMock.mock.calls[0]?.[0]).toBe('/api/quotes');
-      expect(useFetchMock.mock.calls[0]?.[1]).toMatchObject({
-        dedupe: 'defer',
-      });
+    it('reads the first page of Alla, the newest read winning', () => {
+      mountPage();
+      const call = useFetchMock.mock.calls.find(
+        ([url]) => url === '/api/quotes',
+      );
+      expect(call?.[1]).toMatchObject({ dedupe: 'cancel' });
+      expect(listQuery()).toEqual({ tab: 'all', skip: 0, take: 20 });
+    });
+
+    it('reads the tab counts on their own', () => {
+      mountPage();
+      const call = useFetchMock.mock.calls.find(
+        ([url]) => url === '/api/quotes/counts',
+      );
+      expect(call?.[1]).toMatchObject({ dedupe: 'defer' });
     });
   });
 
   describe('loading state', () => {
     it('shows loading state when pending is true', () => {
       mockPending.value = true;
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
+      const wrapper = mountPage();
       expect(wrapper.find('[data-testid="quotations-loading"]').exists()).toBe(
         true,
       );
@@ -166,40 +229,28 @@ describe('PortalQuotations page', () => {
   describe('error state', () => {
     it('shows error state when error is present', () => {
       mockError.value = new Error('Network error');
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
+      const wrapper = mountPage();
       expect(wrapper.find('[data-testid="quotations-error"]').exists()).toBe(
         true,
       );
     });
 
-    it('calls refresh when retry is clicked', async () => {
+    it('reads the rows and the counts again on retry', async () => {
       mockError.value = new Error('Network error');
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
+      const wrapper = mountPage();
       await wrapper.find('[data-testid="quotations-retry"]').trigger('click');
       expect(mockRefresh).toHaveBeenCalledOnce();
+      expect(mockCountsRefresh).toHaveBeenCalledOnce();
     });
   });
 
   describe('empty state', () => {
     it('says the list is empty when there are no quotes at all', () => {
       mockData.value = { quotes: [], total: 0 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
+      const wrapper = mountPage();
       expect(wrapper.find('[data-testid="quotations-empty"]').text()).toBe(
         'portal.quotations.empty.all',
       );
-    });
-
-    it('does not show table when there are no quotes', () => {
-      mockData.value = { quotes: [], total: 0 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
       expect(wrapper.find('[data-testid="quotations-table"]').exists()).toBe(
         false,
       );
@@ -209,9 +260,7 @@ describe('PortalQuotations page', () => {
       'names the %s tab when it is empty',
       async (filter) => {
         mockData.value = { quotes: [], total: 0 };
-        const wrapper = mountComponent(PortalQuotations, {
-          global: { stubs: defaultStubs },
-        });
+        const wrapper = mountPage();
         await chooseTab(wrapper, filter);
         expect(wrapper.find('[data-testid="quotations-empty"]').text()).toBe(
           `portal.quotations.empty.${filter}`,
@@ -219,35 +268,10 @@ describe('PortalQuotations page', () => {
       },
     );
 
-    it('names the empty tab while other tabs have quotes', async () => {
-      mockData.value = {
-        quotes: [makeQuote({ id: 'q-1', status: 'pending' })],
-        total: 1,
-      };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      await chooseTab(wrapper, 'drafts');
-      expect(wrapper.find('[data-testid="quotations-empty"]').text()).toBe(
-        'portal.quotations.empty.drafts',
-      );
-      expect(wrapper.find('[data-testid="quotations-filter"]').exists()).toBe(
-        true,
-      );
-    });
-
-    it('says nothing matches when a search empties the tab', async () => {
-      mockData.value = {
-        quotes: [makeQuote({ status: 'request_draft' })],
-        total: 1,
-      };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      await chooseTab(wrapper, 'drafts');
-      await wrapper
-        .find('[data-testid="quotations-search"]')
-        .setValue('zzz-no-match');
+    it('says nothing matches when a search finds nothing', async () => {
+      mockData.value = { quotes: [], total: 0 };
+      const wrapper = mountPage();
+      await search(wrapper, 'zzz-no-match');
       expect(wrapper.find('[data-testid="quotations-empty"]').text()).toBe(
         'portal.quotations.empty.no_match',
       );
@@ -255,38 +279,19 @@ describe('PortalQuotations page', () => {
 
     it('counts a blank search as no search', async () => {
       mockData.value = { quotes: [], total: 0 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      await wrapper.find('[data-testid="quotations-search"]').setValue('   ');
+      const wrapper = mountPage();
+      await search(wrapper, '   ');
       expect(wrapper.find('[data-testid="quotations-empty"]').text()).toBe(
         'portal.quotations.empty.all',
       );
+      expect(listQuery()).not.toHaveProperty('search');
     });
   });
 
   describe('tabs', () => {
-    const mixed = () => [
-      makeQuote({ id: 'q-p1', quoteNumber: 'Q-P1', status: 'pending' }),
-      makeQuote({ id: 'q-d1', quoteNumber: '', status: 'request_draft' }),
-      makeQuote({ id: 'q-r1', quoteNumber: 'Q-R1', status: 'requested' }),
-      makeQuote({ id: 'q-e1', quoteNumber: 'Q-E1', status: 'expired' }),
-      makeQuote({ id: 'q-d2', quoteNumber: '', status: 'request_draft' }),
-      makeQuote({ id: 'q-a1', quoteNumber: 'Q-A1', status: 'accepted' }),
-    ];
-
-    function rowIds(wrapper: Wrapper) {
-      return wrapper
-        .find('table')
-        .findAll('[data-testid="quotation-row"]')
-        .map((row) => row.attributes('data-id'));
-    }
-
     it('shows the four tabs in the prototype order', () => {
-      mockData.value = { quotes: mixed(), total: 6 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
+      mockData.value = { quotes: makeQuotes(6), total: 6 };
+      const wrapper = mountPage();
       const tabs = wrapper
         .find('[data-testid="quotations-filter"]')
         .findAll('[role="tab"]');
@@ -300,33 +305,26 @@ describe('PortalQuotations page', () => {
     });
 
     it('uses the underline tab style, as on the product page', () => {
-      mockData.value = { quotes: mixed(), total: 6 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
+      mockData.value = { quotes: makeQuotes(6), total: 6 };
+      const wrapper = mountPage();
       expect(
         wrapper.find('[data-testid="quotations-filter"]').classes(),
       ).toContain('border-b');
     });
 
     it('starts on Alla', () => {
-      mockData.value = { quotes: mixed(), total: 6 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
+      mockData.value = { quotes: makeQuotes(6), total: 6 };
+      const wrapper = mountPage();
       expect(
         wrapper
           .find('[data-testid="quotations-filter-all"]')
           .attributes('aria-selected'),
       ).toBe('true');
-      expect(rowIds(wrapper)).toHaveLength(6);
     });
 
-    it('counts each group', () => {
-      mockData.value = { quotes: mixed(), total: 6 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
+    it('shows each tab the count the server read', () => {
+      mockData.value = { quotes: makeQuotes(6), total: 6 };
+      const wrapper = mountPage();
       expect(counts(wrapper)).toEqual({
         all: '6',
         drafts: '2',
@@ -335,149 +333,107 @@ describe('PortalQuotations page', () => {
       });
     });
 
-    it('counts the whole group, not the page', () => {
-      mockData.value = {
-        quotes: Array.from({ length: 25 }, (_, i) =>
-          makeQuote({ id: `q-${i}`, status: 'pending' }),
-        ),
-        total: 25,
-      };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      expect(counts(wrapper)).toEqual({
-        all: '25',
-        drafts: '0',
-        requests: '0',
-        quotations: '25',
-      });
-    });
-
     it('keeps the counts while a search narrows the rows', async () => {
-      mockData.value = { quotes: mixed(), total: 6 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      await wrapper.find('[data-testid="quotations-search"]').setValue('Q-R1');
-      expect(rowIds(wrapper)).toEqual(['q-r1']);
+      mockData.value = { quotes: makeQuotes(6), total: 6 };
+      const wrapper = mountPage();
+      await search(wrapper, 'Q-R1');
+      mockData.value = { quotes: makeQuotes(1), total: 1 };
+      await flushPromises();
       expect(counts(wrapper).all).toBe('6');
+      expect(mockCountsRefresh).not.toHaveBeenCalled();
     });
 
     it.each<[string, () => void]>([
       [
         'loading',
         () => {
-          mockPending.value = true;
+          mockCountsPending.value = true;
         },
       ],
       [
         'the read failed',
         () => {
-          mockError.value = new Error('Network error');
+          mockCountsError.value = new Error('Network error');
         },
       ],
-    ])('shows no count while %s', (_state, arrange) => {
-      arrange();
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      expect(wrapper.find('[data-testid="quotations-filter"]').exists()).toBe(
-        true,
-      );
-      expect(
-        wrapper.findAll('[data-testid^="quotations-filter-count-"]'),
-      ).toHaveLength(0);
-    });
+      [
+        'nothing was read',
+        () => {
+          mockCounts.value = null;
+        },
+      ],
+    ])(
+      'shows no count while %s, and the rows still show',
+      (_state, arrange) => {
+        arrange();
+        mockData.value = { quotes: makeQuotes(2), total: 2 };
+        const wrapper = mountPage();
+        expect(wrapper.find('[data-testid="quotations-filter"]').exists()).toBe(
+          true,
+        );
+        expect(
+          wrapper.findAll('[data-testid^="quotations-filter-count-"]'),
+        ).toHaveLength(0);
+        expect(rowIds(wrapper)).toHaveLength(2);
+      },
+    );
 
-    it.each<[string, string[]]>([
-      ['drafts', ['q-d1', 'q-d2']],
-      ['requests', ['q-r1']],
-      ['quotations', ['q-p1', 'q-e1', 'q-a1']],
-    ])('shows only its own rows on the %s tab', async (filter, ids) => {
-      mockData.value = { quotes: mixed(), total: 6 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      await chooseTab(wrapper, filter);
-      expect(
-        wrapper
-          .find(`[data-testid="quotations-filter-${filter}"]`)
-          .attributes('aria-selected'),
-      ).toBe('true');
-      expect(rowIds(wrapper)).toEqual(ids);
-    });
+    it.each(['drafts', 'requests', 'quotations'])(
+      'reads the %s tab from the server',
+      async (filter) => {
+        mockData.value = { quotes: makeQuotes(6), total: 6 };
+        const wrapper = mountPage();
+        await chooseTab(wrapper, filter);
+        expect(
+          wrapper
+            .find(`[data-testid="quotations-filter-${filter}"]`)
+            .attributes('aria-selected'),
+        ).toBe('true');
+        expect(listQuery()).toEqual({ tab: filter, skip: 0, take: 20 });
+      },
+    );
 
-    it('puts drafts first on Alla and keeps the server order otherwise', () => {
-      mockData.value = { quotes: mixed(), total: 6 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      expect(rowIds(wrapper)).toEqual([
-        'q-d1',
-        'q-d2',
-        'q-p1',
-        'q-r1',
-        'q-e1',
-        'q-a1',
-      ]);
-    });
-
-    it('puts drafts first on the mobile cards too', () => {
-      mockData.value = { quotes: mixed(), total: 6 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
+    it("shows the rows in the server's order, drafts not pinned first", () => {
+      mockData.value = {
+        quotes: [
+          makeQuote({ id: 'q-p1', status: 'pending' }),
+          makeQuote({ id: 'q-d1', status: 'request_draft' }),
+          makeQuote({ id: 'q-r1', status: 'requested' }),
+        ],
+        total: 3,
+      };
+      const wrapper = mountPage();
+      expect(rowIds(wrapper)).toEqual(['q-p1', 'q-d1', 'q-r1']);
       const cards = wrapper
-        .findAll('[data-testid="quotation-row"]')
-        .filter((row) => row.element.tagName === 'A')
-        .map((row) => row.attributes('href'));
-      expect(cards.slice(0, 3)).toEqual([
-        '/se/en/portal/quotations/q-d1',
-        '/se/en/portal/quotations/q-d2',
+        .findAll('[data-testid="quotation-card"]')
+        .map((card) => card.find('a').attributes('href'));
+      expect(cards).toEqual([
         '/se/en/portal/quotations/q-p1',
+        '/se/en/portal/quotations/q-d1',
+        '/se/en/portal/quotations/q-r1',
       ]);
-    });
-
-    it('searches within the chosen tab', async () => {
-      mockData.value = { quotes: mixed(), total: 6 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      await chooseTab(wrapper, 'quotations');
-      await wrapper.find('[data-testid="quotations-search"]').setValue('Q-');
-      expect(rowIds(wrapper)).toEqual(['q-p1', 'q-e1', 'q-a1']);
-      await wrapper.find('[data-testid="quotations-search"]').setValue('Q-R1');
-      expect(wrapper.find('table').exists()).toBe(false);
-      expect(wrapper.find('[data-testid="quotations-empty"]').text()).toBe(
-        'portal.quotations.empty.no_match',
-      );
     });
 
     it('keeps the search when the tab changes', async () => {
-      mockData.value = { quotes: mixed(), total: 6 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      await wrapper.find('[data-testid="quotations-search"]').setValue('Q-R1');
+      mockData.value = { quotes: makeQuotes(6), total: 6 };
+      const wrapper = mountPage();
+      await search(wrapper, 'Q-R1');
       await chooseTab(wrapper, 'requests');
-      expect(rowIds(wrapper)).toEqual(['q-r1']);
+      expect(listQuery()).toEqual({
+        tab: 'requests',
+        search: 'Q-R1',
+        skip: 0,
+        take: 20,
+      });
     });
 
     it('goes back to page 1 when the tab changes', async () => {
-      mockData.value = {
-        quotes: Array.from({ length: 25 }, (_, i) =>
-          makeQuote({ id: `q-${i}`, status: 'pending' }),
-        ),
-        total: 25,
-      };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
+      mockData.value = { quotes: makeQuotes(20), total: 25 };
+      const wrapper = mountPage();
       await wrapper.find('[data-testid="quotations-next"]').trigger('click');
-      expect(rowIds(wrapper)).toHaveLength(5);
+      expect(listQuery().skip).toBe(20);
       await chooseTab(wrapper, 'quotations');
-      expect(rowIds(wrapper)).toHaveLength(20);
-      expect(rowIds(wrapper)[0]).toBe('q-0');
+      expect(listQuery()).toMatchObject({ tab: 'quotations', skip: 0 });
     });
   });
 
@@ -793,250 +749,166 @@ describe('PortalQuotations page', () => {
     });
   });
 
-  describe('search filtering', () => {
-    it('shows all quotes when search is empty', async () => {
-      mockData.value = {
-        quotes: [
-          makeQuote({
-            id: 'q-001',
-            quoteNumber: 'Q-001',
-            contactName: 'Alice',
-          }),
-          makeQuote({
-            id: 'q-002',
-            quoteNumber: 'Q-002',
-            contactName: 'Bob',
-          }),
-        ],
-        total: 2,
-      };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
+  describe('search', () => {
+    it('searches on the server once the typing stops', async () => {
+      mockData.value = { quotes: makeQuotes(2), total: 2 };
+      const wrapper = mountPage();
+      await wrapper
+        .find('[data-testid="quotations-search"]')
+        .setValue('Spring');
+      await vi.advanceTimersByTimeAsync(299);
+      expect(listQuery()).not.toHaveProperty('search');
+      await vi.advanceTimersByTimeAsync(1);
+      expect(listQuery()).toEqual({
+        tab: 'all',
+        search: 'Spring',
+        skip: 0,
+        take: 20,
       });
-      const rows = wrapper
-        .find('table')
-        .findAll('[data-testid="quotation-row"]');
-      expect(rows).toHaveLength(2);
     });
 
-    it('filters quotes by quote number', async () => {
-      mockData.value = {
-        quotes: [
-          makeQuote({ id: 'q-001', quoteNumber: 'Q-2024-001' }),
-          makeQuote({ id: 'q-002', quoteNumber: 'Q-2024-002' }),
-        ],
-        total: 2,
-      };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      const input = wrapper.find('[data-testid="quotations-search"]');
-      await input.setValue('Q-2024-001');
-      const rows = wrapper
-        .find('table')
-        .findAll('[data-testid="quotation-row"]');
-      expect(rows).toHaveLength(1);
+    it('sends the term without the space around it', async () => {
+      mockData.value = { quotes: makeQuotes(2), total: 2 };
+      const wrapper = mountPage();
+      await search(wrapper, '  2611-2-0370  ');
+      expect(listQuery().search).toBe('2611-2-0370');
     });
 
-    it('filters quotes by name', async () => {
-      mockData.value = {
-        quotes: [
-          makeQuote({ id: 'q-001', name: 'Spring order' }),
-          makeQuote({ id: 'q-002', name: 'Autumn order' }),
-        ],
-        total: 2,
-      };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      const input = wrapper.find('[data-testid="quotations-search"]');
-      await input.setValue('Spring');
-      const rows = wrapper
-        .find('table')
-        .findAll('[data-testid="quotation-row"]');
-      expect(rows).toHaveLength(1);
-      expect(rows[0]!.text()).toContain('Spring order');
+    it('shows the rows the server found, filtering none out itself', async () => {
+      mockData.value = { quotes: makeQuotes(2), total: 2 };
+      const wrapper = mountPage();
+      await search(wrapper, 'nothing-in-these-rows');
+      expect(rowIds(wrapper)).toEqual(['q-001', 'q-002']);
     });
 
-    it('does not search the contact name, as in the prototype', async () => {
-      mockData.value = {
-        quotes: [makeQuote({ name: 'Spring order', contactName: 'Alice' })],
-        total: 1,
-      };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      await wrapper.find('[data-testid="quotations-search"]').setValue('Alice');
-      expect(wrapper.find('[data-testid="quotations-empty"]').exists()).toBe(
-        true,
-      );
+    it('takes no more than Geins searches', () => {
+      const wrapper = mountPage();
+      expect(
+        wrapper
+          .find('[data-testid="quotations-search"]')
+          .attributes('maxlength'),
+      ).toBe('200');
     });
 
-    it('search is case-insensitive', async () => {
-      mockData.value = {
-        quotes: [makeQuote({ name: 'Spring order' })],
-        total: 1,
-      };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      const input = wrapper.find('[data-testid="quotations-search"]');
-      await input.setValue('spring');
-      const rows = wrapper
-        .find('table')
-        .findAll('[data-testid="quotation-row"]');
-      expect(rows).toHaveLength(1);
+    it('names the date shape in the placeholder, with no line under the field', () => {
+      const wrapper = mountPage();
+      expect(
+        wrapper
+          .find('[data-testid="quotations-search"]')
+          .attributes('placeholder'),
+      ).toBe('portal.quotations.search_placeholder');
+      expect(
+        wrapper.find('[data-testid="quotations-search-hint"]').exists(),
+      ).toBe(false);
     });
 
-    it('shows empty state when search has no matches', async () => {
-      mockData.value = {
-        quotes: [makeQuote({ contactName: 'Alice' })],
-        total: 1,
-      };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
+    it('sends a date as the day it names, in the zone the list writes dates in', async () => {
+      mockTenantTimezone.value = 'Europe/Stockholm';
+      mockData.value = { quotes: [], total: 0 };
+      const wrapper = mountPage();
+      await search(wrapper, '2026-11-12');
+      expect(listQuery()).toEqual({
+        tab: 'all',
+        createdFrom: '2026-11-12T00:00:00+01:00',
+        createdBefore: '2026-11-13T00:00:00+01:00',
+        skip: 0,
+        take: 20,
       });
-      const input = wrapper.find('[data-testid="quotations-search"]');
-      await input.setValue('zzz-no-match');
-      expect(wrapper.find('[data-testid="quotations-empty"]').exists()).toBe(
-        true,
-      );
-      expect(wrapper.find('[data-testid="quotations-table"]').exists()).toBe(
-        false,
-      );
+    });
+
+    it('sends a month as the whole month', async () => {
+      mockTenantTimezone.value = 'Europe/Stockholm';
+      const wrapper = mountPage();
+      await search(wrapper, '2026-11');
+      expect(listQuery()).toMatchObject({
+        createdFrom: '2026-11-01T00:00:00+01:00',
+        createdBefore: '2026-12-01T00:00:00+01:00',
+      });
+      expect(listQuery()).not.toHaveProperty('search');
+    });
+
+    it('goes back to page 1 when the search changes', async () => {
+      mockData.value = { quotes: makeQuotes(20), total: 25 };
+      const wrapper = mountPage();
+      await wrapper.find('[data-testid="quotations-next"]').trigger('click');
+      await search(wrapper, 'Request');
+      expect(listQuery()).toMatchObject({ search: 'Request', skip: 0 });
     });
   });
 
   describe('pagination', () => {
-    function makeQuotes(count: number): QuoteListItem[] {
-      return Array.from({ length: count }, (_, i) =>
-        makeQuote({
-          id: `q-${String(i + 1).padStart(3, '0')}`,
-          quoteNumber: `Q-${String(i + 1).padStart(4, '0')}`,
-          name: `Request ${i + 1}`,
-        }),
-      );
-    }
-
-    it('does not render pagination controls when quotes fit in one page', () => {
-      mockData.value = { quotes: makeQuotes(5), total: 5 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
+    it('shows no pager when every row fits one page', () => {
+      mockData.value = { quotes: makeQuotes(20), total: 20 };
+      const wrapper = mountPage();
       expect(
         wrapper.find('[data-testid="quotations-pagination"]').exists(),
       ).toBe(false);
     });
 
-    it('renders pagination controls when quotes exceed page size', () => {
-      mockData.value = { quotes: makeQuotes(25), total: 25 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      expect(
-        wrapper.find('[data-testid="quotations-pagination"]').exists(),
-      ).toBe(true);
+    it('pages by the total the server counted, not the rows it sent', () => {
+      mockData.value = { quotes: makeQuotes(20), total: 65 };
+      const wrapper = mountPage();
+      const pager = wrapper.find('[data-testid="quotations-pagination"]');
+      expect(pager.exists()).toBe(true);
+      expect(pager.text()).toContain('4');
+      expect(rowIds(wrapper)).toHaveLength(20);
     });
 
-    it('first page renders exactly 20 rows when there are 25 quotes', () => {
-      mockData.value = { quotes: makeQuotes(25), total: 25 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      const rows = wrapper
-        .find('table')
-        .findAll('[data-testid="quotation-row"]');
-      expect(rows).toHaveLength(20);
-    });
-
-    it('clicking Next advances to page 2 and renders remaining 5 rows', async () => {
-      mockData.value = { quotes: makeQuotes(25), total: 25 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
+    it('reads the next page from the server, and back', async () => {
+      mockData.value = { quotes: makeQuotes(20), total: 25 };
+      const wrapper = mountPage();
       await wrapper.find('[data-testid="quotations-next"]').trigger('click');
-      const rows = wrapper
-        .find('table')
-        .findAll('[data-testid="quotation-row"]');
-      expect(rows).toHaveLength(5);
-    });
-
-    it('clicking Previous goes back to page 1', async () => {
-      mockData.value = { quotes: makeQuotes(25), total: 25 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      await wrapper.find('[data-testid="quotations-next"]').trigger('click');
+      expect(listQuery()).toEqual({ tab: 'all', skip: 20, take: 20 });
       await wrapper
         .find('[data-testid="quotations-previous"]')
         .trigger('click');
-      const rows = wrapper
-        .find('table')
-        .findAll('[data-testid="quotation-row"]');
-      expect(rows).toHaveLength(20);
+      expect(listQuery()).toEqual({ tab: 'all', skip: 0, take: 20 });
     });
 
-    it('renders count summary with shown and total on page 1', () => {
-      mockData.value = { quotes: makeQuotes(25), total: 25 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
+    it('goes no further than the last page', async () => {
+      mockData.value = { quotes: makeQuotes(20), total: 25 };
+      const wrapper = mountPage();
+      await wrapper.find('[data-testid="quotations-next"]').trigger('click');
+      expect(
+        wrapper.find('[data-testid="quotations-next"]').attributes('disabled'),
+      ).toBeDefined();
+      expect(
+        wrapper
+          .find('[data-testid="quotations-previous"]')
+          .attributes('disabled'),
+      ).toBeUndefined();
+    });
+
+    it('says how many rows show of how many', async () => {
+      mockData.value = { quotes: makeQuotes(20), total: 25 };
+      const wrapper = mountPage();
       const summary = wrapper.find('[data-testid="quotations-count"]');
-      expect(summary.exists()).toBe(true);
       expect(summary.attributes('data-shown')).toBe('20');
       expect(summary.attributes('data-total')).toBe('25');
-    });
 
-    it('count summary updates when navigating to last page', async () => {
-      mockData.value = { quotes: makeQuotes(25), total: 25 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
       await wrapper.find('[data-testid="quotations-next"]').trigger('click');
-      const summary = wrapper.find('[data-testid="quotations-count"]');
-      expect(summary.attributes('data-shown')).toBe('5');
-      expect(summary.attributes('data-total')).toBe('25');
-    });
-
-    it('resets to page 1 when search query changes', async () => {
-      mockData.value = { quotes: makeQuotes(25), total: 25 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      // Navigate to page 2
-      await wrapper.find('[data-testid="quotations-next"]').trigger('click');
-      // Search filters to a single match AND should reset page to 1
-      const input = wrapper.find('[data-testid="quotations-search"]');
-      await input.setValue('Q-0001');
-      const rows = wrapper
-        .find('table')
-        .findAll('[data-testid="quotation-row"]');
-      expect(rows).toHaveLength(1);
-      expect(rows[0]!.text()).toContain('Q-0001');
-      // Pagination hidden (only 1 result)
+      mockData.value = { quotes: makeQuotes(5), total: 25 };
+      await flushPromises();
       expect(
-        wrapper.find('[data-testid="quotations-pagination"]').exists(),
-      ).toBe(false);
+        wrapper
+          .find('[data-testid="quotations-count"]')
+          .attributes('data-shown'),
+      ).toBe('5');
     });
 
-    it('clamps currentPage when filtered results shrink below it', async () => {
-      mockData.value = { quotes: makeQuotes(25), total: 25 };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      // Navigate to page 2 (has 5 rows)
+    it('steps back when the page it is on no longer exists', async () => {
+      mockData.value = { quotes: makeQuotes(20), total: 21 };
+      const wrapper = mountPage();
       await wrapper.find('[data-testid="quotations-next"]').trigger('click');
-      // Filter to something that only matches a single page-1 item —
-      // search watcher should reset to page 1 so we don't show an empty page
-      const input = wrapper.find('[data-testid="quotations-search"]');
-      await input.setValue('Request 3');
-      const rows = wrapper
-        .find('table')
-        .findAll('[data-testid="quotation-row"]');
-      // "Request 3" matches Request 3, 30, 31, ..., 39 → within 20 rows on page 1
-      expect(rows.length).toBeGreaterThan(0);
+      expect(listQuery().skip).toBe(20);
+
+      mockData.value = { quotes: [], total: 20 };
+      await flushPromises();
+
+      expect(listQuery().skip).toBe(0);
     });
   });
+
   describe('sum column', () => {
     it('right-aligns the sum, as in the prototype', () => {
       mockData.value = { quotes: [makeQuote()], total: 1 };
@@ -1164,13 +1036,13 @@ describe('PortalQuotations page', () => {
         }
       });
 
-      it('still lists the draft and counts it', () => {
+      it('still lists the draft', () => {
         const wrapper = mountWith([
           draft(),
           makeQuote({ id: 'q-p1', status: 'pending' }),
         ]);
 
-        expect(counts(wrapper).drafts).toBe('1');
+        expect(rowIds(wrapper)).toEqual(['q-d1', 'q-p1']);
       });
     });
 
@@ -1263,7 +1135,7 @@ describe('PortalQuotations page', () => {
       'table [data-testid="quotation-delete"]',
       '[data-testid="quotation-card-delete"]',
     ])(
-      'deletes a draft from %s after the confirm, and the list and counts follow',
+      'deletes a draft from %s after the confirm, then reads the rows and counts again',
       async (from) => {
         mockDeleteDraft.mockResolvedValueOnce(true);
         const wrapper = mountWith([
@@ -1284,13 +1156,8 @@ describe('PortalQuotations page', () => {
         expect(wrapper.find('[data-testid="delete-dialog"]').exists()).toBe(
           false,
         );
-        expect(
-          wrapper
-            .find('table')
-            .findAll('[data-testid="quotation-row"]')
-            .map((r) => r.attributes('data-id')),
-        ).toEqual(['q-p1']);
-        expect(counts(wrapper)).toMatchObject({ all: '1', drafts: '0' });
+        expect(mockRefresh).toHaveBeenCalledOnce();
+        expect(mockCountsRefresh).toHaveBeenCalledOnce();
       },
     );
 

@@ -1,0 +1,24 @@
+query quotationPendingOverview($languageId: String) {
+  recent: quotationCarts(
+    filter: { statuses: [PENDING] }
+    take: 5
+    languageId: $languageId
+  ) {
+    count
+    quotationCarts {
+      ...QuotationListRow
+    }
+  }
+  expiry: quotationCarts(
+    filter: { statuses: [PENDING] }
+    take: 100
+    languageId: $languageId
+  ) {
+    quotationCarts {
+      id
+      quotation {
+        validTo
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+query quotationDraftMenu($languageId: String) {
+  quotationCarts(
+    filter: { statuses: [REQUEST_DRAFT] }
+    take: 100
+    languageId: $languageId
+  ) {
+    quotationCarts {
+      id
+      quotation {
+        name
+        modifiedAt
+      }
+      items {
+        id
+      }
+    }
+  }
+}

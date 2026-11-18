@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import type {
   Quote,
   QuoteListItem,
+  QuotePendingOverview,
   QuoteRequestDetails,
   QuoteRequestUpdate,
 } from '#shared/types/quote';
@@ -21,8 +22,12 @@ export type QuoteAddOutcome =
   | { kind: 'failed' };
 
 export const useQuotesStore = defineStore('quotes', () => {
-  const quotes = ref<QuoteListItem[]>([]);
-  const totalQuotes = ref(0);
+  // The start page's pending quotations, read once and again after a status
+  // change: a changed quotation may not be among the rows held here.
+  const pendingQuotes = ref<QuoteListItem[]>([]);
+  const pendingCount = ref(0);
+  const pendingExpiries = ref<QuotePendingOverview['expiries']>([]);
+  const pendingStale = ref(true);
   const currentQuote = ref<Quote | null>(null);
   const isLoading = ref(false);
   const isActionLoading = ref(false);
@@ -36,23 +41,28 @@ export const useQuotesStore = defineStore('quotes', () => {
    */
   const lastAdd = ref<{ scope: string; outcome: QuoteAddOutcome } | null>(null);
 
-  // Computeds
-  const pendingQuotes = computed<QuoteListItem[]>(() =>
-    quotes.value.filter((q) => q.status === 'pending'),
+  /** The earliest end date among the pending quotations. */
+  const nearestPendingExpiry = computed(
+    () =>
+      pendingExpiries.value
+        .map((expiry) => expiry.expiresAt)
+        .filter(Boolean)
+        .sort()[0],
   );
-  const pendingCount = computed(() => pendingQuotes.value.length);
 
   // Actions
-  async function fetchQuotes(skip?: number, take?: number) {
+  async function loadPending() {
+    if (!pendingStale.value) return;
     isLoading.value = true;
     error.value = null;
     try {
-      const data = await internalFetch<{
-        quotes: QuoteListItem[];
-        total: number;
-      }>('/api/quotes', { query: { skip, take } });
-      quotes.value = data.quotes;
-      totalQuotes.value = data.total;
+      const data = await internalFetch<QuotePendingOverview>(
+        '/api/quotes/overview',
+      );
+      pendingQuotes.value = data.quotes;
+      pendingCount.value = data.total;
+      pendingExpiries.value = data.expiries;
+      pendingStale.value = false;
     } catch {
       error.value = 'portal.quotations.error_loading';
     } finally {
@@ -85,13 +95,7 @@ export const useQuotesStore = defineStore('quotes', () => {
         ...(message && { body: { message } }),
       });
       currentQuote.value = data.quote;
-      const idx = quotes.value.findIndex((q) => q.id === id);
-      if (idx >= 0) {
-        quotes.value[idx] = {
-          ...quotes.value[idx]!,
-          status: data.quote.status,
-        };
-      }
+      pendingStale.value = true;
       return data.quote;
     } catch {
       error.value = 'portal.quotations.accept_failed';
@@ -113,13 +117,7 @@ export const useQuotesStore = defineStore('quotes', () => {
         ...(message && { body: { message } }),
       });
       currentQuote.value = data.quote;
-      const idx = quotes.value.findIndex((q) => q.id === id);
-      if (idx >= 0) {
-        quotes.value[idx] = {
-          ...quotes.value[idx]!,
-          status: data.quote.status,
-        };
-      }
+      pendingStale.value = true;
       return data.quote;
     } catch {
       error.value = 'portal.quotations.decline_failed';
@@ -144,13 +142,7 @@ export const useQuotesStore = defineStore('quotes', () => {
           : { method: 'POST', body: { message: message.trim() } },
       );
       currentQuote.value = data.quote;
-      const idx = quotes.value.findIndex((q) => q.id === id);
-      if (idx >= 0) {
-        quotes.value[idx] = {
-          ...quotes.value[idx]!,
-          status: data.quote.status,
-        };
-      }
+      pendingStale.value = true;
       return data.quote;
     } catch {
       error.value = 'portal.quotations.order.failed';
@@ -190,9 +182,6 @@ export const useQuotesStore = defineStore('quotes', () => {
         timeout: DRAFT_WRITE_TIMEOUT_MS,
       });
       error.value = null;
-      const before = quotes.value.length;
-      quotes.value = quotes.value.filter((q) => q.id !== id);
-      totalQuotes.value -= before - quotes.value.length;
       return true;
     } catch {
       error.value = 'portal.quotations.draft.delete_failed';
@@ -220,13 +209,6 @@ export const useQuotesStore = defineStore('quotes', () => {
         method: 'POST',
       });
       currentQuote.value = data.quote;
-      const idx = quotes.value.findIndex((q) => q.id === id);
-      if (idx >= 0) {
-        quotes.value[idx] = {
-          ...quotes.value[idx]!,
-          status: data.quote.status,
-        };
-      }
       return data.quote;
     } catch {
       error.value = 'portal.quotations.request.send_failed';
@@ -242,8 +224,10 @@ export const useQuotesStore = defineStore('quotes', () => {
   }
 
   function reset() {
-    quotes.value = [];
-    totalQuotes.value = 0;
+    pendingQuotes.value = [];
+    pendingCount.value = 0;
+    pendingExpiries.value = [];
+    pendingStale.value = true;
     currentQuote.value = null;
     isLoading.value = false;
     isActionLoading.value = false;
@@ -263,8 +247,11 @@ export const useQuotesStore = defineStore('quotes', () => {
   );
 
   return {
-    quotes,
-    totalQuotes,
+    pendingQuotes,
+    pendingCount,
+    pendingExpiries,
+    pendingStale,
+    nearestPendingExpiry,
     currentQuote,
     isLoading,
     isActionLoading,
@@ -272,9 +259,7 @@ export const useQuotesStore = defineStore('quotes', () => {
     error,
     lastAdd,
     forgetAdd,
-    pendingQuotes,
-    pendingCount,
-    fetchQuotes,
+    loadPending,
     fetchQuote,
     acceptQuote,
     rejectQuote,

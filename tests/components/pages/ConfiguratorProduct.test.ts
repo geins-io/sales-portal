@@ -4286,16 +4286,14 @@ describe('ConfiguratorProduct after an add to a quote request', () => {
 
   it('shows where the add landed, with the way to the draft, once the new session is ready', async () => {
     vi.mocked(internalFetch).mockResolvedValue({
-      quotes: [
+      drafts: [
         {
           id: 'draft-1',
           name: 'Etapp 2',
-          status: 'request_draft',
           updatedAt: '2026-11-12T10:00:00Z',
           itemCount: 1,
         },
       ],
-      total: 1,
     });
     addRestoresTheSession();
     const wrapper = await pageWithRealMenu();
@@ -4315,7 +4313,7 @@ describe('ConfiguratorProduct after an add to a quote request', () => {
   });
 
   it('says a new draft was made, once the new session is ready', async () => {
-    vi.mocked(internalFetch).mockResolvedValue({ quotes: [], total: 0 });
+    vi.mocked(internalFetch).mockResolvedValue({ drafts: [] });
     addRestoresTheSession();
     const wrapper = await pageWithRealMenu();
 
@@ -4335,16 +4333,14 @@ describe('ConfiguratorProduct after an add to a quote request', () => {
 
   it('says the add failed, once the new session is ready', async () => {
     vi.mocked(internalFetch).mockResolvedValue({
-      quotes: [
+      drafts: [
         {
           id: 'draft-1',
           name: 'Etapp 2',
-          status: 'request_draft',
           updatedAt: '2026-11-12T10:00:00Z',
           itemCount: 1,
         },
       ],
-      total: 1,
     });
     session.addToQuote.mockImplementation(async () => {
       session.status.value = 'closed';
@@ -4369,16 +4365,14 @@ describe('ConfiguratorProduct after an add to a quote request', () => {
 
   it('keeps the form on screen through the add and shows the notice with the choices kept', async () => {
     vi.mocked(internalFetch).mockResolvedValue({
-      quotes: [
+      drafts: [
         {
           id: 'draft-1',
           name: 'Etapp 2',
-          status: 'request_draft',
           updatedAt: '2026-11-12T10:00:00Z',
           itemCount: 1,
         },
       ],
-      total: 1,
     });
     const wrapper = await pageWithRealMenu();
     const form = () => wrapper.find('[data-testid="action"]').exists();

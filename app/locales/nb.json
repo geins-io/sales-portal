@@ -932,7 +932,8 @@
       },
       "title": "Tilbud og forespørsler",
       "subtitle": "Fortsett med utkastene dine, følg de sendte forespørslene dine og svar på tilbud.",
-      "search_placeholder": "Søk navn eller tilbudsnr.…",
+      "search_placeholder": "Søk navn, tilbudsnr. eller {format}…",
+      "date_letters": { "year": "ÅÅÅÅ", "month": "MM", "day": "DD" },
       "filters": {
         "all": "Alle",
         "drafts": "Utkast",

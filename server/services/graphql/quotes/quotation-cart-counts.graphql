@@ -1,0 +1,31 @@
+query quotationCartCounts(
+  $drafts: [QuotationStatus!]
+  $requests: [QuotationStatus!]
+  $quotations: [QuotationStatus!]
+  $languageId: String
+) {
+  all: quotationCarts(take: 1, languageId: $languageId) {
+    count
+  }
+  drafts: quotationCarts(
+    filter: { statuses: $drafts }
+    take: 1
+    languageId: $languageId
+  ) {
+    count
+  }
+  requests: quotationCarts(
+    filter: { statuses: $requests }
+    take: 1
+    languageId: $languageId
+  ) {
+    count
+  }
+  quotations: quotationCarts(
+    filter: { statuses: $quotations }
+    take: 1
+    languageId: $languageId
+  ) {
+    count
+  }
+}

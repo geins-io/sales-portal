@@ -175,13 +175,6 @@ describe('GraphQL loader', () => {
       expect(query).toMatch(/^\s*orderPublicId$/m);
     });
 
-    it('reads no order details on the list', () => {
-      const query = loadQuery('quotes/list-quotations.graphql');
-
-      expect(query).not.toContain('orderDetails');
-      expect(query).not.toMatch(/^\s*request \{/m);
-    });
-
     it("reads only the quotation's number for the order's link back", () => {
       const query = loadQuery('quotes/quotation-number.graphql');
 
@@ -204,11 +197,77 @@ describe('GraphQL loader', () => {
       expect(query).toMatch(/\)\s*\{\s*message\s*\}\s*\}\s*$/);
     });
 
-    it('reads no configuration for the list, which only counts the lines', () => {
-      const query = loadQuery('quotes/list-quotations.graphql');
+    describe('the quotation list reads only what each place shows', () => {
+      it('reads a page of rows: the row fragment and the count, no lines or addresses', () => {
+        const query = loadQuery('quotes/quotation-cart-page.graphql');
 
-      expect(query).not.toContain('QuotationLineConfiguration');
-      expect(query).not.toContain('configuration');
+        expect(query).toMatch(
+          /quotationCarts\(\s*filter: \$filter,?\s+skip: \$skip,?\s+take: \$take,?\s+languageId: \$languageId,?\s*\)\s*\{\s*count\s+quotationCarts \{\s*\.\.\.QuotationListRow\s*\}\s*\}/,
+        );
+        expect(
+          query.split('fragment QuotationListRow on CartType'),
+        ).toHaveLength(2);
+        expect(query).not.toContain('listQuotationCarts');
+        for (const field of [
+          'items',
+          'billingAddress',
+          'shippingAddress',
+          'product',
+          'subTotal',
+          'terms',
+        ]) {
+          expect(query, field).not.toMatch(new RegExp(`\\b${field}\\b`));
+        }
+      });
+
+      it('gives a row its number, both kinds, and the four total amounts', () => {
+        const query = loadQuery('quotes/quotation-cart-page.graphql');
+
+        expect(query).toMatch(/externalReference \{\s*number\s*\}/);
+        expect(query).toMatch(
+          /total \{\s*sellingPriceIncVat\s+sellingPriceIncVatFormatted\s+sellingPriceExVat\s+sellingPriceExVatFormatted\s*\}/,
+        );
+      });
+
+      it('counts the four tabs in one request, the count alone', () => {
+        const query = loadQuery('quotes/quotation-cart-counts.graphql');
+
+        for (const tab of ['all', 'drafts', 'requests', 'quotations']) {
+          expect(query, tab).toMatch(
+            new RegExp(
+              `${tab}: quotationCarts\\([^)]*take: 1\\b[^)]*\\)\\s*\\{\\s*count\\s*\\}`,
+            ),
+          );
+        }
+        expect(query).not.toContain('QuotationListRow');
+      });
+
+      it('reads the overview in one request: five pending rows, then every pending expiry', () => {
+        const query = loadQuery('quotes/quotation-pending-overview.graphql');
+
+        expect(query).toMatch(
+          /recent: quotationCarts\([^)]*statuses: \[PENDING\][^)]*take: 5\b[^)]*\)\s*\{\s*count\s+quotationCarts \{\s*\.\.\.QuotationListRow\s*\}\s*\}/,
+        );
+        expect(query).toMatch(
+          /expiry: quotationCarts\([^)]*statuses: \[PENDING\][^)]*take: 100\b[^)]*\)\s*\{\s*quotationCarts \{\s*id\s+quotation \{\s*validTo\s*\}\s*\}\s*\}/,
+        );
+      });
+
+      it("reads the add-to-quote menu's drafts: id, name, last change and the line ids", () => {
+        const query = loadQuery('quotes/quotation-draft-menu.graphql');
+
+        expect(query).toMatch(
+          /quotationCarts\([^)]*statuses: \[REQUEST_DRAFT\][^)]*take: 100\b[^)]*\)\s*\{\s*quotationCarts \{\s*id\s+quotation \{\s*name\s+modifiedAt\s*\}\s+items \{\s*id\s*\}\s*\}\s*\}/,
+        );
+      });
+
+      it('reads only the names the search finds', () => {
+        const query = loadQuery('quotes/quotation-names.graphql');
+
+        expect(query).toMatch(
+          /quotationCarts\([^)]*search: \$search[^)]*take: 100\b[^)]*\)\s*\{\s*quotationCarts \{\s*quotation \{\s*name\s*\}\s*\}\s*\}/,
+        );
+      });
     });
 
     it.each([

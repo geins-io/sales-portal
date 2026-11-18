@@ -90,37 +90,204 @@ describe('quotes service', () => {
   });
 
   // -------------------------------------------------------------------------
-  // listQuotes
+  // The quotation list's reads: each asks Geins for what its place shows
   // -------------------------------------------------------------------------
+
+  /** One `quotationCarts` page as Geins answers it. */
+  const pageOf = (carts: unknown[], count = carts.length) => ({
+    quotationCarts: { count, quotationCarts: carts },
+  });
+
+  /** The Geins statuses of each tab but Alla, which sends none. */
+  const QUOTATION_TAB = [
+    'PENDING',
+    'ACCEPTED',
+    'CONFIRMED',
+    'FINALIZED',
+    'REJECTED',
+    'CANCELED',
+    'EXPIRED',
+  ];
+
   describe('listQuotes', () => {
-    it('calls graphql.query with listQuotationCarts query and channel variables', async () => {
-      const cart = makeRawQuotationCart();
-      mockGraphqlQuery.mockResolvedValueOnce({
-        listQuotationCarts: [cart],
-      });
+    it('reads one page of the slim list query, as the signed-in buyer', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce(pageOf([]));
 
-      const result = await quotesService.listQuotes('org-1', 0, 10, mockEvent);
-
-      expect(mockGraphqlQuery).toHaveBeenCalledWith(
-        expect.objectContaining({
-          queryAsString: 'query:quotes/list-quotations.graphql',
-          userToken: 'test-user-token',
-          variables: { languageId: 'sv-SE' },
-        }),
+      await quotesService.listQuotes(
+        { tab: 'all', skip: 40, take: 20 },
+        mockEvent,
       );
 
-      expect(result.quotes).toHaveLength(1);
-      expect(result.total).toBe(1);
-      expect(result.quotes[0]).toMatchObject({
-        id: 'cart-001',
-        quoteNumber: 'Q-20260101001',
-        status: 'pending',
-        totalFormatted: kr('10 039,00 kr'),
-        totalExVat: 8031.2,
-        totalExVatFormatted: kr('8 031,20 kr'),
-        currency: 'SEK',
-        itemCount: 1,
+      expect(mockGraphqlQuery).toHaveBeenCalledTimes(1);
+      expect(mockGraphqlQuery).toHaveBeenCalledWith({
+        queryAsString: 'query:quotes/quotation-cart-page.graphql',
+        variables: { filter: {}, skip: 40, take: 20, languageId: 'sv-SE' },
+        userToken: 'test-user-token',
       });
+    });
+
+    it('reads through the quotes service, without a user token when the request carries none', async () => {
+      const sdk = await import('../../../server/services/_sdk');
+      vi.mocked(sdk.buildRequestContext).mockReturnValueOnce(
+        undefined as never,
+      );
+      mockGraphqlQuery.mockResolvedValueOnce(pageOf([]));
+
+      await quotesService.listQuotes(
+        { tab: 'all', skip: 0, take: 20 },
+        mockEvent,
+      );
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ userToken: undefined }),
+      );
+      expect(vi.mocked(wrapServiceCall).mock.calls.at(-1)?.[1]).toBe('quotes');
+    });
+
+    it.each([
+      ['drafts', ['REQUEST_DRAFT']],
+      ['requests', ['REQUESTED']],
+      ['quotations', QUOTATION_TAB],
+    ])('asks for the %s tab by its Geins statuses', async (tab, statuses) => {
+      mockGraphqlQuery.mockResolvedValueOnce(pageOf([]));
+
+      await quotesService.listQuotes(
+        { tab: tab as 'drafts', skip: 0, take: 20 },
+        mockEvent,
+      );
+
+      expect(mockGraphqlQuery.mock.calls[0]![0].variables.filter).toEqual({
+        statuses,
+      });
+    });
+
+    it('sends the search and the created range only when given', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce(pageOf([]));
+
+      await quotesService.listQuotes(
+        {
+          tab: 'requests',
+          search: 'Varukorg',
+          createdFrom: '2026-11-12T00:00:00+01:00',
+          createdBefore: '2026-11-13T00:00:00+01:00',
+          skip: 0,
+          take: 20,
+        },
+        mockEvent,
+      );
+
+      expect(mockGraphqlQuery.mock.calls[0]![0].variables.filter).toEqual({
+        statuses: ['REQUESTED'],
+        search: 'Varukorg',
+        createdFrom: '2026-11-12T00:00:00+01:00',
+        createdBefore: '2026-11-13T00:00:00+01:00',
+      });
+    });
+
+    it('answers the rows a list shows and the total Geins counted', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce(
+        pageOf([makeRawQuotationCart()], 65),
+      );
+
+      const result = await quotesService.listQuotes(
+        { tab: 'all', skip: 0, take: 20 },
+        mockEvent,
+      );
+
+      expect(result).toEqual({
+        total: 65,
+        quotes: [
+          {
+            id: 'cart-001',
+            quoteNumber: 'Q-20260101001',
+            name: 'Office order',
+            contactName: 'Lisa Andersson',
+            status: 'pending',
+            total: 10039,
+            totalFormatted: kr('10 039,00 kr'),
+            totalExVat: 8031.2,
+            totalExVatFormatted: kr('8 031,20 kr'),
+            createdAt: '2026-03-01T10:15:00Z',
+          },
+        ],
+      });
+    });
+
+    it("keeps Geins' order, which is newest first", async () => {
+      mockGraphqlQuery.mockResolvedValueOnce(
+        pageOf([
+          makeRawQuotationCart({
+            quotationNumber: 'Q-OLD',
+            createdAt: '2026-01-15T08:00:00Z',
+          }),
+          makeRawQuotationCart({
+            quotationNumber: 'Q-NEW',
+            createdAt: '2026-05-20T08:00:00Z',
+          }),
+        ]),
+      );
+
+      const { quotes } = await quotesService.listQuotes(
+        { tab: 'all', skip: 0, take: 20 },
+        mockEvent,
+      );
+
+      expect(quotes.map((q) => q.quoteNumber)).toEqual(['Q-OLD', 'Q-NEW']);
+    });
+
+    it('names the owner when the quotation has no customer', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce(
+        pageOf([
+          makeRawQuotationCart({
+            customer: null,
+            owner: { firstName: 'Per', lastName: 'Ek' },
+          }),
+        ]),
+      );
+
+      const { quotes } = await quotesService.listQuotes(
+        { tab: 'all', skip: 0, take: 20 },
+        mockEvent,
+      );
+
+      expect(quotes[0]!.contactName).toBe('Per Ek');
+    });
+
+    it('names the one name it has, without a stray space', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce(
+        pageOf([
+          makeRawQuotationCart({
+            customer: { firstName: 'Lisa', lastName: null },
+            owner: null,
+          }),
+        ]),
+      );
+
+      const { quotes } = await quotesService.listQuotes(
+        { tab: 'all', skip: 0, take: 20 },
+        mockEvent,
+      );
+
+      expect(quotes[0]!.contactName).toBe('Lisa');
+    });
+
+    it('reads a quotation with no contact and no date as empty ones', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce(
+        pageOf([
+          makeRawQuotationCart({
+            customer: null,
+            owner: null,
+            createdAt: null,
+          }),
+        ]),
+      );
+
+      const { quotes } = await quotesService.listQuotes(
+        { tab: 'all', skip: 0, take: 20 },
+        mockEvent,
+      );
+
+      expect(quotes[0]).toMatchObject({ contactName: '', createdAt: '' });
     });
 
     it.each([
@@ -131,16 +298,15 @@ describe('quotes service', () => {
       async (_, summary) => {
         const cart = makeRawQuotationCart();
         cart.summary = summary;
-        mockGraphqlQuery.mockResolvedValueOnce({ listQuotationCarts: [cart] });
+        mockGraphqlQuery.mockResolvedValueOnce(pageOf([cart]));
 
         const result = await quotesService.listQuotes(
-          'org-1',
-          0,
-          10,
+          { tab: 'all', skip: 0, take: 20 },
           mockEvent,
         );
 
         expect(result.quotes[0]).toMatchObject({
+          total: 0,
           totalExVat: 0,
           totalExVatFormatted: '',
         });
@@ -148,14 +314,17 @@ describe('quotes service', () => {
     );
 
     it('carries the name the buyer gave the quotation, none when Geins has none', async () => {
-      mockGraphqlQuery.mockResolvedValueOnce({
-        listQuotationCarts: [
+      mockGraphqlQuery.mockResolvedValueOnce(
+        pageOf([
           makeRawQuotationCart({ name: 'Varukorg 11 nov. 2026' }),
           makeRawQuotationCart({ name: null }),
-        ],
-      });
+        ]),
+      );
 
-      const result = await quotesService.listQuotes('org-1', 0, 10, mockEvent);
+      const result = await quotesService.listQuotes(
+        { tab: 'all', skip: 0, take: 20 },
+        mockEvent,
+      );
 
       expect(result.quotes.map((q) => q.name)).toEqual([
         'Varukorg 11 nov. 2026',
@@ -164,10 +333,14 @@ describe('quotes service', () => {
     });
 
     it("keeps Geins' total when the quotation carries no currency", async () => {
-      const cart = makeRawQuotationCart({ currency: null });
-      mockGraphqlQuery.mockResolvedValueOnce({ listQuotationCarts: [cart] });
+      mockGraphqlQuery.mockResolvedValueOnce(
+        pageOf([makeRawQuotationCart({ currency: null })]),
+      );
 
-      const result = await quotesService.listQuotes('org-1', 0, 10, mockEvent);
+      const result = await quotesService.listQuotes(
+        { tab: 'all', skip: 0, take: 20 },
+        mockEvent,
+      );
 
       expect(result.quotes[0]).toMatchObject({
         totalFormatted: '10 039 SEK',
@@ -182,22 +355,35 @@ describe('quotes service', () => {
         languageId: 'en-GB',
         marketId: 'se',
       });
-      mockGraphqlQuery.mockResolvedValueOnce({
-        listQuotationCarts: [makeRawQuotationCart()],
-      });
+      mockGraphqlQuery.mockResolvedValueOnce(pageOf([makeRawQuotationCart()]));
 
-      const result = await quotesService.listQuotes('org-1', 0, 10, mockEvent);
+      const result = await quotesService.listQuotes(
+        { tab: 'all', skip: 0, take: 20 },
+        mockEvent,
+      );
 
-      expect(result.quotes[0]!.totalFormatted).toBe('SEK\u00a010,039.00');
+      expect(mockGraphqlQuery.mock.calls[0]![0].variables.languageId).toBe(
+        'en-GB',
+      );
+      expect(result.quotes[0]!.totalFormatted).toBe('SEK 10,039.00');
     });
 
-    it('returns empty array when listQuotationCarts returns null', async () => {
-      mockGraphqlQuery.mockResolvedValueOnce({ listQuotationCarts: null });
+    it.each([
+      ['no answer', null],
+      ['no page', { quotationCarts: null }],
+      [
+        'a page without rows',
+        { quotationCarts: { count: 0, quotationCarts: null } },
+      ],
+    ])('reads %s as an empty list', async (_label, answer) => {
+      mockGraphqlQuery.mockResolvedValueOnce(answer);
 
-      const result = await quotesService.listQuotes('org-1', 0, 10, mockEvent);
+      const result = await quotesService.listQuotes(
+        { tab: 'all', skip: 0, take: 20 },
+        mockEvent,
+      );
 
-      expect(result.quotes).toEqual([]);
-      expect(result.total).toBe(0);
+      expect(result).toEqual({ quotes: [], total: 0 });
     });
 
     it('maps each buyer-facing QuotationStatus to its own QuoteStatus', async () => {
@@ -212,18 +398,16 @@ describe('quotes service', () => {
         'CANCELED',
         'EXPIRED',
       ];
-      const carts = statuses.map((status) => makeRawQuotationCart({ status }));
-      mockGraphqlQuery.mockResolvedValueOnce({ listQuotationCarts: carts });
+      mockGraphqlQuery.mockResolvedValueOnce(
+        pageOf(statuses.map((status) => makeRawQuotationCart({ status }))),
+      );
 
       const result = await quotesService.listQuotes(
-        'org-1',
-        undefined,
-        undefined,
+        { tab: 'all', skip: 0, take: 20 },
         mockEvent,
       );
 
-      const mappedStatuses = result.quotes.map((q) => q.status);
-      expect(mappedStatuses).toEqual([
+      expect(result.quotes.map((q) => q.status)).toEqual([
         'request_draft',
         'requested',
         'pending',
@@ -236,72 +420,189 @@ describe('quotes service', () => {
       ]);
     });
 
-    it.each([['DRAFT'], ['SOMETHING_NEW'], [undefined]])(
+    it.each([['DRAFT'], ['REVISED'], ['SOMETHING_NEW'], [undefined]])(
       'maps %s to unknown, never to pending',
       async (status) => {
-        mockGraphqlQuery.mockResolvedValueOnce({
-          listQuotationCarts: [makeRawQuotationCart({ status })],
-        });
+        mockGraphqlQuery.mockResolvedValueOnce(
+          pageOf([makeRawQuotationCart({ status })]),
+        );
 
         const result = await quotesService.listQuotes(
-          'org-1',
-          undefined,
-          undefined,
+          { tab: 'all', skip: 0, take: 20 },
           mockEvent,
         );
 
         expect(result.quotes[0]?.status).toBe('unknown');
       },
     );
+  });
 
-    it('sorts quotes newest first by createdAt', async () => {
-      // Scrambled createdAt order from the API (mid, old, new).
-      const carts = [
-        makeRawQuotationCart({
-          quotationNumber: 'Q-MID',
-          createdAt: '2026-03-10T08:00:00Z',
-        }),
-        makeRawQuotationCart({
-          quotationNumber: 'Q-OLD',
-          createdAt: '2026-01-15T08:00:00Z',
-        }),
-        makeRawQuotationCart({
-          quotationNumber: 'Q-NEW',
-          createdAt: '2026-05-20T08:00:00Z',
-        }),
-      ];
-      mockGraphqlQuery.mockResolvedValueOnce({ listQuotationCarts: carts });
+  describe('countQuotes', () => {
+    it('reads the four tab counts in one request, each by its statuses', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        all: { count: 65 },
+        drafts: { count: 15 },
+        requests: { count: 9 },
+        quotations: { count: 41 },
+      });
 
-      const result = await quotesService.listQuotes('org-1', 0, 10, mockEvent);
+      const counts = await quotesService.countQuotes(mockEvent);
 
-      expect(result.quotes.map((q) => q.quoteNumber)).toEqual([
-        'Q-NEW',
-        'Q-MID',
-        'Q-OLD',
+      expect(mockGraphqlQuery).toHaveBeenCalledTimes(1);
+      expect(mockGraphqlQuery).toHaveBeenCalledWith({
+        queryAsString: 'query:quotes/quotation-cart-counts.graphql',
+        variables: {
+          drafts: ['REQUEST_DRAFT'],
+          requests: ['REQUESTED'],
+          quotations: QUOTATION_TAB,
+          languageId: 'sv-SE',
+        },
+        userToken: 'test-user-token',
+      });
+      expect(counts).toEqual({
+        all: 65,
+        drafts: 15,
+        requests: 9,
+        quotations: 41,
+      });
+    });
+
+    it('reads a part Geins left out as none', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        all: { count: 3 },
+        drafts: null,
+      });
+
+      await expect(quotesService.countQuotes(mockEvent)).resolves.toEqual({
+        all: 3,
+        drafts: 0,
+        requests: 0,
+        quotations: 0,
+      });
+    });
+  });
+
+  describe('getPendingOverview', () => {
+    it('reads the newest pending rows, their count and every expiry in one request', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        recent: {
+          count: 9,
+          quotationCarts: [makeRawQuotationCart()],
+        },
+        expiry: {
+          quotationCarts: [
+            { id: 'cart-001', quotation: { validTo: '2026-04-01T00:00:00Z' } },
+            { id: 'cart-002', quotation: { validTo: null } },
+            { id: 'cart-003', quotation: null },
+          ],
+        },
+      });
+
+      const overview = await quotesService.getPendingOverview(mockEvent);
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith({
+        queryAsString: 'query:quotes/quotation-pending-overview.graphql',
+        variables: { languageId: 'sv-SE' },
+        userToken: 'test-user-token',
+      });
+      expect(overview).toEqual({
+        total: 9,
+        quotes: [
+          expect.objectContaining({ id: 'cart-001', status: 'pending' }),
+        ],
+        expiries: [{ id: 'cart-001', expiresAt: '2026-04-01T00:00:00Z' }],
+      });
+    });
+
+    it('reads no answer as no pending quotations', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce(null);
+
+      await expect(
+        quotesService.getPendingOverview(mockEvent),
+      ).resolves.toEqual({ total: 0, quotes: [], expiries: [] });
+    });
+  });
+
+  describe('listDraftChoices', () => {
+    it("reads the buyer's drafts with their name, last change and line count", async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        quotationCarts: {
+          quotationCarts: [
+            {
+              id: 'draft-001',
+              quotation: {
+                name: 'Varukorg 12 nov. 2026',
+                modifiedAt: '2026-11-12T08:00:00Z',
+              },
+              items: [{ id: 'a' }, { id: 'b' }],
+            },
+            { id: 'draft-002', quotation: null, items: null },
+          ],
+        },
+      });
+
+      const drafts = await quotesService.listDraftChoices(mockEvent);
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith({
+        queryAsString: 'query:quotes/quotation-draft-menu.graphql',
+        variables: { languageId: 'sv-SE' },
+        userToken: 'test-user-token',
+      });
+      expect(drafts).toEqual([
+        {
+          id: 'draft-001',
+          name: 'Varukorg 12 nov. 2026',
+          updatedAt: '2026-11-12T08:00:00Z',
+          itemCount: 2,
+        },
+        { id: 'draft-002', name: '', updatedAt: '', itemCount: 0 },
       ]);
     });
 
-    it('sorts quotes with empty or invalid createdAt last', async () => {
-      const carts = [
-        makeRawQuotationCart({ quotationNumber: 'Q-EMPTY', createdAt: '' }),
-        makeRawQuotationCart({
-          quotationNumber: 'Q-NEW',
-          createdAt: '2026-05-20T08:00:00Z',
-        }),
-        makeRawQuotationCart({
-          quotationNumber: 'Q-MID',
-          createdAt: '2026-03-10T08:00:00Z',
-        }),
-      ];
-      mockGraphqlQuery.mockResolvedValueOnce({ listQuotationCarts: carts });
+    it('reads no answer as no drafts', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({ quotationCarts: null });
 
-      const result = await quotesService.listQuotes('org-1', 0, 10, mockEvent);
+      await expect(quotesService.listDraftChoices(mockEvent)).resolves.toEqual(
+        [],
+      );
+    });
+  });
 
-      expect(result.quotes.map((q) => q.quoteNumber)).toEqual([
-        'Q-NEW',
-        'Q-MID',
-        'Q-EMPTY',
+  describe('listQuoteNames', () => {
+    it('reads only the names of the quotations the search finds', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        quotationCarts: {
+          quotationCarts: [
+            { quotation: { name: 'Varukorg 18 nov. 2026' } },
+            { quotation: { name: null } },
+            { quotation: null },
+            { quotation: { name: 'Varukorg 18 nov. 2026 (2)' } },
+          ],
+        },
+      });
+
+      const names = await quotesService.listQuoteNames(
+        'Varukorg 18 nov. 2026',
+        mockEvent,
+      );
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith({
+        queryAsString: 'query:quotes/quotation-names.graphql',
+        variables: { search: 'Varukorg 18 nov. 2026', languageId: 'sv-SE' },
+        userToken: 'test-user-token',
+      });
+      expect(names).toEqual([
+        'Varukorg 18 nov. 2026',
+        'Varukorg 18 nov. 2026 (2)',
       ]);
+    });
+
+    it('reads no answer as no names', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce(null);
+
+      await expect(
+        quotesService.listQuoteNames('Varukorg', mockEvent),
+      ).resolves.toEqual([]);
     });
   });
 
@@ -2627,13 +2928,14 @@ describe('quotes service', () => {
     ])('with %s', (_label, choice) => {
       it('lists the standard number, though the quotation has an external one', async () => {
         mockGraphqlQuery.mockResolvedValueOnce({
-          listQuotationCarts: [makeRawQuotationCart(linked)],
+          quotationCarts: {
+            count: 1,
+            quotationCarts: [makeRawQuotationCart(linked)],
+          },
         });
 
         const { quotes } = await quotesService.listQuotes(
-          'org-1',
-          0,
-          10,
+          { tab: 'all', skip: 0, take: 20 },
           eventShowing(choice),
         );
 
@@ -2669,13 +2971,14 @@ describe('quotes service', () => {
 
       it('lists the external number', async () => {
         mockGraphqlQuery.mockResolvedValueOnce({
-          listQuotationCarts: [makeRawQuotationCart(linked)],
+          quotationCarts: {
+            count: 1,
+            quotationCarts: [makeRawQuotationCart(linked)],
+          },
         });
 
         const { quotes } = await quotesService.listQuotes(
-          'org-1',
-          0,
-          10,
+          { tab: 'all', skip: 0, take: 20 },
           event,
         );
 
@@ -2722,13 +3025,14 @@ describe('quotes service', () => {
       describe.each(unlinked)('and %s', (_label, reference) => {
         it('lists no number, never the standard one', async () => {
           mockGraphqlQuery.mockResolvedValueOnce({
-            listQuotationCarts: [makeRawQuotationCart(reference)],
+            quotationCarts: {
+              count: 1,
+              quotationCarts: [makeRawQuotationCart(reference)],
+            },
           });
 
           const { quotes } = await quotesService.listQuotes(
-            'org-1',
-            0,
-            10,
+            { tab: 'all', skip: 0, take: 20 },
             event,
           );
 

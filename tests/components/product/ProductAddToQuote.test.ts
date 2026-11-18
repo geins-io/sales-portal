@@ -5,7 +5,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import { flushPromises } from '@vue/test-utils';
 import type { AuthUser } from '@geins/types';
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
-import type { QuoteListItem } from '#shared/types/quote';
+import type { QuoteDraftChoice } from '#shared/types/quote';
 import { mountComponent } from '../../utils/component';
 import ProductAddToQuote from '../../../app/components/product/ProductAddToQuote.vue';
 import { useAuthStore } from '../../../app/stores/auth';
@@ -38,18 +38,15 @@ const SIGNED_IN: AuthUser = { userId: '1', username: 'buyer@example.com' };
 
 function listed(
   id: string,
-  status: QuoteListItem['status'],
   updatedAt: string,
   itemCount = 1,
-): Partial<QuoteListItem> {
-  return { id, name: `Draft ${id}`, status, updatedAt, itemCount };
+): QuoteDraftChoice {
+  return { id, name: `Draft ${id}`, updatedAt, itemCount };
 }
 
-function buyerHas(...quotes: Partial<QuoteListItem>[]) {
-  vi.mocked(internalFetch).mockResolvedValue({
-    quotes,
-    total: quotes.length,
-  });
+/** The buyer's drafts as `/api/quotes/drafts` answers them. */
+function buyerHas(...drafts: QuoteDraftChoice[]) {
+  vi.mocked(internalFetch).mockResolvedValue({ drafts });
 }
 
 const stubs = {
@@ -148,10 +145,8 @@ describe('ProductAddToQuote', () => {
   describe('the menu', () => {
     it("lists only the buyer's drafts, most recently changed first, each with its item count", async () => {
       buyerHas(
-        listed('a', 'request_draft', '2026-11-10T08:00:00Z', 1),
-        listed('b', 'pending', '2026-11-12T08:00:00Z'),
-        listed('c', 'request_draft', '2026-11-12T09:00:00Z', 4),
-        listed('d', 'requested', '2026-11-12T10:00:00Z'),
+        listed('a', '2026-11-10T08:00:00Z', 1),
+        listed('c', '2026-11-12T09:00:00Z', 4),
       );
       const wrapper = mount();
 
@@ -174,7 +169,7 @@ describe('ProductAddToQuote', () => {
     });
 
     it('says the buyer has no drafts, and still offers a new one', async () => {
-      buyerHas(listed('b', 'pending', '2026-11-12T08:00:00Z'));
+      buyerHas();
       const wrapper = mount();
 
       await openMenu(wrapper);
@@ -193,7 +188,7 @@ describe('ProductAddToQuote', () => {
       await openMenu(wrapper);
 
       expect(internalFetch).toHaveBeenCalledTimes(2);
-      expect(internalFetch).toHaveBeenCalledWith('/api/quotes');
+      expect(internalFetch).toHaveBeenCalledWith('/api/quotes/drafts');
     });
 
     it('says when the drafts could not be read, and still offers a new one', async () => {
@@ -211,7 +206,7 @@ describe('ProductAddToQuote', () => {
 
   describe('adding to a draft', () => {
     it('sends the picked draft and says where the product landed, with a link to it', async () => {
-      buyerHas(listed('a', 'request_draft', '2026-11-10T08:00:00Z'));
+      buyerHas(listed('a', '2026-11-10T08:00:00Z'));
       const send = vi.fn().mockResolvedValue({ id: 'a', name: 'Draft a' });
       const wrapper = mount({ send });
       await openMenu(wrapper);
@@ -230,7 +225,7 @@ describe('ProductAddToQuote', () => {
     });
 
     it('shows an error and no notice when the add fails', async () => {
-      buyerHas(listed('a', 'request_draft', '2026-11-10T08:00:00Z'));
+      buyerHas(listed('a', '2026-11-10T08:00:00Z'));
       const send = vi.fn().mockRejectedValue(new Error('not added'));
       const wrapper = mount({ send });
       await openMenu(wrapper);
@@ -243,7 +238,7 @@ describe('ProductAddToQuote', () => {
     });
 
     it('drops an earlier notice when a later add fails', async () => {
-      buyerHas(listed('a', 'request_draft', '2026-11-10T08:00:00Z'));
+      buyerHas(listed('a', '2026-11-10T08:00:00Z'));
       const send = vi
         .fn()
         .mockResolvedValueOnce({ id: 'a', name: 'Draft a' })
@@ -262,7 +257,7 @@ describe('ProductAddToQuote', () => {
     });
 
     it('sends one add at a time: the button waits while one runs', async () => {
-      buyerHas(listed('a', 'request_draft', '2026-11-10T08:00:00Z'));
+      buyerHas(listed('a', '2026-11-10T08:00:00Z'));
       let finish: (value: unknown) => void = () => {};
       const send = vi.fn(
         () =>
@@ -335,7 +330,7 @@ describe('ProductAddToQuote', () => {
 
   describe('a menu the page takes off and puts back', () => {
     beforeEach(() => {
-      buyerHas(listed('a', 'request_draft', '2026-11-10T08:00:00Z'));
+      buyerHas(listed('a', '2026-11-10T08:00:00Z'));
     });
 
     async function addFrom(wrapper: ReturnType<typeof mount>) {

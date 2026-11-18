@@ -6,7 +6,11 @@
  * says where the line landed.
  */
 import { ChevronDown, FileText, Loader2, Plus } from 'lucide-vue-next';
-import type { Quote, QuoteAddTarget, QuoteListItem } from '#shared/types/quote';
+import type {
+  Quote,
+  QuoteAddTarget,
+  QuoteDraftChoice,
+} from '#shared/types/quote';
 import { Button } from '~/components/ui/button';
 import {
   DropdownMenu,
@@ -41,7 +45,7 @@ const { canRequestQuotes } = useFeatureAccess();
 const show = computed(() => canRequestQuotes());
 
 const menuOpen = ref(false);
-const drafts = ref<QuoteListItem[]>([]);
+const drafts = ref<QuoteDraftChoice[]>([]);
 const loading = ref(false);
 const loadFailed = ref(false);
 const working = ref(false);
@@ -62,18 +66,16 @@ function settle(next: QuoteAddOutcome | null, at: string) {
   quotes.lastAdd = next ? { scope: at, outcome: next } : null;
 }
 
-const changedAt = (quote: QuoteListItem) => Date.parse(quote.updatedAt) || 0;
+const changedAt = (draft: QuoteDraftChoice) => Date.parse(draft.updatedAt) || 0;
 
 async function loadDrafts() {
   loading.value = true;
   loadFailed.value = false;
   try {
-    const { quotes } = await internalFetch<{ quotes: QuoteListItem[] }>(
-      '/api/quotes',
+    const answer = await internalFetch<{ drafts: QuoteDraftChoice[] }>(
+      '/api/quotes/drafts',
     );
-    drafts.value = quotes
-      .filter((quote) => quote.status === 'request_draft')
-      .sort((a, b) => changedAt(b) - changedAt(a));
+    drafts.value = answer.drafts.sort((a, b) => changedAt(b) - changedAt(a));
   } catch {
     drafts.value = [];
     loadFailed.value = true;

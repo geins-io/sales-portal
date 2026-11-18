@@ -2,9 +2,13 @@ import { z } from 'zod';
 import { GeinsPaymentType } from '@geins/types';
 import {
   QUOTE_LINE_MAX_QUANTITY,
+  QUOTE_LIST_FILTERS,
+  QUOTE_LIST_MAX_TAKE,
+  QUOTE_LIST_PAGE_SIZE,
   QUOTE_MESSAGE_MAX_LENGTH,
   QUOTE_NAME_MAX_LENGTH,
   QUOTE_REQUEST_MAX_LINES,
+  QUOTE_SEARCH_MAX_LENGTH,
 } from '#shared/constants/quote';
 import type {
   ConfigurationChange,
@@ -344,11 +348,42 @@ export const AcceptQuoteSchema = z.object({
 });
 export type AcceptQuoteInput = z.infer<typeof AcceptQuoteSchema>;
 
-export const ListQuotesSchema = z.object({
-  skip: z.coerce.number().min(0).optional(),
-  take: z.coerce.number().min(1).max(50).optional(),
-});
+/** A search on the quotation list, measured after trimming as Geins does. */
+const QuoteSearchSchema = z.string().trim().max(QUOTE_SEARCH_MAX_LENGTH);
+
+/** An instant with its offset, as Geins reads `createdFrom`/`createdBefore`. */
+const QuoteCreatedSchema = z.iso.datetime({ offset: true });
+
+export const ListQuotesSchema = z
+  .object({
+    tab: z.enum(QUOTE_LIST_FILTERS).default('all'),
+    search: QuoteSearchSchema.optional(),
+    createdFrom: QuoteCreatedSchema.optional(),
+    createdBefore: QuoteCreatedSchema.optional(),
+    skip: z.coerce.number().int().min(0).default(0),
+    take: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(QUOTE_LIST_MAX_TAKE)
+      .default(QUOTE_LIST_PAGE_SIZE),
+  })
+  .refine(
+    ({ createdFrom, createdBefore }) =>
+      !createdFrom ||
+      !createdBefore ||
+      Date.parse(createdBefore) > Date.parse(createdFrom),
+    { message: 'createdBefore must be after createdFrom' },
+  )
+  // A blank search is no search.
+  .transform(({ search, ...query }): typeof query & { search?: string } =>
+    search ? { ...query, search } : query,
+  );
 export type ListQuotesInput = z.infer<typeof ListQuotesSchema>;
+
+export const QuoteNamesSchema = z.object({
+  search: QuoteSearchSchema.min(1),
+});
 
 // No cart id: the request is made from the cart in the buyer's cart cookie.
 export const CreateQuoteRequestSchema = z.object({

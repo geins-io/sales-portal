@@ -11,7 +11,6 @@ import {
 } from '~/components/ui/dialog';
 import { useCartStore } from '~/stores/cart';
 import { internalFetch } from '~/utils/internal-fetch';
-import type { QuoteListItem } from '#shared/types/quote';
 
 const { t } = useI18n();
 const cartStore = useCartStore();
@@ -24,12 +23,26 @@ const show = computed(() => canRequestQuotes());
 const confirming = ref(false);
 const working = ref(false);
 
-/** Names the buyer's quotations already have; none when they cannot be read. */
-let takenNames: Promise<Set<string | undefined>> = Promise.resolve(new Set());
+/** The request's name before any "(2)": the cart and the day it was asked. */
+function baseName(): string {
+  const date = new Intl.DateTimeFormat(formatLocale.value, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date());
+  return t('cart.quote_request_name', { date });
+}
+
+let base = '';
+/** Names holding `base` that the buyer's quotations have; none when unread. */
+let takenNames: Promise<Set<string>> = Promise.resolve(new Set());
 
 function askFirst() {
-  takenNames = internalFetch<{ quotes: QuoteListItem[] }>('/api/quotes').then(
-    ({ quotes }) => new Set(quotes.map((q) => q.name)),
+  base = baseName();
+  takenNames = internalFetch<{ names: string[] }>('/api/quotes/names', {
+    query: { search: base },
+  }).then(
+    ({ names }) => new Set(names),
     () => new Set(),
   );
   confirming.value = true;
@@ -37,12 +50,6 @@ function askFirst() {
 
 /** A second cart the same day: "Varukorg 11 nov. 2026 (2)", then "(3)". */
 async function draftName(): Promise<string> {
-  const date = new Intl.DateTimeFormat(formatLocale.value, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date());
-  const base = t('cart.quote_request_name', { date });
   const taken = await takenNames;
   let name = base;
   for (let n = 2; taken.has(name); n++) name = `${base} (${n})`;

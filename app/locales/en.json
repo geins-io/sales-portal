@@ -932,7 +932,8 @@
       },
       "title": "Quotations and requests",
       "subtitle": "Continue your drafts, follow your submitted requests and respond to quotations.",
-      "search_placeholder": "Search name or quote no…",
+      "search_placeholder": "Search name, quote no., {format}…",
+      "date_letters": { "year": "YYYY", "month": "MM", "day": "DD" },
       "filters": {
         "all": "All",
         "drafts": "Drafts",

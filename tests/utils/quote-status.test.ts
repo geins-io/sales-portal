@@ -1,11 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
-  QUOTE_LIST_FILTERS,
   getQuoteStatusLabelKey,
   getQuoteStatusVariant,
   isQuotePriceEstimate,
-  quoteFilterOf,
 } from '../../app/utils/quote-status';
+import { QUOTE_LIST_FILTERS } from '../../shared/constants/quote';
 import type { QuoteStatus } from '../../shared/types/quote';
 
 describe('getQuoteStatusVariant', () => {
@@ -39,23 +38,6 @@ describe('getQuoteStatusLabelKey', () => {
     ['unknown', 'portal.quotations.status_unknown'],
   ])('labels %s with %s', (status, key) => {
     expect(getQuoteStatusLabelKey(status)).toBe(key);
-  });
-});
-
-describe('quoteFilterOf', () => {
-  it.each<[QuoteStatus, string]>([
-    ['request_draft', 'drafts'],
-    ['requested', 'requests'],
-    ['pending', 'quotations'],
-    ['accepted', 'quotations'],
-    ['confirmed', 'quotations'],
-    ['finalized', 'quotations'],
-    ['rejected', 'quotations'],
-    ['canceled', 'quotations'],
-    ['expired', 'quotations'],
-    ['unknown', 'quotations'],
-  ])('puts %s under the %s tab', (status, filter) => {
-    expect(quoteFilterOf(status)).toBe(filter);
   });
 });
 

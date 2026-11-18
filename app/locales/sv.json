@@ -932,7 +932,8 @@
       },
       "title": "Offerter och förfrågningar",
       "subtitle": "Fortsätt med dina utkast, följ dina skickade förfrågningar och svara på offerter.",
-      "search_placeholder": "Sök namn eller offertnr…",
+      "search_placeholder": "Sök namn, offertnr eller {format}…",
+      "date_letters": { "year": "ÅÅÅÅ", "month": "MM", "day": "DD" },
       "filters": {
         "all": "Alla",
         "drafts": "Utkast",

@@ -174,7 +174,8 @@ let mockPendingQuotes: Array<{
   createdAt: string;
 }> = [];
 let mockPendingCount = 0;
-let mockFetchQuotes = vi.fn();
+let mockNearestExpiry: string | undefined;
+let mockLoadPending = vi.fn();
 
 // The store returns computed arrays/numbers as plain values (not refs).
 // We use a mutable object so tests can update it between runs.
@@ -185,7 +186,10 @@ const mockQuotesStoreInstance = {
   get pendingCount() {
     return mockPendingCount;
   },
-  fetchQuotes: (...args: unknown[]) => mockFetchQuotes(...args),
+  get nearestPendingExpiry() {
+    return mockNearestExpiry;
+  },
+  loadPending: (...args: unknown[]) => mockLoadPending(...args),
 };
 
 vi.mock('../../../app/stores/quotes', () => ({
@@ -210,8 +214,8 @@ const stubs = {
   },
   PortalStatCard: {
     template:
-      '<div data-testid="portal-stat-card" :data-count="count" :data-label="label" :data-to="to" :data-show-dot="showDot"><slot /></div>',
-    props: ['icon', 'count', 'label', 'showDot', 'to'],
+      '<div data-testid="portal-stat-card" :data-count="count" :data-label="label" :data-subtitle="subtitle" :data-to="to" :data-show-dot="showDot"><slot /></div>',
+    props: ['icon', 'count', 'label', 'subtitle', 'showDot', 'to'],
   },
   PortalOrdersTable: {
     template: '<div data-testid="portal-orders-table"></div>',
@@ -259,7 +263,8 @@ describe('Portal Overview page', () => {
     setActivePinia(createPinia());
     mockPendingQuotes = [];
     mockPendingCount = 0;
-    mockFetchQuotes = vi.fn().mockResolvedValue(undefined);
+    mockLoadPending = vi.fn().mockResolvedValue(undefined);
+    mockNearestExpiry = undefined;
     mockOrdersData = { orders: [] };
     mockOrdersPending = false;
     mockOrdersError = null;
@@ -423,73 +428,12 @@ describe('Portal Overview page', () => {
     for (const row of rows) expect(row.text()).toContain('—');
   });
 
-  it('caps displayed quotes at 5', async () => {
-    mockPendingQuotes = [
-      {
-        id: 'q1',
-        quoteNumber: 'Q-1001',
-        contactName: 'A',
-        status: 'pending',
-        totalFormatted: '$100',
-        createdAt: '2026-03-01T00:00:00Z',
-      },
-      {
-        id: 'q2',
-        quoteNumber: 'Q-1002',
-        contactName: 'B',
-        status: 'pending',
-        totalFormatted: '$200',
-        createdAt: '2026-03-02T00:00:00Z',
-      },
-      {
-        id: 'q3',
-        quoteNumber: 'Q-1003',
-        contactName: 'C',
-        status: 'pending',
-        totalFormatted: '$300',
-        createdAt: '2026-03-03T00:00:00Z',
-      },
-      {
-        id: 'q4',
-        quoteNumber: 'Q-1004',
-        contactName: 'D',
-        status: 'pending',
-        totalFormatted: '$400',
-        createdAt: '2026-03-04T00:00:00Z',
-      },
-      {
-        id: 'q5',
-        quoteNumber: 'Q-1005',
-        contactName: 'E',
-        status: 'pending',
-        totalFormatted: '$500',
-        createdAt: '2026-03-05T00:00:00Z',
-      },
-      {
-        id: 'q6',
-        quoteNumber: 'Q-1006',
-        contactName: 'F',
-        status: 'pending',
-        totalFormatted: '$600',
-        createdAt: '2026-03-06T00:00:00Z',
-      },
-    ];
-    mockPendingCount = 6;
-
-    const wrapper = await mountPage();
-
-    const rows = wrapper
-      .find('table')
-      .findAll('[data-testid="pending-quote-row"]');
-    expect(rows).toHaveLength(5);
-  });
-
   // -------------------------------------------------------------------------
-  // fetchQuotes called on mount
+  // The pending quotations are read on mount
   // -------------------------------------------------------------------------
   it('renders only after the quotes load has finished', async () => {
     let finishLoad!: () => void;
-    mockFetchQuotes = vi.fn(
+    mockLoadPending = vi.fn(
       () =>
         new Promise<void>((resolve) => {
           finishLoad = () => {
@@ -527,10 +471,31 @@ describe('Portal Overview page', () => {
     ).toBe('1');
   });
 
-  it('calls fetchQuotes on mount', async () => {
+  it('reads the pending quotations on mount', async () => {
     await mountPage();
 
-    expect(mockFetchQuotes).toHaveBeenCalledTimes(1);
+    expect(mockLoadPending).toHaveBeenCalledTimes(1);
+  });
+
+  it('says when the nearest pending quotation closes', async () => {
+    mockPendingCount = 2;
+    mockNearestExpiry = '2026-04-01T10:00:00Z';
+
+    const wrapper = await mountPage();
+
+    const card = wrapper.findAll('[data-testid="portal-stat-card"]')[0];
+    expect(card?.attributes('data-subtitle')).toContain(
+      'portal.overview.stat.closes_expiration_date',
+    );
+  });
+
+  it('says nothing about closing when no pending quotation has an end date', async () => {
+    mockPendingCount = 2;
+
+    const wrapper = await mountPage();
+
+    const card = wrapper.findAll('[data-testid="portal-stat-card"]')[0];
+    expect(card?.attributes('data-subtitle')).toBeUndefined();
   });
 
   // -------------------------------------------------------------------------
@@ -907,7 +872,7 @@ describe('Portal Overview page', () => {
     it('shows every part when quotes, orderHistory and lists are enabled', async () => {
       const wrapper = await mountPage();
 
-      expect(mockFetchQuotes).toHaveBeenCalledTimes(1);
+      expect(mockLoadPending).toHaveBeenCalledTimes(1);
       expect(requested('/api/orders')).toHaveLength(1);
       expect(statLabels(wrapper)).toEqual([
         'portal.overview.stat.pending_quotations',
@@ -939,7 +904,7 @@ describe('Portal Overview page', () => {
       mockPendingCount = 1;
       const wrapper = await mountPage();
 
-      expect(mockFetchQuotes).not.toHaveBeenCalled();
+      expect(mockLoadPending).not.toHaveBeenCalled();
       expect(statLabels(wrapper)).not.toContain(
         'portal.overview.stat.pending_quotations',
       );
