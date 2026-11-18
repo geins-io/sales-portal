@@ -1052,7 +1052,11 @@
         "superseded_text_unnamed": "The seller has sent a newer version. You can read this one but not answer it.",
         "view_latest": "View latest version",
         "valid_to": "valid until {date}",
-        "request_sent": "Sent"
+        "request_sent": "Sent",
+        "request_title": "Your request",
+        "request_text": "This is the request as you sent it on {date}. The seller's quotation is based on it, and the prices here are estimates. It cannot be answered.",
+        "request_text_undated": "This is the request as you sent it. The seller's quotation is based on it, and the prices here are estimates. It cannot be answered.",
+        "request_status_info": "The request you sent. The seller's quotation is based on it."
       },
       "order": {
         "heading": "Order from quotation – {name}",

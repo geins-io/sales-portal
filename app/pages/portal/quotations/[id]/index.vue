@@ -43,6 +43,8 @@ import {
 import {
   quoteAmounts,
   quoteDiscountLabel,
+  isRequestVersion,
+  quoteEstimated,
   quoteKindLabelKey,
   quoteResponses,
   quoteRows,
@@ -126,6 +128,11 @@ const namedText = (key: string, id: string | undefined) => {
 const replaced = computed(
   () => quote.value?.status === 'revised' && !!latestVersion.value,
 );
+/** The buyer's request as sent; the offers were made from it. */
+const requestVersion = computed(
+  () => !!quote.value && isRequestVersion(quote.value),
+);
+const estimated = computed(() => !!quote.value && quoteEstimated(quote.value));
 const latestPath = computed(() =>
   localePath(`/portal/quotations/${latestVersion.value?.quotationId}`),
 );
@@ -395,13 +402,15 @@ const metaRows = computed<MetaRow[]>(() => {
     testId: 'quote-meta-status',
     icon: Info,
     label: t('portal.quotations.status_label'),
-    lines: infoKey
-      ? [
-          q.status === 'revised'
-            ? namedText(infoKey, latestVersion.value?.quotationId)
-            : t(infoKey),
-        ]
-      : [],
+    lines: requestVersion.value
+      ? [t('portal.quotations.revisions.request_status_info')]
+      : infoKey
+        ? [
+            q.status === 'revised'
+              ? namedText(infoKey, latestVersion.value?.quotationId)
+              : t(infoKey),
+          ]
+        : [],
   });
   // What the buyer sent; a draft has sent nothing yet.
   const sent = q.status === 'request_draft' ? undefined : q.request;
@@ -558,11 +567,25 @@ const customerSummary = computed(() => {
         <History class="size-4" />
         <AlertTitle>
           {{
-            namedText('portal.quotations.revisions.superseded_title', quote.id)
+            requestVersion
+              ? t('portal.quotations.revisions.request_title')
+              : namedText(
+                  'portal.quotations.revisions.superseded_title',
+                  quote.id,
+                )
           }}
         </AlertTitle>
         <AlertDescription class="space-y-3">
-          <p>
+          <p v-if="requestVersion">
+            {{
+              quote.requestSentAt
+                ? t('portal.quotations.revisions.request_text', {
+                    date: formatDate(quote.requestSentAt),
+                  })
+                : t('portal.quotations.revisions.request_text_undated')
+            }}
+          </p>
+          <p v-else>
             {{
               namedText(
                 'portal.quotations.revisions.superseded_text',
@@ -693,7 +716,7 @@ const customerSummary = computed(() => {
                   data-testid="quote-kind"
                   class="text-muted-foreground mt-1 text-xs font-medium tracking-wider uppercase"
                 >
-                  {{ t(quoteKindLabelKey(quote.status))
+                  {{ t(quoteKindLabelKey(quote.status, requestVersion))
                   }}<template v-if="quote.quoteNumber">
                     · {{ quote.quoteNumber }}</template
                   >
@@ -749,7 +772,7 @@ const customerSummary = computed(() => {
             show-prices
             :title="t('portal.quotations.request.summary_title')"
           >
-            <template v-if="isDraft" #heading-aside>
+            <template v-if="estimated" #heading-aside>
               <QuoteEstimateBadge />
             </template>
             <template v-if="editable" #default>

@@ -1,7 +1,11 @@
 import { formatPrice } from '#shared/types/commerce';
 import type { PortalItemRow } from '#shared/types/portal-rows';
 import type { Quote, QuoteStatus } from '#shared/types/quote';
-import type { QuoteVersionName } from '#shared/utils/quote-versions';
+import {
+  versionNames,
+  type QuoteVersionName,
+} from '#shared/utils/quote-versions';
+import { isQuotePriceEstimate } from '~/utils/quote-status';
 
 /** A quotation's summary amounts, formatted, on one side of the VAT choice. */
 export interface QuoteAmounts {
@@ -205,9 +209,33 @@ export function quoteStatusInfoKey(
     : undefined;
 }
 
+/**
+ * The buyer's request, kept as sent once the seller has made an offer from
+ * it: replaced, and the version the seller never sent. A seller-started `-00`
+ * was sent, so it is an offer.
+ */
+export function isRequestVersion(
+  quote: Pick<Quote, 'id' | 'status' | 'versions'>,
+): boolean {
+  return (
+    quote.status === 'revised' &&
+    versionNames(quote.versions).get(quote.id)?.kind === 'request'
+  );
+}
+
+/** Whether the quotation's prices are list-price estimates, not the seller's. */
+export function quoteEstimated(
+  quote: Pick<Quote, 'id' | 'status' | 'versions'>,
+): boolean {
+  return isQuotePriceEstimate(quote.status) || isRequestVersion(quote);
+}
+
 /** "Quote request" until the seller has priced it, "Quotation" after. */
-export function quoteKindLabelKey(status: QuoteStatus): string {
-  return status === 'request_draft' || status === 'requested'
+export function quoteKindLabelKey(
+  status: QuoteStatus,
+  requestVersion = false,
+): string {
+  return requestVersion || status === 'request_draft' || status === 'requested'
     ? 'portal.quotations.kind_request'
     : 'portal.quotations.kind_quotation';
 }
