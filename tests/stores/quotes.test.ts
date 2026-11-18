@@ -25,34 +25,13 @@ const { useQuotesStore, DRAFT_WRITE_TIMEOUT_MS } =
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const mockQuoteListItem = makeQuoteListItem({
-  id: 'q-001',
-  quoteNumber: 'Q-001',
-  totalFormatted: '1 500 SEK',
-  createdAt: '2026-01-01T00:00:00Z',
-});
-
-const mockQuoteListItem2 = makeQuoteListItem({
-  id: 'q-002',
-  quoteNumber: 'Q-002',
-  contactName: 'John Smith',
-  contactEmail: 'john@example.com',
-  status: 'accepted',
-  total: 2000,
-  totalFormatted: '2 000 SEK',
-  itemCount: 2,
-  createdAt: '2026-01-02T00:00:00Z',
-});
-
 const mockQuoteListItem3 = makeQuoteListItem({
   id: 'q-003',
   quoteNumber: 'Q-003',
   contactName: 'Alice Brown',
-  contactEmail: 'alice@example.com',
   status: 'pending',
   total: 500,
   totalFormatted: '500 SEK',
-  itemCount: 1,
   createdAt: '2026-01-03T00:00:00Z',
 });
 
@@ -104,8 +83,10 @@ describe('useQuotesStore', () => {
     it('has correct initial state', () => {
       const store = useQuotesStore();
 
-      expect(store.quotes).toEqual([]);
-      expect(store.totalQuotes).toBe(0);
+      expect(store.pendingQuotes).toEqual([]);
+      expect(store.pendingCount).toBe(0);
+      expect(store.pendingExpiries).toEqual([]);
+      expect(store.nearestPendingExpiry).toBeUndefined();
       expect(store.currentQuote).toBeNull();
       expect(store.isLoading).toBe(false);
       expect(store.isActionLoading).toBe(false);
@@ -113,72 +94,148 @@ describe('useQuotesStore', () => {
     });
   });
 
-  describe('fetchQuotes', () => {
-    it('calls GET /api/quotes and sets quotes array', async () => {
-      mockFetchImpl.mockResolvedValueOnce({
-        quotes: [mockQuoteListItem],
-        total: 1,
-      });
+  // The start page's pending quotations: one slim read, kept until a status
+  // changes, then read again.
+  describe('loadPending', () => {
+    const overview = {
+      quotes: [mockQuoteListItem3],
+      total: 9,
+      expiries: [
+        { id: 'q-003', expiresAt: '2026-05-01T00:00:00Z' },
+        { id: 'q-004', expiresAt: '2026-04-01T00:00:00Z' },
+      ],
+    };
+
+    it('reads the overview and keeps its rows, count and expiries', async () => {
+      mockFetchImpl.mockResolvedValueOnce(overview);
 
       const store = useQuotesStore();
-      await store.fetchQuotes();
+      await store.loadPending();
 
-      expect(mockFetchImpl).toHaveBeenCalledWith('/api/quotes', {
-        query: { skip: undefined, take: undefined },
-      });
-      expect(store.quotes).toEqual([mockQuoteListItem]);
+      expect(mockFetchImpl).toHaveBeenCalledWith('/api/quotes/overview');
+      expect(store.pendingQuotes).toEqual([mockQuoteListItem3]);
+      expect(store.pendingCount).toBe(9);
+      expect(store.nearestPendingExpiry).toBe('2026-04-01T00:00:00Z');
+      expect(store.isLoading).toBe(false);
     });
 
-    it('sets totalQuotes from response', async () => {
-      mockFetchImpl.mockResolvedValueOnce({
-        quotes: [mockQuoteListItem, mockQuoteListItem2],
-        total: 10,
-      });
+    it('does not read again while what it read still holds', async () => {
+      mockFetchImpl.mockResolvedValueOnce(overview);
 
       const store = useQuotesStore();
-      await store.fetchQuotes();
+      await store.loadPending();
+      await store.loadPending();
 
-      expect(store.totalQuotes).toBe(10);
+      expect(mockFetchImpl).toHaveBeenCalledTimes(1);
     });
 
-    it('passes skip and take as query params', async () => {
-      mockFetchImpl.mockResolvedValueOnce({ quotes: [], total: 0 });
+    it.each([
+      [
+        'an accept',
+        (store: ReturnType<typeof useQuotesStore>) =>
+          store.acceptQuote('q-003'),
+      ],
+      [
+        'a decline',
+        (store: ReturnType<typeof useQuotesStore>) =>
+          store.rejectQuote('q-003'),
+      ],
+      [
+        'an order',
+        (store: ReturnType<typeof useQuotesStore>) =>
+          store.finalizeQuote('q-003'),
+      ],
+    ])('reads again after %s changed a status', async (_label, act) => {
+      mockFetchImpl
+        .mockResolvedValueOnce(overview)
+        .mockResolvedValueOnce({ quote: mockQuote })
+        .mockResolvedValueOnce({ ...overview, total: 8 });
 
       const store = useQuotesStore();
-      await store.fetchQuotes(5, 10);
+      await store.loadPending();
+      await act(store);
+      await store.loadPending();
 
-      expect(mockFetchImpl).toHaveBeenCalledWith('/api/quotes', {
-        query: { skip: 5, take: 10 },
-      });
+      expect(mockFetchImpl).toHaveBeenLastCalledWith('/api/quotes/overview');
+      expect(store.pendingCount).toBe(8);
     });
 
-    it('sets error on failure', async () => {
-      mockFetchImpl.mockRejectedValueOnce(new Error('Network error'));
+    it('keeps what it read when the status change fails', async () => {
+      mockFetchImpl
+        .mockResolvedValueOnce(overview)
+        .mockRejectedValueOnce(new Error('502'));
 
       const store = useQuotesStore();
-      await store.fetchQuotes();
+      await store.loadPending();
+      await store.acceptQuote('q-003');
+      await store.loadPending();
+
+      expect(mockFetchImpl).toHaveBeenCalledTimes(2);
+    });
+
+    it('says so on failure, and tries again next time', async () => {
+      mockFetchImpl
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockResolvedValueOnce(overview);
+
+      const store = useQuotesStore();
+      await store.loadPending();
 
       expect(store.error).toBe('portal.quotations.error_loading');
       expect(store.isLoading).toBe(false);
-    });
 
-    it('clears error before fetching', async () => {
-      mockFetchImpl.mockResolvedValueOnce({ quotes: [], total: 0 });
-
-      const store = useQuotesStore();
-      store.error = 'Previous error';
-      await store.fetchQuotes();
+      await store.loadPending();
 
       expect(store.error).toBeNull();
+      expect(store.pendingCount).toBe(9);
     });
 
-    it('resets isLoading to false after success', async () => {
-      mockFetchImpl.mockResolvedValueOnce({ quotes: [], total: 0 });
+    it('is loading while the read runs', async () => {
+      let answer!: (value: typeof overview) => void;
+      mockFetchImpl.mockReturnValueOnce(
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+      );
 
       const store = useQuotesStore();
-      await store.fetchQuotes();
-
+      const reading = store.loadPending();
+      expect(store.isLoading).toBe(true);
+      answer(overview);
+      await reading;
       expect(store.isLoading).toBe(false);
+    });
+  });
+
+  describe('nearestPendingExpiry', () => {
+    it('is the earliest end date, leaving out the empty ones', async () => {
+      mockFetchImpl.mockResolvedValueOnce({
+        quotes: [],
+        total: 3,
+        expiries: [
+          { id: 'a', expiresAt: '2026-06-01T00:00:00Z' },
+          { id: 'b', expiresAt: '' },
+          { id: 'c', expiresAt: '2026-05-01T00:00:00Z' },
+        ],
+      });
+
+      const store = useQuotesStore();
+      await store.loadPending();
+
+      expect(store.nearestPendingExpiry).toBe('2026-05-01T00:00:00Z');
+    });
+
+    it('is none when no pending quotation has an end date', async () => {
+      mockFetchImpl.mockResolvedValueOnce({
+        quotes: [],
+        total: 1,
+        expiries: [],
+      });
+
+      const store = useQuotesStore();
+      await store.loadPending();
+
+      expect(store.nearestPendingExpiry).toBeUndefined();
     });
   });
 
@@ -261,31 +318,6 @@ describe('useQuotesStore', () => {
       await store.acceptQuote('q-001');
 
       expect(store.currentQuote?.status).toBe('accepted');
-    });
-
-    it('updates matching quote in quotes list', async () => {
-      const acceptedQuote = { ...mockQuote, status: 'accepted' as const };
-      mockFetchImpl.mockResolvedValueOnce({ quote: acceptedQuote });
-
-      const store = useQuotesStore();
-      store.quotes = [{ ...mockQuoteListItem }];
-      await store.acceptQuote('q-001');
-
-      expect(store.quotes[0]?.status).toBe('accepted');
-    });
-
-    it('updates only the answered quote in a longer list', async () => {
-      const acceptedQuote = { ...mockQuote, status: 'accepted' as const };
-      mockFetchImpl.mockResolvedValueOnce({ quote: acceptedQuote });
-
-      const store = useQuotesStore();
-      store.quotes = [{ ...mockQuoteListItem3 }, { ...mockQuoteListItem }];
-      await store.acceptQuote('q-001');
-
-      expect(store.quotes.map((q) => q.status)).toEqual([
-        'pending',
-        'accepted',
-      ]);
     });
 
     it('is loading while the request runs', async () => {
@@ -409,43 +441,6 @@ describe('useQuotesStore', () => {
       expect(store.currentQuote?.status).toBe('finalized');
     });
 
-    it('updates only the finalized quote in the list', async () => {
-      mockFetchImpl.mockResolvedValueOnce({ quote: finalized });
-
-      const store = useQuotesStore();
-      store.quotes = [{ ...mockQuoteListItem3 }, { ...mockQuoteListItem }];
-      await store.finalizeQuote('q-001');
-
-      expect(store.quotes.map((q) => q.status)).toEqual([
-        'pending',
-        'finalized',
-      ]);
-    });
-
-    it('updates the finalized quote when it is first in the list', async () => {
-      mockFetchImpl.mockResolvedValueOnce({ quote: finalized });
-
-      const store = useQuotesStore();
-      store.quotes = [{ ...mockQuoteListItem }, { ...mockQuoteListItem3 }];
-      await store.finalizeQuote('q-001');
-
-      expect(store.quotes.map((q) => q.status)).toEqual([
-        'finalized',
-        'pending',
-      ]);
-    });
-
-    it('leaves the list alone when the quote is not in it', async () => {
-      mockFetchImpl.mockResolvedValueOnce({ quote: finalized });
-
-      const store = useQuotesStore();
-      store.quotes = [{ ...mockQuoteListItem3 }];
-      await store.finalizeQuote('q-001');
-
-      expect(Object.keys(store.quotes)).toEqual(['0']);
-      expect(store.quotes[0]?.status).toBe('pending');
-    });
-
     it('is loading while the request runs', async () => {
       let answer!: (value: { quote: typeof finalized }) => void;
       mockFetchImpl.mockReturnValueOnce(
@@ -557,16 +552,10 @@ describe('useQuotesStore', () => {
   });
 
   describe('deleteDraft', () => {
-    it('deletes the draft and takes it off the list', async () => {
-      mockFetchImpl
-        .mockResolvedValueOnce({
-          quotes: [mockQuoteListItem, mockQuoteListItem2],
-          total: 2,
-        })
-        .mockResolvedValueOnce({ deleted: true });
+    it('deletes the draft', async () => {
+      mockFetchImpl.mockResolvedValueOnce({ deleted: true });
 
       const store = useQuotesStore();
-      await store.fetchQuotes();
       const pending = store.deleteDraft('q-001');
       expect(store.isSaving).toBe(true);
       const deleted = await pending;
@@ -576,8 +565,6 @@ describe('useQuotesStore', () => {
         timeout: DRAFT_WRITE_TIMEOUT_MS,
       });
       expect(deleted).toBe(true);
-      expect(store.quotes.map((q) => q.id)).toEqual(['q-002']);
-      expect(store.totalQuotes).toBe(1);
       expect(store.isSaving).toBe(false);
     });
 
@@ -669,49 +656,6 @@ describe('useQuotesStore', () => {
 
       expect(await store.sendQuoteRequest('q-001', details)).toEqual(requested);
       expect(store.currentQuote?.status).toBe('requested');
-    });
-
-    it('updates the sent quote in the list', async () => {
-      mockFetchImpl.mockResolvedValueOnce({ quote: requested });
-
-      const store = useQuotesStore();
-      store.quotes = [
-        { ...mockQuoteListItem3 },
-        { ...mockQuoteListItem, status: 'request_draft' },
-      ];
-      await store.sendQuoteRequest('q-001', {});
-
-      expect(store.quotes.map((q) => q.status)).toEqual([
-        'pending',
-        'requested',
-      ]);
-    });
-
-    it('updates the sent quote when it is first in the list', async () => {
-      mockFetchImpl.mockResolvedValueOnce({ quote: requested });
-
-      const store = useQuotesStore();
-      store.quotes = [
-        { ...mockQuoteListItem, status: 'request_draft' },
-        { ...mockQuoteListItem3 },
-      ];
-      await store.sendQuoteRequest('q-001', {});
-
-      expect(store.quotes.map((q) => q.status)).toEqual([
-        'requested',
-        'pending',
-      ]);
-    });
-
-    it('leaves the list alone when the sent quote is not in it', async () => {
-      mockFetchImpl.mockResolvedValueOnce({ quote: requested });
-
-      const store = useQuotesStore();
-      store.quotes = [{ ...mockQuoteListItem3 }];
-      await store.sendQuoteRequest('q-001', {});
-
-      expect(Object.keys(store.quotes)).toEqual(['0']);
-      expect(store.quotes[0]?.status).toBe('pending');
     });
 
     it('does not release when writing the details fails', async () => {
@@ -818,31 +762,6 @@ describe('useQuotesStore', () => {
       expect(store.currentQuote?.status).toBe('rejected');
     });
 
-    it('updates matching quote in quotes list', async () => {
-      const rejectedQuote = { ...mockQuote, status: 'rejected' as const };
-      mockFetchImpl.mockResolvedValueOnce({ quote: rejectedQuote });
-
-      const store = useQuotesStore();
-      store.quotes = [{ ...mockQuoteListItem }];
-      await store.rejectQuote('q-001');
-
-      expect(store.quotes[0]?.status).toBe('rejected');
-    });
-
-    it('updates only the answered quote in a longer list', async () => {
-      const rejectedQuote = { ...mockQuote, status: 'rejected' as const };
-      mockFetchImpl.mockResolvedValueOnce({ quote: rejectedQuote });
-
-      const store = useQuotesStore();
-      store.quotes = [{ ...mockQuoteListItem3 }, { ...mockQuoteListItem }];
-      await store.rejectQuote('q-001');
-
-      expect(store.quotes.map((q) => q.status)).toEqual([
-        'pending',
-        'rejected',
-      ]);
-    });
-
     it('is loading while the request runs', async () => {
       let answer!: (value: { quote: typeof mockQuote }) => void;
       mockFetchImpl.mockReturnValueOnce(
@@ -899,83 +818,37 @@ describe('useQuotesStore', () => {
     });
   });
 
-  describe('pendingQuotes computed', () => {
-    it('filters quotes by status pending', () => {
-      const store = useQuotesStore();
-      store.quotes = [
-        mockQuoteListItem,
-        mockQuoteListItem2,
-        mockQuoteListItem3,
-      ];
-
-      expect(store.pendingQuotes).toHaveLength(2);
-      expect(store.pendingQuotes.every((q) => q.status === 'pending')).toBe(
-        true,
-      );
-    });
-
-    it('returns empty array when no pending quotes', () => {
-      const store = useQuotesStore();
-      store.quotes = [mockQuoteListItem2];
-
-      expect(store.pendingQuotes).toEqual([]);
-    });
-
-    it('leaves out requests still with the seller', () => {
-      const store = useQuotesStore();
-      store.quotes = [
-        makeQuoteListItem({ id: 'q-draft', status: 'request_draft' }),
-        makeQuoteListItem({ id: 'q-requested', status: 'requested' }),
-        makeQuoteListItem({ id: 'q-unknown', status: 'unknown' }),
-        mockQuoteListItem3,
-      ];
-
-      expect(store.pendingQuotes.map((q) => q.id)).toEqual(['q-003']);
-    });
-  });
-
-  describe('pendingCount computed', () => {
-    it('returns count of pending quotes', () => {
-      const store = useQuotesStore();
-      store.quotes = [
-        mockQuoteListItem,
-        mockQuoteListItem2,
-        mockQuoteListItem3,
-      ];
-
-      expect(store.pendingCount).toBe(2);
-    });
-
-    it('returns 0 when no quotes', () => {
-      const store = useQuotesStore();
-
-      expect(store.pendingCount).toBe(0);
-    });
-  });
-
   describe('reset', () => {
     it('clears all state back to initial values', async () => {
-      mockFetchImpl.mockResolvedValueOnce({
-        quotes: [mockQuoteListItem],
-        total: 5,
-      });
+      mockFetchImpl
+        .mockResolvedValueOnce({
+          quotes: [mockQuoteListItem3],
+          total: 5,
+          expiries: [{ id: 'q-003', expiresAt: '2026-05-01T00:00:00Z' }],
+        })
+        .mockResolvedValueOnce({ quotes: [], total: 0, expiries: [] });
 
       const store = useQuotesStore();
-      await store.fetchQuotes();
+      await store.loadPending();
       store.currentQuote = mockQuote;
       store.error = 'Some error';
       store.lastAdd = { scope: 'page-1', outcome: { kind: 'failed' } };
 
       store.reset();
 
-      expect(store.quotes).toEqual([]);
-      expect(store.totalQuotes).toBe(0);
+      expect(store.pendingQuotes).toEqual([]);
+      expect(store.pendingCount).toBe(0);
+      expect(store.pendingExpiries).toEqual([]);
+      expect(store.nearestPendingExpiry).toBeUndefined();
       expect(store.currentQuote).toBeNull();
       expect(store.isLoading).toBe(false);
       expect(store.isActionLoading).toBe(false);
       expect(store.isSaving).toBe(false);
       expect(store.error).toBeNull();
       expect(store.lastAdd).toBeNull();
+
+      await store.loadPending();
+      expect(mockFetchImpl).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -986,8 +859,12 @@ describe('useQuotesStore', () => {
       auth.user = { userId, username: `${userId}@example.com` };
       const store = useQuotesStore();
       await nextTick();
-      store.quotes = [mockQuoteListItem];
-      store.totalQuotes = 1;
+      mockFetchImpl.mockResolvedValueOnce({
+        quotes: [mockQuoteListItem3],
+        total: 1,
+        expiries: [],
+      });
+      await store.loadPending();
       store.currentQuote = mockQuote;
       store.lastAdd = {
         scope: 'page-1',
@@ -1002,8 +879,8 @@ describe('useQuotesStore', () => {
       auth.user = null;
       await nextTick();
 
-      expect(store.quotes).toEqual([]);
-      expect(store.totalQuotes).toBe(0);
+      expect(store.pendingQuotes).toEqual([]);
+      expect(store.pendingCount).toBe(0);
       expect(store.currentQuote).toBeNull();
       expect(store.lastAdd).toBeNull();
     });
@@ -1014,7 +891,7 @@ describe('useQuotesStore', () => {
       auth.user = { userId: 'buyer-2', username: 'buyer-2@example.com' };
       await nextTick();
 
-      expect(store.quotes).toEqual([]);
+      expect(store.pendingQuotes).toEqual([]);
       expect(store.lastAdd).toBeNull();
     });
 
@@ -1024,7 +901,7 @@ describe('useQuotesStore', () => {
       auth.user = { userId: 'buyer-1', username: 'buyer-1@example.com' };
       await nextTick();
 
-      expect(store.quotes).toEqual([mockQuoteListItem]);
+      expect(store.pendingQuotes).toEqual([mockQuoteListItem3]);
       expect(store.lastAdd).not.toBeNull();
     });
   });

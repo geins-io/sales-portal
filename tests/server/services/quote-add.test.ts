@@ -501,32 +501,4 @@ describe('adding to a request draft', () => {
       ).rejects.toMatchObject({ code: 'QUOTE_ADD_FAILED' });
     });
   });
-
-  describe('the draft list', () => {
-    it('carries when each quotation was last changed', async () => {
-      mockGraphqlQuery.mockResolvedValueOnce({
-        listQuotationCarts: [
-          {
-            ...makeRawQuotationCart({
-              status: 'REQUEST_DRAFT',
-              modifiedAt: '2026-11-12T08:00:00Z',
-            }),
-            id: 'draft-001',
-          },
-          {
-            ...makeRawQuotationCart({ status: 'REQUEST_DRAFT' }),
-            id: 'draft-002',
-            quotation: { status: 'REQUEST_DRAFT' },
-          },
-        ],
-      });
-
-      const { quotes } = await service.listQuotes('', 0, 10, mockEvent);
-
-      expect(quotes.find((q) => q.id === 'draft-001')!.updatedAt).toBe(
-        '2026-11-12T08:00:00Z',
-      );
-      expect(quotes.find((q) => q.id === 'draft-002')!.updatedAt).toBe('');
-    });
-  });
 });

@@ -1366,7 +1366,6 @@ export interface ApiQuoteListItem {
   id: string;
   status: string;
   total: number;
-  itemCount: number;
 }
 
 /**
@@ -1459,7 +1458,8 @@ export async function fetchQuoteList(
   page: Page,
   side: VatSide,
 ): Promise<ApiQuoteListItem[]> {
-  const response = await apiGet(page.request, '/api/quotes');
+  // Every tab at once; the account holds fewer than Geins' 100 a read.
+  const response = await apiGet(page.request, '/api/quotes?take=100');
   expect(response.ok(), '/api/quotes did not answer 200').toBe(true);
 
   const listed: {
@@ -1468,7 +1468,6 @@ export async function fetchQuoteList(
     status?: string;
     total?: number;
     totalExVat?: number;
-    itemCount?: number;
   }[] = (await response.json())?.quotes ?? [];
   const quotes = listed
     .filter((quote) => !isE2EData(quote.name))
@@ -1494,7 +1493,6 @@ export async function fetchQuoteList(
       id: quote.id!,
       status: quote.status ?? '',
       total: quote.total!,
-      itemCount: quote.itemCount ?? 0,
     };
   });
 }

@@ -78,9 +78,8 @@ function makeQuote(name: string) {
 }
 
 /**
- * Answers the create with `status`, the new draft's read, and the list of the
- * buyer's quotations with `existing` as their names, as they are when the list
- * is read; returns the names sent.
+ * Answers the create with `status`, the new draft's read, and the name check
+ * with `existing`, as it is when the check is read; returns the names sent.
  */
 async function answerRequest(
   page: Page,
@@ -88,15 +87,8 @@ async function answerRequest(
   existing: string[] = [],
 ) {
   const names: string[] = [];
-  await page.route(apiRoute('/api/quotes'), (route: Route) =>
-    route.request().method() === 'GET'
-      ? route.fulfill({
-          json: {
-            quotes: existing.map((name, i) => ({ id: `e2e-${i}`, name })),
-            total: existing.length,
-          },
-        })
-      : route.fallback(),
+  await page.route(apiRoute('/api/quotes/names'), (route: Route) =>
+    route.fulfill({ json: { names: existing } }),
   );
   await page.route(apiRoute('/api/quotes/requests'), async (route: Route) => {
     if (route.request().method() !== 'POST') return route.fallback();

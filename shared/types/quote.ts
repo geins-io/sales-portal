@@ -1,4 +1,5 @@
 import type { CartLineConfiguration, PriceType } from './commerce';
+import type { QuoteListFilter } from '../constants/quote';
 
 // ---------------------------------------------------------------------------
 // Quote Status
@@ -173,23 +174,43 @@ export interface Quote {
 // ---------------------------------------------------------------------------
 // Quote List Item
 // ---------------------------------------------------------------------------
+/** A row of the quotation list, and of the start page's pending quotations. */
 export interface QuoteListItem {
   id: string;
   quoteNumber: string;
   name?: string;
   contactName: string;
-  contactEmail: string;
   status: QuoteStatus;
   total: number;
   totalFormatted: string;
   totalExVat: number;
   totalExVatFormatted: string;
-  currency: string;
-  itemCount: number;
   createdAt: string;
-  /** When the quotation last changed; '' when Geins gives no time. */
+}
+
+/** One page of the quotation list; `total` counts every page. */
+export interface QuoteListPage {
+  quotes: QuoteListItem[];
+  total: number;
+}
+
+/** How many quotations each tab of the list holds. */
+export type QuoteListCounts = Record<QuoteListFilter, number>;
+
+/** The start page's pending quotations: the newest rows and every end date. */
+export interface QuotePendingOverview {
+  quotes: QuoteListItem[];
+  total: number;
+  expiries: { id: string; expiresAt: string }[];
+}
+
+/** A draft the add-to-quote menu offers. */
+export interface QuoteDraftChoice {
+  id: string;
+  name: string;
+  /** When the draft last changed; '' when Geins gives no time. */
   updatedAt: string;
-  expiresAt?: string;
+  itemCount: number;
 }
 
 // ---------------------------------------------------------------------------

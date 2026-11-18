@@ -1,0 +1,18 @@
+query quotationCartPage(
+  $filter: QuotationCartsFilter
+  $skip: Int
+  $take: Int
+  $languageId: String
+) {
+  quotationCarts(
+    filter: $filter
+    skip: $skip
+    take: $take
+    languageId: $languageId
+  ) {
+    count
+    quotationCarts {
+      ...QuotationListRow
+    }
+  }
+}

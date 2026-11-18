@@ -34,6 +34,7 @@ const FRAGMENT_NAMES: Record<string, string> = {
   QuotationCartSummary: './fragments/quotation-cart-summary.graphql',
   QuotationCore: './fragments/quotation-core.graphql',
   QuotationWithAddresses: './fragments/quotation-with-addresses.graphql',
+  QuotationListRow: './fragments/quotation-list-row.graphql',
 };
 
 function loadFragments(): void {

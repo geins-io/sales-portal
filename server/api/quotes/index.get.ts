@@ -1,6 +1,7 @@
-import * as quotesService from '../../services/quotes';
+import { listQuotes } from '../../services/quotes';
 import { ListQuotesSchema } from '../../schemas/api-input';
 
+/** One page of the buyer's quotations, for the list. */
 export default defineEventHandler(async (event) => {
   await requireAuth(event);
 
@@ -8,5 +9,5 @@ export default defineEventHandler(async (event) => {
 
   setHeader(event, 'Cache-Control', 'private, no-cache');
 
-  return quotesService.listQuotes('', query.skip, query.take, event);
+  return listQuotes(query, event);
 });

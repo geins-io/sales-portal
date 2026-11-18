@@ -1,0 +1,13 @@
+query quotationNames($search: String, $languageId: String) {
+  quotationCarts(
+    filter: { search: $search }
+    take: 100
+    languageId: $languageId
+  ) {
+    quotationCarts {
+      quotation {
+        name
+      }
+    }
+  }
+}

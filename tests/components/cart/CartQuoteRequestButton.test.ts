@@ -100,12 +100,9 @@ const DIALOG = '[data-testid="cart-to-quote-dialog"]';
 const CONFIRM = '[data-testid="cart-to-quote-confirm"]';
 const CANCEL = '[data-testid="cart-to-quote-cancel"]';
 
-/** The buyer's quotations as `/api/quotes` lists them, by name. */
-function listQuotes(...names: (string | undefined)[]) {
-  vi.mocked(internalFetch).mockResolvedValue({
-    quotes: names.map((name, i) => ({ id: `q-${i}`, name })),
-    total: names.length,
-  });
+/** The names `/api/quotes/names` finds for the day's name. */
+function listQuotes(...names: string[]) {
+  vi.mocked(internalFetch).mockResolvedValue({ names });
 }
 
 /** Button, then "Continue to checkout" in the dialog. */
@@ -218,7 +215,10 @@ describe('CartQuoteRequestButton', () => {
 
       await wrapper.find(BUTTON).trigger('click');
 
-      expect(internalFetch).toHaveBeenCalledWith('/api/quotes');
+      // Only a name holding the day's name can collide with the new one.
+      expect(internalFetch).toHaveBeenCalledWith('/api/quotes/names', {
+        query: { search: expect.stringMatching(/^cart\.quote_request_name /) },
+      });
     });
 
     it('cancel closes the dialog and leaves the cart as it was', async () => {
@@ -342,9 +342,19 @@ describe('CartQuoteRequestButton', () => {
     }
 
     it('is the plain name when no quotation has it', async () => {
-      listQuotes('Something else', undefined);
+      listQuotes('Something else');
 
       expect(await nameSent()()).toBe(TODAY);
+    });
+
+    it("searches the buyer's quotations for the day's name", async () => {
+      listQuotes();
+
+      await nameSent()();
+
+      expect(internalFetch).toHaveBeenCalledWith('/api/quotes/names', {
+        query: { search: TODAY },
+      });
     });
 
     it('gets (2) when the plain name is taken', async () => {

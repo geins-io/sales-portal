@@ -6,6 +6,10 @@ type AnyFn = (...args: unknown[]) => unknown;
 // Mock at the service boundary — real Geins GraphQL, no stubs
 // ---------------------------------------------------------------------------
 const mockListQuotes = vi.fn();
+const mockCountQuotes = vi.fn();
+const mockGetPendingOverview = vi.fn();
+const mockListDraftChoices = vi.fn();
+const mockListQuoteNames = vi.fn();
 const mockGetQuote = vi.fn();
 const mockGetQuoteNumber = vi.fn();
 const mockAcceptQuote = vi.fn();
@@ -18,6 +22,10 @@ const mockDeleteQuoteRequest = vi.fn();
 
 vi.mock('../../../server/services/quotes', () => ({
   listQuotes: (...args: unknown[]) => mockListQuotes(...args),
+  countQuotes: (...args: unknown[]) => mockCountQuotes(...args),
+  getPendingOverview: (...args: unknown[]) => mockGetPendingOverview(...args),
+  listDraftChoices: (...args: unknown[]) => mockListDraftChoices(...args),
+  listQuoteNames: (...args: unknown[]) => mockListQuoteNames(...args),
   getQuote: (...args: unknown[]) => mockGetQuote(...args),
   getQuoteNumber: (...args: unknown[]) => mockGetQuoteNumber(...args),
   acceptQuote: (...args: unknown[]) => mockAcceptQuote(...args),
@@ -295,10 +303,14 @@ describe('Quote API Routes', () => {
   // GET /api/quotes
   // -------------------------------------------------------------------------
   describe('GET /api/quotes', () => {
-    it('returns quotes list', async () => {
-      const getQueryMock = vi.mocked(getQuery);
-      getQueryMock.mockReturnValue({ skip: '0', take: '10' });
-      const listResult = { quotes: [mockQuote], total: 1 };
+    it('reads the page the list asks for', async () => {
+      getQueryMock.mockReturnValue({
+        tab: 'drafts',
+        search: ' offert ',
+        skip: '20',
+        take: '20',
+      });
+      const listResult = { quotes: [mockQuote], total: 21 };
       mockListQuotes.mockResolvedValue(listResult);
 
       const handler = (await import('../../../server/api/quotes/index.get'))
@@ -306,31 +318,67 @@ describe('Quote API Routes', () => {
       const result = await handler(mockEvent);
 
       expect(mockRequireAuth).toHaveBeenCalledWith(mockEvent);
-      expect(mockListQuotes).toHaveBeenCalledWith('', 0, 10, mockEvent);
+      expect(mockListQuotes).toHaveBeenCalledWith(
+        { tab: 'drafts', search: 'offert', skip: 20, take: 20 },
+        mockEvent,
+      );
       expect(result).toEqual(listResult);
+      expect(setHeader).toHaveBeenCalledWith(
+        mockEvent,
+        'Cache-Control',
+        'private, no-cache',
+      );
     });
 
-    it('returns empty list with default pagination', async () => {
-      const getQueryMock = vi.mocked(getQuery);
+    it('reads the first 20 of every tab when asked nothing', async () => {
       getQueryMock.mockReturnValue({});
       mockListQuotes.mockResolvedValue({ quotes: [], total: 0 });
 
       const handler = (await import('../../../server/api/quotes/index.get'))
         .default;
-      const result = await handler(mockEvent);
+      await handler(mockEvent);
 
       expect(mockListQuotes).toHaveBeenCalledWith(
-        '',
-        undefined,
-        undefined,
+        { tab: 'all', skip: 0, take: 20 },
         mockEvent,
       );
-      expect(result).toEqual({ quotes: [], total: 0 });
+    });
+
+    it('passes a created range on as it came', async () => {
+      getQueryMock.mockReturnValue({
+        createdFrom: '2026-11-12T00:00:00+01:00',
+        createdBefore: '2026-11-13T00:00:00+01:00',
+      });
+      mockListQuotes.mockResolvedValue({ quotes: [], total: 0 });
+
+      const handler = (await import('../../../server/api/quotes/index.get'))
+        .default;
+      await handler(mockEvent);
+
+      expect(mockListQuotes).toHaveBeenCalledWith(
+        {
+          tab: 'all',
+          createdFrom: '2026-11-12T00:00:00+01:00',
+          createdBefore: '2026-11-13T00:00:00+01:00',
+          skip: 0,
+          take: 20,
+        },
+        mockEvent,
+      );
+    });
+
+    it('asks Geins nothing for a query it refuses', async () => {
+      getQueryMock.mockReturnValue({ take: '101' });
+
+      const handler = (await import('../../../server/api/quotes/index.get'))
+        .default;
+
+      await expect(handler(mockEvent)).rejects.toThrow();
+      expect(mockListQuotes).not.toHaveBeenCalled();
     });
 
     it('requires authentication', async () => {
       mockRequireAuth.mockRejectedValue(new Error('Authentication required'));
-      const getQueryMock = vi.mocked(getQuery);
       getQueryMock.mockReturnValue({});
 
       const handler = (await import('../../../server/api/quotes/index.get'))
@@ -339,6 +387,96 @@ describe('Quote API Routes', () => {
       await expect(handler(mockEvent)).rejects.toThrow(
         'Authentication required',
       );
+      expect(mockListQuotes).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // The other quotation reads: one route per place, each the buyer's own
+  // -------------------------------------------------------------------------
+  describe.each([
+    {
+      route: 'GET /api/quotes/counts',
+      load: () => import('../../../server/api/quotes/counts.get'),
+      service: mockCountQuotes,
+      answer: { all: 3, drafts: 1, requests: 1, quotations: 1 },
+      expected: { counts: { all: 3, drafts: 1, requests: 1, quotations: 1 } },
+    },
+    {
+      route: 'GET /api/quotes/overview',
+      load: () => import('../../../server/api/quotes/overview.get'),
+      service: mockGetPendingOverview,
+      answer: { quotes: [mockQuote], total: 1, expiries: [] },
+      expected: { quotes: [mockQuote], total: 1, expiries: [] },
+    },
+    {
+      route: 'GET /api/quotes/drafts',
+      load: () => import('../../../server/api/quotes/drafts.get'),
+      service: mockListDraftChoices,
+      answer: [{ id: 'd', name: 'Utkast', updatedAt: '', itemCount: 2 }],
+      expected: {
+        drafts: [{ id: 'd', name: 'Utkast', updatedAt: '', itemCount: 2 }],
+      },
+    },
+  ])('$route', ({ load, service, answer, expected }) => {
+    it('answers the read as the signed-in buyer, never cached for another', async () => {
+      service.mockResolvedValue(answer);
+
+      const handler = (await load()).default;
+      const result = await handler(mockEvent);
+
+      expect(mockRequireAuth).toHaveBeenCalledWith(mockEvent);
+      expect(service).toHaveBeenCalledWith(mockEvent);
+      expect(setHeader).toHaveBeenCalledWith(
+        mockEvent,
+        'Cache-Control',
+        'private, no-cache',
+      );
+      expect(result).toEqual(expected);
+    });
+
+    it('requires authentication', async () => {
+      mockRequireAuth.mockRejectedValue(new Error('Authentication required'));
+
+      const handler = (await load()).default;
+
+      await expect(handler(mockEvent)).rejects.toThrow(
+        'Authentication required',
+      );
+      expect(service).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /api/quotes/names', () => {
+    it('answers the names the trimmed search finds', async () => {
+      getQueryMock.mockReturnValue({ search: ' Varukorg 18 nov. 2026 ' });
+      mockListQuoteNames.mockResolvedValue(['Varukorg 18 nov. 2026']);
+
+      const handler = (await import('../../../server/api/quotes/names.get'))
+        .default;
+      const result = await handler(mockEvent);
+
+      expect(mockRequireAuth).toHaveBeenCalledWith(mockEvent);
+      expect(mockListQuoteNames).toHaveBeenCalledWith(
+        'Varukorg 18 nov. 2026',
+        mockEvent,
+      );
+      expect(setHeader).toHaveBeenCalledWith(
+        mockEvent,
+        'Cache-Control',
+        'private, no-cache',
+      );
+      expect(result).toEqual({ names: ['Varukorg 18 nov. 2026'] });
+    });
+
+    it('reads nothing without a search', async () => {
+      getQueryMock.mockReturnValue({});
+
+      const handler = (await import('../../../server/api/quotes/names.get'))
+        .default;
+
+      await expect(handler(mockEvent)).rejects.toThrow();
+      expect(mockListQuoteNames).not.toHaveBeenCalled();
     });
   });
 

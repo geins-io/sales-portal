@@ -80,9 +80,8 @@ const orderCount = computed(() =>
 // Quotes data
 // ---------------------------------------------------------------------------
 const quotesStore = useQuotesStore();
-const recentPendingQuotes = computed(() =>
-  quotesStore.pendingQuotes.slice(0, 5),
-);
+// The overview read holds the newest five; the count covers them all.
+const recentPendingQuotes = computed(() => quotesStore.pendingQuotes);
 
 // ---------------------------------------------------------------------------
 // Purchased products data
@@ -121,9 +120,10 @@ const buyerCount = computed(() => {
 });
 
 // Awaited so the SSR render and the hydration payload hold the quotes. After
-// the useFetch calls, so all the loads run in parallel.
+// the useFetch calls, so all the loads run in parallel. The store reads only
+// when it has not, or when a status changed since.
 if (showQuotes.value) {
-  await callOnce('portal-quotes', () => quotesStore.fetchQuotes());
+  await quotesStore.loadPending();
 }
 
 // ---------------------------------------------------------------------------
@@ -140,13 +140,10 @@ const listsPending = computed(() => false);
 // No fake placeholders; missing data leaves the subtitle line empty.
 // ---------------------------------------------------------------------------
 const nearestQuoteExpirySubtitle = computed(() => {
-  const dates = quotesStore.pendingQuotes
-    .map((q) => q.expiresAt)
-    .filter((d): d is string => !!d)
-    .sort();
-  if (!dates.length) return undefined;
+  const date = quotesStore.nearestPendingExpiry;
+  if (!date) return undefined;
   return t('portal.overview.stat.closes_expiration_date', {
-    date: formatDate(dates[0]),
+    date: formatDate(date),
   });
 });
 

@@ -932,7 +932,8 @@
       },
       "title": "Tarjoukset ja pyynnöt",
       "subtitle": "Jatka luonnoksiasi, seuraa lähettämiäsi pyyntöjä ja vastaa tarjouksiin.",
-      "search_placeholder": "Hae nimeä tai tarjousnumeroa…",
+      "search_placeholder": "Hae nimellä, numerolla tai {format}…",
+      "date_letters": { "year": "VVVV", "month": "KK", "day": "PP" },
       "filters": {
         "all": "Kaikki",
         "drafts": "Luonnokset",

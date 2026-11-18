@@ -1,0 +1,30 @@
+# What a row of the quotation list shows, and the start page's pending rows.
+fragment QuotationListRow on CartType {
+  id
+  quotation {
+    name
+    quotationNumber
+    externalReference {
+      number
+    }
+    status
+    createdAt
+    currency
+    customer {
+      firstName
+      lastName
+    }
+    owner {
+      firstName
+      lastName
+    }
+  }
+  summary {
+    total {
+      sellingPriceIncVat
+      sellingPriceIncVatFormatted
+      sellingPriceExVat
+      sellingPriceExVatFormatted
+    }
+  }
+}

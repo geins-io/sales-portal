@@ -5,14 +5,19 @@ import {
   QUOTE_LINE_MAX_QUANTITY,
   QUOTE_REQUEST_MAX_LINES,
 } from '#shared/constants/quote';
+import type { QuoteListFilter } from '#shared/constants/quote';
 import type { ConfigurationChoices } from '#shared/types/configurator';
 import type {
   Quote,
   QuoteAddress,
   QuoteCompany,
   QuoteCustomer,
+  QuoteDraftChoice,
   QuoteLineItem,
+  QuoteListCounts,
   QuoteListItem,
+  QuoteListPage,
+  QuotePendingOverview,
   QuoteOrderDetails,
   QuotePaymentMethod,
   QuoteRequestDetails,
@@ -512,71 +517,186 @@ function mapQuotationCartToListItem(
     quoteNumber: shownNumber(q, choice),
     name: q.name ?? undefined,
     contactName: `${contactFirstName} ${contactLastName}`.trim(),
-    contactEmail: q.billingAddress?.email ?? '',
     status: mapStatus(q.status),
-    total: cart.summary?.total?.sellingPriceIncVat ?? 0,
+    total: total?.sellingPriceIncVat ?? 0,
     totalFormatted: amount(
       total?.sellingPriceIncVat,
       total?.sellingPriceIncVatFormatted,
     ),
-    totalExVat: cart.summary?.total?.sellingPriceExVat ?? 0,
+    totalExVat: total?.sellingPriceExVat ?? 0,
     totalExVatFormatted: amount(
       total?.sellingPriceExVat,
       total?.sellingPriceExVatFormatted,
     ),
-    currency: q.currency ?? '',
-    itemCount: cart.items?.length ?? 0,
     createdAt: q.createdAt ?? '',
-    updatedAt: q.modifiedAt ?? '',
-    expiresAt: q.validTo ?? undefined,
   };
-}
-
-/**
- * Sort key for ordering quotes newest-first. Returns the createdAt timestamp in
- * milliseconds, or 0 for an empty or unparseable date so those rows sort last.
- */
-function quoteCreatedTime(quote: QuoteListItem): number {
-  const time = Date.parse(quote.createdAt ?? '');
-  return Number.isNaN(time) ? 0 : time;
 }
 
 // ---------------------------------------------------------------------------
 // Quotes service
 // ---------------------------------------------------------------------------
 
-/** List quotation carts via Geins GraphQL API */
-export async function listQuotes(
-  _orgId: string,
-  _skip: number | undefined,
-  _take: number | undefined,
+/** The Geins statuses behind each tab of the list; Alla asks for none. */
+const TAB_STATUSES: Record<QuoteListFilter, string[] | undefined> = {
+  all: undefined,
+  drafts: ['REQUEST_DRAFT'],
+  requests: ['REQUESTED'],
+  quotations: [
+    'PENDING',
+    'ACCEPTED',
+    'CONFIRMED',
+    'FINALIZED',
+    'REJECTED',
+    'CANCELED',
+    'EXPIRED',
+  ],
+};
+
+/** One `quotationCarts` answer, as far as the list's queries select it. */
+interface RawQuotationCartsPage {
+  count?: number | null;
+  quotationCarts?: RawQuotationCart[] | null;
+}
+
+/**
+ * A `quotationCarts` read as the signed-in buyer. Geins scopes quotations by
+ * the user token and languageId only: Studio stores channelId as "1" while the
+ * request's channel is "1|se", and passing it hides the buyer's quotations.
+ */
+async function readQuotationCarts(
+  queryFile: string,
+  variables: Record<string, unknown>,
   event: H3Event,
-): Promise<{ quotes: QuoteListItem[]; total: number }> {
+): Promise<{ data: unknown; languageId: string }> {
   const sdk = await getTenantSDK(event);
   const requestContext = buildRequestContext(event);
-  // Quotation queries use languageId only — NOT channelId/marketId.
-  // Studio stores channelId as "1" but getRequestChannelVariables produces "1|se",
-  // which causes a filter mismatch and hides quotes from the buyer.
-  // Quotes are already user-scoped via the auth token.
   const { languageId } = getRequestChannelVariables(sdk, event);
   const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
-        queryAsString: loadQuery('quotes/list-quotations.graphql'),
-        variables: { languageId },
+        queryAsString: loadQuery(queryFile),
+        variables: { ...variables, languageId },
         userToken: requestContext?.userToken,
       }),
     'quotes',
   );
-  const carts = (unwrapGraphQL(result) as RawQuotationCart[] | null) ?? [];
-  const choice = numberChoice(event);
-  const quotes = carts.map((cart) =>
-    mapQuotationCartToListItem(cart, languageId, choice),
+  return { data: unwrapGraphQL(result), languageId };
+}
+
+export interface QuoteListQuery {
+  tab: QuoteListFilter;
+  search?: string;
+  createdFrom?: string;
+  createdBefore?: string;
+  skip: number;
+  take: number;
+}
+
+/** One page of the buyer's quotations, newest first as Geins sends them. */
+export async function listQuotes(
+  query: QuoteListQuery,
+  event: H3Event,
+): Promise<QuoteListPage> {
+  const { tab, skip, take, ...rest } = query;
+  // A filter left undefined is no filter: JSON leaves it out.
+  const filter = { statuses: TAB_STATUSES[tab], ...rest };
+  const { data, languageId } = await readQuotationCarts(
+    'quotes/quotation-cart-page.graphql',
+    { filter, skip, take },
+    event,
   );
-  // Newest first. The Geins API returns carts in an unspecified order, so sort
-  // by createdAt descending. Empty or unparseable dates sort last (epoch 0).
-  quotes.sort((a, b) => quoteCreatedTime(b) - quoteCreatedTime(a));
-  return { quotes, total: quotes.length };
+  const page = data as RawQuotationCartsPage | null;
+  const choice = numberChoice(event);
+  return {
+    quotes: (page?.quotationCarts ?? []).map((cart) =>
+      mapQuotationCartToListItem(cart, languageId, choice),
+    ),
+    total: page?.count ?? 0,
+  };
+}
+
+/** How many quotations each tab holds, in one request. */
+export async function countQuotes(event: H3Event): Promise<QuoteListCounts> {
+  const { data } = await readQuotationCarts(
+    'quotes/quotation-cart-counts.graphql',
+    {
+      drafts: TAB_STATUSES.drafts,
+      requests: TAB_STATUSES.requests,
+      quotations: TAB_STATUSES.quotations,
+    },
+    event,
+  );
+  const parts = (data ?? {}) as Partial<
+    Record<QuoteListFilter, RawQuotationCartsPage | null>
+  >;
+  const count = (tab: QuoteListFilter) => parts[tab]?.count ?? 0;
+  return {
+    all: count('all'),
+    drafts: count('drafts'),
+    requests: count('requests'),
+    quotations: count('quotations'),
+  };
+}
+
+/** The start page's pending quotations: the newest five, the count, every end date. */
+export async function getPendingOverview(
+  event: H3Event,
+): Promise<QuotePendingOverview> {
+  const { data, languageId } = await readQuotationCarts(
+    'quotes/quotation-pending-overview.graphql',
+    {},
+    event,
+  );
+  const { recent, expiry } = (data ?? {}) as {
+    recent?: RawQuotationCartsPage | null;
+    expiry?: RawQuotationCartsPage | null;
+  };
+  const choice = numberChoice(event);
+  return {
+    quotes: (recent?.quotationCarts ?? []).map((cart) =>
+      mapQuotationCartToListItem(cart, languageId, choice),
+    ),
+    total: recent?.count ?? 0,
+    expiries: (expiry?.quotationCarts ?? []).flatMap((cart) =>
+      cart.quotation?.validTo
+        ? [{ id: cart.id, expiresAt: cart.quotation.validTo }]
+        : [],
+    ),
+  };
+}
+
+/** The buyer's request drafts, as the add-to-quote menu offers them. */
+export async function listDraftChoices(
+  event: H3Event,
+): Promise<QuoteDraftChoice[]> {
+  const { data } = await readQuotationCarts(
+    'quotes/quotation-draft-menu.graphql',
+    {},
+    event,
+  );
+  const page = data as RawQuotationCartsPage | null;
+  return (page?.quotationCarts ?? []).map((cart) => ({
+    id: cart.id,
+    name: cart.quotation?.name ?? '',
+    updatedAt: cart.quotation?.modifiedAt ?? '',
+    itemCount: cart.items?.length ?? 0,
+  }));
+}
+
+/** The names of the buyer's quotations that `search` finds. */
+export async function listQuoteNames(
+  search: string,
+  event: H3Event,
+): Promise<string[]> {
+  const { data } = await readQuotationCarts(
+    'quotes/quotation-names.graphql',
+    { search },
+    event,
+  );
+  const page = data as RawQuotationCartsPage | null;
+  return (page?.quotationCarts ?? []).flatMap((cart) =>
+    cart.quotation?.name ? [cart.quotation.name] : [],
+  );
 }
 
 /** The quotation as Geins sends it, before it is mapped; null when it has none. */

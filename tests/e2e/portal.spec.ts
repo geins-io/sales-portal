@@ -1,4 +1,4 @@
-import { test, expect, type Page } from './fixtures';
+import { test, expect, type Page, type Response } from './fixtures';
 import {
   waitForHydration,
   hasE2ECredentials,
@@ -50,7 +50,8 @@ const PAGE_TIMEOUT = 20000;
 async function fetchListedQuotes(
   page: Page,
 ): Promise<{ id: string; status: string }[]> {
-  const response = await apiGet(page.request, '/api/quotes');
+  // Every tab at once; the account holds fewer than Geins' 100 a read.
+  const response = await apiGet(page.request, '/api/quotes?take=100');
   expect(response.ok(), '/api/quotes did not answer 200').toBe(true);
   return (
     (await response.json()) as {
@@ -91,6 +92,69 @@ async function chooseQuotationsTab(page: Page, filter: string) {
   const tab = page.locator(`[data-testid="quotations-filter-${filter}"]`);
   await tab.click();
   await expect(tab).toHaveAttribute('aria-selected', 'true');
+}
+
+/** A page of the quotation list as `/api/quotes` answers it. */
+interface ListRead {
+  quotes: {
+    id: string;
+    name?: string;
+    quoteNumber: string;
+    createdAt: string;
+  }[];
+  total: number;
+}
+
+/** The next read of the quotation list whose query `match` takes. */
+function nextListRead(
+  page: Page,
+  match: (query: URLSearchParams) => boolean,
+): Promise<Response> {
+  return page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === '/api/quotes' &&
+      response.request().method() === 'GET' &&
+      match(url.searchParams)
+    );
+  });
+}
+
+/**
+ * Opens the quotation list from the overview, so the browser makes the list's
+ * reads itself, and answers its first page and its tab counts.
+ */
+async function openQuotationList(
+  page: Page,
+): Promise<{ list: ListRead; counts: Record<string, number> }> {
+  await page.goto('/se/sv/portal');
+  await page.waitForLoadState('load');
+  await waitForHydration(page);
+
+  const listRead = nextListRead(page, () => true);
+  const countsRead = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/quotes/counts' &&
+      response.request().method() === 'GET',
+  );
+  await page
+    .locator('[data-testid="portal-tabs"] a[href$="/portal/quotations"]')
+    .click();
+  const [list, counts] = await Promise.all([listRead, countsRead]);
+  expect(list.ok(), '/api/quotes did not answer 200').toBe(true);
+  expect(counts.ok(), '/api/quotes/counts did not answer 200').toBe(true);
+  return {
+    list: (await list.json()) as ListRead,
+    counts: ((await counts.json()) as { counts: Record<string, number> })
+      .counts,
+  };
+}
+
+/** The ids of the rows the list shows, in order. */
+function tableRowIds(page: Page): Promise<(string | null)[]> {
+  return page
+    .locator('table [data-testid="quotation-row"]')
+    .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-id')));
 }
 
 /** One rendered order or quotation line: the three numbers a line shows. */
@@ -227,12 +291,9 @@ test.describe('Portal Overview', () => {
   test('the overview arrives with its pending quotations and does not read them again', async ({
     page,
   }) => {
-    const listed = await apiGet(page.request, '/api/quotes');
-    expect(listed.ok(), '/api/quotes did not answer 200').toBe(true);
-    const { quotes } = (await listed.json()) as {
-      quotes: { status: string }[];
-    };
-    const pending = quotes.filter((quote) => quote.status === 'pending').length;
+    const listed = await apiGet(page.request, '/api/quotes/overview');
+    expect(listed.ok(), '/api/quotes/overview did not answer 200').toBe(true);
+    const { total: pending } = (await listed.json()) as { total: number };
     outOfScope(
       pending === 0,
       'fixture-missing',
@@ -241,7 +302,7 @@ test.describe('Portal Overview', () => {
 
     const clientReads: string[] = [];
     page.on('request', (request) => {
-      if (new URL(request.url()).pathname === '/api/quotes') {
+      if (new URL(request.url()).pathname.startsWith('/api/quotes')) {
         clientReads.push(request.url());
       }
     });
@@ -737,6 +798,11 @@ test.describe('Portal Quotations', () => {
     // Search input
     const searchInput = page.locator('[data-testid="quotations-search"]');
     await expect(searchInput).toBeVisible({ timeout: PAGE_TIMEOUT });
+    // The placeholder names the date shape the rows show.
+    await expect(searchInput).toHaveAttribute(
+      'placeholder',
+      'Sök namn, offertnr eller ÅÅÅÅ-MM-DD…',
+    );
 
     // Wait for loading to finish
     const loading = page.locator('[data-testid="quotations-loading"]');
@@ -776,72 +842,118 @@ test.describe('Portal Quotations', () => {
     }
   });
 
-  test('each tab counts and shows its group of the list the page read', async ({
+  test('each tab shows the count the server read and its own first page', async ({
     page,
   }) => {
-    // A direct visit renders the list on the server, so open it from the
-    // overview: the browser then reads `/api/quotes` itself, and the counts
-    // compare with that one read, not with one a parallel spec may have
-    // changed since.
-    await page.goto('/se/sv/portal');
-    await page.waitForLoadState('load');
-    await waitForHydration(page);
-
-    // The overview reads the list once, on the server; the URL check keeps a
-    // stray overview read from being taken for the list page's.
-    const listRead = page.waitForResponse(
-      (response) =>
-        new URL(response.url()).pathname === '/api/quotes' &&
-        response.request().method() === 'GET' &&
-        new URL(page.url()).pathname.endsWith('/portal/quotations'),
-    );
-    await page
-      .locator('[data-testid="portal-tabs"] a[href$="/portal/quotations"]')
-      .click();
-    const read = await listRead;
-    expect(read.ok(), '/api/quotes did not answer 200').toBe(true);
-    const listed = (
-      (await read.json()) as { quotes: { status: string; name?: string }[] }
-    ).quotes;
-    const statuses = listed.map((quote) => quote.status);
-
+    const { list, counts } = await openQuotationList(page);
     await expect(page.locator('[data-testid="quotations-loading"]')).toBeHidden(
       { timeout: PAGE_TIMEOUT },
     );
 
-    const drafts = statuses.filter((s) => s === 'request_draft').length;
-    const requests = statuses.filter((s) => s === 'requested').length;
-    const groups: Record<string, number> = {
-      all: statuses.length,
-      drafts,
-      requests,
-      quotations: statuses.length - drafts - requests,
-    };
-    const table = page.locator('[data-testid="quotations-table"]');
-    for (const [filter, size] of Object.entries(groups)) {
-      await chooseQuotationsTab(page, filter);
+    for (const filter of ['all', 'drafts', 'requests', 'quotations']) {
+      let read = list;
+      if (filter !== 'all') {
+        const next = nextListRead(page, (query) => query.get('tab') === filter);
+        await chooseQuotationsTab(page, filter);
+        read = (await (await next).json()) as ListRead;
+      }
       await expect(
         page.locator(`[data-testid="quotations-filter-count-${filter}"]`),
-      ).toHaveText(String(size));
-      if (size === 0) {
+      ).toHaveText(String(counts[filter]));
+      expect(read.quotes.length).toBeLessThanOrEqual(20);
+      if (read.quotes.length === 0) {
         await expect(
           page.locator('[data-testid="quotations-empty"]'),
         ).toBeVisible();
       } else {
-        await expect(
-          table.locator('[data-testid="quotation-row"]:visible'),
-        ).toHaveCount(Math.min(size, 20));
+        await expect
+          .poll(() => tableRowIds(page))
+          .toEqual(read.quotes.map((quote) => quote.id));
       }
     }
 
-    // Alla puts the drafts first, and the row shows the name.
-    const firstDraft = listed.find((quote) => quote.status === 'request_draft');
-    if (firstDraft?.name) {
-      await chooseQuotationsTab(page, 'all');
-      await expect(
-        table.locator('[data-testid="quotation-row"]:visible').first(),
-      ).toContainText(firstDraft.name);
+    // Alla is newest first, drafts among the rest.
+    const created = list.quotes.map((quote) => Date.parse(quote.createdAt));
+    expect(created).toEqual([...created].sort((a, b) => b - a));
+  });
+
+  test('the list pages past 20 on the server', async ({ page }) => {
+    const { list } = await openQuotationList(page);
+    outOfScope(
+      list.total <= 20,
+      'fixture-missing',
+      'the test account has 20 quotations or fewer, so the list has one page',
+    );
+
+    const summary = page.locator('[data-testid="quotations-count"]');
+    await expect(summary).toHaveAttribute('data-total', String(list.total));
+    await expect(summary).toHaveAttribute('data-shown', '20');
+
+    const next = nextListRead(page, (query) => query.get('skip') === '20');
+    await page.locator('[data-testid="quotations-next"]').click();
+    const response = await next;
+    expect(new URL(response.url()).searchParams.get('take')).toBe('20');
+    const second = (await response.json()) as ListRead;
+
+    expect(second.quotes.length).toBeGreaterThan(0);
+    await expect
+      .poll(() => tableRowIds(page))
+      .toEqual(second.quotes.map((quote) => quote.id));
+    await expect(summary).toHaveAttribute('data-total', String(second.total));
+  });
+
+  test('the search box searches on the server, by name and by date', async ({
+    page,
+  }) => {
+    const { list } = await openQuotationList(page);
+    const named = list.quotes.find(
+      (quote) => !isE2EData(quote.name) && (quote.name ?? '').trim().length > 2,
+    );
+    outOfScope(
+      !named,
+      'fixture-missing',
+      'no quotation on the first page has a name to search for',
+    );
+    const term = named!.name!.trim();
+    const search = page.locator('[data-testid="quotations-search"]');
+
+    const byName = nextListRead(page, (query) => query.get('search') === term);
+    await search.fill(term);
+    const found = (await (await byName).json()) as ListRead;
+    expect(found.quotes.map((quote) => quote.id)).toContain(named!.id);
+    for (const quote of found.quotes) {
+      expect(
+        `${quote.name ?? ''} ${quote.quoteNumber}`.toLowerCase(),
+      ).toContain(term.toLowerCase());
     }
+    await expect
+      .poll(() => tableRowIds(page))
+      .toEqual(found.quotes.map((quote) => quote.id));
+
+    // The day as the row writes it, typed back into the box.
+    const shown = (
+      await page
+        .locator(
+          `table [data-testid="quotation-row"][data-id="${named!.id}"] [data-testid="quotation-created"]`,
+        )
+        .innerText()
+    ).trim();
+    const byDate = nextListRead(page, (query) => query.has('createdFrom'));
+    await search.fill(shown);
+    const dated = await byDate;
+    const query = new URL(dated.url()).searchParams;
+    expect(query.has('search'), 'a date is not sent as text').toBe(false);
+    expect(query.get('createdBefore')).toBeTruthy();
+    const day = (await dated.json()) as ListRead;
+    expect(day.quotes.map((quote) => quote.id)).toContain(named!.id);
+    await expect
+      .poll(() =>
+        page
+          .locator('table [data-testid="quotation-created"]')
+          .allInnerTexts()
+          .then((texts) => texts.map((text) => text.trim())),
+      )
+      .toEqual(day.quotes.map(() => shown));
   });
 
   test('should navigate from list to populated detail page with all sections', async ({

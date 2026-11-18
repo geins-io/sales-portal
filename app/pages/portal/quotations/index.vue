@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { refDebounced } from '@vueuse/core';
 import { MoreHorizontal } from 'lucide-vue-next';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
@@ -11,16 +12,24 @@ import {
 import { Input } from '~/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import {
-  QUOTE_LIST_FILTERS,
   getQuoteStatusLabelKey,
   getQuoteStatusVariant,
   isQuotePriceEstimate,
-  quoteFilterOf,
-  type QuoteListFilter,
 } from '~/utils/quote-status';
 import { quoteKindLabelKey } from '~/utils/quote-view';
+import { searchDateFormat, searchDateRange } from '~/utils/quote-search-date';
 import { useQuotesStore } from '~/stores/quotes';
-import type { QuoteListItem } from '#shared/types/quote';
+import {
+  QUOTE_LIST_FILTERS,
+  QUOTE_LIST_PAGE_SIZE,
+  QUOTE_SEARCH_MAX_LENGTH,
+  type QuoteListFilter,
+} from '#shared/constants/quote';
+import type {
+  QuoteListCounts,
+  QuoteListItem,
+  QuoteListPage,
+} from '#shared/types/quote';
 
 definePageMeta({ middleware: ['auth', 'feature'], feature: 'quotes' });
 
@@ -34,50 +43,74 @@ function totalOf(quote: QuoteListItem): string {
   return showIncVat.value ? quote.totalFormatted : quote.totalExVatFormatted;
 }
 
-const { data, pending, error, refresh } = useFetch<{
-  quotes: QuoteListItem[];
-  total: number;
-}>('/api/quotes', { dedupe: 'defer' });
-
-// Drafts first; within each part the server's newest-first order holds.
-const allQuotes = computed(() => {
-  const quotes = data.value?.quotes ?? [];
-  return [
-    ...quotes.filter((quote) => quote.status === 'request_draft'),
-    ...quotes.filter((quote) => quote.status !== 'request_draft'),
-  ];
-});
-
 const filter = ref<QuoteListFilter>('all');
 const searchQuery = ref('');
+/** The search the rows were read with, once the typing has paused. */
+const appliedSearch = refDebounced(
+  computed(() => searchQuery.value.trim()),
+  300,
+);
+const currentPage = ref(1);
+
+// Before the query recomputes, so a new tab or search reads its first page
+// rather than the page the old one was on.
+watch([filter, appliedSearch], () => (currentPage.value = 1), {
+  flush: 'sync',
+});
+
+/** A date reads as the day or month it names; anything else as text. */
+const listQuery = computed(() => {
+  const term = appliedSearch.value;
+  const range = term
+    ? searchDateRange(term, formatLocale.value, timezone.value)
+    : null;
+  return {
+    tab: filter.value,
+    ...(range ?? (term ? { search: term } : {})),
+    skip: (currentPage.value - 1) * QUOTE_LIST_PAGE_SIZE,
+    take: QUOTE_LIST_PAGE_SIZE,
+  };
+});
+
+// The query changes with tab, search and page: the newest read wins.
+const { data, pending, error, refresh } = useFetch<QuoteListPage>(
+  '/api/quotes',
+  { query: listQuery, dedupe: 'cancel' },
+);
+const quotes = computed(() => data.value?.quotes ?? []);
+const total = computed(() => data.value?.total ?? 0);
+
+const {
+  data: countsData,
+  pending: countsPending,
+  error: countsError,
+  refresh: refreshCounts,
+} = useFetch<{ counts: QuoteListCounts }>('/api/quotes/counts', {
+  dedupe: 'defer',
+});
 
 // A failed or pending read is not an empty one, so no count shows then.
-const showCounts = computed(
-  () => !pending.value && !error.value && data.value != null,
+const counts = computed(() =>
+  countsPending.value || countsError.value
+    ? null
+    : (countsData.value?.counts ?? null),
 );
 
-const counts = computed(() => {
-  const c = {
-    all: allQuotes.value.length,
-    drafts: 0,
-    requests: 0,
-    quotations: 0,
-  };
-  for (const quote of allQuotes.value) c[quoteFilterOf(quote.status)]++;
-  return c;
-});
+function retry() {
+  void refresh();
+  void refreshCounts();
+}
 
-const filteredQuotes = computed(() => {
-  const q = searchQuery.value.trim().toLowerCase();
-  return allQuotes.value.filter(
-    (quote) =>
-      (filter.value === 'all' ||
-        quoteFilterOf(quote.status) === filter.value) &&
-      (!q ||
-        (quote.name ?? '').toLowerCase().includes(q) ||
-        quote.quoteNumber.toLowerCase().includes(q)),
-  );
-});
+/** Names the date shape the rows show, which the search also reads. */
+const searchPlaceholder = computed(() =>
+  t('portal.quotations.search_placeholder', {
+    format: searchDateFormat(formatLocale.value, {
+      year: t('portal.quotations.date_letters.year'),
+      month: t('portal.quotations.date_letters.month'),
+      day: t('portal.quotations.date_letters.day'),
+    }),
+  }),
+);
 
 function nameOf(quote: QuoteListItem): string {
   return quote.name || quote.quoteNumber || '—';
@@ -90,7 +123,7 @@ function kindLine(quote: QuoteListItem): string {
 }
 
 // ------------------------------------------------------------ the drafts
-// The list follows each write's answer rather than reading the list again.
+// A rename follows the write's answer; a delete reads the page again.
 const store = useQuotesStore();
 /** The store's error from a write made here, never one left by another page. */
 const writeError = ref<string | null>(null);
@@ -148,36 +181,34 @@ async function confirmDelete() {
     return;
   }
   writeError.value = null;
-  if (data.value) {
-    data.value = {
-      quotes: data.value.quotes.filter((quote) => quote.id !== row.id),
-      total: data.value.total - 1,
-    };
-  }
   deleteRow.value = null;
+  // Rows shift across the pages and a tab loses one: read both again.
+  await Promise.all([refresh(), refreshCounts()]);
 }
 
 const emptyText = computed(() =>
-  searchQuery.value.trim()
+  appliedSearch.value
     ? t('portal.quotations.empty.no_match')
     : t(`portal.quotations.empty.${filter.value}`),
 );
 
-const {
-  currentPage,
-  totalPages,
-  paginatedItems: paginatedQuotes,
-  showPagination,
-  goToPage,
-} = usePagination<QuoteListItem>({
-  source: () => filteredQuotes.value,
-  pageSize: 20,
-  resetOn: [() => searchQuery.value, () => filter.value],
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(total.value / QUOTE_LIST_PAGE_SIZE)),
+);
+const showPagination = computed(() => total.value > QUOTE_LIST_PAGE_SIZE);
+
+function goToPage(page: number) {
+  if (page >= 1 && page <= totalPages.value) currentPage.value = page;
+}
+
+// A delete can take away the page the buyer is on.
+watch(totalPages, (pages) => {
+  if (currentPage.value > pages) currentPage.value = pages;
 });
 
 const paginationSummary = usePaginationSummary(
-  computed(() => paginatedQuotes.value.length),
-  computed(() => filteredQuotes.value.length),
+  computed(() => quotes.value.length),
+  total,
   'quotes',
 );
 
@@ -214,9 +245,10 @@ function formatDate(dateStr: string): string {
           v-model="searchQuery"
           type="search"
           data-testid="quotations-search"
-          class="w-full md:w-72"
-          :placeholder="t('portal.quotations.search_placeholder')"
-          :aria-label="t('portal.quotations.search_placeholder')"
+          class="w-full md:w-80"
+          :maxlength="QUOTE_SEARCH_MAX_LENGTH"
+          :placeholder="searchPlaceholder"
+          :aria-label="searchPlaceholder"
         />
       </div>
 
@@ -235,7 +267,7 @@ function formatDate(dateStr: string): string {
           >
             {{ t(`portal.quotations.filters.${f}`) }}
             <span
-              v-if="showCounts"
+              v-if="counts"
               :data-testid="`quotations-filter-count-${f}`"
               class="text-muted-foreground ml-1 font-normal tabular-nums"
               >{{ counts[f] }}</span
@@ -246,7 +278,7 @@ function formatDate(dateStr: string): string {
 
       <!-- Loading state -->
       <div
-        v-if="pending"
+        v-if="pending && !data"
         data-testid="quotations-loading"
         class="text-muted-foreground py-12 text-center text-sm"
       >
@@ -266,7 +298,7 @@ function formatDate(dateStr: string): string {
           data-testid="quotations-retry"
           variant="link"
           size="sm"
-          @click="refresh()"
+          @click="retry()"
         >
           {{ t('portal.quotations.retry') }}
         </Button>
@@ -274,7 +306,7 @@ function formatDate(dateStr: string): string {
 
       <!-- Empty state -->
       <div
-        v-else-if="filteredQuotes.length === 0"
+        v-else-if="quotes.length === 0"
         data-testid="quotations-empty"
         class="border-border flex flex-col items-center rounded-lg border border-dashed px-6 py-12 text-center"
       >
@@ -290,8 +322,8 @@ function formatDate(dateStr: string): string {
         <!-- Count summary -->
         <p
           data-testid="quotations-count"
-          :data-shown="paginatedQuotes.length"
-          :data-total="filteredQuotes.length"
+          :data-shown="quotes.length"
+          :data-total="total"
           class="text-muted-foreground mb-3 text-sm"
         >
           {{ paginationSummary }}
@@ -300,7 +332,7 @@ function formatDate(dateStr: string): string {
         <!-- Mobile card view -->
         <div class="space-y-3 md:hidden">
           <div
-            v-for="quote in paginatedQuotes"
+            v-for="quote in quotes"
             :key="quote.id"
             data-testid="quotation-card"
             class="border-border rounded-lg border p-4"
@@ -398,7 +430,7 @@ function formatDate(dateStr: string): string {
             </thead>
             <tbody>
               <tr
-                v-for="quote in paginatedQuotes"
+                v-for="quote in quotes"
                 :key="quote.id"
                 data-testid="quotation-row"
                 :data-id="quote.id"
@@ -419,7 +451,9 @@ function formatDate(dateStr: string): string {
                     {{ kindLine(quote) }}
                   </p>
                 </td>
-                <td class="py-3 pr-4">{{ formatDate(quote.createdAt) }}</td>
+                <td data-testid="quotation-created" class="py-3 pr-4">
+                  {{ formatDate(quote.createdAt) }}
+                </td>
                 <td class="py-3 pr-4">{{ quote.contactName }}</td>
                 <td class="py-3 pr-4 text-right whitespace-nowrap">
                   <span data-testid="quotation-total" class="tabular-nums">{{
