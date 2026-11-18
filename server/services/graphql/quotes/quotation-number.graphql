@@ -3,6 +3,9 @@ query getQuotationNumber($quotationId: Guid!, $languageId: String) {
     id
     quotation {
       quotationNumber
+      externalReference {
+        number
+      }
     }
   }
 }

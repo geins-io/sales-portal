@@ -20,6 +20,7 @@ import type {
   QuoteRequestUpdate,
   QuoteStatus,
 } from '#shared/types/quote';
+import type { QuoteDisplayNumber } from '#shared/types/tenant-config';
 import {
   getTenantSDK,
   buildRequestContext,
@@ -67,6 +68,7 @@ interface RawCartItem {
 
 interface RawQuotation {
   quotationNumber?: string;
+  externalReference?: { number?: string | null } | null;
   name?: string;
   currency?: string;
   marketId?: string;
@@ -392,9 +394,25 @@ function calendarDay(instant: string | null | undefined) {
   return instant?.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? undefined;
 }
 
+/** The tenant's choice of number; unset reads as `quotationNumber`. */
+function numberChoice(event: H3Event): QuoteDisplayNumber | undefined {
+  return event.context.tenant?.config?.quoteDisplayNumber;
+}
+
+/** Only the chosen number: a missing one shows none, never the other. */
+function shownNumber(
+  q: RawQuotation,
+  choice: QuoteDisplayNumber | undefined,
+): string {
+  return choice === 'externalNumber'
+    ? q.externalReference?.number || ''
+    : q.quotationNumber || '';
+}
+
 function mapQuotationCartToQuote(
   cart: RawQuotationCart,
   locale: string,
+  choice: QuoteDisplayNumber | undefined,
 ): Quote {
   const q = cart.quotation ?? {};
   const summary = cart.summary;
@@ -408,7 +426,7 @@ function mapQuotationCartToQuote(
 
   return {
     id: cart.id,
-    quoteNumber: q.quotationNumber ?? '',
+    quoteNumber: shownNumber(q, choice),
     createdBy: q.owner?.ownerId ?? '',
     contactName,
     contactEmail,
@@ -481,6 +499,7 @@ function mapQuotationCartToQuote(
 function mapQuotationCartToListItem(
   cart: RawQuotationCart,
   locale: string,
+  choice: QuoteDisplayNumber | undefined,
 ): QuoteListItem {
   const q = cart.quotation ?? {};
   const total = cart.summary?.total;
@@ -490,7 +509,7 @@ function mapQuotationCartToListItem(
 
   return {
     id: cart.id,
-    quoteNumber: q.quotationNumber ?? '',
+    quoteNumber: shownNumber(q, choice),
     name: q.name ?? undefined,
     contactName: `${contactFirstName} ${contactLastName}`.trim(),
     contactEmail: q.billingAddress?.email ?? '',
@@ -550,8 +569,9 @@ export async function listQuotes(
     'quotes',
   );
   const carts = (unwrapGraphQL(result) as RawQuotationCart[] | null) ?? [];
+  const choice = numberChoice(event);
   const quotes = carts.map((cart) =>
-    mapQuotationCartToListItem(cart, languageId),
+    mapQuotationCartToListItem(cart, languageId, choice),
   );
   // Newest first. The Geins API returns carts in an unspecified order, so sort
   // by createdAt descending. Empty or unparseable dates sort last (epoch 0).
@@ -591,7 +611,7 @@ export async function getQuote(
   if (!cart) {
     throw createAppError(ErrorCode.NOT_FOUND, `Quote ${quoteId} not found`);
   }
-  const quote = mapQuotationCartToQuote(cart, languageId);
+  const quote = mapQuotationCartToQuote(cart, languageId, numberChoice(event));
   if (quote.orderPublicId || !quote.orderId) return quote;
   // A quotation finalized before Geins carried the public id names its order
   // by number only. Without the id it still reads, with no order link.
@@ -623,11 +643,10 @@ export async function getQuoteNumber(
     'quotes',
   );
   const cart = unwrapGraphQL(result) as RawQuotationCart | null;
-  const number = cart?.quotation?.quotationNumber;
-  if (!number) {
+  if (!cart?.quotation) {
     throw createAppError(ErrorCode.NOT_FOUND, `Quote ${quoteId} not found`);
   }
-  return number;
+  return shownNumber(cart.quotation, numberChoice(event));
 }
 
 /** The buyer's message to the seller, stored with the status change. */
@@ -781,7 +800,7 @@ async function requestMutation(
       `Geins answered no quotation for ${queryFile}`,
     );
   }
-  return mapQuotationCartToQuote(cart, channel.languageId);
+  return mapQuotationCartToQuote(cart, channel.languageId, numberChoice(event));
 }
 
 /** A new `REQUEST_DRAFT` with the cart's lines; Geins leaves the cart as it is */

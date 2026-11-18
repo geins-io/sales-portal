@@ -71,7 +71,11 @@ store.error = null;
 const title = computed(() =>
   quote.value
     ? t('portal.quotations.request.heading', {
-        name: quote.value.name ?? `#${quote.value.quoteNumber}`,
+        name:
+          quote.value.name ??
+          (quote.value.quoteNumber
+            ? `#${quote.value.quoteNumber}`
+            : t('portal.quotations.detail_title')),
       })
     : '',
 );

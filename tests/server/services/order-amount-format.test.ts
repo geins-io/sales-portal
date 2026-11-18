@@ -40,7 +40,7 @@ vi.stubGlobal(
   vi.fn(async (fn: () => Promise<unknown>) => fn()),
 );
 
-const event = {} as H3Event;
+const event = { context: {} } as H3Event;
 
 /** 360 × 4 kr ex VAT, 5 kr inc: whole amounts, which Geins writes without decimals. */
 const AMOUNTS = { unitInc: 5, unitEx: 4, totalInc: 1800, totalEx: 1440 };

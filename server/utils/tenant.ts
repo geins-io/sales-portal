@@ -466,6 +466,10 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
   rawFeatures.quoteConversation = {
     enabled: quotes?.enabled === true && on(quotes.quoteConversation),
   };
+  const quoteDisplayNumber =
+    quotes?.displayNumber === 'externalNumber'
+      ? 'externalNumber'
+      : 'quotationNumber';
   const features = normalizeFeatureAccess(rawFeatures, merged.hostname);
 
   // Server-only, but typed with the same narrowed FeatureAccess.
@@ -533,6 +537,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     theme,
     branding,
     features,
+    quoteDisplayNumber,
     seo: merged.seo,
     contact: merged.contact,
     overrides,

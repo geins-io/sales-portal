@@ -1680,6 +1680,28 @@ describe('OrderDetail', () => {
       );
     });
 
+    it('links to a quotation without a number to show, under a fixed text', async () => {
+      mockData.value = makeOrder({ quotationId: QUOTATION_ID });
+      quotationRead.data.value = { number: '' };
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+      await flushPromises();
+
+      const box = wrapper.find('[data-testid="order-quotation"]');
+      const row = box.findComponent({ name: 'PortalMetaRow' });
+      expect(row.props()).toMatchObject({
+        label: 'portal.quotations.quotation_reference',
+        lines: ['portal.quotations.view_quotation'],
+      });
+      const link = box.find('[data-testid="order-quotation-row-link"]');
+      expect(link.text()).toBe('portal.quotations.view_quotation');
+      expect(link.attributes('href')).toContain(
+        `/portal/quotations/${QUOTATION_ID}`,
+      );
+    });
+
     it("shows nothing for a quotation the buyer cannot open, such as a colleague's", async () => {
       mockData.value = makeOrder({ quotationId: QUOTATION_ID });
       quotationRead.error.value = new Error('Not found');

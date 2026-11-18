@@ -68,7 +68,11 @@ store.error = null;
 
 const title = computed(() =>
   t('portal.quotations.order.heading', {
-    name: quote.value.name ?? `#${quote.value.quoteNumber}`,
+    name:
+      quote.value.name ??
+      (quote.value.quoteNumber
+        ? `#${quote.value.quoteNumber}`
+        : t('portal.quotations.detail_title')),
   }),
 );
 useHead({ title });
@@ -154,9 +158,11 @@ function formatDate(iso: string): string {
         <div class="min-w-0 flex-1">
           <p class="text-sm font-semibold">
             {{
-              t('portal.quotations.order.banner_title', {
-                number: quote.quoteNumber,
-              })
+              quote.quoteNumber
+                ? t('portal.quotations.order.banner_title', {
+                    number: quote.quoteNumber,
+                  })
+                : t('portal.quotations.order.banner_title_unnumbered')
             }}
           </p>
           <p class="text-foreground/58 mt-0.5 text-sm">

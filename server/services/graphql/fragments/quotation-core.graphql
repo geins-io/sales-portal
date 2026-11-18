@@ -1,5 +1,8 @@
 fragment QuotationCore on CartQuotationType {
   quotationNumber
+  externalReference {
+    number
+  }
   name
   currency
   marketId

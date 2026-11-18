@@ -1373,6 +1373,79 @@ describe('Tenant utilities', () => {
       });
     });
 
+    // Studio's radio on the quotes card: "displayNumber": "quotationNumber" |
+    // "externalNumber". Server-only: the client is never told which it is.
+    describe('the number a quotation shows, from the quotes card', () => {
+      function numberShown(
+        features: Record<string, unknown>,
+        overrides?: Record<string, unknown>,
+      ) {
+        const candidate = { ...fullCandidate(), features, overrides };
+        const out = parseStoreSettingsResilient(candidate, 'h');
+        if (!out) throw new Error('candidate did not parse');
+        return buildTenantConfig(out).quoteDisplayNumber;
+      }
+
+      it.each([
+        ['no quotes key', {}],
+        ['quotes as a bare boolean', { quotes: true }],
+        ['no saved value', { quotes: { enabled: true } }],
+        ['an empty value', { quotes: { enabled: true, displayNumber: '' } }],
+        [
+          'an unknown value',
+          { quotes: { enabled: true, displayNumber: 'bogus' } },
+        ],
+        [
+          'a value that is not a string',
+          { quotes: { enabled: true, displayNumber: 5 } },
+        ],
+        [
+          'quotationNumber',
+          { quotes: { enabled: true, displayNumber: 'quotationNumber' } },
+        ],
+      ])('shows the standard number with %s', (_label, features) => {
+        expect(numberShown(features)).toBe('quotationNumber');
+      });
+
+      it('shows the external number with externalNumber', () => {
+        expect(
+          numberShown({
+            quotes: { enabled: true, displayNumber: 'externalNumber' },
+          }),
+        ).toBe('externalNumber');
+      });
+
+      it('takes the override layer last', () => {
+        expect(
+          numberShown(
+            { quotes: { enabled: true, displayNumber: 'quotationNumber' } },
+            {
+              features: {
+                quotes: { enabled: true, displayNumber: 'externalNumber' },
+              },
+            },
+          ),
+        ).toBe('externalNumber');
+      });
+
+      it('is not sent to the client', async () => {
+        const candidate = {
+          ...fullCandidate(),
+          features: {
+            quotes: { enabled: true, displayNumber: 'externalNumber' },
+          },
+        };
+        const out = parseStoreSettingsResilient(candidate, 'h');
+        if (!out) throw new Error('candidate did not parse');
+        const event = {
+          context: { tenant: { config: buildTenantConfig(out) } },
+        } as unknown as H3Event;
+        const config = await getPublicConfig(event);
+
+        expect(JSON.stringify(config)).not.toContain('externalNumber');
+      });
+    });
+
     it('returns the strict-parsed value on a clean candidate', () => {
       const out = parseStoreSettingsResilient(fullCandidate(), 'h');
       expect(out).not.toBeNull();

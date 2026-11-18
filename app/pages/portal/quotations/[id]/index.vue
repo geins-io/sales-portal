@@ -97,7 +97,12 @@ useHead({
   title: computed(
     () =>
       quote.value?.name ??
-      `${t('portal.quotations.detail_title')} #${quote.value?.quoteNumber ?? ''}`,
+      [
+        t('portal.quotations.detail_title'),
+        quote.value?.quoteNumber && `#${quote.value.quoteNumber}`,
+      ]
+        .filter(Boolean)
+        .join(' '),
   ),
 });
 
@@ -603,7 +608,12 @@ const customerSummary = computed(() => {
                 >
                   {{
                     quote.name ??
-                    `${t('portal.quotations.detail_title')} #${quote.quoteNumber}`
+                    [
+                      t('portal.quotations.detail_title'),
+                      quote.quoteNumber && `#${quote.quoteNumber}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' ')
                   }}
                 </h2>
                 <p

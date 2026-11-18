@@ -38,6 +38,7 @@ const key = (name: string) => `portal.quotations.confirm.${name}`;
           {{ t(key(isRequest ? 'request_body' : 'order_body')) }}
         </p>
         <div
+          v-if="number"
           class="bg-muted mt-2 inline-flex items-center gap-2 rounded-md px-4 py-2"
           data-testid="quote-thanks-number"
         >

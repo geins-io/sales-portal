@@ -1522,11 +1522,6 @@ describe('quotes service', () => {
     it.each([
       ['no quotation', null],
       ['a cart without its quotation', { id: 'cart-001' }],
-      ['a quotation without a number', { id: 'cart-001', quotation: {} }],
-      [
-        'an empty number',
-        { id: 'cart-001', quotation: { quotationNumber: '' } },
-      ],
     ])('answers not found for %s', async (_label, answer) => {
       mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: answer });
 
@@ -2600,6 +2595,207 @@ describe('quotes service', () => {
 
         await expect(run()).rejects.toBe(geinsError);
       });
+    });
+  });
+
+  // The tenant picks which of the quotation's two numbers the buyer sees; the
+  // other one is never shown, not even when the chosen one is missing.
+  describe('the number the buyer sees', () => {
+    const eventShowing = (choice?: string) =>
+      ({
+        context: {
+          tenant: {
+            config: {
+              channelSettings: { locales: ['sv-SE'] },
+              ...(choice ? { quoteDisplayNumber: choice } : {}),
+            },
+          },
+        },
+      }) as unknown as H3Event;
+
+    const linked = { externalReference: { number: '175' } };
+    const unlinked: [string, Record<string, unknown>][] = [
+      ['no external reference', { externalReference: null }],
+      ['an external reference without a number', { externalReference: {} }],
+      ['an empty external number', { externalReference: { number: '' } }],
+      ['a null external number', { externalReference: { number: null } }],
+    ];
+
+    describe.each([
+      ['no saved value', undefined],
+      ['quotationNumber', 'quotationNumber'],
+    ])('with %s', (_label, choice) => {
+      it('lists the standard number, though the quotation has an external one', async () => {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          listQuotationCarts: [makeRawQuotationCart(linked)],
+        });
+
+        const { quotes } = await quotesService.listQuotes(
+          'org-1',
+          0,
+          10,
+          eventShowing(choice),
+        );
+
+        expect(quotes[0]!.quoteNumber).toBe('Q-20260101001');
+      });
+
+      it('shows the standard number on the quotation', async () => {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          getQuotationCart: makeRawQuotationCart(linked),
+        });
+
+        const quote = await quotesService.getQuote(
+          'cart-001',
+          eventShowing(choice),
+        );
+
+        expect(quote.quoteNumber).toBe('Q-20260101001');
+      });
+
+      it("answers the standard number for the order's link", async () => {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          getQuotationCart: makeRawQuotationCart(linked),
+        });
+
+        await expect(
+          quotesService.getQuoteNumber('cart-001', eventShowing(choice)),
+        ).resolves.toBe('Q-20260101001');
+      });
+    });
+
+    describe('with externalNumber', () => {
+      const event = eventShowing('externalNumber');
+
+      it('lists the external number', async () => {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          listQuotationCarts: [makeRawQuotationCart(linked)],
+        });
+
+        const { quotes } = await quotesService.listQuotes(
+          'org-1',
+          0,
+          10,
+          event,
+        );
+
+        expect(quotes[0]!.quoteNumber).toBe('175');
+      });
+
+      it('shows the external number on the quotation', async () => {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          getQuotationCart: makeRawQuotationCart(linked),
+        });
+
+        const quote = await quotesService.getQuote('cart-001', event);
+
+        expect(quote.quoteNumber).toBe('175');
+      });
+
+      it('shows the external number on a request it just created', async () => {
+        mockGraphqlMutation.mockResolvedValueOnce({
+          createQuotationRequest: makeRawQuotationCart({
+            ...linked,
+            status: 'REQUEST_DRAFT',
+          }),
+        });
+
+        const quote = await quotesService.createQuoteRequest(
+          'cart-abc',
+          'Varukorg',
+          event,
+        );
+
+        expect(quote.quoteNumber).toBe('175');
+      });
+
+      it("answers the external number for the order's link", async () => {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          getQuotationCart: makeRawQuotationCart(linked),
+        });
+
+        await expect(
+          quotesService.getQuoteNumber('cart-001', event),
+        ).resolves.toBe('175');
+      });
+
+      describe.each(unlinked)('and %s', (_label, reference) => {
+        it('lists no number, never the standard one', async () => {
+          mockGraphqlQuery.mockResolvedValueOnce({
+            listQuotationCarts: [makeRawQuotationCart(reference)],
+          });
+
+          const { quotes } = await quotesService.listQuotes(
+            'org-1',
+            0,
+            10,
+            event,
+          );
+
+          expect(quotes[0]!.quoteNumber).toBe('');
+        });
+
+        it('shows no number on the quotation', async () => {
+          mockGraphqlQuery.mockResolvedValueOnce({
+            getQuotationCart: makeRawQuotationCart(reference),
+          });
+
+          const quote = await quotesService.getQuote('cart-001', event);
+
+          expect(quote.quoteNumber).toBe('');
+        });
+
+        it("answers an empty number for the order's link, not a not-found", async () => {
+          mockGraphqlQuery.mockResolvedValueOnce({
+            getQuotationCart: makeRawQuotationCart(reference),
+          });
+
+          await expect(
+            quotesService.getQuoteNumber('cart-001', event),
+          ).resolves.toBe('');
+        });
+      });
+    });
+
+    it.each([
+      ['no number', {}],
+      ['an empty number', { quotationNumber: '' }],
+    ])(
+      "answers an empty number for the order's link on a quotation with %s",
+      async (_label, quotation) => {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          getQuotationCart: { id: 'cart-001', quotation },
+        });
+
+        await expect(
+          quotesService.getQuoteNumber('cart-001', eventShowing()),
+        ).resolves.toBe('');
+      },
+    );
+
+    it('shows the standard number for a tenant without a config', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: makeRawQuotationCart(linked),
+      });
+
+      const quote = await quotesService.getQuote('cart-001', {
+        context: { tenant: { hostname: 'h' } },
+      } as unknown as H3Event);
+
+      expect(quote.quoteNumber).toBe('Q-20260101001');
+    });
+
+    it('treats an unknown choice as the standard number', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: makeRawQuotationCart(linked),
+      });
+
+      const quote = await quotesService.getQuote(
+        'cart-001',
+        eventShowing('bogus'),
+      );
+
+      expect(quote.quoteNumber).toBe('Q-20260101001');
     });
   });
 });
