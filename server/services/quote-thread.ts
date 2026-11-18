@@ -7,6 +7,11 @@ import type {
   QuoteThreadEvent,
   QuoteThreadEventType,
 } from '#shared/types/quote';
+import type { QuoteDisplayNumber } from '#shared/types/tenant-config';
+import {
+  versionNames,
+  type QuoteVersionName,
+} from '#shared/utils/quote-versions';
 import type { QuoteMessageInput } from '../schemas/api-input';
 import {
   getTenantSDK,
@@ -28,7 +33,17 @@ export interface RawQuotationMessage {
   answerRef?: string | null;
   /** Geins still lets the buyer change it: no seller reply names it. */
   editable?: boolean | null;
+  /** The version it was written on. */
+  quotationNumber?: string | null;
   tags?: { key?: string | null; value?: string | null }[] | null;
+}
+
+/** A version in the quotation's `revisions`: newest first, a request last. */
+export interface RawQuotationRevision {
+  quotationId: string;
+  quotationNumber: string;
+  /** Sent; none for the buyer's request. */
+  validFrom?: string | null;
 }
 
 /** A row of the quotation's `statusHistory`, as the merchant API answers it. */
@@ -52,6 +67,7 @@ export interface RawThreadQuotation {
   orderId?: string | null;
   customer?: RawPerson | null;
   statusHistory?: RawQuotationStatusChange[] | null;
+  revisions?: RawQuotationRevision[] | null;
 }
 
 type Side = QuoteThreadEntry['side'];
@@ -220,6 +236,38 @@ function requestCommentOf(
   return first;
 }
 
+/** A version's name by its number; none for a number it does not know. */
+type VersionOf = (
+  quotationNumber: string | null | undefined,
+) => QuoteVersionName | undefined;
+
+/**
+ * Names each version by the number the store shows. With one version there
+ * is nothing to tell apart, so it names none. Revisions carry no external
+ * number, so with that choice an offer has none to show and is not named.
+ */
+function versionsByNumber(
+  revisions: RawQuotationRevision[] | null | undefined,
+  choice: QuoteDisplayNumber | undefined,
+): VersionOf {
+  const names = versionNames(
+    revisions?.map((r) => ({
+      quotationId: r.quotationId,
+      quoteNumber: choice === 'externalNumber' ? '' : r.quotationNumber,
+      validFrom: r.validFrom,
+    })),
+  );
+  const byNumber = new Map<string, QuoteVersionName>();
+  for (const r of names.size > 1 ? revisions! : []) {
+    const name = names.get(r.quotationId)!;
+    if (name.kind === 'request' || name.number) {
+      byNumber.set(r.quotationNumber, name);
+    }
+  }
+  return (quotationNumber) =>
+    quotationNumber ? byNumber.get(quotationNumber) : undefined;
+}
+
 /**
  * Each message the buyer may see as an entry; a blank plain one is dropped.
  * A message written with a status change takes its history row's name: the
@@ -229,6 +277,7 @@ function requestCommentOf(
 function entriesFromMessages(
   messages: RawQuotationMessage[],
   history: HistoryEvent[],
+  versionOf: VersionOf,
 ): { entries: QuoteThreadEntry[]; unmatched: HistoryEvent[] } {
   const shown = messages.filter((m) => SIDE_OF_TYPE[m.type]);
   const byId = new Map(shown.map((m) => [m.id, m]));
@@ -271,6 +320,7 @@ function entriesFromMessages(
               text: textOf(parent),
             })
           : undefined,
+        version: versionOf(m.quotationNumber),
       }),
     );
   }
@@ -285,6 +335,7 @@ function entriesFromMessages(
 function entryFromHistory(
   h: HistoryEvent,
   quotation: RawThreadQuotation,
+  versionOf: VersionOf,
 ): QuoteThreadEntry {
   return defined({
     id: `history-${h.index}`,
@@ -292,6 +343,7 @@ function entryFromHistory(
     side: h.side,
     authorName: h.side === 'buyer' ? nameOf(quotation.customer) : undefined,
     event: h.event,
+    version: versionOf(h.row.quotationNumber),
   });
 }
 
@@ -330,15 +382,18 @@ function markDeletable(
 export function buildQuoteThread(
   messages: RawQuotationMessage[],
   quotation?: RawThreadQuotation | null,
+  numberChoice?: QuoteDisplayNumber,
 ): QuoteThread {
+  const versionOf = versionsByNumber(quotation?.revisions, numberChoice);
   const { entries: fromMessages, unmatched } = entriesFromMessages(
     messages,
     eventsFromHistory(quotation?.statusHistory ?? []),
+    versionOf,
   );
   const orderNumber = quotation?.orderId || undefined;
   const all = [
     ...fromMessages,
-    ...unmatched.map((h) => entryFromHistory(h, quotation!)),
+    ...unmatched.map((h) => entryFromHistory(h, quotation!, versionOf)),
   ].map((entry) =>
     orderNumber && entry.event?.type === 'ordered'
       ? { ...entry, event: { ...entry.event, orderNumber } }
@@ -428,6 +483,7 @@ async function readQuoteThread(
   return buildQuoteThread(
     (unwrapGraphQL(messages) as RawQuotationMessage[] | null) ?? [],
     quotation,
+    event.context.tenant?.config?.quoteDisplayNumber,
   );
 }
 

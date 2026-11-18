@@ -3,6 +3,11 @@ query getQuotationHistory($quotationId: Guid!) {
     id
     quotation {
       orderId
+      revisions {
+        quotationId
+        quotationNumber
+        validFrom
+      }
       customer {
         firstName
         lastName

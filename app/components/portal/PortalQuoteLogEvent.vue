@@ -20,6 +20,8 @@ const props = defineProps<{
   actor?: string;
   /** What happened, e.g. "accepterade offerten". */
   label: string;
+  /** The version it happened on, when the quotation has several. */
+  version?: string;
   from?: QuoteStatus;
   to?: QuoteStatus;
   /** An instant (ISO 8601), and the same instant for people. */
@@ -45,18 +47,27 @@ const change = computed(() =>
     >
       <component :is="icon" class="size-4" />
     </span>
-    <p
-      class="text-muted-foreground min-w-0 flex-1 text-sm"
-      data-testid="quote-thread-event-text"
-    >
-      <template v-if="actor">
-        <span
-          class="text-foreground font-medium"
-          data-testid="quote-thread-event-actor"
-          >{{ actor }}</span>{{ ' ' }}
-      </template>
-      <span data-testid="quote-thread-event">{{ label }}</span>
-    </p>
+    <div class="min-w-0 flex-1">
+      <p
+        class="text-muted-foreground text-sm"
+        data-testid="quote-thread-event-text"
+      >
+        <template v-if="actor">
+          <span
+            class="text-foreground font-medium"
+            data-testid="quote-thread-event-actor"
+            >{{ actor }}</span>{{ ' ' }}
+        </template>
+        <span data-testid="quote-thread-event">{{ label }}</span>
+      </p>
+      <p
+        v-if="version"
+        class="text-muted-foreground text-xs whitespace-nowrap"
+        data-testid="quote-thread-version"
+      >
+        {{ version }}
+      </p>
+    </div>
     <span
       v-if="change"
       class="hidden shrink-0 items-center gap-1 sm:flex"
