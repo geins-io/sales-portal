@@ -956,6 +956,59 @@ test.describe('Portal Quotations', () => {
       timeout: PAGE_TIMEOUT,
     });
   });
+  // The store picks which of a quotation's two numbers the buyer sees, on the
+  // server; the pages show exactly what the API gives, or no number at all.
+  test('the list and the quotation show the number the API gives, or none', async ({
+    page,
+  }) => {
+    const [listed] = await fetchListedQuotes(page);
+    expect(listed, 'the test account has no quotations').toBeDefined();
+    const id = listed!.id;
+    const response = await apiGet(page.request, `/api/quotes/${id}`);
+    expect(response.ok(), `/api/quotes/${id} did not answer 200`).toBe(true);
+    const { quote } = (await response.json()) as {
+      quote: { quoteNumber: string; name?: string };
+    };
+    const number = quote.quoteNumber;
+
+    await page.goto('/se/sv/portal/quotations');
+    await waitForHydration(page);
+    await expect(page.locator('[data-testid="quotations-loading"]')).toBeHidden(
+      { timeout: PAGE_TIMEOUT },
+    );
+    // The search reads the number shown, so it finds the row by it.
+    await page
+      .locator('[data-testid="quotations-search"]')
+      .fill(number || quote.name || '');
+    // A table row on desktop, a linked card on phones; both are in the DOM.
+    const row = page
+      .locator(`tr[data-testid="quotation-row"][data-id="${id}"]:visible`)
+      .or(
+        page.locator(
+          `a[data-testid="quotation-row"][href$="/portal/quotations/${id}"]:visible`,
+        ),
+      );
+    const listKind = row.locator('[data-testid="quotation-kind"]');
+    if (number) {
+      await expect(listKind).toContainText(`· ${number}`);
+    } else {
+      await expect(listKind).not.toContainText('·');
+    }
+
+    await page.goto(`/se/sv/portal/quotations/${id}`);
+    await waitForHydration(page);
+    const kind = page.locator('[data-testid="quote-kind"]');
+    await expect(kind).toBeVisible({ timeout: PAGE_TIMEOUT });
+    if (number) {
+      await expect(kind).toContainText(`· ${number}`);
+    } else {
+      await expect(kind).not.toContainText('·');
+      await expect(
+        page.locator('[data-testid="quote-title"]'),
+      ).not.toContainText('#');
+    }
+  });
+
   // An answer cannot be undone and the account's quotations are shared test
   // data, so this only opens the dialog and cancels it — it never confirms.
   test('a pending quotation asks before it is declined, offers a message, and cancel changes nothing', async ({

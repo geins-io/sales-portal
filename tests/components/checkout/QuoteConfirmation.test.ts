@@ -50,6 +50,12 @@ describe('QuoteConfirmation', () => {
       );
     });
 
+    it('shows no number box for a request without a number yet', () => {
+      const wrapper = mountCard({ kind: 'request', number: '' });
+
+      expect(find(wrapper, 'quote-thanks-number').exists()).toBe(false);
+    });
+
     it('lists what happens next, in order', () => {
       const steps = find(mountRequest(), 'quote-thanks-next').findAll('li');
 

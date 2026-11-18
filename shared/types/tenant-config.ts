@@ -24,6 +24,9 @@ export type {
  */
 export type FeatureAccess = 'all' | 'authenticated';
 
+/** Which of a quotation's two numbers the buyer sees. */
+export type QuoteDisplayNumber = 'quotationNumber' | 'externalNumber';
+
 /**
  * Full tenant configuration — StoreSettings from API + computed fields.
  * Only available server-side; client receives PublicTenantConfig.
@@ -96,6 +99,12 @@ export interface TenantConfig {
 
   // Features — keyed by feature name
   features: Record<string, { enabled: boolean; access?: FeatureAccess }>;
+
+  /**
+   * Server-only. Optional so a config cached before the field existed reads
+   * as the default, `quotationNumber`.
+   */
+  quoteDisplayNumber?: QuoteDisplayNumber;
 
   // CMS slot + menu registry — see docs/patterns/cms-config.md for the
   // design. Tenant config wins per key over DEFAULT_CMS_CONFIG in

@@ -577,6 +577,16 @@ describe('PortalQuotationDetail', () => {
       ).toBe('portal.quotations.detail_title #QUO-2026-001');
     });
 
+    it('shows "detail_title" alone, with no "#", without a name or a number', async () => {
+      const wrapper = await mountWith(
+        makeQuote({ name: undefined, quoteNumber: '' }),
+      );
+
+      expect(wrapper.find('[data-testid="quote-title"]').text()).toBe(
+        'portal.quotations.detail_title',
+      );
+    });
+
     it.each<[QuoteStatus, string]>([
       ['requested', 'portal.quotations.kind_request · QUO-2026-001'],
       ['pending', 'portal.quotations.kind_quotation · QUO-2026-001'],

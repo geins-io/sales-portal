@@ -333,7 +333,9 @@ function mapPurchasedProduct(product: PurchasedProduct): ProductCardItem {
               class="hover:bg-muted/50 flex items-center justify-between rounded-lg border p-3 transition-colors"
             >
               <div>
-                <div class="text-sm font-medium">{{ quote.quoteNumber }}</div>
+                <div class="text-sm font-medium">
+                  {{ quote.quoteNumber || '—' }}
+                </div>
                 <div class="text-muted-foreground text-xs">
                   {{ formatDate(quote.createdAt) }}
                 </div>
@@ -376,7 +378,7 @@ function mapPurchasedProduct(product: PurchasedProduct): ProductCardItem {
                   class="border-border hover:bg-muted/50 border-b transition-colors"
                 >
                   <td class="py-3 pr-4 font-medium">
-                    {{ quote.quoteNumber }}
+                    {{ quote.quoteNumber || '—' }}
                   </td>
                   <td class="py-3 pr-4">
                     {{ formatDate(quote.createdAt) }}

@@ -134,12 +134,17 @@ watch(
   },
   { immediate: true },
 );
-const fromQuotation = computed(() => {
-  const number = quotationId.value && quotationData.value?.number;
-  return number
-    ? { number, path: localePath(`/portal/quotations/${quotationId.value}`) }
-    : null;
-});
+// The read answering is the buyer's access; the number may still be empty.
+const fromQuotation = computed(() =>
+  quotationId.value && quotationData.value
+    ? {
+        line: quotationData.value.number
+          ? `REF: ${quotationData.value.number}`
+          : t('portal.quotations.view_quotation'),
+        path: localePath(`/portal/quotations/${quotationId.value}`),
+      }
+    : null,
+);
 
 // Every amount is the side of the buyer's VAT choice; VAT itself is one number.
 const { showIncVat } = useVatDisplay();
@@ -347,7 +352,7 @@ const orderTotals = computed<SummaryRow[]>(() =>
                 test-id="order-quotation-row"
                 :icon="FileText"
                 :label="t('portal.quotations.quotation_reference')"
-                :lines="[`REF: ${fromQuotation.number}`]"
+                :lines="[fromQuotation.line]"
                 :href="fromQuotation.path"
               />
             </div>

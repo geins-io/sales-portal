@@ -402,6 +402,27 @@ describe('Portal Overview page', () => {
     expect(row.text()).toContain('portal.quotations.status_pending');
   });
 
+  it('shows a dash for a quote without a number', async () => {
+    mockPendingQuotes = [
+      {
+        id: 'q1',
+        quoteNumber: '',
+        contactName: 'Jane Doe',
+        status: 'pending',
+        totalFormatted: '$500.00',
+        createdAt: '2026-03-01T00:00:00Z',
+      },
+    ];
+    mockPendingCount = 1;
+
+    const wrapper = await mountPage();
+
+    // The phone list and the desktop table each carry the row.
+    const rows = wrapper.findAll('[data-testid="pending-quote-row"]');
+    expect(rows).toHaveLength(2);
+    for (const row of rows) expect(row.text()).toContain('—');
+  });
+
   it('caps displayed quotes at 5', async () => {
     mockPendingQuotes = [
       {

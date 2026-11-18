@@ -268,6 +268,20 @@ describe('PortalQuotationOrder', () => {
       ).toContain('Spring order');
     });
 
+    it('says "this quotation" in the banner and titles it plainly without a number', async () => {
+      const wrapper = await mountWith(
+        orderable({ name: undefined, quoteNumber: '' }),
+      );
+
+      expect(
+        wrapper.find('[data-testid="quote-order-banner"]').text(),
+      ).toContain('portal.quotations.order.banner_title_unnumbered');
+      const title = wrapper.find('[data-testid="quote-order-title"]').text();
+      expect(title).toBe(
+        'portal.quotations.order.heading portal.quotations.detail_title',
+      );
+    });
+
     it('words the line under the banner title lighter than the title, in the readable shade', async () => {
       const wrapper = await mountWith(orderable());
 

@@ -360,6 +360,16 @@ describe('PortalQuotationRequest', () => {
       ).toContain('#QUO-2026-001');
     });
 
+    it('titles a draft without a name or a number plainly, with no "#"', async () => {
+      const wrapper = await mountWith(
+        draft({ name: undefined, quoteNumber: '' }),
+      );
+
+      expect(wrapper.find('[data-testid="quote-request-title"]').text()).toBe(
+        'portal.quotations.request.heading portal.quotations.detail_title',
+      );
+    });
+
     it('lists the lines in the read-only "Artiklar" table', async () => {
       const wrapper = await mountWith(draft());
 

@@ -193,6 +193,8 @@ export const FeatureConfigSchema = z.object({
   quoteConversation: z
     .union([z.enum(['enabled', 'disabled']), z.boolean()])
     .optional(),
+  /** Any string: tenant.ts reads an unknown one as the default. */
+  displayNumber: z.string().optional(),
 });
 
 /**

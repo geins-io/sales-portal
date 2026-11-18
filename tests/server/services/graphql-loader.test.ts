@@ -188,7 +188,9 @@ describe('GraphQL loader', () => {
       expect(query).toMatch(
         /getQuotationCart\(quotationId: \$quotationId, languageId: \$languageId\)/,
       );
-      expect(query).toMatch(/quotation \{\s*quotationNumber\s*\}/);
+      expect(query).toMatch(
+        /quotation \{\s*quotationNumber\s+externalReference \{\s*number\s*\}\s*\}/,
+      );
       expect(query).not.toContain('items');
     });
 
