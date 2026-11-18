@@ -22,7 +22,10 @@ import { isApiCall, apiGet } from './api-call';
  * than failing.
  */
 
-const DRAFT_NUMBER = '2611-3-0021-00';
+// By id: the number the portal shows follows the tenant's number setting.
+const DRAFT_ID = '01a1bfa1-c90c-77b1-a196-cc6df9e342d6';
+/** The draft's own number; its store shows the external system's instead. */
+const STANDARD_NUMBER = '2611-3-0021-00';
 const GROUP_NAME = 'Steel Quality';
 const LINE_OPTION = 'Wear resistant steel';
 
@@ -61,20 +64,20 @@ async function draftId(page: Page): Promise<string | null> {
   const response = await apiGet(page.request, '/api/quotes');
   if (!response.ok()) return null;
   const { quotes } = (await response.json()) as {
-    quotes: { id: string; quoteNumber: string; status: string }[];
+    quotes: { id: string; status: string }[];
   };
-  const draft = quotes.find((q) => q.quoteNumber === DRAFT_NUMBER);
+  const draft = quotes.find((q) => q.id === DRAFT_ID);
   return draft?.status === 'request_draft' ? draft.id : null;
 }
 
 async function configuredLine(page: Page, id: string): Promise<DraftLine> {
   const response = await apiGet(page.request, `/api/quotes/${id}`);
-  expect(response.ok(), `draft ${DRAFT_NUMBER} could not be read`).toBe(true);
+  expect(response.ok(), `draft ${DRAFT_ID} could not be read`).toBe(true);
   const { quote } = (await response.json()) as {
     quote: { lineItems: DraftLine[] };
   };
   const line = quote.lineItems.find((l) => l.configuration);
-  expect(line, `draft ${DRAFT_NUMBER} has no configured line`).toBeDefined();
+  expect(line, `draft ${DRAFT_ID} has no configured line`).toBeDefined();
   return line!;
 }
 
@@ -135,7 +138,7 @@ test.describe('Opening a configured draft line', () => {
     outOfScope(
       !found,
       'tenant-config',
-      `draft ${DRAFT_NUMBER} is not a draft of this buyer on this target (it is the monitor account's buyer's)`,
+      `draft ${DRAFT_ID} is not a draft of this buyer on this target (it is the monitor account's buyer's)`,
     );
     id = found!;
     line = await configuredLine(page, id);
@@ -216,5 +219,33 @@ test.describe('Opening a configured draft line', () => {
     expect(after.configuration?.configurationId).toBe(
       line.configuration?.configurationId,
     );
+  });
+});
+
+// The store behind this draft shows the external system's number, so its own
+// number is reachable nowhere: not in the API the pages read, not on the page.
+test.describe("The standing draft's number", () => {
+  test('its standard number is in neither the API nor its page', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    outOfScope(
+      !(await draftId(page)),
+      'tenant-config',
+      `draft ${DRAFT_ID} is not a draft of this buyer on this target (it is the monitor account's buyer's)`,
+    );
+
+    for (const path of ['/api/quotes', `/api/quotes/${DRAFT_ID}`]) {
+      const response = await apiGet(page.request, path);
+      expect(response.ok(), `${path} did not answer 200`).toBe(true);
+      expect(await response.text(), path).not.toContain(STANDARD_NUMBER);
+    }
+
+    await page.goto(`/se/sv/portal/quotations/${DRAFT_ID}`);
+    await waitForHydration(page);
+    await expect(page.locator('[data-testid="quote-kind"]')).toBeVisible();
+    // The page's HTML, its SSR payload included, and what it renders.
+    expect(await page.content()).not.toContain(STANDARD_NUMBER);
+    await expect(page.locator('body')).not.toContainText(STANDARD_NUMBER);
   });
 });
