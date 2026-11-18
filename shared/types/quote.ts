@@ -14,6 +14,7 @@ export type QuoteStatus =
   | 'rejected'
   | 'canceled'
   | 'expired'
+  | 'revised'
   | 'unknown';
 
 // ---------------------------------------------------------------------------
@@ -169,6 +170,26 @@ export interface Quote {
    * The seller may change `orderDetails`, never this.
    */
   request?: QuoteRequestDetails;
+  /** When the buyer sent the request; every version of the chain carries it. */
+  requestSentAt?: string;
+  /**
+   * Every version the buyer can see, newest first, this one included; the
+   * request, when there is one, last and without `validFrom`.
+   */
+  versions: QuoteVersion[];
+}
+
+/** One version of a quotation, as `revisions` lists it. */
+export interface QuoteVersion {
+  quotationId: string;
+  /** Geins' own number, as messages and the status history name a version. */
+  quotationNumber: string;
+  /** The number the tenant shows; `''` when it has none for this version. */
+  quoteNumber: string;
+  status: QuoteStatus;
+  /** When the seller sent it. */
+  validFrom?: string;
+  validTo?: string;
 }
 
 // ---------------------------------------------------------------------------

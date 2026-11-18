@@ -66,6 +66,7 @@ export function makeQuote(overrides: Partial<Quote> = {}): Quote {
     expiresAt: '2026-04-01T00:00:00Z',
     createdAt: '2026-03-01T00:00:00Z',
     updatedAt: '2026-03-01T00:00:00Z',
+    versions: [],
     ...overrides,
   };
 }

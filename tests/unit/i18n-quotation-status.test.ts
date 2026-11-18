@@ -33,8 +33,8 @@ const statuses = Object.keys(QUOTE_STATUS_DISPLAY) as QuoteStatus[];
 const localeFiles = readdirSync(LOCALES_DIR).filter((f) => f.endsWith('.json'));
 
 describe('quotation status labels', () => {
-  it('covers the ten portal statuses', () => {
-    expect(statuses).toHaveLength(10);
+  it('covers the eleven portal statuses', () => {
+    expect(statuses).toHaveLength(11);
   });
 
   describe.each(localeFiles)('%s', (file) => {
@@ -57,6 +57,7 @@ describe('quotation status labels', () => {
     ['rejected', 'Avböjd', 'Declined'],
     ['canceled', 'Avbruten', 'Canceled'],
     ['expired', 'Utgången', 'Expired'],
+    ['revised', 'Ersatt', 'Replaced'],
   ])('labels %s as the prototype does (sv %s, en %s)', (status, sv, en) => {
     const key = getQuoteStatusLabelKey(status);
     expect(lookup(loadLocale('sv.json'), key)).toBe(sv);

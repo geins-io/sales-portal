@@ -235,6 +235,7 @@ describe('PortalQuotationOrder', () => {
       'rejected',
       'canceled',
       'expired',
+      'revised',
       'unknown',
     ])('sends a %s quotation back to the quotation view', async (status) => {
       const wrapper = await mountWith(orderable({ status }));

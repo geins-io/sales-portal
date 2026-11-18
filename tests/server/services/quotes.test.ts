@@ -397,6 +397,7 @@ describe('quotes service', () => {
         'REJECTED',
         'CANCELED',
         'EXPIRED',
+        'REVISED',
       ];
       mockGraphqlQuery.mockResolvedValueOnce(
         pageOf(statuses.map((status) => makeRawQuotationCart({ status }))),
@@ -417,10 +418,11 @@ describe('quotes service', () => {
         'rejected',
         'canceled',
         'expired',
+        'revised',
       ]);
     });
 
-    it.each([['DRAFT'], ['REVISED'], ['SOMETHING_NEW'], [undefined]])(
+    it.each([['DRAFT'], ['SOMETHING_NEW'], [undefined]])(
       'maps %s to unknown, never to pending',
       async (status) => {
         mockGraphqlQuery.mockResolvedValueOnce(
@@ -1556,6 +1558,97 @@ describe('quotes service', () => {
           const quote = await getMapped(overrides);
           expect(quote.request).toBeUndefined();
         });
+      });
+    });
+
+    describe('the versions the buyer can see', () => {
+      async function getMapped(overrides: Record<string, unknown> = {}) {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          getQuotationCart: makeRawQuotationCart(overrides),
+        });
+        return quotesService.getQuote('cart-001', mockEvent);
+      }
+
+      it('reads a replaced version as revised', async () => {
+        const quote = await getMapped({ status: 'REVISED' });
+        expect(quote.status).toBe('revised');
+      });
+
+      it('maps revisions in the order Geins sends them, newest first', async () => {
+        const quote = await getMapped({
+          revisions: [
+            {
+              quotationId: 'q-01',
+              quotationNumber: '2611-2-0503-01',
+              revision: 1,
+              status: 'PENDING',
+              validFrom: '2026-11-16T12:52:43+00:00',
+              validTo: '2026-12-31T00:00:00+00:00',
+            },
+            {
+              quotationId: 'q-00',
+              quotationNumber: '2611-2-0503-00',
+              revision: 0,
+              status: 'REVISED',
+              validFrom: null,
+              validTo: null,
+            },
+          ],
+        });
+        expect(quote.versions).toEqual([
+          {
+            quotationId: 'q-01',
+            quotationNumber: '2611-2-0503-01',
+            quoteNumber: '2611-2-0503-01',
+            status: 'pending',
+            validFrom: '2026-11-16T12:52:43+00:00',
+            validTo: '2026-12-31T00:00:00+00:00',
+          },
+          {
+            quotationId: 'q-00',
+            quotationNumber: '2611-2-0503-00',
+            quoteNumber: '2611-2-0503-00',
+            status: 'revised',
+          },
+        ]);
+      });
+
+      it('reads a version Geins gives no number as one without', async () => {
+        const quote = await getMapped({
+          revisions: [
+            { quotationId: 'q-00', quotationNumber: null, status: 'PENDING' },
+          ],
+        });
+        expect(quote.versions).toEqual([
+          {
+            quotationId: 'q-00',
+            quotationNumber: '',
+            quoteNumber: '',
+            status: 'pending',
+          },
+        ]);
+      });
+
+      it.each([
+        ['no revisions', {}],
+        ['null revisions', { revisions: null }],
+      ])('has no versions with %s', async (_label, overrides) => {
+        const quote = await getMapped(overrides);
+        expect(quote.versions).toEqual([]);
+      });
+
+      it('reads when the buyer sent the request', async () => {
+        const quote = await getMapped({
+          request: { releasedAt: '2026-11-16T08:55:22+00:00' },
+        });
+        expect(quote.requestSentAt).toBe('2026-11-16T08:55:22+00:00');
+        // The sent date is not something the buyer sent with the request.
+        expect(quote.request).toBeUndefined();
+      });
+
+      it('has no request date before the request is sent', async () => {
+        const quote = await getMapped({ request: { releasedAt: null } });
+        expect(quote.requestSentAt).toBeUndefined();
       });
     });
 
@@ -2915,6 +3008,21 @@ describe('quotes service', () => {
       }) as unknown as H3Event;
 
     const linked = { externalReference: { number: '175' } };
+    // The open quotation (cart-001) and the newer version that replaced it.
+    const revisions = [
+      {
+        quotationId: 'cart-002',
+        quotationNumber: 'Q-20260101002',
+        status: 'PENDING',
+        validFrom: '2026-01-02T00:00:00Z',
+      },
+      {
+        quotationId: 'cart-001',
+        quotationNumber: 'Q-20260101001',
+        status: 'REVISED',
+        validFrom: '2026-01-01T00:00:00Z',
+      },
+    ];
     const unlinked: [string, Record<string, unknown>][] = [
       ['no external reference', { externalReference: null }],
       ['an external reference without a number', { externalReference: {} }],
@@ -2955,6 +3063,22 @@ describe('quotes service', () => {
         expect(quote.quoteNumber).toBe('Q-20260101001');
       });
 
+      it('names every version by its standard number', async () => {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          getQuotationCart: makeRawQuotationCart({ ...linked, revisions }),
+        });
+
+        const quote = await quotesService.getQuote(
+          'cart-001',
+          eventShowing(choice),
+        );
+
+        expect(quote.versions.map((v) => v.quoteNumber)).toEqual([
+          'Q-20260101002',
+          'Q-20260101001',
+        ]);
+      });
+
       it("answers the standard number for the order's link", async () => {
         mockGraphqlQuery.mockResolvedValueOnce({
           getQuotationCart: makeRawQuotationCart(linked),
@@ -2993,6 +3117,18 @@ describe('quotes service', () => {
         const quote = await quotesService.getQuote('cart-001', event);
 
         expect(quote.quoteNumber).toBe('175');
+      });
+
+      it('names the open version by its external number and the others by none', async () => {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          getQuotationCart: makeRawQuotationCart({ ...linked, revisions }),
+        });
+
+        const quote = await quotesService.getQuote('cart-001', event);
+
+        // Versions list no external number, and none is read for them.
+        expect(quote.versions.map((v) => v.quoteNumber)).toEqual(['', '175']);
+        expect(mockGraphqlQuery).toHaveBeenCalledTimes(1);
       });
 
       it('shows the external number on a request it just created', async () => {

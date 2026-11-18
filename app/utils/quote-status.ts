@@ -36,6 +36,8 @@ export const QUOTE_STATUS_DISPLAY: Record<
     labelKey: 'portal.quotations.status_canceled',
   },
   expired: { variant: 'warning', labelKey: 'portal.quotations.status_expired' },
+  // A replaced version, quiet like a waiting state.
+  revised: { variant: 'neutral', labelKey: 'portal.quotations.status_revised' },
   unknown: { variant: 'neutral', labelKey: 'portal.quotations.status_unknown' },
 };
 

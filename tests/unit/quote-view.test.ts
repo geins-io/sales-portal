@@ -9,6 +9,7 @@ import {
   quoteResponses,
   quoteStatusInfoKey,
   quoteRows,
+  quoteVersionLabel,
 } from '../../app/utils/quote-view';
 import type { QuoteStatus } from '../../shared/types/quote';
 import { makeConfiguredQuoteLine, makeQuote } from '../fixtures/quote';
@@ -64,6 +65,7 @@ const SENT_STATUSES: QuoteStatus[] = [
   'rejected',
   'canceled',
   'expired',
+  'revised',
   'unknown',
 ];
 
@@ -340,6 +342,7 @@ describe('quoteCanOrder', () => {
     'rejected',
     'canceled',
     'expired',
+    'revised',
     'unknown',
   ];
 
@@ -462,6 +465,7 @@ describe('quoteResponses', () => {
     'rejected',
     'canceled',
     'expired',
+    'revised',
     'unknown',
   ])('offers no response on %s', (status) => {
     for (const canPlaceOrders of [true, false]) {
@@ -481,6 +485,7 @@ describe('quoteStatusInfoKey', () => {
     ['rejected', 'portal.quotations.status_info_rejected'],
     ['canceled', 'portal.quotations.status_info_canceled'],
     ['expired', 'portal.quotations.status_info_expired'],
+    ['revised', 'portal.quotations.status_info_revised'],
   ])('explains %s', (status, key) => {
     expect(quoteStatusInfoKey(makeQuote({ status }), false)).toBe(key);
   });
@@ -493,6 +498,7 @@ describe('quoteStatusInfoKey', () => {
     'rejected',
     'canceled',
     'expired',
+    'revised',
   ])(
     'says nothing about ordering on %s when the quotation cannot be ordered',
     (status) => {
@@ -554,8 +560,33 @@ describe('quoteKindLabelKey', () => {
     ['pending', 'portal.quotations.kind_quotation'],
     ['accepted', 'portal.quotations.kind_quotation'],
     ['rejected', 'portal.quotations.kind_quotation'],
+    ['revised', 'portal.quotations.kind_quotation'],
     ['unknown', 'portal.quotations.kind_quotation'],
   ])('calls a %s one %s', (status, key) => {
     expect(quoteKindLabelKey(status)).toBe(key);
+  });
+});
+
+describe('quoteVersionLabel', () => {
+  const t = (key: string) => key;
+
+  it('names an offer by its number', () => {
+    expect(
+      quoteVersionLabel({ kind: 'offer', number: '2611-2-1066-02' }, t),
+    ).toBe('2611-2-1066-02');
+  });
+
+  it('names an offer without a number by nothing', () => {
+    expect(quoteVersionLabel({ kind: 'offer', number: '' }, t)).toBe('');
+  });
+
+  it("names the buyer's request", () => {
+    expect(quoteVersionLabel({ kind: 'request' }, t)).toBe(
+      'portal.quotations.version.request',
+    );
+  });
+
+  it('names nothing without a version', () => {
+    expect(quoteVersionLabel(undefined, t)).toBe('');
   });
 });

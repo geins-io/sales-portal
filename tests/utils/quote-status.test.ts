@@ -18,6 +18,7 @@ describe('getQuoteStatusVariant', () => {
     ['rejected', 'destructive-soft'],
     ['canceled', 'destructive-soft'],
     ['expired', 'warning'],
+    ['revised', 'neutral'],
     ['unknown', 'neutral'],
   ])('gives %s the %s tone', (status, variant) => {
     expect(getQuoteStatusVariant(status)).toBe(variant);
@@ -35,6 +36,7 @@ describe('getQuoteStatusLabelKey', () => {
     ['rejected', 'portal.quotations.status_rejected'],
     ['canceled', 'portal.quotations.status_canceled'],
     ['expired', 'portal.quotations.status_expired'],
+    ['revised', 'portal.quotations.status_revised'],
     ['unknown', 'portal.quotations.status_unknown'],
   ])('labels %s with %s', (status, key) => {
     expect(getQuoteStatusLabelKey(status)).toBe(key);

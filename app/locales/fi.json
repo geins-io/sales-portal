@@ -965,6 +965,7 @@
       "status_rejected": "Hylätty",
       "status_canceled": "Peruutettu",
       "status_expired": "Vanhentunut",
+      "status_revised": "Korvattu",
       "status_unknown": "Tuntematon",
       "detail_title": "Tarjouksen tiedot",
       "items_heading": "Tuotteet",
@@ -1036,6 +1037,23 @@
       "status_info_rejected": "Luovuit siitä, ja se on suljettu.",
       "status_info_canceled": "Myyjäsi on peruuttanut sen.",
       "status_info_expired": "Tarjous on vanhentunut. Ota yhteyttä myyjääsi, jos haluat uuden.",
+      "status_info_revised": "Korvattu uudemmalla versiolla ({name}). Tähän ei voi vastata.",
+      "status_info_revised_unnamed": "Korvattu uudemmalla versiolla. Tähän versioon ei voi vastata.",
+      "version": {
+        "request": "Tarjouspyyntösi"
+      },
+      "revisions": {
+        "label": "Versio",
+        "select_label": "Valitse tarjouksen versio",
+        "latest": "Uusin",
+        "superseded_title": "{name} on korvattu",
+        "superseded_title_unnamed": "Tämä versio on korvattu",
+        "superseded_text": "Myyjä on lähettänyt uudemman version ({name}). Voit lukea tämän, mutta et voi vastata siihen.",
+        "superseded_text_unnamed": "Myyjä on lähettänyt uudemman version. Voit lukea tämän, mutta et voi vastata siihen.",
+        "view_latest": "Näytä uusin versio",
+        "valid_to": "voimassa {date} asti",
+        "request_sent": "Lähetetty"
+      },
       "order": {
         "heading": "Tilaa tarjouksesta – {name}",
         "back": "Takaisin tarjoukseen",

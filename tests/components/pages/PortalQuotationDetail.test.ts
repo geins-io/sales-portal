@@ -10,7 +10,11 @@ import {
 import { mount, flushPromises } from '@vue/test-utils';
 import { Hash, Tag, Truck } from 'lucide-vue-next';
 import { defaultMountOptions } from '../../utils/component';
-import type { Quote, QuoteStatus } from '../../../shared/types/quote';
+import type {
+  Quote,
+  QuoteStatus,
+  QuoteVersion,
+} from '../../../shared/types/quote';
 import { makeConfiguredQuoteLine, makeQuote } from '../../fixtures/quote';
 import { mockShowIncVat } from '../../setup-components';
 
@@ -119,7 +123,8 @@ const {
 vi.stubGlobal('definePageMeta', vi.fn());
 
 // Mock navigateTo
-vi.stubGlobal('navigateTo', vi.fn());
+const { mockNavigateTo } = vi.hoisted(() => ({ mockNavigateTo: vi.fn() }));
+vi.stubGlobal('navigateTo', mockNavigateTo);
 
 // Mock createError — throw path uses this
 vi.stubGlobal('createError', mockCreateError);
@@ -162,6 +167,7 @@ vi.mock('#app/composables/router', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
+    navigateTo: (...args: unknown[]) => mockNavigateTo(...args),
     useRoute: () => ({
       params: { id: 'q-001' },
       path: '/portal/quotations/q-001',
@@ -256,6 +262,14 @@ const defaultStubs = {
     template:
       '<img data-testid="geins-image" :data-file-name="fileName" :data-type="type" :alt="alt" />',
     props: ['fileName', 'type', 'alt', 'aspectRatio', 'sizes', 'loading'],
+  },
+  // The picker is covered in PortalQuoteVersions.test.ts; here it only shows
+  // what the page passes and hands back a pick.
+  PortalQuoteVersions: {
+    props: ['versions', 'currentId', 'requestSentAt'],
+    emits: ['select'],
+    template:
+      '<button data-testid="quote-versions-stub" :data-count="versions.length" :data-current="currentId" :data-request-sent="requestSentAt" @click="$emit(\'select\', versions[versions.length - 1].quotationId)" />',
   },
   // The thread reads its own data; covered in PortalQuoteThread.test.ts.
   PortalQuoteThread: {
@@ -1887,6 +1901,261 @@ describe('PortalQuotationDetail', () => {
       expect(wrapper.find('[data-testid="customer-info-card"]').exists()).toBe(
         false,
       );
+    });
+  });
+
+  describe('versions', () => {
+    // A request and three offers, newest first as Geins sends them; the page
+    // opens q-001, the first offer.
+    const chain: QuoteVersion[] = [
+      {
+        quotationId: 'q-003',
+        quotationNumber: '2611-2-1066-03',
+        quoteNumber: '2611-2-1066-03',
+        status: 'pending',
+        validFrom: '2026-11-18T10:03:00Z',
+        validTo: '2026-12-31T00:00:00Z',
+      },
+      {
+        quotationId: 'q-002',
+        quotationNumber: '2611-2-1066-02',
+        quoteNumber: '2611-2-1066-02',
+        status: 'revised',
+        validFrom: '2026-11-18T10:02:00Z',
+      },
+      {
+        quotationId: 'q-001',
+        quotationNumber: '2611-2-1066-01',
+        quoteNumber: '2611-2-1066-01',
+        status: 'revised',
+        validFrom: '2026-11-18T10:01:00Z',
+      },
+      {
+        quotationId: 'q-000',
+        quotationNumber: '2611-2-1066-00',
+        quoteNumber: '2611-2-1066-00',
+        status: 'revised',
+      },
+    ];
+    const replaced = (overrides: Partial<Quote> = {}) =>
+      makeQuote({
+        id: 'q-001',
+        quoteNumber: '2611-2-1066-01',
+        status: 'revised',
+        versions: chain,
+        requestSentAt: '2026-11-16T08:55:22Z',
+        ...overrides,
+      });
+    /** The chain as a tenant on external numbers sees it: no number per version. */
+    const unnumbered = (overrides: Partial<Quote> = {}) =>
+      replaced({
+        quoteNumber: '',
+        versions: chain.map((v) => ({ ...v, quoteNumber: '' })),
+        ...overrides,
+      });
+    const single: QuoteVersion[] = [
+      {
+        quotationId: 'q-001',
+        quotationNumber: '2611-2-1066-00',
+        quoteNumber: '2611-2-1066-00',
+        status: 'pending',
+        validFrom: '2026-11-18T10:00:00Z',
+      },
+    ];
+
+    describe('a replaced version', () => {
+      it('shows the Ersatt badge', async () => {
+        const wrapper = await mountWith(replaced());
+
+        expect(wrapper.find('[data-testid="status-badge"]').text()).toBe(
+          'portal.quotations.status_revised',
+        );
+      });
+
+      it('names itself and the version that replaced it by their numbers', async () => {
+        tSpy.mockClear();
+        const wrapper = await mountWith(replaced());
+
+        const notice = wrapper.find('[data-testid="quote-superseded"]');
+        expect(notice.exists()).toBe(true);
+        expect(tSpy).toHaveBeenCalledWith(
+          'portal.quotations.revisions.superseded_title',
+          { name: '2611-2-1066-01' },
+        );
+        expect(tSpy).toHaveBeenCalledWith(
+          'portal.quotations.revisions.superseded_text',
+          { name: '2611-2-1066-03' },
+        );
+      });
+
+      it('opens the newest version, never only the next one', async () => {
+        const wrapper = await mountWith(replaced());
+
+        const latest = wrapper.find('[data-testid="quote-view-latest"]');
+        expect(latest.text()).toBe('portal.quotations.revisions.view_latest');
+        expect(latest.find('a').attributes('href')).toBe(
+          '/se/en/portal/quotations/q-003',
+        );
+      });
+
+      it('sits between the toolbar and the quotation', async () => {
+        const wrapper = await mountWith(replaced());
+
+        const toolbar = wrapper.find('[data-testid="quote-toolbar"]').element;
+        const notice = wrapper.find('[data-testid="quote-superseded"]').element;
+        const header = wrapper.find('[data-testid="quote-header"]').element;
+        expect(
+          toolbar.compareDocumentPosition(notice) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(
+          notice.compareDocumentPosition(header) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+      });
+
+      it.each([true, false])(
+        'offers no answer and no order (requires confirmation: %s)',
+        async (requiresConfirmation) => {
+          const wrapper = await mountWith(replaced({ requiresConfirmation }));
+
+          for (const id of [
+            'accept-btn',
+            'decline-btn',
+            'quote-withdraw',
+            'quote-place-order',
+          ]) {
+            expect(wrapper.find(`[data-testid="${id}"]`).exists()).toBe(false);
+          }
+        },
+      );
+
+      it('explains the status by the number of the version that replaced it', async () => {
+        tSpy.mockClear();
+        await mountWith(replaced());
+
+        expect(tSpy).toHaveBeenCalledWith(
+          'portal.quotations.status_info_revised',
+          { name: '2611-2-1066-03' },
+        );
+      });
+
+      it('names the request version as the request', async () => {
+        tSpy.mockClear();
+        await mountWith(replaced({ id: 'q-000' }));
+
+        expect(tSpy).toHaveBeenCalledWith(
+          'portal.quotations.revisions.superseded_title',
+          { name: 'portal.quotations.version.request' },
+        );
+      });
+
+      describe('without numbers to show', () => {
+        it('words the notice without a number, never the other one', async () => {
+          const wrapper = await mountWith(unnumbered());
+
+          const notice = wrapper.find('[data-testid="quote-superseded"]');
+          expect(notice.text()).toContain(
+            'portal.quotations.revisions.superseded_title_unnamed',
+          );
+          expect(notice.text()).toContain(
+            'portal.quotations.revisions.superseded_text_unnamed',
+          );
+          expect(notice.text()).not.toContain('2611-2-1066');
+        });
+
+        it('explains the status without a number', async () => {
+          const wrapper = await mountWith(unnumbered());
+
+          expect(
+            wrapper.find('[data-testid="quote-meta-status"]').text(),
+          ).toContain('portal.quotations.status_info_revised_unnamed');
+        });
+
+        it('still names the request as the request', async () => {
+          tSpy.mockClear();
+          await mountWith(unnumbered({ id: 'q-000' }));
+
+          expect(tSpy).toHaveBeenCalledWith(
+            'portal.quotations.revisions.superseded_title',
+            { name: 'portal.quotations.version.request' },
+          );
+        });
+      });
+    });
+
+    it.each<QuoteStatus>(['pending', 'canceled'])(
+      'shows no notice on a %s version',
+      async (status) => {
+        const wrapper = await mountWith(replaced({ id: 'q-003', status }));
+
+        expect(wrapper.find('[data-testid="quote-superseded"]').exists()).toBe(
+          false,
+        );
+      },
+    );
+
+    describe('the picker', () => {
+      it('sits in the toolbar before the thread with every version', async () => {
+        const wrapper = await mountWith(replaced());
+
+        const toolbar = wrapper.find('[data-testid="quote-toolbar"]');
+        const picker = toolbar.find('[data-testid="quote-versions-stub"]');
+        expect(picker.attributes('data-count')).toBe('4');
+        expect(picker.attributes('data-current')).toBe('q-001');
+        expect(picker.attributes('data-request-sent')).toBe(
+          '2026-11-16T08:55:22Z',
+        );
+        const thread = toolbar.find('[data-testid="quote-thread-stub"]');
+        expect(
+          picker.element.compareDocumentPosition(thread.element) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+      });
+
+      it('opens the picked version on its own page', async () => {
+        mockNavigateTo.mockClear();
+        const wrapper = await mountWith(replaced());
+
+        await wrapper
+          .find('[data-testid="quote-versions-stub"]')
+          .trigger('click');
+
+        expect(mockNavigateTo).toHaveBeenCalledWith(
+          '/se/en/portal/quotations/q-000',
+        );
+      });
+
+      it.each([
+        ['one version', single],
+        ['no versions', []],
+      ])('is not there with %s', async (_label, versions) => {
+        const wrapper = await mountWith(pending({ versions }));
+
+        expect(
+          wrapper.find('[data-testid="quote-versions-stub"]').exists(),
+        ).toBe(false);
+      });
+    });
+
+    it('keeps the kind line as it is: the number names the version', async () => {
+      const wrapper = await mountWith(
+        replaced({
+          id: 'q-003',
+          status: 'pending',
+          quoteNumber: '2611-2-1066-03',
+        }),
+      );
+
+      expect(wrapper.find('[data-testid="quote-kind"]').text()).toBe(
+        'portal.quotations.kind_quotation · 2611-2-1066-03',
+      );
+    });
+
+    it('adds no details row for the version', async () => {
+      const wrapper = await mountWith(replaced());
+
+      expect(metaKeys(wrapper)).not.toContain('version');
     });
   });
 
