@@ -965,6 +965,7 @@
       "status_rejected": "Avböjd",
       "status_canceled": "Avbruten",
       "status_expired": "Utgången",
+      "status_revised": "Ersatt",
       "status_unknown": "Okänd",
       "detail_title": "Offertdetaljer",
       "items_heading": "Artiklar",
@@ -1036,6 +1037,23 @@
       "status_info_rejected": "Du avstod, och den är avslutad.",
       "status_info_canceled": "Din säljare har avbrutit den.",
       "status_info_expired": "Offerten har gått ut. Kontakta din säljare om du vill ha en ny.",
+      "status_info_revised": "Ersatt av en nyare version ({name}). Den här kan inte besvaras.",
+      "status_info_revised_unnamed": "Ersatt av en nyare version. Den här versionen kan inte besvaras.",
+      "version": {
+        "request": "Din förfrågan"
+      },
+      "revisions": {
+        "label": "Version",
+        "select_label": "Välj version av offerten",
+        "latest": "Senaste",
+        "superseded_title": "{name} är ersatt",
+        "superseded_title_unnamed": "Den här versionen är ersatt",
+        "superseded_text": "Säljaren har skickat en nyare version ({name}). Du kan läsa den här men inte svara på den.",
+        "superseded_text_unnamed": "Säljaren har skickat en nyare version. Du kan läsa den här men inte svara på den.",
+        "view_latest": "Visa senaste versionen",
+        "valid_to": "gäller t.o.m. {date}",
+        "request_sent": "Skickad"
+      },
       "order": {
         "heading": "Beställ från offert – {name}",
         "back": "Tillbaka till offerten",

@@ -965,6 +965,7 @@
       "status_rejected": "Avslått",
       "status_canceled": "Kansellert",
       "status_expired": "Utløpt",
+      "status_revised": "Erstattet",
       "status_unknown": "Ukjent",
       "detail_title": "Tilbudsdetaljer",
       "items_heading": "Varer",
@@ -1036,6 +1037,23 @@
       "status_info_rejected": "Du takket nei, og det er avsluttet.",
       "status_info_canceled": "Selgeren din har kansellert det.",
       "status_info_expired": "Tilbudet har utløpt. Kontakt selgeren din hvis du vil ha et nytt.",
+      "status_info_revised": "Erstattet av en nyere versjon ({name}). Denne kan ikke besvares.",
+      "status_info_revised_unnamed": "Erstattet av en nyere versjon. Denne versjonen kan ikke besvares.",
+      "version": {
+        "request": "Din forespørsel"
+      },
+      "revisions": {
+        "label": "Versjon",
+        "select_label": "Velg versjon av tilbudet",
+        "latest": "Siste",
+        "superseded_title": "{name} er erstattet",
+        "superseded_title_unnamed": "Denne versjonen er erstattet",
+        "superseded_text": "Selgeren har sendt en nyere versjon ({name}). Du kan lese denne, men ikke svare på den.",
+        "superseded_text_unnamed": "Selgeren har sendt en nyere versjon. Du kan lese denne, men ikke svare på den.",
+        "view_latest": "Vis siste versjon",
+        "valid_to": "gjelder til og med {date}",
+        "request_sent": "Sendt"
+      },
       "order": {
         "heading": "Bestill fra tilbud – {name}",
         "back": "Tilbake til tilbudet",

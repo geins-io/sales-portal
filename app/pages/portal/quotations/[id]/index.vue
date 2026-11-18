@@ -20,6 +20,7 @@ import {
   Truck,
   User,
 } from 'lucide-vue-next';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import {
@@ -46,10 +47,12 @@ import {
   quoteResponses,
   quoteRows,
   quoteStatusInfoKey,
+  quoteVersionLabel,
 } from '~/utils/quote-view';
 import { summaryRows } from '~/utils/summary-rows';
 import type { Quote, QuoteLineItem } from '#shared/types/quote';
 import { QUOTE_NAME_MAX_LENGTH } from '#shared/constants/quote';
+import { versionNames } from '#shared/utils/quote-versions';
 
 definePageMeta({ middleware: ['auth', 'feature'], feature: 'quotes' });
 
@@ -105,6 +108,31 @@ useHead({
         .join(' '),
   ),
 });
+
+// ------------------------------------------------------------ versions
+const versions = computed(() => quote.value?.versions ?? []);
+const versionNamesById = computed(() => versionNames(versions.value));
+/** One version needs no picker. */
+const hasVersions = computed(() => versions.value.length > 1);
+const latestVersion = computed(() => versions.value[0]);
+const versionLabel = (id: string | undefined) =>
+  quoteVersionLabel(id ? versionNamesById.value.get(id) : undefined, t);
+/** A text naming a version; one without a name to show has its own wording. */
+const namedText = (key: string, id: string | undefined) => {
+  const name = versionLabel(id);
+  return name ? t(key, { name }) : t(`${key}_unnamed`);
+};
+/** A replaced version is read only, with the way to the newest. */
+const replaced = computed(
+  () => quote.value?.status === 'revised' && !!latestVersion.value,
+);
+const latestPath = computed(() =>
+  localePath(`/portal/quotations/${latestVersion.value?.quotationId}`),
+);
+
+function openVersion(id: string) {
+  navigateTo(localePath(`/portal/quotations/${id}`));
+}
 
 // ------------------------------------------------------- buyer responses
 const canPlaceOrders = computed(() => canAccess('orderPlacement'));
@@ -367,7 +395,13 @@ const metaRows = computed<MetaRow[]>(() => {
     testId: 'quote-meta-status',
     icon: Info,
     label: t('portal.quotations.status_label'),
-    lines: infoKey ? [t(infoKey)] : [],
+    lines: infoKey
+      ? [
+          q.status === 'revised'
+            ? namedText(infoKey, latestVersion.value?.quotationId)
+            : t(infoKey),
+        ]
+      : [],
   });
   // What the buyer sent; a draft has sent nothing yet.
   const sent = q.status === 'request_draft' ? undefined : q.request;
@@ -504,12 +538,51 @@ const customerSummary = computed(() => {
             <Check class="size-3.5" />{{ t('portal.quotations.draft.saved') }}
           </template>
         </p>
-        <PortalQuoteThread
-          v-if="!isDraft"
-          :quote-id="quoteId"
-          :subtitle="threadSubtitle"
-        />
+        <div v-if="!isDraft" class="flex flex-wrap items-center gap-2">
+          <PortalQuoteVersions
+            v-if="hasVersions"
+            :versions="versions"
+            :current-id="quote.id"
+            :request-sent-at="quote.requestSentAt"
+            @select="openVersion"
+          />
+          <PortalQuoteThread :quote-id="quoteId" :subtitle="threadSubtitle" />
+        </div>
       </div>
+
+      <Alert
+        v-if="replaced && latestVersion"
+        data-testid="quote-superseded"
+        class="border-border mt-6"
+      >
+        <History class="size-4" />
+        <AlertTitle>
+          {{
+            namedText('portal.quotations.revisions.superseded_title', quote.id)
+          }}
+        </AlertTitle>
+        <AlertDescription class="space-y-3">
+          <p>
+            {{
+              namedText(
+                'portal.quotations.revisions.superseded_text',
+                latestVersion.quotationId,
+              )
+            }}
+          </p>
+          <Button
+            as-child
+            variant="outline"
+            size="sm"
+            class="shadow-none"
+            data-testid="quote-view-latest"
+          >
+            <NuxtLink :to="latestPath">
+              {{ t('portal.quotations.revisions.view_latest') }}
+            </NuxtLink>
+          </Button>
+        </AlertDescription>
+      </Alert>
 
       <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <!-- Left, a draft: quick add and the lines, edited. On a phone they

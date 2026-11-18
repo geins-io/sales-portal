@@ -29,6 +29,14 @@ query getQuotationCart($quotationId: Guid!, $languageId: String) {
         customerReference
         desiredDeliveryDate
         goodsLabel
+        releasedAt
+      }
+      revisions {
+        quotationId
+        quotationNumber
+        status
+        validFrom
+        validTo
       }
     }
   }

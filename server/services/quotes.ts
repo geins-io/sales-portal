@@ -24,6 +24,7 @@ import type {
   QuoteRequestLine,
   QuoteRequestUpdate,
   QuoteStatus,
+  QuoteVersion,
 } from '#shared/types/quote';
 import type { QuoteDisplayNumber } from '#shared/types/tenant-config';
 import {
@@ -146,6 +147,16 @@ interface RawQuotation {
     type?: string | null;
     value?: number | null;
   } | null;
+  /** `QuotationVersionType`; `@geins/types` does not have it yet. */
+  revisions?: RawQuotationVersion[] | null;
+}
+
+interface RawQuotationVersion {
+  quotationId: string;
+  quotationNumber?: string | null;
+  status?: string;
+  validFrom?: string | null;
+  validTo?: string | null;
 }
 
 /** `QuotationOrderDetailsType`, and the same fields of `QuotationRequestType` */
@@ -159,6 +170,7 @@ interface RawOrderDetails {
 /** `QuotationRequestType`: what the buyer sent */
 interface RawQuotationRequest extends RawOrderDetails {
   comment?: string | null;
+  releasedAt?: string | null;
 }
 
 interface RawCartSummary {
@@ -212,6 +224,7 @@ const QUOTATION_STATUS_MAP: Record<string, QuoteStatus> = {
   REJECTED: 'rejected',
   CANCELED: 'canceled',
   EXPIRED: 'expired',
+  REVISED: 'revised',
 };
 
 function mapStatus(raw?: string): QuoteStatus {
@@ -498,6 +511,36 @@ function mapQuotationCartToQuote(
     ...(q.orderPublicId ? { orderPublicId: q.orderPublicId } : {}),
     orderDetails: mapOrderDetails(q),
     request: mapRequest(q.request),
+    ...(q.request?.releasedAt ? { requestSentAt: q.request.releasedAt } : {}),
+    versions: (q.revisions ?? []).map((v) =>
+      mapVersion(v, versionNumber(v, cart.id, q, choice)),
+    ),
+  };
+}
+
+/**
+ * The number a version shows, by the tenant's choice. `revisions` lists no
+ * external number and none is read per version, so with `externalNumber`
+ * only the open version, from its own quotation, has one.
+ */
+function versionNumber(
+  v: RawQuotationVersion,
+  openId: string,
+  q: RawQuotation,
+  choice: QuoteDisplayNumber | undefined,
+): string {
+  if (v.quotationId === openId) return shownNumber(q, choice);
+  return choice === 'externalNumber' ? '' : v.quotationNumber || '';
+}
+
+function mapVersion(v: RawQuotationVersion, quoteNumber: string): QuoteVersion {
+  return {
+    quotationId: v.quotationId,
+    quotationNumber: v.quotationNumber ?? '',
+    quoteNumber,
+    status: mapStatus(v.status),
+    ...(v.validFrom ? { validFrom: v.validFrom } : {}),
+    ...(v.validTo ? { validTo: v.validTo } : {}),
   };
 }
 

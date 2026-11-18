@@ -169,10 +169,20 @@ describe('GraphQL loader', () => {
       const details =
         'customerOrderNumber\\s+customerReference\\s+desiredDeliveryDate\\s+goodsLabel\\s*\\}';
       expect(query).toMatch(new RegExp(`orderDetails \\{\\s*${details}`));
-      // What the buyer sent also carries their message.
-      expect(query).toMatch(new RegExp(`request \\{\\s*comment\\s+${details}`));
+      // What the buyer sent also carries their message and when they sent it.
+      const sent =
+        'customerOrderNumber\\s+customerReference\\s+desiredDeliveryDate\\s+goodsLabel\\s+releasedAt\\s*\\}';
+      expect(query).toMatch(new RegExp(`request \\{\\s*comment\\s+${sent}`));
       expect(query).toMatch(/validPaymentMethods \{[^}]*\sdisplayName\s/);
       expect(query).toMatch(/^\s*orderPublicId$/m);
+    });
+
+    it('reads every version the buyer can see on the single quotation', () => {
+      const query = loadQuery('quotes/get-quotation.graphql');
+
+      expect(query).toMatch(
+        /revisions \{\s*quotationId\s+quotationNumber\s+status\s+validFrom\s+validTo\s*\}/,
+      );
     });
 
     it("reads only the quotation's number for the order's link back", () => {

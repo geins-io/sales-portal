@@ -1,6 +1,7 @@
 import { formatPrice } from '#shared/types/commerce';
 import type { PortalItemRow } from '#shared/types/portal-rows';
 import type { Quote, QuoteStatus } from '#shared/types/quote';
+import type { QuoteVersionName } from '#shared/utils/quote-versions';
 
 /** A quotation's summary amounts, formatted, on one side of the VAT choice. */
 export interface QuoteAmounts {
@@ -183,6 +184,7 @@ const STATUSES_WITH_INFO = new Set<QuoteStatus>([
   'rejected',
   'canceled',
   'expired',
+  'revised',
 ]);
 
 /** The details card's status text; none for a draft or an unknown status. */
@@ -208,4 +210,15 @@ export function quoteKindLabelKey(status: QuoteStatus): string {
   return status === 'request_draft' || status === 'requested'
     ? 'portal.quotations.kind_request'
     : 'portal.quotations.kind_quotation';
+}
+
+/** An offer's number, "Din förfrågan" for the request; `''` for no name. */
+export function quoteVersionLabel(
+  name: QuoteVersionName | undefined,
+  t: (key: string) => string,
+): string {
+  if (!name) return '';
+  return name.kind === 'request'
+    ? t('portal.quotations.version.request')
+    : name.number;
 }

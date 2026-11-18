@@ -965,6 +965,7 @@
       "status_rejected": "Abgelehnt",
       "status_canceled": "Storniert",
       "status_expired": "Abgelaufen",
+      "status_revised": "Ersetzt",
       "status_unknown": "Unbekannt",
       "detail_title": "Angebotsdetails",
       "items_heading": "Positionen",
@@ -1036,6 +1037,23 @@
       "status_info_rejected": "Sie haben verzichtet, und es ist geschlossen.",
       "status_info_canceled": "Ihr Verkäufer hat es storniert.",
       "status_info_expired": "Das Angebot ist abgelaufen. Wenden Sie sich an Ihren Verkäufer, wenn Sie ein neues möchten.",
+      "status_info_revised": "Durch eine neuere Version ersetzt ({name}). Diese kann nicht beantwortet werden.",
+      "status_info_revised_unnamed": "Durch eine neuere Version ersetzt. Diese Version kann nicht beantwortet werden.",
+      "version": {
+        "request": "Ihre Anfrage"
+      },
+      "revisions": {
+        "label": "Version",
+        "select_label": "Version des Angebots wählen",
+        "latest": "Neueste",
+        "superseded_title": "{name} ist ersetzt",
+        "superseded_title_unnamed": "Diese Version ist ersetzt",
+        "superseded_text": "Der Verkäufer hat eine neuere Version gesendet ({name}). Sie können diese lesen, aber nicht beantworten.",
+        "superseded_text_unnamed": "Der Verkäufer hat eine neuere Version gesendet. Sie können diese lesen, aber nicht beantworten.",
+        "view_latest": "Neueste Version anzeigen",
+        "valid_to": "gültig bis {date}",
+        "request_sent": "Gesendet"
+      },
       "order": {
         "heading": "Aus Angebot bestellen – {name}",
         "back": "Zurück zum Angebot",

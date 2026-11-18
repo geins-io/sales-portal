@@ -965,6 +965,7 @@
       "status_rejected": "Declined",
       "status_canceled": "Canceled",
       "status_expired": "Expired",
+      "status_revised": "Replaced",
       "status_unknown": "Unknown",
       "detail_title": "Quotation Details",
       "items_heading": "Items",
@@ -1036,6 +1037,23 @@
       "status_info_rejected": "You opted out, and it is closed.",
       "status_info_canceled": "Your seller canceled it.",
       "status_info_expired": "The quotation has expired. Contact your seller if you want a new one.",
+      "status_info_revised": "Replaced by a newer version ({name}). This one cannot be answered.",
+      "status_info_revised_unnamed": "Replaced by a newer version. This version cannot be answered.",
+      "version": {
+        "request": "Your request"
+      },
+      "revisions": {
+        "label": "Version",
+        "select_label": "Choose a version of the quotation",
+        "latest": "Latest",
+        "superseded_title": "{name} has been replaced",
+        "superseded_title_unnamed": "This version has been replaced",
+        "superseded_text": "The seller has sent a newer version ({name}). You can read this one but not answer it.",
+        "superseded_text_unnamed": "The seller has sent a newer version. You can read this one but not answer it.",
+        "view_latest": "View latest version",
+        "valid_to": "valid until {date}",
+        "request_sent": "Sent"
+      },
       "order": {
         "heading": "Order from quotation – {name}",
         "back": "Back to the quotation",
