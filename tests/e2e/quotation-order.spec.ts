@@ -28,7 +28,10 @@ interface ListedQuote {
 }
 
 async function listQuotes(page: Page): Promise<ListedQuote[]> {
-  const response = await apiGet(page.request, '/api/quotes');
+  const response = await apiGet(
+    page.request,
+    '/api/quotes?tab=quotations&take=100',
+  );
   expect(response.ok(), '/api/quotes did not answer 200').toBe(true);
   return ((await response.json()) as { quotes: ListedQuote[] }).quotes;
 }

@@ -61,13 +61,13 @@ interface WireSection {
 
 /** The standing draft's id, or null where this buyer has no such draft. */
 async function draftId(page: Page): Promise<string | null> {
-  const response = await apiGet(page.request, '/api/quotes');
+  // Another buyer's quotation answers 404, as one that does not exist.
+  const response = await apiGet(page.request, `/api/quotes/${DRAFT_ID}`);
   if (!response.ok()) return null;
-  const { quotes } = (await response.json()) as {
-    quotes: { id: string; status: string }[];
+  const { quote } = (await response.json()) as {
+    quote: { id: string; status: string };
   };
-  const draft = quotes.find((q) => q.id === DRAFT_ID);
-  return draft?.status === 'request_draft' ? draft.id : null;
+  return quote.status === 'request_draft' ? quote.id : null;
 }
 
 async function configuredLine(page: Page, id: string): Promise<DraftLine> {

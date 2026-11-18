@@ -71,7 +71,10 @@ function draftName(testInfo: TestInfo, width: string): string {
 }
 
 async function listDrafts(page: Page): Promise<ListedDraft[] | null> {
-  const response = await apiGet(page.request, '/api/quotes');
+  const response = await apiGet(
+    page.request,
+    '/api/quotes?tab=drafts&take=100',
+  );
   if (!response.ok()) return null;
   const { quotes = [] } = (await response.json()) as { quotes?: ListedDraft[] };
   return quotes.filter((quote) => quote.status === 'request_draft');
