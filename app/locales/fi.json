@@ -1052,7 +1052,11 @@
         "superseded_text_unnamed": "Myyjä on lähettänyt uudemman version. Voit lukea tämän, mutta et voi vastata siihen.",
         "view_latest": "Näytä uusin versio",
         "valid_to": "voimassa {date} asti",
-        "request_sent": "Lähetetty"
+        "request_sent": "Lähetetty",
+        "request_title": "Tarjouspyyntösi",
+        "request_text": "Tältä tarjouspyyntö näytti, kun lähetit sen {date}. Myyjän tarjous perustuu siihen, ja hinnat ovat tässä arvioita. Siihen ei voi vastata.",
+        "request_text_undated": "Tältä tarjouspyyntö näytti, kun lähetit sen. Myyjän tarjous perustuu siihen, ja hinnat ovat tässä arvioita. Siihen ei voi vastata.",
+        "request_status_info": "Lähettämäsi tarjouspyyntö. Myyjän tarjous perustuu siihen."
       },
       "order": {
         "heading": "Tilaa tarjouksesta – {name}",

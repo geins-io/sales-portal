@@ -271,6 +271,7 @@ const defaultStubs = {
     template:
       '<button data-testid="quote-versions-stub" :data-count="versions.length" :data-current="currentId" :data-request-sent="requestSentAt" @click="$emit(\'select\', versions[versions.length - 1].quotationId)" />',
   },
+  QuoteEstimateBadge: { template: '<span data-testid="estimate-badge" />' },
   // The thread reads its own data; covered in PortalQuoteThread.test.ts.
   PortalQuoteThread: {
     props: ['quoteId', 'subtitle'],
@@ -2040,16 +2041,6 @@ describe('PortalQuotationDetail', () => {
         );
       });
 
-      it('names the request version as the request', async () => {
-        tSpy.mockClear();
-        await mountWith(replaced({ id: 'q-000' }));
-
-        expect(tSpy).toHaveBeenCalledWith(
-          'portal.quotations.revisions.superseded_title',
-          { name: 'portal.quotations.version.request' },
-        );
-      });
-
       describe('without numbers to show', () => {
         it('words the notice without a number, never the other one', async () => {
           const wrapper = await mountWith(unnumbered());
@@ -2071,17 +2062,182 @@ describe('PortalQuotationDetail', () => {
             wrapper.find('[data-testid="quote-meta-status"]').text(),
           ).toContain('portal.quotations.status_info_revised_unnamed');
         });
-
-        it('still names the request as the request', async () => {
-          tSpy.mockClear();
-          await mountWith(unnumbered({ id: 'q-000' }));
-
-          expect(tSpy).toHaveBeenCalledWith(
-            'portal.quotations.revisions.superseded_title',
-            { name: 'portal.quotations.version.request' },
-          );
-        });
       });
+    });
+
+    describe("the buyer's request", () => {
+      const request = (overrides: Partial<Quote> = {}) =>
+        replaced({
+          id: 'q-000',
+          quoteNumber: '2611-2-1066-00',
+          ...overrides,
+        });
+
+      it('is called a quote request', async () => {
+        const wrapper = await mountWith(request());
+
+        expect(wrapper.find('[data-testid="quote-kind"]').text()).toBe(
+          'portal.quotations.kind_request · 2611-2-1066-00',
+        );
+      });
+
+      it('says it is the request as sent, dated, never that it was replaced', async () => {
+        tSpy.mockClear();
+        const wrapper = await mountWith(request());
+
+        const notice = wrapper.find('[data-testid="quote-superseded"]');
+        expect(notice.text()).toContain(
+          'portal.quotations.revisions.request_title',
+        );
+        expect(notice.text()).toContain(
+          'portal.quotations.revisions.request_text',
+        );
+        const dated = tSpy.mock.calls.find(
+          ([key]) => key === 'portal.quotations.revisions.request_text',
+        );
+        expect(dated?.[1]).toEqual({ date: expect.stringContaining('2026') });
+        expect(notice.text()).not.toContain('superseded');
+      });
+
+      it('words the notice without a date when the send date is missing', async () => {
+        const wrapper = await mountWith(request({ requestSentAt: undefined }));
+
+        expect(
+          wrapper.find('[data-testid="quote-superseded"]').text(),
+        ).toContain('portal.quotations.revisions.request_text_undated');
+      });
+
+      it('leads to the newest version', async () => {
+        const wrapper = await mountWith(request());
+
+        expect(
+          wrapper
+            .find('[data-testid="quote-view-latest"] a')
+            .attributes('href'),
+        ).toBe('/se/en/portal/quotations/q-003');
+      });
+
+      it('explains its status as the request the offer is based on', async () => {
+        const wrapper = await mountWith(request());
+
+        const status = wrapper.find('[data-testid="quote-meta-status"]').text();
+        expect(status).toContain(
+          'portal.quotations.revisions.request_status_info',
+        );
+        expect(status).not.toContain('status_info_revised');
+      });
+
+      it('marks its prices as estimates', async () => {
+        const wrapper = await mountWith(request());
+
+        expect(wrapper.find('[data-testid="estimate-badge"]').exists()).toBe(
+          true,
+        );
+      });
+
+      it.each([true, false])(
+        'offers no answer and no order (requires confirmation: %s)',
+        async (requiresConfirmation) => {
+          const wrapper = await mountWith(request({ requiresConfirmation }));
+
+          for (const id of [
+            'accept-btn',
+            'decline-btn',
+            'quote-withdraw',
+            'quote-place-order',
+          ]) {
+            expect(wrapper.find(`[data-testid="${id}"]`).exists()).toBe(false);
+          }
+        },
+      );
+
+      it('reads the same without numbers to show', async () => {
+        const wrapper = await mountWith(unnumbered({ id: 'q-000' }));
+
+        const notice = wrapper.find('[data-testid="quote-superseded"]');
+        expect(notice.text()).toContain(
+          'portal.quotations.revisions.request_title',
+        );
+      });
+    });
+
+    describe('a replaced -00 the seller started', () => {
+      // The seller sent -00, so it is an offer, not a request.
+      const sellerStarted: QuoteVersion[] = [
+        { ...chain[0]!, quotationId: 'q-001', quoteNumber: '2611-2-1067-01' },
+        {
+          quotationId: 'q-000',
+          quotationNumber: '2611-2-1067-00',
+          quoteNumber: '2611-2-1067-00',
+          status: 'revised',
+          validFrom: '2026-11-17T10:00:00Z',
+        },
+      ];
+      const offer = () =>
+        makeQuote({
+          id: 'q-000',
+          quoteNumber: '2611-2-1067-00',
+          status: 'revised',
+          versions: sellerStarted,
+        });
+
+      it('reads as a replaced quotation, not as a request', async () => {
+        tSpy.mockClear();
+        const wrapper = await mountWith(offer());
+
+        expect(wrapper.find('[data-testid="quote-kind"]').text()).toBe(
+          'portal.quotations.kind_quotation · 2611-2-1067-00',
+        );
+        expect(tSpy).toHaveBeenCalledWith(
+          'portal.quotations.revisions.superseded_title',
+          { name: '2611-2-1067-00' },
+        );
+        expect(
+          wrapper.find('[data-testid="quote-superseded"]').text(),
+        ).not.toContain('request_title');
+        expect(wrapper.find('[data-testid="estimate-badge"]').exists()).toBe(
+          false,
+        );
+      });
+    });
+
+    describe('the estimate badge', () => {
+      it.each<[QuoteStatus, boolean]>([
+        ['requested', true],
+        ['pending', false],
+        ['accepted', false],
+      ])('a %s quotation: %s', async (status, shown) => {
+        const wrapper = await mountWith(makeQuote({ status }));
+
+        expect(wrapper.find('[data-testid="estimate-badge"]').exists()).toBe(
+          shown,
+        );
+      });
+
+      it('is not on a replaced offer', async () => {
+        const wrapper = await mountWith(replaced());
+
+        expect(wrapper.find('[data-testid="estimate-badge"]').exists()).toBe(
+          false,
+        );
+      });
+    });
+
+    it('leaves an unanswered request as it is: no notice, its own status text', async () => {
+      const wrapper = await mountWith(
+        makeQuote({
+          id: 'q-000',
+          status: 'requested',
+          versions: [{ ...chain[3]!, status: 'requested' }],
+        }),
+      );
+
+      expect(wrapper.find('[data-testid="quote-superseded"]').exists()).toBe(
+        false,
+      );
+      expect(
+        wrapper.find('[data-testid="quote-meta-status"]').text(),
+      ).toContain('portal.quotations.status_info_requested');
     });
 
     it.each<QuoteStatus>(['pending', 'canceled'])(

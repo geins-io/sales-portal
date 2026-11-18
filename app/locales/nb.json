@@ -1052,7 +1052,11 @@
         "superseded_text_unnamed": "Selgeren har sendt en nyere versjon. Du kan lese denne, men ikke svare på den.",
         "view_latest": "Vis siste versjon",
         "valid_to": "gjelder til og med {date}",
-        "request_sent": "Sendt"
+        "request_sent": "Sendt",
+        "request_title": "Din forespørsel",
+        "request_text": "Slik så forespørselen ut da du sendte den {date}. Selgerens tilbud bygger på den, og prisene her er anslåtte. Den kan ikke besvares.",
+        "request_text_undated": "Slik så forespørselen ut da du sendte den. Selgerens tilbud bygger på den, og prisene her er anslåtte. Den kan ikke besvares.",
+        "request_status_info": "Forespørselen du sendte. Selgerens tilbud bygger på den."
       },
       "order": {
         "heading": "Bestill fra tilbud – {name}",

@@ -1052,7 +1052,11 @@
         "superseded_text_unnamed": "Der Verkäufer hat eine neuere Version gesendet. Sie können diese lesen, aber nicht beantworten.",
         "view_latest": "Neueste Version anzeigen",
         "valid_to": "gültig bis {date}",
-        "request_sent": "Gesendet"
+        "request_sent": "Gesendet",
+        "request_title": "Ihre Anfrage",
+        "request_text": "So sah die Anfrage aus, als Sie sie am {date} gesendet haben. Das Angebot des Verkäufers basiert darauf, und die Preise hier sind Schätzungen. Sie kann nicht beantwortet werden.",
+        "request_text_undated": "So sah die Anfrage aus, als Sie sie gesendet haben. Das Angebot des Verkäufers basiert darauf, und die Preise hier sind Schätzungen. Sie kann nicht beantwortet werden.",
+        "request_status_info": "Die Anfrage, die Sie gesendet haben. Das Angebot des Verkäufers basiert darauf."
       },
       "order": {
         "heading": "Aus Angebot bestellen – {name}",

@@ -35,8 +35,11 @@ interface Chain {
   older: Version;
 }
 
-/** The first listed quotation with an offer that a newer version replaced. */
-async function findChain(page: Page): Promise<Chain | undefined> {
+/** The first listed quotation whose versions hold the one `pick` wants. */
+async function findChain(
+  page: Page,
+  pick: (rest: Version[]) => Version | undefined,
+): Promise<Chain | undefined> {
   const response = await apiGet(page.request, '/api/quotes');
   expect(response.ok(), '/api/quotes did not answer 200').toBe(true);
   const { quotes } = (await response.json()) as { quotes: { id: string }[] };
@@ -47,11 +50,18 @@ async function findChain(page: Page): Promise<Chain | undefined> {
       quote: { versions: Version[] };
     };
     const [latest, ...rest] = quote.versions;
-    const older = rest.find((v) => v.validFrom && v.status === 'revised');
+    const older = pick(rest);
     if (latest && older) return { latest, older };
   }
   return undefined;
 }
+
+/** An offer a newer version replaced. */
+const replacedOffer = (rest: Version[]) =>
+  rest.find((v) => v.validFrom && v.status === 'revised');
+/** The buyer's request, last and never sent by the seller, once replaced. */
+const replacedRequest = (rest: Version[]) =>
+  rest.find((v) => !v.validFrom && v.status === 'revised');
 
 const viewPath = (id: string) => `/se/sv/portal/quotations/${id}`;
 
@@ -67,7 +77,7 @@ test.describe('Quotation versions', () => {
   test('a replaced version reads Ersatt, offers no answer, and leads to the newest', async ({
     page,
   }) => {
-    const chain = await findChain(page);
+    const chain = await findChain(page, replacedOffer);
     outOfScope(
       !chain,
       'fixture-missing',
@@ -108,10 +118,54 @@ test.describe('Quotation versions', () => {
     );
   });
 
+  test("the buyer's request opens as sent, with estimated prices and no answer", async ({
+    page,
+  }) => {
+    const chain = await findChain(page, replacedRequest);
+    outOfScope(
+      !chain,
+      'fixture-missing',
+      'the test account has no request the seller has made an offer from',
+    );
+    const { latest, older: request } = chain!;
+
+    await open(page, request.quotationId);
+
+    await expect(page.locator('[data-testid="quote-kind"]')).toContainText(
+      'Offertförfrågan',
+    );
+    const notice = page.locator('[data-testid="quote-superseded"]');
+    await expect(notice).toContainText('Din förfrågan');
+    await expect(notice).toContainText(
+      'Så här såg förfrågan ut när du skickade den',
+    );
+    await expect(notice).not.toContainText('ersatt');
+    await expect(
+      page.locator('[data-testid="quote-meta-status"]'),
+    ).toContainText('Förfrågan som du skickade.');
+    await expect(
+      page.locator('[data-testid="quote-estimate-badge"]'),
+    ).toBeVisible();
+    for (const id of [
+      'accept-btn',
+      'decline-btn',
+      'quote-withdraw',
+      'quote-place-order',
+    ]) {
+      await expect(page.locator(`[data-testid="${id}"]`)).toHaveCount(0);
+    }
+
+    await page.locator('[data-testid="quote-view-latest"]').click();
+    await expect(page).toHaveURL(
+      new RegExp(`/quotations/${latest.quotationId}$`),
+      { timeout: PAGE_TIMEOUT },
+    );
+  });
+
   test('the picker opens an older version on its own page', async ({
     page,
   }) => {
-    const chain = await findChain(page);
+    const chain = await findChain(page, replacedOffer);
     outOfScope(
       !chain,
       'fixture-missing',

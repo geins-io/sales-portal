@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
+  isRequestVersion,
   quoteAcceptKind,
   quoteAmounts,
   quoteCanOrder,
   quoteDiscountLabel,
+  quoteEstimated,
   quoteKindLabelKey,
   quoteLinksConfiguredLines,
   quoteResponses,
@@ -564,6 +566,118 @@ describe('quoteKindLabelKey', () => {
     ['unknown', 'portal.quotations.kind_quotation'],
   ])('calls a %s one %s', (status, key) => {
     expect(quoteKindLabelKey(status)).toBe(key);
+  });
+
+  it("calls the buyer's request a request once it is replaced", () => {
+    expect(quoteKindLabelKey('revised', true)).toBe(
+      'portal.quotations.kind_request',
+    );
+  });
+});
+
+// A chain the seller answered: the request, last and unsent by the seller,
+// replaced by two offers.
+const requestChain = [
+  { id: 'q-01', validFrom: '2026-11-18T10:00:00Z' },
+  { id: 'q-00' },
+];
+const chain = (entries: { id: string; validFrom?: string }[]) =>
+  entries.map((e) => ({
+    quotationId: e.id,
+    quotationNumber: e.id,
+    quoteNumber: e.id,
+    status: 'revised' as QuoteStatus,
+    ...(e.validFrom ? { validFrom: e.validFrom } : {}),
+  }));
+
+describe('isRequestVersion', () => {
+  it("is the buyer's request once the seller has replaced it", () => {
+    expect(
+      isRequestVersion(
+        makeQuote({
+          id: 'q-00',
+          status: 'revised',
+          versions: chain(requestChain),
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('is not the newest offer of that chain', () => {
+    expect(
+      isRequestVersion(
+        makeQuote({
+          id: 'q-01',
+          status: 'revised',
+          versions: chain(requestChain),
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it('is not a seller-started -00, which the seller sent', () => {
+    const sellerStarted = chain([
+      { id: 'q-01', validFrom: '2026-11-18T10:00:00Z' },
+      { id: 'q-00', validFrom: '2026-11-17T10:00:00Z' },
+    ]);
+    expect(
+      isRequestVersion(
+        makeQuote({ id: 'q-00', status: 'revised', versions: sellerStarted }),
+      ),
+    ).toBe(false);
+  });
+
+  it('is not a request the seller has not answered', () => {
+    expect(
+      isRequestVersion(
+        makeQuote({
+          id: 'q-00',
+          status: 'requested',
+          versions: chain([{ id: 'q-00' }]),
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it('is not a quotation missing from its versions', () => {
+    expect(
+      isRequestVersion(
+        makeQuote({
+          id: 'q-02',
+          status: 'revised',
+          versions: chain(requestChain),
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isRequestVersion(
+        makeQuote({ id: 'q-00', status: 'revised', versions: [] }),
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('quoteEstimated', () => {
+  it.each<[QuoteStatus, boolean]>([
+    ['request_draft', true],
+    ['requested', true],
+    ['pending', false],
+    ['accepted', false],
+    ['revised', false],
+  ])('a %s quotation: %s', (status, estimated) => {
+    expect(quoteEstimated(makeQuote({ status }))).toBe(estimated);
+  });
+
+  it("estimates the buyer's request after it is replaced", () => {
+    expect(
+      quoteEstimated(
+        makeQuote({
+          id: 'q-00',
+          status: 'revised',
+          versions: chain(requestChain),
+        }),
+      ),
+    ).toBe(true);
   });
 });
 

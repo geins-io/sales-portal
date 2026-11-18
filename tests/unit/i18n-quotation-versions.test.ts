@@ -50,6 +50,23 @@ const TEXTS: [string, string, string][] = [
   ['revisions.view_latest', 'Visa senaste versionen', 'View latest version'],
   ['revisions.valid_to', 'gäller t.o.m. {date}', 'valid until {date}'],
   ['revisions.request_sent', 'Skickad', 'Sent'],
+  ['revisions.request_title', 'Din förfrågan', 'Your request'],
+  [
+    'revisions.request_text',
+    'Så här såg förfrågan ut när du skickade den {date}. Säljarens offert bygger på den, och priserna här är uppskattade. Den kan inte besvaras.',
+    "This is the request as you sent it on {date}. The seller's quotation is based on it, and the prices here are estimates. It cannot be answered.",
+  ],
+  [
+    'revisions.request_status_info',
+    'Förfrågan som du skickade. Säljarens offert bygger på den.',
+    "The request you sent. The seller's quotation is based on it.",
+  ],
+  // No send date to show: the prototype's text without it.
+  [
+    'revisions.request_text_undated',
+    'Så här såg förfrågan ut när du skickade den. Säljarens offert bygger på den, och priserna här är uppskattade. Den kan inte besvaras.',
+    "This is the request as you sent it. The seller's quotation is based on it, and the prices here are estimates. It cannot be answered.",
+  ],
   // A version without a number to show: the status text is the prototype's
   // `status_info.revised`; the notice is worded to match.
   [
