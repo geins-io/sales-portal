@@ -39,6 +39,7 @@ import {
   getQuoteStatusVariant,
 } from '~/utils/quote-status';
 import { QUOTE_EVENT_ICONS, outlinedStatusClass } from '~/utils/quote-log';
+import { quoteVersionLabel } from '~/utils/quote-view';
 import type { QuoteThread, QuoteThreadEntry } from '#shared/types/quote';
 
 const props = defineProps<{
@@ -273,6 +274,7 @@ const hasChange = (entry: QuoteThreadEntry) =>
             :icon="QUOTE_EVENT_ICONS[entry.event!.type]"
             :actor="entry.side === 'system' ? undefined : authorOf(entry)"
             :label="eventText(entry)"
+            :version="quoteVersionLabel(entry.version, t)"
             :from="entry.event!.from"
             :to="entry.event!.to"
             :datetime="entry.at"
@@ -310,9 +312,18 @@ const hasChange = (entry: QuoteThreadEntry) =>
               >
                 {{ initials(authorOf(entry)) }}
               </span>
-              <p class="min-w-0 flex-1 truncate text-sm font-medium">
-                {{ authorOf(entry) }}
-              </p>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-medium">
+                  {{ authorOf(entry) }}
+                </p>
+                <p
+                  v-if="entry.version"
+                  class="text-foreground/70 text-xs whitespace-nowrap"
+                  data-testid="quote-thread-version"
+                >
+                  {{ quoteVersionLabel(entry.version, t) }}
+                </p>
+              </div>
               <div class="flex shrink-0 items-center gap-2">
                 <span
                   v-if="hasChange(entry)"

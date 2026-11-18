@@ -1,5 +1,6 @@
 import type { CartLineConfiguration, PriceType } from './commerce';
 import type { QuoteListFilter } from '../constants/quote';
+import type { QuoteVersionName } from '../utils/quote-versions';
 
 // ---------------------------------------------------------------------------
 // Quote Status
@@ -328,6 +329,8 @@ export interface QuoteThreadEntry {
   replyTo?: { authorName?: string; text?: string };
   /** The buyer may delete it: their own message, nothing after it yet. */
   deletable?: true;
+  /** The version it was written or made on; only with several versions. */
+  version?: QuoteVersionName;
 }
 
 export interface QuoteThread {

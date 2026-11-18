@@ -591,6 +591,93 @@ describe('PortalQuoteThread', () => {
     expect(pills[1]!.classes()).not.toContain('text-white');
   });
 
+  describe('the version of each entry', () => {
+    const OFFER_2 = '2611-2-1066-02';
+    const REQUEST = 'portal.quotations.version.request';
+
+    it('names the version on its own line under the event, never broken', async () => {
+      data.value = {
+        thread: thread([
+          {
+            id: 'history-1',
+            at: '2026-11-18T10:00:00Z',
+            side: 'seller',
+            authorName: 'Erik Sälj',
+            event: { type: 'revision_sent', to: 'pending' },
+            version: { kind: 'offer', number: OFFER_2 },
+          },
+        ]),
+      };
+      const wrapper = await mountThread();
+
+      const line = wrapper.find('[data-testid="quote-thread-event-line"]');
+      expect(line.find('[data-testid="quote-thread-event-text"]').text()).toBe(
+        'Erik Sälj portal.quotations.thread.event.revision_sent',
+      );
+      const version = line.find('[data-testid="quote-thread-version"]');
+      expect(version.text()).toBe(OFFER_2);
+      expect(version.element.tagName).toBe('P');
+      expect(version.classes()).toContain('whitespace-nowrap');
+    });
+
+    it('names the version under the author of a message, never broken', async () => {
+      data.value = {
+        thread: thread(
+          [
+            {
+              id: 'm-1',
+              at: '2026-11-18T08:00:00Z',
+              side: 'buyer',
+              authorName: 'Anna Berg',
+              text: 'Förfrågan',
+              event: { type: 'request_sent' },
+              version: { kind: 'request' },
+            },
+          ],
+          1,
+        ),
+      };
+      const wrapper = await mountThread();
+
+      const [entry] = entries(wrapper);
+      const version = entry!.find('[data-testid="quote-thread-version"]');
+      expect(version.text()).toBe(REQUEST);
+      expect(version.classes()).toContain('whitespace-nowrap');
+    });
+
+    it('names no version when the entry has none', async () => {
+      data.value = {
+        thread: thread(
+          [
+            {
+              id: 'm-1',
+              at: '2026-11-18T08:00:00Z',
+              side: 'seller',
+              authorName: 'Erik Sälj',
+              text: 'Hej',
+            },
+            {
+              id: 'history-1',
+              at: '2026-11-18T09:00:00Z',
+              side: 'buyer',
+              authorName: 'Anna Berg',
+              event: { type: 'accepted' },
+            },
+          ],
+          1,
+        ),
+      };
+      const wrapper = await mountThread();
+
+      expect(
+        wrapper.find('[data-testid="quote-thread-version"]').exists(),
+      ).toBe(false);
+      expect(
+        wrapper.find('[data-testid="quote-thread-event-text"]').text(),
+      ).toBe('Anna Berg portal.quotations.thread.event.accepted');
+    });
+  });
+
   describe('writing', () => {
     const SELLER_MESSAGE: QuoteThreadEntry = {
       id: '3f2b8c1e-5d4a-4e6b-9c7d-1a2b3c4d5e6f',

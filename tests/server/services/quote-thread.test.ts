@@ -1101,6 +1101,417 @@ describe('buildQuoteThread with the status history', () => {
     ]);
   });
 
+  describe('the version of each entry', () => {
+    /** `revisions` as Geins answers them: newest first, the request last. */
+    const revisions = (...numbers: [string, string | null][]) =>
+      numbers.map(([quotationNumber, validFrom]) => ({
+        quotationId: `id-${quotationNumber}`,
+        quotationNumber,
+        validFrom,
+      }));
+
+    const versionOf = (e: QuoteThreadEntry) =>
+      !e.version
+        ? '-'
+        : e.version.kind === 'request'
+          ? 'request'
+          : e.version.number;
+
+    /** What happened and on which version. */
+    const tagged = (entries: QuoteThreadEntry[]) =>
+      entries.map((e) =>
+        [e.event?.type ?? 'message', e.text, versionOf(e)]
+          .filter(Boolean)
+          .join(' '),
+      );
+
+    it('tags a request and three offers, messages and events, each with its own version', () => {
+      const n = (s: string) => `2611-2-1066-${s}`;
+      const { entries } = buildQuoteThread(
+        [
+          message({
+            type: 'FROM_CUSTOMER',
+            authorName: 'Anna Berg',
+            message: 'Förfrågan',
+            timestamp: '2026-11-18T08:00:01Z',
+            quotationNumber: n('00'),
+          }),
+          message({
+            type: 'FROM_CUSTOMER',
+            authorName: 'Anna Berg',
+            message: 'Och en fråga',
+            timestamp: '2026-11-18T08:05:00Z',
+            quotationNumber: n('00'),
+            tags: [{ key: 'source', value: 'chat' }],
+          }),
+          message({
+            message: 'Här är offerten',
+            timestamp: '2026-11-18T09:01:00Z',
+            quotationNumber: n('01'),
+          }),
+          message({
+            type: 'FROM_CUSTOMER',
+            authorName: 'Anna Berg',
+            message: 'Kan ni sänka priset?',
+            timestamp: '2026-11-18T10:01:00Z',
+            quotationNumber: n('02'),
+          }),
+          message({
+            message: 'Sänkt',
+            timestamp: '2026-11-18T11:01:00Z',
+            quotationNumber: n('03'),
+          }),
+        ],
+        quotation(
+          [
+            change(
+              'create',
+              null,
+              'REQUEST_DRAFT',
+              'CUSTOMER',
+              '2026-11-18T07:59:00Z',
+              n('00'),
+            ),
+            change(
+              'release',
+              'REQUEST_DRAFT',
+              'REQUESTED',
+              'CUSTOMER',
+              '2026-11-18T08:00:02Z',
+              n('00'),
+            ),
+            change(
+              'revise',
+              'REQUESTED',
+              'REVISED',
+              'SELLER',
+              '2026-11-18T09:00:00.1Z',
+              n('00'),
+            ),
+            change(
+              'send',
+              'DRAFT',
+              'PENDING',
+              'SELLER',
+              '2026-11-18T09:00:00.2Z',
+              n('01'),
+            ),
+            change(
+              'revise',
+              'PENDING',
+              'REVISED',
+              'SELLER',
+              '2026-11-18T10:00:00.1Z',
+              n('01'),
+            ),
+            change(
+              'send',
+              'DRAFT',
+              'PENDING',
+              'SELLER',
+              '2026-11-18T10:00:00.2Z',
+              n('02'),
+            ),
+            change(
+              'revise',
+              'PENDING',
+              'REVISED',
+              'SELLER',
+              '2026-11-18T11:00:00.1Z',
+              n('02'),
+            ),
+            change(
+              'send',
+              'DRAFT',
+              'PENDING',
+              'SELLER',
+              '2026-11-18T11:00:00.2Z',
+              n('03'),
+            ),
+          ],
+          {
+            revisions: revisions(
+              [n('03'), '2026-11-18T11:00:00.2Z'],
+              [n('02'), '2026-11-18T10:00:00.2Z'],
+              [n('01'), '2026-11-18T09:00:00.2Z'],
+              [n('00'), null],
+            ),
+          },
+        ),
+      );
+
+      expect(tagged(entries)).toEqual([
+        'request_sent Förfrågan request',
+        'message Och en fråga request',
+        `quote_sent ${n('01')}`,
+        `message Här är offerten ${n('01')}`,
+        `revision_sent ${n('02')}`,
+        `message Kan ni sänka priset? ${n('02')}`,
+        `revision_sent ${n('03')}`,
+        `message Sänkt ${n('03')}`,
+      ]);
+    });
+
+    it('tags a quotation the seller started from its first offer on', () => {
+      const n = (s: string) => `2611-2-1067-${s}`;
+      const { entries } = buildQuoteThread(
+        [],
+        quotation(
+          [
+            change(
+              'send',
+              'DRAFT',
+              'PENDING',
+              'SELLER',
+              '2026-11-18T09:00:00Z',
+              n('00'),
+            ),
+            change(
+              'revise',
+              'PENDING',
+              'REVISED',
+              'SELLER',
+              '2026-11-18T10:00:00.1Z',
+              n('00'),
+            ),
+            change(
+              'send',
+              'DRAFT',
+              'PENDING',
+              'SELLER',
+              '2026-11-18T10:00:00.2Z',
+              n('01'),
+            ),
+            change(
+              'revise',
+              'PENDING',
+              'REVISED',
+              'SELLER',
+              '2026-11-18T11:00:00.1Z',
+              n('01'),
+            ),
+            change(
+              'send',
+              'DRAFT',
+              'PENDING',
+              'SELLER',
+              '2026-11-18T11:00:00.2Z',
+              n('02'),
+            ),
+          ],
+          {
+            revisions: revisions(
+              [n('02'), '2026-11-18T11:00:00.2Z'],
+              [n('01'), '2026-11-18T10:00:00.2Z'],
+              [n('00'), '2026-11-18T09:00:00Z'],
+            ),
+          },
+        ),
+      );
+
+      expect(tagged(entries)).toEqual([
+        `quote_sent ${n('00')}`,
+        `revision_sent ${n('01')}`,
+        `revision_sent ${n('02')}`,
+      ]);
+    });
+
+    it("tags a change on the live version with that version's name", () => {
+      const n = (s: string) => `2611-2-1068-${s}`;
+      const { entries } = buildQuoteThread(
+        [],
+        quotation(
+          [
+            change(
+              'send',
+              'DRAFT',
+              'PENDING',
+              'SELLER',
+              '2026-11-18T09:00:00Z',
+              n('00'),
+            ),
+            change(
+              'revise',
+              'PENDING',
+              'REVISED',
+              'SELLER',
+              '2026-11-18T10:00:00.1Z',
+              n('00'),
+            ),
+            change(
+              'send',
+              'DRAFT',
+              'PENDING',
+              'SELLER',
+              '2026-11-18T10:00:00.2Z',
+              n('01'),
+            ),
+            change(
+              'cancel',
+              'PENDING',
+              'CANCELED',
+              'SELLER',
+              '2026-11-18T11:00:00Z',
+              n('01'),
+            ),
+          ],
+          {
+            revisions: revisions(
+              [n('01'), '2026-11-18T10:00:00.2Z'],
+              [n('00'), '2026-11-18T09:00:00Z'],
+            ),
+          },
+        ),
+      );
+
+      expect(tagged(entries)).toEqual([
+        `quote_sent ${n('00')}`,
+        `revision_sent ${n('01')}`,
+        `canceled ${n('01')}`,
+      ]);
+    });
+
+    it('tags a message sent with a new version by the version it was written on', () => {
+      const at = '2026-11-18T10:00:00.2Z';
+      const { entries } = buildQuoteThread(
+        [
+          message({
+            message: 'Ny version med rabatt',
+            timestamp: at,
+            quotationNumber: '2611-2-0001-01',
+            tags: statusTags('send', 'draft', 'pending'),
+          }),
+        ],
+        quotation(
+          [
+            change(
+              'revise',
+              'PENDING',
+              'REVISED',
+              'SELLER',
+              '2026-11-18T10:00:00.1Z',
+              '2611-2-0001-00',
+            ),
+            change('send', 'DRAFT', 'PENDING', 'SELLER', at, '2611-2-0001-01'),
+          ],
+          {
+            revisions: revisions(
+              ['2611-2-0001-01', at],
+              ['2611-2-0001-00', '2026-11-18T09:00:00Z'],
+            ),
+          },
+        ),
+      );
+
+      expect(tagged(entries)).toEqual([
+        'revision_sent Ny version med rabatt 2611-2-0001-01',
+      ]);
+    });
+
+    it('leaves untagged what was written on a version the buyer cannot see', () => {
+      const { entries } = buildQuoteThread(
+        [
+          message({ message: 'Utan nummer' }),
+          message({
+            message: 'På ett utkast',
+            quotationNumber: '2611-2-1069-02',
+          }),
+        ],
+        quotation([], {
+          revisions: revisions(
+            ['2611-2-1069-01', '2026-11-18T10:00:00Z'],
+            ['2611-2-1069-00', '2026-11-18T09:00:00Z'],
+          ),
+        }),
+      );
+
+      expect(tagged(entries)).toEqual([
+        'message Utan nummer -',
+        'message På ett utkast -',
+      ]);
+    });
+
+    it('tags only the request when the store shows a number the versions lack', () => {
+      const n = (s: string) => `2611-2-1066-${s}`;
+      const { entries } = buildQuoteThread(
+        [
+          message({
+            type: 'FROM_CUSTOMER',
+            message: 'Förfrågan',
+            timestamp: '2026-11-18T08:00:01Z',
+            quotationNumber: n('00'),
+          }),
+          message({
+            message: 'Här är offerten',
+            timestamp: '2026-11-18T09:01:00Z',
+            quotationNumber: n('01'),
+          }),
+        ],
+        quotation([], {
+          revisions: revisions(
+            [n('01'), '2026-11-18T09:00:00Z'],
+            [n('00'), null],
+          ),
+        }),
+        'externalNumber',
+      );
+
+      expect(tagged(entries)).toEqual([
+        'request_sent Förfrågan request',
+        'message Här är offerten -',
+      ]);
+    });
+
+    it('tags by the quotation number when the store shows that', () => {
+      const { entries } = buildQuoteThread(
+        [message({ message: 'Hej', quotationNumber: '2611-2-0001-01' })],
+        quotation([], {
+          revisions: revisions(
+            ['2611-2-0001-01', '2026-11-18T09:00:00Z'],
+            ['2611-2-0001-00', null],
+          ),
+        }),
+        'quotationNumber',
+      );
+
+      expect(tagged(entries)).toEqual(['message Hej 2611-2-0001-01']);
+    });
+
+    it.each<[string, [string, string | null][] | undefined]>([
+      ['one version', [['2611-2-0001-00', '2026-11-18T09:00:00Z']]],
+      ['no versions', []],
+      ['no revisions at all', undefined],
+    ])('tags nothing with %s', (_, list) => {
+      const { entries } = buildQuoteThread(
+        [message({ message: 'Hej', quotationNumber: '2611-2-0001-00' })],
+        quotation(
+          [
+            change(
+              'accept',
+              'PENDING',
+              'ACCEPTED',
+              'CUSTOMER',
+              '2026-11-18T10:00:00Z',
+              '2611-2-0001-00',
+            ),
+          ],
+          list ? { revisions: revisions(...list) } : {},
+        ),
+      );
+
+      expect(entries).toHaveLength(2);
+      for (const entry of entries) expect(entry).not.toHaveProperty('version');
+    });
+
+    it('tags nothing without the history', () => {
+      const { entries } = buildQuoteThread([
+        message({ message: 'Hej', quotationNumber: '2611-2-0001-01' }),
+      ]);
+
+      expect(entries[0]).not.toHaveProperty('version');
+    });
+  });
+
   describe('the request comment', () => {
     const comment = (overrides: Partial<Message> = {}) =>
       message({
@@ -1507,7 +1918,7 @@ describe('buildQuoteThread with the status history', () => {
 });
 
 describe('getQuoteThread', () => {
-  const event = {} as H3Event;
+  const event = { context: {} } as H3Event;
 
   it("reads the quotation's messages as the buyer, and builds the thread", async () => {
     mockGraphqlQuery.mockResolvedValue({
@@ -1586,6 +1997,89 @@ describe('getQuoteThread', () => {
     ]);
     expect(thread.entries[1]!.authorName).toBe('Anna Berg');
     expect(thread.messageCount).toBe(1);
+  });
+
+  it('tags each entry with its version from the revisions the history read answers', async () => {
+    answer({
+      messages: async () => ({
+        getQuotationMessages: [
+          message({ message: 'Hej', quotationNumber: '2611-2-0001-00' }),
+        ],
+      }),
+      history: async () => ({
+        getQuotationCart: {
+          id: 'q-1',
+          quotation: {
+            ...HISTORY.getQuotationCart.quotation,
+            revisions: [
+              {
+                quotationId: 'q-2',
+                quotationNumber: '2611-2-0001-01',
+                validFrom: '2026-11-10T08:30:00Z',
+              },
+              {
+                quotationId: 'q-1',
+                quotationNumber: '2611-2-0001-00',
+                validFrom: null,
+              },
+            ],
+          },
+        },
+      }),
+    });
+
+    const thread = await getQuoteThread('q-1', event);
+
+    expect(thread.entries.map((e) => e.version)).toEqual([
+      { kind: 'request' },
+      { kind: 'request' },
+    ]);
+  });
+
+  it("names the versions by the number the store's setting shows", async () => {
+    const revisions = [
+      {
+        quotationId: 'q-2',
+        quotationNumber: '2611-2-0001-01',
+        validFrom: '2026-11-10T08:30:00Z',
+      },
+      {
+        quotationId: 'q-1',
+        quotationNumber: '2611-2-0001-00',
+        validFrom: null,
+      },
+    ];
+    answer({
+      messages: async () => ({
+        getQuotationMessages: [
+          message({ message: 'Hej', quotationNumber: '2611-2-0001-01' }),
+        ],
+      }),
+      history: async () => ({
+        getQuotationCart: {
+          id: 'q-1',
+          quotation: { statusHistory: [], revisions },
+        },
+      }),
+    });
+    const onStore = (quoteDisplayNumber: string) =>
+      ({
+        context: { tenant: { config: { quoteDisplayNumber } } },
+      }) as unknown as H3Event;
+
+    const shown = await getQuoteThread('q-1', onStore('quotationNumber'));
+    const external = await getQuoteThread('q-1', onStore('externalNumber'));
+    // A tenant without its config reads as the default.
+    const unset = await getQuoteThread('q-1', {
+      context: { tenant: { hostname: 'shop.example' } },
+    } as unknown as H3Event);
+
+    expect(shown.entries[0]!.version).toEqual({
+      kind: 'offer',
+      number: '2611-2-0001-01',
+    });
+    expect(external.entries[0]).not.toHaveProperty('version');
+    expect(unset.entries[0]!.version).toEqual(shown.entries[0]!.version);
   });
 
   it("names the side, not the quotation's owner, on a seller's change without a message", async () => {
@@ -1707,7 +2201,7 @@ describe('getQuoteThread', () => {
 });
 
 describe('createQuoteMessage', () => {
-  const event = {} as H3Event;
+  const event = { context: {} } as H3Event;
   const PARENT = '3f2b8c1e-5d4a-4e6b-9c7d-1a2b3c4d5e6f';
 
   beforeEach(() => {
@@ -1778,7 +2272,7 @@ describe('createQuoteMessage', () => {
 });
 
 describe('deleteQuoteMessage', () => {
-  const event = {} as H3Event;
+  const event = { context: {} } as H3Event;
 
   const own = (overrides: Partial<Message> = {}) =>
     message({
@@ -1946,7 +2440,7 @@ describe('deleteQuoteMessage', () => {
 });
 
 describe('a log call Geins fails', () => {
-  const event = {} as H3Event;
+  const event = { context: {} } as H3Event;
   const refused = new Error('Quotation not found');
   const notFound = () =>
     createError({ statusCode: 404, message: 'Quote q-1 not found' });
