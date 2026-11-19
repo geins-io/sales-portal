@@ -40,12 +40,18 @@ import {
 } from '~/utils/quote-status';
 import { QUOTE_EVENT_ICONS, outlinedStatusClass } from '~/utils/quote-log';
 import { quoteVersionLabel } from '~/utils/quote-view';
-import type { QuoteThread, QuoteThreadEntry } from '#shared/types/quote';
+import type {
+  QuoteStatus,
+  QuoteThread,
+  QuoteThreadEntry,
+} from '#shared/types/quote';
 
 const props = defineProps<{
   quoteId: string;
   /** Under the title, e.g. "2611-2-0024-00 · Verktyg". */
   subtitle: string;
+  /** An answer from the page changes it, and writes to the log. */
+  status: QuoteStatus;
 }>();
 
 const { t } = useI18n();
@@ -101,6 +107,8 @@ function onMenuCloseFocus(event: Event) {
 // After a write the read must start anew: a read still on its way may have
 // left before the write landed.
 const rereadAfterWrite = () => refresh({ dedupe: 'cancel' });
+
+watch(() => props.status, rereadAfterWrite);
 
 async function onSent() {
   notice.value = null;
