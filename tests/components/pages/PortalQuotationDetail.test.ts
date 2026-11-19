@@ -274,9 +274,9 @@ const defaultStubs = {
   QuoteEstimateBadge: { template: '<span data-testid="estimate-badge" />' },
   // The thread reads its own data; covered in PortalQuoteThread.test.ts.
   PortalQuoteThread: {
-    props: ['quoteId', 'subtitle'],
+    props: ['quoteId', 'subtitle', 'status'],
     template:
-      '<div data-testid="quote-thread-stub" :data-quote-id="quoteId" :data-subtitle="subtitle" />',
+      '<div data-testid="quote-thread-stub" :data-quote-id="quoteId" :data-subtitle="subtitle" :data-status="status" />',
   },
 };
 
@@ -1816,6 +1816,28 @@ describe('PortalQuotationDetail', () => {
       expect(wrapper.find('[data-testid="quote-thread-stub"]').exists()).toBe(
         false,
       );
+    });
+
+    it('hands the thread the answered status, so it reads the log again', async () => {
+      // Without a confirmation step the accept leads to the order page instead.
+      mockAcceptQuote.mockResolvedValueOnce(
+        makeQuote({ status: 'accepted', requiresConfirmation: true }),
+      );
+      const wrapper = await mountWith(pending({ requiresConfirmation: true }));
+      const thread = () => wrapper.find('[data-testid="quote-thread-stub"]');
+      expect(thread().attributes('data-status')).toBe('pending');
+
+      await wrapper.find('[data-testid="accept-btn"]').trigger('click');
+      await wrapper
+        .find('[data-testid="quote-action-message"]')
+        .setValue('Accepterar');
+      await wrapper
+        .find('[data-testid="quote-action-confirm"]')
+        .trigger('click');
+      await flushPromises();
+
+      expect(mockAcceptQuote).toHaveBeenCalledWith('q-001', 'Accepterar');
+      expect(thread().attributes('data-status')).toBe('accepted');
     });
 
     it("reads the quotation alone: the thread's read is the thread's own", async () => {

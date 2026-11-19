@@ -555,7 +555,11 @@ const customerSummary = computed(() => {
             :request-sent-at="quote.requestSentAt"
             @select="openVersion"
           />
-          <PortalQuoteThread :quote-id="quoteId" :subtitle="threadSubtitle" />
+          <PortalQuoteThread
+            :quote-id="quoteId"
+            :subtitle="threadSubtitle"
+            :status="quote.status"
+          />
         </div>
       </div>
 

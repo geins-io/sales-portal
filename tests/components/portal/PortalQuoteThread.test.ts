@@ -104,7 +104,11 @@ function thread(entries: QuoteThreadEntry[], messageCount = 0): QuoteThread {
 
 async function mountThread() {
   const wrapper = mountComponent(PortalQuoteThread, {
-    props: { quoteId: 'q 1', subtitle: '2611-2-0024-00 · Verktyg' },
+    props: {
+      quoteId: 'q 1',
+      subtitle: '2611-2-0024-00 · Verktyg',
+      status: 'pending',
+    },
   });
   await flushPromises();
   return wrapper;
@@ -211,6 +215,42 @@ describe('PortalQuoteThread', () => {
     expect(wrapper.find('[data-testid="quote-thread-count"]').exists()).toBe(
       false,
     );
+  });
+
+  describe('when the quotation is answered from the page', () => {
+    it('adds no read to the first one', async () => {
+      await mountThread();
+
+      expect(refresh).not.toHaveBeenCalled();
+    });
+
+    it('reads the thread again, so the count takes in the message', async () => {
+      data.value = { thread: thread([], 4) };
+      const wrapper = await mountThread();
+      refresh.mockClear();
+      refresh.mockImplementationOnce(async () => {
+        data.value = { thread: thread([], 5) };
+      });
+
+      await wrapper.setProps({ status: 'accepted' });
+      await flushPromises();
+
+      // Not deferred to a read that may have left before the answer landed.
+      expect(refresh).toHaveBeenCalledExactlyOnceWith({ dedupe: 'cancel' });
+      expect(wrapper.find('[data-testid="quote-thread-count"]').text()).toBe(
+        '5',
+      );
+    });
+
+    it('reads nothing more while the status stays', async () => {
+      const wrapper = await mountThread();
+      refresh.mockClear();
+
+      await wrapper.setProps({ subtitle: '2611-2-0024-00', status: 'pending' });
+      await flushPromises();
+
+      expect(refresh).not.toHaveBeenCalled();
+    });
   });
 
   it('places the buyer right and the seller left, with name, time and text', async () => {
@@ -748,7 +788,11 @@ describe('PortalQuoteThread', () => {
     it('gives the field the focus the menu hands back to ⋯ after "Svara", and only then', async () => {
       data.value = { thread: thread([SELLER_MESSAGE], 1) };
       const wrapper = mountComponent(PortalQuoteThread, {
-        props: { quoteId: 'q 1', subtitle: '2611-2-0024-00 · Verktyg' },
+        props: {
+          quoteId: 'q 1',
+          subtitle: '2611-2-0024-00 · Verktyg',
+          status: 'pending',
+        },
         attachTo: document.body,
       });
       await flushPromises();
@@ -943,7 +987,11 @@ describe('PortalQuoteThread', () => {
     it('deletes on confirm, reads the thread again, and drops a reply to it', async () => {
       data.value = { thread: thread([MINE], 1) };
       const wrapper = mountComponent(PortalQuoteThread, {
-        props: { quoteId: 'q 1', subtitle: '2611-2-0024-00 · Verktyg' },
+        props: {
+          quoteId: 'q 1',
+          subtitle: '2611-2-0024-00 · Verktyg',
+          status: 'pending',
+        },
         attachTo: document.body,
       });
       await flushPromises();
