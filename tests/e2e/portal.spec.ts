@@ -910,6 +910,76 @@ test.describe('Portal Purchased Products', () => {
     await expect(productsPagination).toBeVisible({ timeout: PAGE_TIMEOUT });
     await expect(productsEmpty).toBeHidden();
   });
+
+  type ListedProduct = {
+    name: string;
+    articleNumber: string;
+    alias?: string | null;
+    totalQuantity: number;
+    latestOrderId: string;
+    latestOrderPublicId: string | null;
+  };
+
+  async function fetchPurchasedProducts(page: Page) {
+    const response = await apiGet(page.request, '/api/orders/products');
+    expect(response.ok(), '/api/orders/products did not answer 200').toBe(true);
+    return (await response.json()) as {
+      products: ListedProduct[];
+      total: number;
+    };
+  }
+
+  test("the start page's own read agrees with the whole list", async ({
+    page,
+  }) => {
+    const list = await fetchPurchasedProducts(page);
+    const response = await apiGet(
+      page.request,
+      '/api/orders/products/overview',
+    );
+    expect(
+      response.ok(),
+      '/api/orders/products/overview did not answer 200',
+    ).toBe(true);
+    const overview = (await response.json()) as {
+      products: { articleNumber: string }[];
+      total: number;
+      mostPurchasedName: string | null;
+    };
+
+    // Newest first in both; a tie for the most bought goes to the newer.
+    const mostBought = list.products.reduce((a, b) =>
+      a.totalQuantity >= b.totalQuantity ? a : b,
+    );
+    expect(overview.total).toBe(list.total);
+    expect(overview.products.map((p) => p.articleNumber)).toEqual(
+      list.products.slice(0, 4).map((p) => p.articleNumber),
+    );
+    expect(overview.mostPurchasedName).toBe(mostBought.name);
+  });
+
+  test("a bought product's page links to the newest order holding it", async ({
+    page,
+  }) => {
+    const [newest] = (await fetchPurchasedProducts(page)).products;
+    outOfScope(
+      !newest?.alias || !newest.latestOrderPublicId,
+      'fixture-missing',
+      'the test account has no bought product with a page and an order link',
+    );
+    if (!newest?.alias || !newest.latestOrderPublicId) return;
+
+    await page.goto(`/se/sv/p/${newest.alias}`);
+    await waitForHydration(page);
+
+    const row = page.locator('[data-testid="pdp-latest-ordered"]');
+    await expect(row).toBeVisible({ timeout: PAGE_TIMEOUT });
+    await expect(row).toContainText(`(${newest.latestOrderId})`);
+    await expect(row).toHaveAttribute(
+      'href',
+      `/se/sv/portal/orders/${newest.latestOrderPublicId}`,
+    );
+  });
 });
 
 test.describe('Portal Saved Lists', () => {
