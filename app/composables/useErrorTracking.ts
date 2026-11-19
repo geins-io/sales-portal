@@ -212,7 +212,8 @@ export function useErrorBoundary(context: ErrorContext = {}) {
 
     trackError(err, {
       ...context,
-      component: instance?.$options?.name || 'Unknown',
+      throwingComponent:
+        instance?.$options?.name ?? instance?.$options?.__name ?? 'Unknown',
       errorInfo: info,
     });
 

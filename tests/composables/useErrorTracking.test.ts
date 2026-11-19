@@ -7,6 +7,8 @@ import {
   afterEach,
   assert,
 } from 'vitest';
+import { defineComponent, h } from 'vue';
+import { mount } from '@vue/test-utils';
 import { mockConsole } from '../utils';
 
 // Mock Sentry. Each signature is the one useErrorTracking() calls it with —
@@ -432,6 +434,80 @@ describe('useErrorBoundary', () => {
     clearError();
 
     expect(error.value).toBeNull();
+  });
+
+  // A boundary around a child that throws in setup, mounted for real so onErrorCaptured runs.
+  // mount() rethrows any error that reaches the app, so a mount that returns proves the
+  // boundary stopped the error.
+  // `__name` is what a <script setup> SFC gets from the compiler instead of `name`.
+  function mountBoundary(
+    childError: unknown,
+    childNames: { name?: string; __name?: string } = {},
+  ) {
+    const ThrowingWidget = defineComponent({
+      ...childNames,
+      setup() {
+        throw childError;
+      },
+    });
+    const Boundary = defineComponent({
+      setup() {
+        const { error } = useErrorBoundary({ component: 'ErrorBoundary:hero' });
+        return () => (error.value ? h('p', 'fallback') : h(ThrowingWidget));
+      },
+    });
+    return mount(Boundary);
+  }
+
+  it("reports the boundary's section as component and the thrower separately", async () => {
+    const childError = new Error('widget failed');
+
+    const wrapper = mountBoundary(childError, { name: 'ThrowingWidget' });
+    await wrapper.vm.$nextTick();
+
+    expect(mockSentryCapture).toHaveBeenCalledWith(
+      childError,
+      expect.objectContaining({
+        tags: { component: 'ErrorBoundary:hero', action: undefined },
+        extra: expect.objectContaining({
+          component: 'ErrorBoundary:hero',
+          throwingComponent: 'ThrowingWidget',
+        }),
+      }),
+    );
+    expect(wrapper.text()).toBe('fallback');
+  });
+
+  it('reports a thrown non-object and an unnamed thrower', async () => {
+    const wrapper = mountBoundary('plain string');
+    await wrapper.vm.$nextTick();
+
+    const [captured, hint] = mockSentryCapture.mock.calls[0] ?? [];
+    assert.isDefined(captured);
+    expect(captured.message).toBe('plain string');
+    expect(hint?.extra).toMatchObject({ throwingComponent: 'Unknown' });
+    expect(wrapper.text()).toBe('fallback');
+  });
+
+  it('names a <script setup> thrower by its compiled name', async () => {
+    const wrapper = mountBoundary(new Error('banner failed'), {
+      __name: 'HeroBanner',
+    });
+    await wrapper.vm.$nextTick();
+
+    expect(mockSentryCapture.mock.calls[0]?.[1].extra).toMatchObject({
+      component: 'ErrorBoundary:hero',
+      throwingComponent: 'HeroBanner',
+    });
+  });
+
+  it('lets a fatal error pass to the app without reporting it', () => {
+    const fatalError = Object.assign(new Error('not found'), { fatal: true });
+
+    expect(() => mountBoundary(fatalError, { name: 'ThrowingWidget' })).toThrow(
+      fatalError,
+    );
+    expect(mockSentryCapture).not.toHaveBeenCalled();
   });
 });
 
