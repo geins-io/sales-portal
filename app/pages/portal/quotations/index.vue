@@ -256,8 +256,8 @@ function formatDate(dateStr: string): string {
       <Tabs v-model="filter" class="mb-8">
         <TabsList
           variant="underline"
+          surface="card"
           data-testid="quotations-filter"
-          class="overflow-x-auto"
         >
           <TabsTrigger
             v-for="f in QUOTE_LIST_FILTERS"

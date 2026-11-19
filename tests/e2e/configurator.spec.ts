@@ -871,6 +871,41 @@ test.describe('Configurator refused change', () => {
   });
 });
 
+test.describe('Configurator page width', () => {
+  /** The page's width and the viewport's; equal when nothing sticks out. */
+  function widths(page: Page) {
+    return page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+  }
+
+  test('is no wider than a 393 or a 360 px phone screen, with the colour sheet shut and open', async ({
+    page,
+  }) => {
+    const unavailable = await unavailableReason(page);
+    outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
+
+    for (const width of [393, 360]) {
+      await page.setViewportSize({ width, height: 851 });
+      await openConfigurator(page);
+      const shut = await widths(page);
+      expect(shut.scrollWidth, `page width at ${width} px`).toBe(
+        shut.clientWidth,
+      );
+
+      await openSection(page, COLOUR_SECTION);
+      await openColourSheet(page);
+      const open = await widths(page);
+      expect(
+        open.scrollWidth,
+        `page width at ${width} px with the colour sheet open`,
+      ).toBe(open.clientWidth);
+      await page.keyboard.press('Escape');
+    }
+  });
+});
+
 /**
  * The fixture's seed that commits as created and has stock for a second unit.
  * The workbench above needs a colour first and has one unit in stock.
