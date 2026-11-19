@@ -56,6 +56,11 @@ jobs:
       - name: Run type check
         run: pnpm typecheck
 
+      # Network-bound: every GraphQL document against the live Merchant API
+      # schema. Fails closed when the schema cannot be fetched.
+      - name: Validate GraphQL documents against the Merchant API
+        run: pnpm test:schema
+
       - name: Check the Playwright image tag
         run: pnpm check:playwright-image
 

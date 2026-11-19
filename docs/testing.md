@@ -721,6 +721,11 @@ nothing deletes — every run leaves carts behind, see
 | `e2e-full.yml` · E2E Suite (manual)                         | `workflow_dispatch`, any branch               | **Preflight, then every spec on all three projects**                             |
 | `e2e-order-placement.yml` · E2E Order Placement (mutating)  | `workflow_dispatch` only, with a tenant name  | **Preflight, then the `orders` project — places one real order**                 |
 
+The Lint & Type Check job also runs `pnpm test:schema` (`vitest.config.schema.ts`): every
+GraphQL document the server sends, through the real loader, validated against the live Merchant
+API schema. It needs the network, so `pnpm test` leaves it out, and it fails when the schema
+cannot be fetched rather than passing unchecked.
+
 `retries` is zero everywhere (`playwright.config.ts`), so a red run in either workflow is a real
 failure rather than one that survived three attempts. Both run the production build, so before a
 PR run `pnpm test:e2e` locally in dev mode — the one mode nothing else covers; the PR jobs cover
