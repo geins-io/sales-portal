@@ -141,29 +141,6 @@ GET /api/external/products
 → Default: https://api.app.com/{tenantHostname}/products
 ```
 
-## Error Logging API
-
-### Log Client Errors
-
-Receives client-side errors and logs them server-side.
-
-```
-POST /api/log/error
-```
-
-**Request Body:**
-
-```json
-{
-  "message": "Error message",
-  "stack": "Error stack trace",
-  "context": {
-    "component": "ProductList",
-    "action": "fetchData"
-  }
-}
-```
-
 ## Client-Side API Usage
 
 ### useFetch

@@ -428,7 +428,7 @@ export default defineEventHandler(async (event) => {
 });
 ```
 
-Pre-configured limiters: `loginRateLimiter` (5 failed logins/min), `registerRateLimiter` (3/min), `refreshRateLimiter` (10/min), `errorEndpointRateLimiter` (10/min).
+Pre-configured limiters: `loginRateLimiter` (5 failed logins/min), `registerRateLimiter` (3/min) and `refreshRateLimiter` (10/min).
 
 `getClientIp` keys on the `X-Forwarded-For` entry the trusted proxy appended, port stripped, and
 ignores what the client sent itself. `NUXT_TRUSTED_PROXY_HOPS` says how many proxies append (1 on

@@ -180,7 +180,7 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   ├── cookies.ts          # Cookie helpers (auth, tenant, cart, preview, locale)
 │   │   ├── errors.ts           # Error codes, createAppError, wrapServiceCall
 │   │   ├── sanitize.ts         # CSS/HTML/URL sanitization (tenant CSS, HTML attrs)
-│   │   ├── rate-limiter.ts     # Per-endpoint rate limiters (login, register, refresh, error-batch)
+│   │   ├── rate-limiter.ts     # Per-endpoint rate limiters (login, register, refresh)
 │   │   ├── auth.ts             # Auth token validation helpers
 │   │   ├── locale.ts           # getRequestLocale, getRequestMarket (cookie-based)
 │   │   ├── seo.ts              # SEO utilities (buildSiteUrl, isIndexable)
@@ -971,7 +971,6 @@ Pre-configured rate limiters in `server/utils/rate-limiter.ts`:
 - Login: 5 requests/min per IP
 - Register: 3 requests/min per IP
 - Token refresh: 10 requests/min per IP
-- Error batch: 10 requests/min per IP
 
 Rate limiter uses `useStorage('kv')` — scales to Redis in production.
 
