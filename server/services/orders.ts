@@ -8,7 +8,9 @@ import type {
   OrderDetailItem,
   OrderDetailType,
   OrderListItem,
+  OrderListPage,
 } from '#shared/types/commerce';
+import type { ListOrdersInput } from '../schemas/api-input';
 import {
   getTenantSDK,
   buildRequestContext,
@@ -166,52 +168,49 @@ export async function getOrderByNumber(
 
 /** The order's total written as the order page writes it, from the numbers. */
 function withTotalWritten(order: OrderListItem, locale: string): OrderListItem {
-  const summary = order.cart?.summary;
-  const total = summary?.total;
+  const total = order.orderTotal;
   if (!total) return order;
   const amount = amountWriter(order.currency, locale);
   return {
     ...order,
-    cart: {
-      ...order.cart,
-      summary: {
-        ...summary,
-        total: {
-          ...total,
-          sellingPriceIncVatFormatted: amount(
-            total.sellingPriceIncVat,
-            total.sellingPriceIncVatFormatted,
-          ),
-          sellingPriceExVatFormatted: amount(
-            total.sellingPriceExVat,
-            total.sellingPriceExVatFormatted,
-          ),
-        },
-      },
+    orderTotal: {
+      ...total,
+      sellingPriceIncVatFormatted: amount(
+        total.sellingPriceIncVat,
+        total.sellingPriceIncVatFormatted,
+      ),
+      sellingPriceExVatFormatted: amount(
+        total.sellingPriceExVat,
+        total.sellingPriceExVatFormatted,
+      ),
     },
   };
 }
 
-export async function listOrders(
+/** A page of orders as Geins answers it. */
+interface RawOrderPage {
+  count?: number | null;
+  orders?: OrderListItem[] | null;
+}
+
+/**
+ * Reads a page of orders together with the company buyer roster, and puts
+ * each order's buyer name and written total on it.
+ */
+async function readOrderPage(
+  queryFile: string,
+  variables: Record<string, unknown>,
   event: H3Event,
-): Promise<{ orders: OrderListItem[]; total: number }> {
+): Promise<OrderListPage> {
   const sdk = await getTenantSDK(event);
   const requestContext = buildRequestContext(event);
-  // Pulls orders and the company buyer roster in parallel. The Geins
-  // OrderType carries the placing buyer's numeric customerId, which
-  // matches CompanyBuyer.internalId. We join on that first because the
-  // identifier is per-order and reliable; customerEmail is kept as a
-  // secondary fallback for orders predating the customerId rollout.
-  // Unresolved rows stay null so the table renders a dash rather than
-  // the billing contact (which would mislead the viewer into thinking
-  // that person placed the order).
   const channel = getRequestChannelVariables(sdk, event);
   const [orderResult, company] = await Promise.all([
     wrapServiceCall(
       () =>
         sdk.core.graphql.query({
-          queryAsString: loadQuery('orders/orders-list.graphql'),
-          variables: { ...channel },
+          queryAsString: loadQuery(queryFile),
+          variables: { ...variables, ...channel },
           userToken: requestContext?.userToken,
         }),
       'order',
@@ -219,7 +218,12 @@ export async function listOrders(
     ),
     getCompany(event).catch(() => null),
   ]);
-  const orders = (unwrapGraphQL(orderResult) as OrderListItem[] | null) ?? [];
+  // Each query asks for one root, so one key comes back.
+  const page = unwrapGraphQL(orderResult) as RawOrderPage | null;
+  // The order's numeric customerId matches CompanyBuyer.internalId, which is
+  // per order and reliable; customerEmail is the fallback for orders from
+  // before customerId. An unresolved row stays null so the table shows a dash,
+  // never the billing contact, who did not necessarily place the order.
   const nameByInternalId = new Map<string, string>();
   const nameByEmail = new Map<string, string>();
   for (const buyer of company?.buyers ?? []) {
@@ -231,7 +235,7 @@ export async function listOrders(
     if (buyer.internalId) nameByInternalId.set(String(buyer.internalId), name);
     if (buyer.id) nameByEmail.set(buyer.id.toLowerCase(), name);
   }
-  const enriched = orders.map((order) => {
+  const orders = (page?.orders ?? []).map((order) => {
     const internalId =
       order.customerId !== undefined && order.customerId !== null
         ? String(order.customerId)
@@ -243,5 +247,21 @@ export async function listOrders(
       null;
     return { ...withTotalWritten(order, channel.languageId), placedBy };
   });
-  return { orders: enriched, total: enriched.length };
+  return { orders, total: page?.count ?? 0 };
+}
+
+/**
+ * One page of the order list, newest first as Geins sends it: the company's
+ * orders, or with `mine` the buyer's own.
+ */
+export function listOrders(
+  query: ListOrdersInput,
+  event: H3Event,
+): Promise<OrderListPage> {
+  return readOrderPage('orders/order-list-page.graphql', query, event);
+}
+
+/** The start page's newest company orders and how many the company has. */
+export function getOrderOverview(event: H3Event): Promise<OrderListPage> {
+  return readOrderPage('orders/order-overview.graphql', {}, event);
 }

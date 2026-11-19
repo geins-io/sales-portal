@@ -679,8 +679,8 @@
       },
       "view": "Vis",
       "type_web": "Nettordre",
-      "quick_search": "Hurtigsøk",
-      "search_placeholder": "Søk i ordrer...",
+      "only_mine": "Vis bare mine",
+      "search_placeholder": "Søk på ordrenummer",
       "no_orders": "Ingen ordrer funnet",
       "error_loading": "Kunne ikke laste ordrer. Prøv igjen.",
       "retry": "Prøv igjen",
@@ -689,8 +689,6 @@
         "next": "Neste",
         "showing": "{shown} av {total} ordrer"
       },
-      "sort_created_asc": "Eldste først",
-      "sort_created_desc": "Nyeste først",
       "detail": {
         "title": "Ordre",
         "back_to_orders": "Alle ordrer",

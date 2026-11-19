@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { OrderListItem, PurchasedProduct } from '#shared/types/commerce';
+import type { OrderListPage, PurchasedProduct } from '#shared/types/commerce';
 import type { Company } from '#shared/types/company';
 import type { QuoteListItem } from '#shared/types/quote';
 import {
@@ -62,18 +62,19 @@ const {
   pending: ordersPending,
   error: ordersError,
   refresh: refreshOrders,
-} = useFetch<{
-  orders: OrderListItem[];
-  total: number;
-}>('/api/orders', { dedupe: 'defer', immediate: showOrders.value });
+} = useFetch<OrderListPage>('/api/orders/overview', {
+  dedupe: 'defer',
+  immediate: showOrders.value,
+});
 
 // A failed read is not an empty one: no rows and no count, so the section
 // shows the error and the stat card a dash instead of a false 0.
 const orders = computed(() =>
   ordersError.value ? [] : (ordersData.value?.orders ?? []),
 );
+// The newest five come with the count of every order the company has.
 const orderCount = computed(() =>
-  ordersError.value ? undefined : orders.value.length,
+  ordersError.value ? undefined : (ordersData.value?.total ?? 0),
 );
 
 // ---------------------------------------------------------------------------

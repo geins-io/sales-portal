@@ -1155,8 +1155,10 @@ async function mapWithConcurrency<T, R>(
  * memoised: an order placed during the run would make a cached list describe
  * a different account than the one on screen.
  *
- * Sorted on `createdAt` rather than the order the endpoint returns, which
- * nothing asserts.
+ * The list is paged, newest first, so the oldest sit on its last page: a
+ * first read gives the count, a second reads the oldest by `skip`. Sorted on
+ * `createdAt` rather than the order the endpoint returns, which nothing
+ * asserts.
  *
  * Pick from the result by property — most lines, a total that does not
  * terminate in two decimals — never by a fixed id. The account is reseeded
@@ -1166,15 +1168,23 @@ export async function fetchOrders(
   page: Page,
   limit = ORDERS_READ_IN_FULL,
 ): Promise<ApiOrder[]> {
-  const response = await apiGet(page.request, '/api/orders');
+  const counted = await apiGet(page.request, '/api/orders', {
+    params: { take: 1 },
+  });
+  expect(counted.ok(), '/api/orders did not answer 200').toBe(true);
+  const { total } = (await counted.json()) as { total: number };
+  expect(
+    total,
+    'the test account owns no orders, so there is nothing to compare against',
+  ).toBeGreaterThan(0);
+
+  const response = await apiGet(page.request, '/api/orders', {
+    params: { skip: Math.max(0, total - limit), take: limit },
+  });
   expect(response.ok(), '/api/orders did not answer 200').toBe(true);
 
   const orders: { publicId?: string; createdAt?: string }[] =
     (await response.json())?.orders ?? [];
-  expect(
-    orders.length,
-    'the test account owns no orders, so there is nothing to compare against',
-  ).toBeGreaterThan(0);
   for (const order of orders) {
     expect(
       order.publicId,
@@ -1186,13 +1196,34 @@ export async function fetchOrders(
     ).toBeTruthy();
   }
 
-  const oldestFirst = [...orders]
-    .sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''))
-    .slice(0, limit);
+  const oldestFirst = [...orders].sort((a, b) =>
+    (a.createdAt ?? '').localeCompare(b.createdAt ?? ''),
+  );
 
   return mapWithConcurrency(oldestFirst, ORDER_READS_IN_FLIGHT, (order) =>
     fetchOrder(page, order.publicId!),
   );
+}
+
+/** Every order `/api/orders` lists for the buyer's company, page by page. */
+export async function fetchAllOrderRows(
+  page: Page,
+): Promise<{ publicId?: string; createdAt?: string }[]> {
+  const rows: { publicId?: string; createdAt?: string }[] = [];
+  for (let total = Infinity; rows.length < total;) {
+    const response = await apiGet(page.request, '/api/orders', {
+      params: { skip: rows.length, take: 100 },
+    });
+    expect(response.ok(), '/api/orders did not answer 200').toBe(true);
+    const read = (await response.json()) as {
+      orders: { publicId?: string; createdAt?: string }[];
+      total: number;
+    };
+    if (!read.orders.length) break;
+    rows.push(...read.orders);
+    total = read.total;
+  }
+  return rows;
 }
 
 /**

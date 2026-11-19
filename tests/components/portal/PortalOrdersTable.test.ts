@@ -16,16 +16,11 @@ const mockOrders = [
     publicId: 'pub-2124',
     status: 'placed',
     createdAt: '2025-12-22T17:22:00Z',
-    billingAddress: { firstName: 'Adam', lastName: 'Johnsson' },
-    cart: {
-      summary: {
-        total: {
-          sellingPriceIncVat: 17000,
-          sellingPriceIncVatFormatted: '17 000 SEK',
-          sellingPriceExVat: 13600,
-          sellingPriceExVatFormatted: '13 600 SEK',
-        },
-      },
+    orderTotal: {
+      sellingPriceIncVat: 17000,
+      sellingPriceIncVatFormatted: '17 000 SEK',
+      sellingPriceExVat: 13600,
+      sellingPriceExVatFormatted: '13 600 SEK',
     },
   },
   {
@@ -33,16 +28,11 @@ const mockOrders = [
     publicId: 'pub-2125',
     status: 'delivered',
     createdAt: '2025-12-23T10:00:00Z',
-    billingAddress: { firstName: 'Jessica', lastName: 'Andersson' },
-    cart: {
-      summary: {
-        total: {
-          sellingPriceIncVat: 8500,
-          sellingPriceIncVatFormatted: '8 500 SEK',
-          sellingPriceExVat: 6800,
-          sellingPriceExVatFormatted: '6 800 SEK',
-        },
-      },
+    orderTotal: {
+      sellingPriceIncVat: 8500,
+      sellingPriceIncVatFormatted: '8 500 SEK',
+      sellingPriceExVat: 6800,
+      sellingPriceExVatFormatted: '6 800 SEK',
     },
   },
 ];
@@ -105,14 +95,13 @@ describe('PortalOrdersTable', () => {
     expect(text).toContain('Bea Karlsson');
   });
 
-  it('renders a dash when placedBy is unresolved, never the billing contact', () => {
+  it('renders a dash when placedBy is unresolved', () => {
     const wrapper = mountComponent(PortalOrdersTable, {
       props: { orders: mockOrders },
     });
-    // billingAddress is the company billing contact and would mislead the
-    // viewer into thinking that person placed the order.
-    expect(wrapper.text()).not.toContain('Adam Johnsson');
-    expect(wrapper.text()).not.toContain('Jessica Andersson');
+    for (const row of wrapper.findAll('tbody tr')) {
+      expect(row.findAll('td')[2]!.text()).toBe('-');
+    }
   });
 
   it('formats createdAt as date only in the active locale, dropping the time portion', () => {
@@ -193,15 +182,30 @@ describe('PortalOrdersTable', () => {
     expect(viewLink.attributes('href')).toContain('2124');
   });
 
-  it('emits sort event when Created header is clicked', async () => {
+  it('names each row, in both layouts, by its order number', () => {
     const wrapper = mountComponent(PortalOrdersTable, {
-      props: { orders: mockOrders, sortDirection: 'desc' },
+      props: { orders: mockOrders },
     });
-    const createdHeader = wrapper.find('[data-testid="sort-created"]');
-    expect(createdHeader.exists()).toBe(true);
-    await createdHeader.trigger('click');
-    expect(wrapper.emitted('sort')).toBeTruthy();
-    expect(wrapper.emitted('sort')![0]).toEqual(['created']);
+    expect(
+      wrapper
+        .findAll('[data-testid="order-row"]')
+        .map((row) => row.attributes('data-id')),
+    ).toEqual(['2124', '2125', '2124', '2125']);
+  });
+
+  // The list is newest first, as the server sends it; nothing re-sorts it.
+  it('offers no sort on the Created header', async () => {
+    const wrapper = mountComponent(PortalOrdersTable, {
+      props: { orders: mockOrders },
+    });
+    expect(wrapper.find('[data-testid="sort-created"]').exists()).toBe(false);
+    const created = wrapper
+      .findAll('thead th')
+      .find((th) => th.text() === 'portal.orders.columns.created');
+    expect(created).toBeDefined();
+    expect(created!.classes()).not.toContain('cursor-pointer');
+    await created!.trigger('click');
+    expect(wrapper.emitted()).not.toHaveProperty('sort');
   });
 
   it.each([
@@ -274,13 +278,9 @@ describe('PortalOrdersTable', () => {
           orders: [
             {
               ...firstOrder,
-              cart: {
-                summary: {
-                  total: {
-                    sellingPriceIncVat: 17000,
-                    sellingPriceIncVatFormatted: '17 000 SEK',
-                  },
-                },
+              orderTotal: {
+                sellingPriceIncVat: 17000,
+                sellingPriceIncVatFormatted: '17 000 SEK',
               },
             },
           ],

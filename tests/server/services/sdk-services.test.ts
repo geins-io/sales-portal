@@ -135,6 +135,7 @@ describe('Service layer exports', () => {
     const orders = await import('../../../server/services/orders');
     expect(orders.getOrder).toBeTypeOf('function');
     expect(orders.listOrders).toBeTypeOf('function');
+    expect(orders.getOrderOverview).toBeTypeOf('function');
   });
 
   it('products service exports all expected functions', async () => {

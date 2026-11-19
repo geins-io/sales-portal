@@ -1,0 +1,36 @@
+query orderListPage(
+  $mine: Boolean!
+  $skip: Int
+  $take: Int
+  $search: String
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  company: companyOrders(
+    skip: $skip
+    take: $take
+    search: $search
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) @skip(if: $mine) {
+    count
+    orders {
+      ...OrderListRow
+    }
+  }
+  mine: orders(
+    skip: $skip
+    take: $take
+    search: $search
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) @include(if: $mine) {
+    count
+    orders {
+      ...OrderListRow
+    }
+  }
+}

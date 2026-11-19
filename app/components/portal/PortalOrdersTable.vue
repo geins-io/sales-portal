@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { OrderListItem } from '#shared/types/commerce';
 import { Badge } from '~/components/ui/badge';
 import {
   getOrderStatusLabel,
@@ -13,33 +14,11 @@ const { showIncVat } = useVatDisplay();
 const { showPrice } = usePriceVisibility();
 
 defineProps<{
-  orders: Array<{
-    id?: number | null;
-    publicId?: string | null;
-    status: string;
-    createdAt?: string | null;
-    placedBy?: string | null;
-    billingAddress?: {
-      firstName?: string;
-      lastName?: string;
-    } | null;
-    cart?: {
-      summary?: {
-        total?: {
-          sellingPriceIncVat?: number;
-          sellingPriceIncVatFormatted?: string;
-          sellingPriceExVat?: number;
-          sellingPriceExVatFormatted?: string;
-        } | null;
-      } | null;
-    } | null;
-  }>;
+  orders: Array<
+    Pick<OrderListItem, 'id' | 'publicId' | 'status' | 'createdAt'> &
+      Partial<Pick<OrderListItem, 'placedBy' | 'orderTotal'>>
+  >;
   limit?: number;
-  sortDirection?: 'asc' | 'desc';
-}>();
-
-const emit = defineEmits<{
-  sort: [column: string];
 }>();
 
 function formatDate(dateStr: string | null | undefined): string {
@@ -65,17 +44,8 @@ function getPlacedBy(order: { placedBy?: string | null }): string {
   return order.placedBy || '-';
 }
 
-function getTotal(order: {
-  cart?: {
-    summary?: {
-      total?: {
-        sellingPriceIncVatFormatted?: string;
-        sellingPriceExVatFormatted?: string;
-      } | null;
-    } | null;
-  } | null;
-}): string {
-  const total = order.cart?.summary?.total;
+function getTotal(order: Pick<OrderListItem, 'orderTotal'>): string {
+  const total = order.orderTotal;
   return (
     (showIncVat.value
       ? total?.sellingPriceIncVatFormatted
@@ -89,10 +59,6 @@ function getOrderLink(order: {
 }): string {
   const identifier = order.publicId ?? order.id;
   return localePath(`/portal/orders/${identifier}`);
-}
-
-function handleSortCreated() {
-  emit('sort', 'created');
 }
 </script>
 
@@ -120,6 +86,7 @@ function handleSortCreated() {
           :key="order.id ?? undefined"
           :to="getOrderLink(order)"
           data-testid="order-row"
+          :data-id="order.id"
           class="border-border hover:bg-muted/50 block rounded-lg border p-4 transition-colors"
         >
           <div class="mb-2 flex items-center justify-between">
@@ -150,16 +117,8 @@ function handleSortCreated() {
             <th class="py-3 pr-4 font-medium">
               {{ t('portal.orders.columns.id') }}
             </th>
-            <th
-              class="cursor-pointer py-3 pr-4 font-medium select-none"
-              data-testid="sort-created"
-              @click="handleSortCreated"
-            >
+            <th class="py-3 pr-4 font-medium">
               {{ t('portal.orders.columns.created') }}
-              <span v-if="sortDirection === 'asc'" class="ml-1">&#9650;</span>
-              <span v-else-if="sortDirection === 'desc'" class="ml-1"
-                >&#9660;</span
-              >
             </th>
             <th class="py-3 pr-4 font-medium">
               {{ t('portal.orders.columns.placed_by') }}
@@ -181,6 +140,7 @@ function handleSortCreated() {
             v-for="order in limit ? orders.slice(0, limit) : orders"
             :key="order.id ?? undefined"
             data-testid="order-row"
+            :data-id="order.id"
             class="border-border hover:bg-muted/50 border-b transition-colors"
           >
             <td class="py-3 pr-4">{{ order.id }}</td>

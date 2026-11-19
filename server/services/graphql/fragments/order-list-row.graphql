@@ -1,0 +1,15 @@
+fragment OrderListRow on OrderType {
+  id
+  publicId
+  status
+  currency
+  createdAt
+  customerId
+  customerEmail
+  orderTotal {
+    sellingPriceIncVat
+    sellingPriceIncVatFormatted
+    sellingPriceExVat
+    sellingPriceExVatFormatted
+  }
+}
