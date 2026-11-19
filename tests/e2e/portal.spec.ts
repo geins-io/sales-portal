@@ -5,6 +5,7 @@ import {
   outOfScope,
   fetchOrder,
   fetchOrders,
+  fetchAllOrderRows,
   fetchQuote,
   fetchQuoteList,
   isE2EData,
@@ -356,7 +357,156 @@ test.describe('Portal Overview', () => {
   }
 });
 
+/** A page of the order list as `/api/orders` answers it. */
+interface OrderListRead {
+  orders: { id: number; publicId?: string }[];
+  total: number;
+}
+
+/** The next read of the order list whose query `match` takes. */
+function nextOrderListRead(
+  page: Page,
+  match: (query: URLSearchParams) => boolean,
+): Promise<Response> {
+  return page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === '/api/orders' &&
+      response.request().method() === 'GET' &&
+      match(url.searchParams)
+    );
+  });
+}
+
+/**
+ * Opens the order list from the overview, so the browser makes the list's
+ * reads itself, and answers its first page.
+ */
+async function openOrderList(page: Page): Promise<OrderListRead> {
+  await page.goto('/se/sv/portal');
+  await page.waitForLoadState('load');
+  await waitForHydration(page);
+
+  const listRead = nextOrderListRead(page, () => true);
+  await page
+    .locator('[data-testid="portal-tabs"] a[href$="/portal/orders"]')
+    .click();
+  const list = await listRead;
+  expect(list.ok(), '/api/orders did not answer 200').toBe(true);
+  return (await list.json()) as OrderListRead;
+}
+
+/** The order numbers of the rows the list shows, in order. */
+function orderRowIds(page: Page): Promise<(string | null)[]> {
+  return page
+    .locator('[data-testid="order-row"]:visible')
+    .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-id')));
+}
+
 test.describe('Portal Orders', () => {
+  test('the order list reads its first page and pages past 20 on the server', async ({
+    page,
+  }) => {
+    const first = await openOrderList(page);
+    outOfScope(
+      first.total <= 20,
+      'fixture-missing',
+      'the test account has 20 orders or fewer, so the list has one page',
+    );
+
+    const summary = page.locator('[data-testid="orders-showing-count"]');
+    await expect(summary).toHaveAttribute('data-total', String(first.total));
+    await expect(summary).toHaveAttribute('data-shown', '20');
+    await expect
+      .poll(() => orderRowIds(page))
+      .toEqual(first.orders.map((order) => String(order.id)));
+    // Newest first is the only order: nothing offers another.
+    await expect(page.locator('[data-testid="sort-created"]')).toHaveCount(0);
+
+    const next = nextOrderListRead(page, (query) => query.get('skip') === '20');
+    await page.locator('[data-testid="orders-next"]').click();
+    const response = await next;
+    expect(new URL(response.url()).searchParams.get('take')).toBe('20');
+    const second = (await response.json()) as OrderListRead;
+
+    expect(second.orders.length).toBeGreaterThan(0);
+    await expect
+      .poll(() => orderRowIds(page))
+      .toEqual(second.orders.map((order) => String(order.id)));
+  });
+
+  test('the search box searches the order number on the server', async ({
+    page,
+  }) => {
+    const first = await openOrderList(page);
+    const sample = first.orders.find((order) => String(order.id).length >= 4);
+    outOfScope(
+      !sample,
+      'fixture-missing',
+      'no order on the first page has a number of four digits or more',
+    );
+    // Part of the number, from inside it: Geins matches anywhere in it.
+    const term = String(sample!.id).slice(1, 4);
+    const search = page.locator('[data-testid="orders-search"]');
+    await expect(search).toHaveAttribute('placeholder', 'Sök på ordernummer');
+
+    const searched = nextOrderListRead(
+      page,
+      (query) => query.get('search') === term,
+    );
+    await search.fill(term);
+    const response = await searched;
+    expect(new URL(response.url()).searchParams.get('skip')).toBe('0');
+    const found = (await response.json()) as OrderListRead;
+
+    expect(found.orders.map((order) => order.id)).toContain(sample!.id);
+    for (const order of found.orders) {
+      expect(String(order.id)).toContain(term);
+    }
+    await expect
+      .poll(() => orderRowIds(page))
+      .toEqual(found.orders.map((order) => String(order.id)));
+  });
+
+  test("Visa bara mina reads the buyer's own orders, and off again the company's", async ({
+    page,
+  }) => {
+    const company = await openOrderList(page);
+    await expect
+      .poll(() => orderRowIds(page))
+      .toEqual(company.orders.map((order) => String(order.id)));
+    const summary = page.locator('[data-testid="orders-showing-count"]');
+    const mine = page.locator('[data-testid="orders-mine"]');
+    await expect(mine).toHaveAttribute('aria-checked', 'false');
+    await expect(page.getByText('Visa bara mina')).toBeVisible();
+
+    const ownRead = nextOrderListRead(
+      page,
+      (query) => query.get('mine') === 'true',
+    );
+    await mine.click();
+    const own = (await (await ownRead).json()) as OrderListRead;
+
+    expect(own.total).toBeLessThanOrEqual(company.total);
+    await expect(mine).toHaveAttribute('aria-checked', 'true');
+    // The pager, and the count in it, show only past one page.
+    await expect(summary).toHaveCount(own.total > 20 ? 1 : 0);
+    if (own.total > 20) {
+      await expect(summary).toHaveAttribute('data-total', String(own.total));
+    }
+    await expect
+      .poll(() => orderRowIds(page))
+      .toEqual(own.orders.map((order) => String(order.id)));
+
+    const backRead = nextOrderListRead(page, (query) => !query.has('mine'));
+    await mine.click();
+    const back = (await (await backRead).json()) as OrderListRead;
+    expect(back.total).toBe(company.total);
+    await expect
+      .poll(() => orderRowIds(page))
+      .toEqual(back.orders.map((order) => String(order.id)));
+  });
+
   test('should render orders list page with search and table', async ({
     page,
   }) => {
@@ -1739,11 +1889,7 @@ test.describe('Portal bulk adds that leave a configurable product out', () => {
   async function findConfiguredOrder(
     page: Page,
   ): Promise<{ publicId: string; rows: DetailRow[] } | null> {
-    const response = await apiGet(page.request, '/api/orders');
-    expect(response.ok(), '/api/orders did not answer 200').toBe(true);
-    const orders: { publicId?: string }[] =
-      (await response.json())?.orders ?? [];
-    for (const { publicId } of orders) {
+    for (const { publicId } of await fetchAllOrderRows(page)) {
       if (!publicId) continue;
       const detail = await apiGet(page.request, `/api/orders/${publicId}`);
       if (!detail.ok()) continue;
