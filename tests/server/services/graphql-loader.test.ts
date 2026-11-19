@@ -207,6 +207,67 @@ describe('GraphQL loader', () => {
       expect(query).toMatch(/\)\s*\{\s*message\s*\}\s*\}\s*$/);
     });
 
+    describe('the order list reads only what each place shows', () => {
+      const rowFields = [
+        'id',
+        'publicId',
+        'status',
+        'currency',
+        'createdAt',
+        'customerId',
+        'customerEmail',
+      ];
+
+      it("reads one page from the company's orders or, with mine, the buyer's own", () => {
+        const query = loadQuery('orders/order-list-page.graphql');
+
+        for (const [alias, root, directive] of [
+          ['company', 'companyOrders', '@skip'],
+          ['mine', 'orders', '@include'],
+        ]) {
+          expect(query, alias).toMatch(
+            new RegExp(
+              `${alias}: ${root}\\([^)]*skip: \\$skip[^)]*take: \\$take[^)]*search: \\$search[^)]*\\)\\s*${directive}\\(if: \\$mine\\)\\s*\\{\\s*count\\s+orders \\{\\s*\\.\\.\\.OrderListRow\\s*\\}\\s*\\}`,
+            ),
+          );
+        }
+        expect(query).toMatch(/\$mine: Boolean!/);
+        expect(query.split('fragment OrderListRow on OrderType')).toHaveLength(
+          2,
+        );
+        expect(query).not.toContain('getCompanyOrders');
+      });
+
+      it("reads the start page's five newest company orders and their count", () => {
+        const query = loadQuery('orders/order-overview.graphql');
+
+        expect(query).toMatch(
+          /companyOrders\([^)]*take: 5\b[^)]*\)\s*\{\s*count\s+orders \{\s*\.\.\.OrderListRow\s*\}\s*\}/,
+        );
+        expect(query).not.toContain('getCompanyOrders');
+      });
+
+      it('gives a row what the table shows: the order total, no cart, no address', () => {
+        const query = loadQuery('orders/order-list-page.graphql');
+        const row = query.slice(query.indexOf('fragment OrderListRow'));
+
+        for (const field of rowFields) {
+          expect(row, field).toMatch(new RegExp(`^\\s*${field}$`, 'm'));
+        }
+        expect(row).toMatch(
+          /orderTotal \{\s*sellingPriceIncVat\s+sellingPriceIncVatFormatted\s+sellingPriceExVat\s+sellingPriceExVatFormatted\s*\}/,
+        );
+        for (const field of [
+          'cart',
+          'billingAddress',
+          'shippingAddress',
+          'rows',
+        ]) {
+          expect(row, field).not.toMatch(new RegExp(`\\b${field}\\b`));
+        }
+      });
+    });
+
     describe('the quotation list reads only what each place shows', () => {
       it('reads a page of rows: the row fragment and the count, no lines or addresses', () => {
         const query = loadQuery('quotes/quotation-cart-page.graphql');

@@ -679,8 +679,8 @@
       },
       "view": "View",
       "type_web": "Web order",
-      "quick_search": "Quick search",
-      "search_placeholder": "Search orders...",
+      "only_mine": "Show only mine",
+      "search_placeholder": "Search by order number",
       "no_orders": "No orders found",
       "error_loading": "Failed to load orders. Please try again.",
       "retry": "Try again",
@@ -689,8 +689,6 @@
         "next": "Next",
         "showing": "{shown} of {total} orders"
       },
-      "sort_created_asc": "Oldest first",
-      "sort_created_desc": "Newest first",
       "detail": {
         "title": "Order",
         "back_to_orders": "All orders",

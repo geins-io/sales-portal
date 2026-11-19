@@ -67,6 +67,8 @@ vi.mock('../../../server/services/company', () => ({
         firstName: 'Bea',
         lastName: 'Karlsson',
       },
+      // No email, and a last name that is only a space.
+      { internalId: '303', firstName: 'Cleo', lastName: ' ' },
     ],
   }),
 }));
@@ -536,30 +538,111 @@ describe('orders service', () => {
   });
 
   describe('listOrders', () => {
-    it('calls graphql.query with getCompanyOrders query and channel variables', async () => {
-      const graphqlResult = {
-        getCompanyOrders: [
-          { id: 1, status: 'Placed', publicId: 'abc-123' },
-          { id: 2, status: 'Completed', publicId: 'def-456' },
-        ],
-      };
-      mockGraphqlQuery.mockResolvedValueOnce(graphqlResult);
+    const query = { mine: false, skip: 0, take: 20 };
 
-      const result = await ordersService.listOrders(mockEvent);
+    /** Geins answers the one root the query asked for. */
+    const companyPage = (
+      orders: Array<Record<string, unknown>>,
+      count = orders.length,
+    ) => ({
+      company: { count, orders },
+    });
 
-      expect(mockGraphqlQuery).toHaveBeenCalledWith(
-        expect.objectContaining({
-          queryAsString: 'query:orders/orders-list.graphql',
-          variables: expect.objectContaining({
-            channelId: '1|se',
-            languageId: 'sv-SE',
-            marketId: 'se',
-          }),
-        }),
+    it('reads one page of the company orders, with its skip, take and the channel', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce(companyPage([]));
+
+      await ordersService.listOrders(
+        { mine: false, skip: 40, take: 20 },
+        mockEvent,
       );
-      // unwrapGraphQL is mocked to return as-is, so result.orders is the raw graphql result
-      expect(result).toHaveProperty('orders');
-      expect(result).toHaveProperty('total');
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith({
+        queryAsString: 'query:orders/order-list-page.graphql',
+        variables: {
+          mine: false,
+          skip: 40,
+          take: 20,
+          channelId: '1|se',
+          languageId: 'sv-SE',
+          marketId: 'se',
+        },
+        userToken: 'test-user-token',
+      });
+    });
+
+    it("reads the buyer's own orders with mine", async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        mine: { count: 84, orders: [{ id: 7, status: 'Placed' }] },
+      });
+
+      const result = await ordersService.listOrders(
+        { mine: true, skip: 0, take: 20 },
+        mockEvent,
+      );
+
+      expect(mockGraphqlQuery.mock.calls[0]![0].variables).toMatchObject({
+        mine: true,
+      });
+      expect(result.total).toBe(84);
+      expect(result.orders.map((order) => order.id)).toEqual([7]);
+    });
+
+    it('sends the search on, and no search when there is none', async () => {
+      mockGraphqlQuery
+        .mockResolvedValueOnce(companyPage([]))
+        .mockResolvedValueOnce(companyPage([]));
+
+      await ordersService.listOrders({ ...query, search: '121' }, mockEvent);
+      await ordersService.listOrders(query, mockEvent);
+
+      expect(mockGraphqlQuery.mock.calls[0]![0].variables.search).toBe('121');
+      expect(mockGraphqlQuery.mock.calls[1]![0].variables).not.toHaveProperty(
+        'search',
+      );
+    });
+
+    it("answers the page's rows and the count of every order, not of the page", async () => {
+      mockGraphqlQuery.mockResolvedValueOnce(
+        companyPage(
+          [
+            { id: 2, status: 'Placed', publicId: 'b' },
+            { id: 1, status: 'Completed', publicId: 'a' },
+          ],
+          103,
+        ),
+      );
+
+      const result = await ordersService.listOrders(query, mockEvent);
+
+      expect(result.total).toBe(103);
+      expect(result.orders.map((order) => order.id)).toEqual([2, 1]);
+    });
+
+    it('answers no rows and a 0 when Geins answers no page', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({ company: null });
+
+      const result = await ordersService.listOrders(query, mockEvent);
+
+      expect(result).toEqual({ orders: [], total: 0 });
+    });
+
+    it('answers no rows and the count for a page past the end', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce(companyPage([], 103));
+
+      const result = await ordersService.listOrders(
+        { ...query, skip: 200 },
+        mockEvent,
+      );
+
+      expect(result).toEqual({ orders: [], total: 103 });
+    });
+
+    it('lets a failed read through', async () => {
+      mockGraphqlQuery.mockRejectedValueOnce(new Error('Geins 502'));
+
+      await expect(ordersService.listOrders(query, mockEvent)).rejects.toThrow(
+        'Geins 502',
+      );
     });
 
     describe("each order's total", () => {
@@ -573,18 +656,18 @@ describe('orders service', () => {
         id: 1,
         status: 'Placed',
         publicId: 'a',
-        cart: { summary: { total } },
+        orderTotal: total,
         ...order,
       });
 
       it("has two decimals, in the order's currency, where Geins' string has none", async () => {
-        mockGraphqlQuery.mockResolvedValueOnce({
-          getCompanyOrders: [withTotal({ currency: 'SEK' })],
-        });
+        mockGraphqlQuery.mockResolvedValueOnce(
+          companyPage([withTotal({ currency: 'SEK' })]),
+        );
 
-        const result = await ordersService.listOrders(mockEvent);
+        const result = await ordersService.listOrders(query, mockEvent);
 
-        expect(result.orders[0]!.cart!.summary!.total).toEqual({
+        expect(result.orders[0]!.orderTotal).toEqual({
           sellingPriceIncVat: 1800,
           sellingPriceIncVatFormatted: '1 800,00 kr',
           sellingPriceExVat: 1440,
@@ -593,65 +676,50 @@ describe('orders service', () => {
       });
 
       it("keeps Geins' strings for an order without a currency", async () => {
-        mockGraphqlQuery.mockResolvedValueOnce({
-          getCompanyOrders: [withTotal({ currency: null })],
-        });
+        mockGraphqlQuery.mockResolvedValueOnce(
+          companyPage([withTotal({ currency: null })]),
+        );
 
-        const result = await ordersService.listOrders(mockEvent);
+        const result = await ordersService.listOrders(query, mockEvent);
 
-        expect(result.orders[0]!.cart!.summary!.total).toEqual(total);
+        expect(result.orders[0]!.orderTotal).toEqual(total);
       });
 
       it('leaves an order without a total as it came', async () => {
-        mockGraphqlQuery.mockResolvedValueOnce({
-          getCompanyOrders: [
-            withTotal({ currency: 'SEK', cart: { summary: { total: null } } }),
-            withTotal({ currency: 'SEK', cart: { summary: null } }),
-            withTotal({ currency: 'SEK', cart: null }),
-          ],
-        });
+        mockGraphqlQuery.mockResolvedValueOnce(
+          companyPage([
+            withTotal({ currency: 'SEK', orderTotal: null }),
+            withTotal({ currency: 'SEK', orderTotal: undefined }),
+          ]),
+        );
 
-        const result = await ordersService.listOrders(mockEvent);
+        const result = await ordersService.listOrders(query, mockEvent);
 
-        expect(result.orders[0]!.cart).toEqual({ summary: { total: null } });
-        expect(result.orders[1]!.cart).toEqual({ summary: null });
-        expect(result.orders[2]!.cart).toBeNull();
+        expect(result.orders[0]!.orderTotal).toBeNull();
+        expect(result.orders[1]!.orderTotal).toBeUndefined();
       });
 
       it("keeps Geins' string for an amount it does not give as a number", async () => {
-        mockGraphqlQuery.mockResolvedValueOnce({
-          getCompanyOrders: [
+        mockGraphqlQuery.mockResolvedValueOnce(
+          companyPage([
             withTotal({
               currency: 'SEK',
-              cart: {
-                summary: {
-                  total: { sellingPriceExVatFormatted: '1 440 kr' },
-                },
-              },
+              orderTotal: { sellingPriceExVatFormatted: '1 440 kr' },
             }),
-          ],
-        });
+          ]),
+        );
 
-        const result = await ordersService.listOrders(mockEvent);
+        const result = await ordersService.listOrders(query, mockEvent);
 
-        expect(result.orders[0]!.cart!.summary!.total).toEqual({
+        expect(result.orders[0]!.orderTotal).toEqual({
           sellingPriceExVatFormatted: '1 440 kr',
         });
       });
     });
 
-    it('returns empty array when getOrders returns null', async () => {
-      mockGraphqlQuery.mockResolvedValueOnce({ getCompanyOrders: null });
-
-      const result = await ordersService.listOrders(mockEvent);
-
-      expect(result.orders).toEqual([]);
-      expect(result.total).toBe(0);
-    });
-
     it('joins each order to the company buyer roster via internalId, falling back to email', async () => {
-      mockGraphqlQuery.mockResolvedValueOnce({
-        getCompanyOrders: [
+      mockGraphqlQuery.mockResolvedValueOnce(
+        companyPage([
           {
             id: 1,
             status: 'Placed',
@@ -687,10 +755,10 @@ describe('orders service', () => {
             customerId: null,
             customerEmail: null,
           },
-        ],
-      });
+        ]),
+      );
 
-      const result = await ordersService.listOrders(mockEvent);
+      const result = await ordersService.listOrders(query, mockEvent);
 
       // Two orders by two different buyers must resolve to two different names.
       expect(result.orders[0]!.placedBy).toBe('Anna Nilsson');
@@ -701,6 +769,114 @@ describe('orders service', () => {
       // unknown customerId and fully-missing identifiers both stay null
       expect(result.orders[3]!.placedBy).toBeNull();
       expect(result.orders[4]!.placedBy).toBeNull();
+    });
+
+    it('names a buyer the roster lists without an email, without the blank around the name', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce(
+        companyPage([{ id: 1, status: 'Placed', customerId: 303 }]),
+      );
+
+      const result = await ordersService.listOrders(query, mockEvent);
+
+      expect(result.orders[0]!.placedBy).toBe('Cleo');
+    });
+
+    it('reads as an order read, so a failure is reported as one', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce(companyPage([]));
+
+      await ordersService.listOrders(query, mockEvent);
+
+      expect(wrapServiceCall).toHaveBeenCalledWith(
+        expect.any(Function),
+        'order',
+        OrderError,
+      );
+    });
+
+    it('reads without a token when the request carries no context', async () => {
+      const { buildRequestContext } =
+        await import('../../../server/services/_sdk');
+      vi.mocked(buildRequestContext).mockReturnValueOnce(undefined);
+      mockGraphqlQuery.mockResolvedValueOnce(companyPage([]));
+
+      await ordersService.listOrders(query, mockEvent);
+
+      expect(mockGraphqlQuery.mock.calls[0]![0].userToken).toBeUndefined();
+    });
+
+    it('leaves every row without a name when the roster cannot be read', async () => {
+      const { getCompany } = await import('../../../server/services/company');
+      vi.mocked(getCompany).mockRejectedValueOnce(new Error('no company'));
+      mockGraphqlQuery.mockResolvedValueOnce(
+        companyPage([{ id: 1, status: 'Placed', customerId: 101 }]),
+      );
+
+      const result = await ordersService.listOrders(query, mockEvent);
+
+      expect(result.orders[0]!.placedBy).toBeNull();
+    });
+  });
+
+  describe('getOrderOverview', () => {
+    it("reads the company's newest orders and their count, with the channel", async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        companyOrders: {
+          count: 103,
+          orders: [
+            { id: 1216, status: 'Placed', customerId: 202 },
+            { id: 1215, status: 'Placed', customerId: 101 },
+          ],
+        },
+      });
+
+      const result = await ordersService.getOrderOverview(mockEvent);
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith({
+        queryAsString: 'query:orders/order-overview.graphql',
+        variables: { channelId: '1|se', languageId: 'sv-SE', marketId: 'se' },
+        userToken: 'test-user-token',
+      });
+      expect(result.total).toBe(103);
+      expect(
+        result.orders.map(({ id, placedBy }) => ({ id, placedBy })),
+      ).toEqual([
+        { id: 1216, placedBy: 'Bea Karlsson' },
+        { id: 1215, placedBy: 'Anna Nilsson' },
+      ]);
+    });
+
+    it('writes the totals as the list does', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        companyOrders: {
+          count: 1,
+          orders: [
+            {
+              id: 1,
+              status: 'Placed',
+              currency: 'SEK',
+              orderTotal: {
+                sellingPriceIncVat: 1800,
+                sellingPriceIncVatFormatted: '1 800 kr',
+              },
+            },
+          ],
+        },
+      });
+
+      const result = await ordersService.getOrderOverview(mockEvent);
+
+      expect(result.orders[0]!.orderTotal?.sellingPriceIncVatFormatted).toBe(
+        '1 800,00 kr',
+      );
+    });
+
+    it('answers no rows and a 0 when Geins answers no page', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({ companyOrders: null });
+
+      expect(await ordersService.getOrderOverview(mockEvent)).toEqual({
+        orders: [],
+        total: 0,
+      });
     });
   });
 });

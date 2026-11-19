@@ -152,25 +152,27 @@ describe('order and quotation amounts are written as the order page writes them'
 
   it("an order list row's total matches it", async () => {
     mockGraphqlQuery.mockResolvedValueOnce({
-      getCompanyOrders: [
-        {
-          id: 1,
-          status: 'Placed',
-          publicId: 'public-1',
-          currency: 'SEK',
-          cart: {
-            summary: {
-              total: geinsPrice(AMOUNTS.totalInc, AMOUNTS.totalEx),
-            },
+      company: {
+        count: 1,
+        orders: [
+          {
+            id: 1,
+            status: 'Placed',
+            publicId: 'public-1',
+            currency: 'SEK',
+            orderTotal: geinsPrice(AMOUNTS.totalInc, AMOUNTS.totalEx),
           },
-        },
-      ],
+        ],
+      },
     });
     const { listOrders } = await import('../../../server/services/orders');
 
-    const { orders } = await listOrders(event);
+    const { orders } = await listOrders(
+      { mine: false, skip: 0, take: 20 },
+      event,
+    );
 
-    const total = orders[0]!.cart!.summary!.total!;
+    const total = orders[0]!.orderTotal!;
     expect(total.sellingPriceIncVatFormatted).toBe(orderPage.totalInc);
     expect(total.sellingPriceExVatFormatted).toBe(orderPage.totalEx);
   });

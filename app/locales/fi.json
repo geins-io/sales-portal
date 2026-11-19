@@ -679,8 +679,8 @@
       },
       "view": "Näytä",
       "type_web": "Verkkotilaus",
-      "quick_search": "Pikahaku",
-      "search_placeholder": "Hae tilauksista...",
+      "only_mine": "Näytä vain omat",
+      "search_placeholder": "Hae tilausnumerolla",
       "no_orders": "Tilauksia ei löytynyt",
       "error_loading": "Tilausten lataaminen epäonnistui. Yritä uudelleen.",
       "retry": "Yritä uudelleen",
@@ -689,8 +689,6 @@
         "next": "Seuraava",
         "showing": "{shown} / {total} tilauksesta"
       },
-      "sort_created_asc": "Vanhimmat ensin",
-      "sort_created_desc": "Uusimmat ensin",
       "detail": {
         "title": "Tilaus",
         "back_to_orders": "Kaikki tilaukset",

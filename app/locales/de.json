@@ -679,8 +679,8 @@
       },
       "view": "Ansehen",
       "type_web": "Webbestellung",
-      "quick_search": "Schnellsuche",
-      "search_placeholder": "Bestellungen durchsuchen...",
+      "only_mine": "Nur meine anzeigen",
+      "search_placeholder": "Nach Bestellnummer suchen",
       "no_orders": "Keine Bestellungen gefunden",
       "error_loading": "Bestellungen konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
       "retry": "Erneut versuchen",
@@ -689,8 +689,6 @@
         "next": "Weiter",
         "showing": "{shown} von {total} Bestellungen"
       },
-      "sort_created_asc": "Älteste zuerst",
-      "sort_created_desc": "Neueste zuerst",
       "detail": {
         "title": "Bestellung",
         "back_to_orders": "Alle Bestellungen",

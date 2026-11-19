@@ -470,21 +470,19 @@ export interface OrderListItem {
   /** The currency code, e.g. "SEK". */
   currency?: string | null;
   placedBy?: string | null;
-  billingAddress?: {
-    firstName?: string;
-    lastName?: string;
-    company?: string;
+  orderTotal?: {
+    sellingPriceIncVat?: number;
+    sellingPriceIncVatFormatted?: string;
+    sellingPriceExVat?: number;
+    sellingPriceExVatFormatted?: string;
   } | null;
-  cart?: {
-    summary?: {
-      total?: {
-        sellingPriceIncVat?: number;
-        sellingPriceIncVatFormatted?: string;
-        sellingPriceExVat?: number;
-        sellingPriceExVatFormatted?: string;
-      } | null;
-    } | null;
-  } | null;
+}
+
+/** One page of the order list, or the start page's newest orders. */
+export interface OrderListPage {
+  orders: OrderListItem[];
+  /** Every order the read covers, not only the page's. */
+  total: number;
 }
 
 // ---------------------------------------------------------------------------

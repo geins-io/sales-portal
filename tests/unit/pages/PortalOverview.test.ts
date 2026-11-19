@@ -97,7 +97,10 @@ vi.mock('#app/composables/once', () => ({ callOnce: callOnceStub }));
 // ---------------------------------------------------------------------------
 // Mock useFetch — URL-aware so each endpoint can be controlled independently
 // ---------------------------------------------------------------------------
-let mockOrdersData: { orders: unknown[] } | null = { orders: [] };
+let mockOrdersData: { orders: unknown[]; total: number } | null = {
+  orders: [],
+  total: 0,
+};
 let mockOrdersPending = false;
 let mockOrdersError: Error | null = null;
 const mockOrdersRefresh = vi.fn();
@@ -265,7 +268,7 @@ describe('Portal Overview page', () => {
     mockPendingCount = 0;
     mockLoadPending = vi.fn().mockResolvedValue(undefined);
     mockNearestExpiry = undefined;
-    mockOrdersData = { orders: [] };
+    mockOrdersData = { orders: [], total: 0 };
     mockOrdersPending = false;
     mockOrdersError = null;
     mockOrdersRefresh.mockReset();
@@ -728,15 +731,22 @@ describe('Portal Overview page', () => {
       expect(ordersStatCount(wrapper)).toBe('0');
     });
 
-    it('counts the orders of a filled answer', async () => {
+    it('counts every order of the company, not the five rows the card shows', async () => {
       mockOrdersData = {
         orders: [
-          { id: 1, createdAt: '2026-01-01' },
           { id: 2, createdAt: '2026-01-02' },
+          { id: 1, createdAt: '2026-01-01' },
         ],
+        total: 103,
       };
       const wrapper = await mountPage();
-      expect(ordersStatCount(wrapper)).toBe('2');
+      expect(ordersStatCount(wrapper)).toBe('103');
+    });
+
+    it('reads the overview, never the whole order list', async () => {
+      await mountPage();
+      expect(requested('/api/orders/overview')).toHaveLength(1);
+      expect(requested('/api/orders')).toHaveLength(0);
     });
   });
 
@@ -873,7 +883,7 @@ describe('Portal Overview page', () => {
       const wrapper = await mountPage();
 
       expect(mockLoadPending).toHaveBeenCalledTimes(1);
-      expect(requested('/api/orders')).toHaveLength(1);
+      expect(requested('/api/orders/overview')).toHaveLength(1);
       expect(statLabels(wrapper)).toEqual([
         'portal.overview.stat.pending_quotations',
         'portal.overview.stat.orders_placed',
@@ -915,10 +925,13 @@ describe('Portal Overview page', () => {
 
     it('neither loads nor shows orders when orderHistory is disabled', async () => {
       off('orderHistory');
-      mockOrdersData = { orders: [{ id: 'o1', createdAt: '2026-01-15' }] };
+      mockOrdersData = {
+        orders: [{ id: 'o1', createdAt: '2026-01-15' }],
+        total: 1,
+      };
       const wrapper = await mountPage();
 
-      expect(requested('/api/orders')).toHaveLength(0);
+      expect(requested('/api/orders/overview')).toHaveLength(0);
       expect(statLabels(wrapper)).not.toContain(
         'portal.overview.stat.orders_placed',
       );

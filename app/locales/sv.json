@@ -679,8 +679,8 @@
       },
       "view": "Visa",
       "type_web": "Webbeställning",
-      "quick_search": "Snabbsök",
-      "search_placeholder": "Sök beställningar...",
+      "only_mine": "Visa bara mina",
+      "search_placeholder": "Sök på ordernummer",
       "no_orders": "Inga beställningar hittades",
       "error_loading": "Det gick inte att ladda beställningar. Försök igen.",
       "retry": "Försök igen",
@@ -689,8 +689,6 @@
         "next": "Nästa",
         "showing": "{shown} av {total} beställningar"
       },
-      "sort_created_asc": "Äldst först",
-      "sort_created_desc": "Nyast först",
       "detail": {
         "title": "Order",
         "back_to_orders": "Alla beställningar",

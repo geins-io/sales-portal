@@ -10,6 +10,11 @@ import {
   QUOTE_REQUEST_MAX_LINES,
   QUOTE_SEARCH_MAX_LENGTH,
 } from '#shared/constants/quote';
+import {
+  ORDER_LIST_MAX_TAKE,
+  ORDER_LIST_PAGE_SIZE,
+  ORDER_SEARCH_MAX_LENGTH,
+} from '#shared/constants/order';
 import type {
   ConfigurationChange,
   CreateConfigurationInput,
@@ -380,6 +385,25 @@ export const ListQuotesSchema = z
     search ? { ...query, search } : query,
   );
 export type ListQuotesInput = z.infer<typeof ListQuotesSchema>;
+
+/** One page of the order list: the company's orders, or with `mine` the buyer's. */
+export const ListOrdersSchema = z
+  .object({
+    search: z.string().trim().max(ORDER_SEARCH_MAX_LENGTH).optional(),
+    mine: z.stringbool().default(false),
+    skip: z.coerce.number().int().min(0).default(0),
+    take: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(ORDER_LIST_MAX_TAKE)
+      .default(ORDER_LIST_PAGE_SIZE),
+  })
+  // A blank search is no search.
+  .transform(({ search, ...query }): typeof query & { search?: string } =>
+    search ? { ...query, search } : query,
+  );
+export type ListOrdersInput = z.infer<typeof ListOrdersSchema>;
 
 export const QuoteNamesSchema = z.object({
   search: QuoteSearchSchema.min(1),

@@ -1,0 +1,17 @@
+query orderOverview(
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  companyOrders(
+    take: 5
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    count
+    orders {
+      ...OrderListRow
+    }
+  }
+}
