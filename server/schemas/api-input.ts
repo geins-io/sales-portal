@@ -102,6 +102,13 @@ export const CmsMenuSchema = z.object({
 
 export type CmsMenuInput = z.infer<typeof CmsMenuSchema>;
 
+/** A positive 32-bit integer, written plainly, as Geins takes its ids. */
+const PositiveInt32Param = z
+  .string()
+  .regex(/^[1-9]\d{0,9}$/)
+  .transform(Number)
+  .refine((n) => n <= 2147483647);
+
 // ---------------------------------------------------------------------------
 // Products
 // ---------------------------------------------------------------------------
@@ -109,6 +116,9 @@ export const ProductAliasSchema = z.object({
   alias: z.string().min(1).max(200),
 });
 export type ProductAliasInput = z.infer<typeof ProductAliasSchema>;
+
+/** A product id as a route parameter. */
+export const ProductIdSchema = z.object({ productId: PositiveInt32Param });
 
 export const ProductReviewsSchema = z.object({
   alias: z.string().min(1).max(200),
@@ -261,14 +271,8 @@ export const OrderIdSchema = z.object({
 });
 export type OrderIdInput = z.infer<typeof OrderIdSchema>;
 
-/** An order number as Geins takes it: a positive 32-bit integer, written plainly. */
-export const OrderNumberSchema = z.object({
-  number: z
-    .string()
-    .regex(/^[1-9]\d{0,9}$/)
-    .transform(Number)
-    .refine((n) => n <= 2147483647),
-});
+/** An order number as Geins takes it. */
+export const OrderNumberSchema = z.object({ number: PositiveInt32Param });
 
 // ---------------------------------------------------------------------------
 // Checkout

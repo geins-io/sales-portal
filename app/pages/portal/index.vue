@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import type { OrderListPage, PurchasedProduct } from '#shared/types/commerce';
+import type {
+  OrderListPage,
+  PurchasedProductCard,
+  PurchasedProductsOverview,
+} from '#shared/types/commerce';
 import type { Company } from '#shared/types/company';
 import type { QuoteListItem } from '#shared/types/quote';
 import {
@@ -92,15 +96,13 @@ const {
   pending: productsPending,
   error: productsError,
   refresh: refreshProducts,
-} = useFetch<{
-  products: PurchasedProduct[];
-  total: number;
-}>('/api/orders/products', { dedupe: 'defer' });
+} = useFetch<PurchasedProductsOverview>('/api/orders/products/overview', {
+  dedupe: 'defer',
+});
 
-const purchasedProducts = computed(() =>
+const recentProducts = computed(() =>
   productsError.value ? [] : (productsData.value?.products ?? []),
 );
-const recentProducts = computed(() => purchasedProducts.value.slice(0, 4));
 const purchasedProductCount = computed(() =>
   productsError.value ? undefined : (productsData.value?.total ?? 0),
 );
@@ -155,12 +157,11 @@ const latestOrderSubtitle = computed(() => {
 });
 
 const mostPurchasedSubtitle = computed(() => {
-  const products = purchasedProducts.value;
-  if (!products.length) return undefined;
-  const top = products.reduce((a, b) =>
-    (a.totalQuantity ?? 0) >= (b.totalQuantity ?? 0) ? a : b,
-  );
-  return t('portal.overview.stat.most_purchased_item', { name: top.name });
+  const name = productsError.value
+    ? null
+    : productsData.value?.mostPurchasedName;
+  if (!name) return undefined;
+  return t('portal.overview.stat.most_purchased_item', { name });
 });
 
 // ---------------------------------------------------------------------------
@@ -180,7 +181,7 @@ function formatDate(dateStr: string | number | null | undefined): string {
   }
 }
 
-function mapPurchasedProduct(product: PurchasedProduct): ProductCardItem {
+function mapPurchasedProduct(product: PurchasedProductCard): ProductCardItem {
   return {
     name: product.name,
     price: showIncVat.value

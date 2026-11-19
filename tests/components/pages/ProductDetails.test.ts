@@ -141,12 +141,31 @@ function resolveAreaQuery(
 // `products` was always undefined and the variant price map stayed empty.
 const mockSiblingProducts = ref<{ products: unknown[] } | null>(null);
 
+// The company's newest order holding this product, as
+// /api/orders/products/by-id answers it.
+const mockLatestOrder = ref<{
+  order: { id: string; publicId: string | null; createdAt: string } | null;
+} | null>(null);
+
 const mockUseFetch = vi.fn(
   (urlOrFn?: unknown, options?: Record<string, unknown>) => {
     const url = typeof urlOrFn === 'function' ? urlOrFn() : urlOrFn;
     if (typeof url === 'string' && url.includes('/api/products/by-ids')) {
       return {
         data: mockSiblingProducts,
+        error: ref(null),
+        status: ref('success'),
+        pending: ref(false),
+        refresh: vi.fn(),
+        execute: vi.fn(),
+      };
+    }
+    if (
+      typeof url === 'string' &&
+      url.startsWith('/api/orders/products/by-id/')
+    ) {
+      return {
+        data: mockLatestOrder,
         error: ref(null),
         status: ref('success'),
         pending: ref(false),
@@ -383,6 +402,79 @@ describe('ProductDetails', () => {
     navigateToMock.mockClear();
     mockCmsAreas.clear();
     mockSiblingProducts.value = null;
+    mockLatestOrder.value = null;
+  });
+
+  describe('the latest order row', () => {
+    const urls = () =>
+      mockUseFetch.mock.calls.map(([urlOrFn]) =>
+        typeof urlOrFn === 'function' ? urlOrFn() : urlOrFn,
+      );
+
+    it("asks for the newest order by the product's id, not its alias", async () => {
+      const product = makeProduct({ productId: 1031 });
+
+      await mountProductDetails(
+        { product, alias: product.alias },
+        { global: { stubs: defaultStubs } },
+      );
+
+      expect(urls()).toContain('/api/orders/products/by-id/1031');
+      expect(urls().some((url) => String(url).includes('by-alias'))).toBe(
+        false,
+      );
+    });
+
+    it('shows the date and number, linking to the order', async () => {
+      mockLatestOrder.value = {
+        order: {
+          id: '1421',
+          publicId: 'pub-1421',
+          createdAt: '2026-05-18T12:34:56Z',
+        },
+      };
+      const product = makeProduct();
+
+      const wrapper = await mountProductDetails(
+        { product, alias: product.alias },
+        { global: { stubs: defaultStubs } },
+      );
+
+      const row = wrapper.find('[data-testid="pdp-latest-ordered"]');
+      expect(row.text()).toContain('2026-05-18');
+      expect(row.text()).toContain('(1421)');
+      expect(row.attributes('href')).toBe('/se/sv/portal/orders/pub-1421');
+    });
+
+    it('links to the order list when the order has no public id', async () => {
+      mockLatestOrder.value = {
+        order: { id: '1421', publicId: null, createdAt: '2026-05-18' },
+      };
+      const product = makeProduct();
+
+      const wrapper = await mountProductDetails(
+        { product, alias: product.alias },
+        { global: { stubs: defaultStubs } },
+      );
+
+      expect(
+        wrapper.find('[data-testid="pdp-latest-ordered"]').attributes('href'),
+      ).toBe('/se/sv/portal/orders');
+    });
+
+    it('shows no row for a product the company never ordered', async () => {
+      mockLatestOrder.value = { order: null };
+      const product = makeProduct();
+
+      const wrapper = await mountProductDetails(
+        { product, alias: product.alias },
+        { global: { stubs: defaultStubs } },
+      );
+
+      expect(wrapper.find('[data-testid="pdp-latest-ordered"]').exists()).toBe(
+        false,
+      );
+    });
   });
 
   /**
