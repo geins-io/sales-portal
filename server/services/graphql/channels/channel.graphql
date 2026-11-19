@@ -1,6 +1,7 @@
 query channel($channelId: String) {
   channel(channelId: $channelId) {
     defaultMarketId
+    bogusField
     markets {
       id
       defaultLanguageId
