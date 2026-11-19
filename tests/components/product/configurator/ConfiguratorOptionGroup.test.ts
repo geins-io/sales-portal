@@ -576,12 +576,49 @@ describe('ConfiguratorOptionGroup', () => {
     const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
 
     const chooser = wrapper.find(CHOOSER).element;
-    const price = wrapper
+    const controls = wrapper
       .find(CHOOSER)
-      .find('[data-testid="configurator-option-price"]').element;
-    // On the row's own line, and followed only by the chevron.
-    expect(price.parentElement).toBe(chooser);
-    expect(price.nextElementSibling).toBe(chooser.lastElementChild);
+      .find('[data-testid="configurator-option-controls"]');
+    const price = controls.find('[data-testid="configurator-option-price"]');
+    // On the row's own line (no stepper, so the controls stay there), and
+    // followed only by the chevron.
+    expect(controls.classes()).toEqual(['contents']);
+    expect(controls.element.lastElementChild).toBe(price.element);
+    expect(controls.element.parentElement!.nextElementSibling).toBe(
+      chooser.lastElementChild,
+    );
+  });
+
+  // Below the container breakpoint the stepper and price take a line of their
+  // own under the name, and the chevron stays up beside the name.
+  it('moves the stepper and price of a stepped chooser under the name on a narrow card', () => {
+    const workbench = makeInitialConfiguration();
+    const top = findOptionGroup(workbench, 'top');
+    top.quantityEditable = true;
+    // A row with a price, which the free laminate top has not.
+    findOption(workbench, 'top-laminate').selected = false;
+    Object.assign(findOption(workbench, 'top-wood'), {
+      selected: true,
+      maxQuantity: 2,
+    });
+
+    const wrapper = mountGroup(top);
+
+    const chooser = wrapper.find(CHOOSER);
+    const controls = chooser.find(
+      '[data-testid="configurator-option-controls"]',
+    );
+    expect(chooser.classes()).toContain('@container/option');
+    expect(
+      controls.find('[data-testid="configurator-option-quantity"]').element
+        .nextElementSibling,
+    ).toBe(controls.find('[data-testid="configurator-option-price"]').element);
+    expect(controls.classes()).toEqual(
+      expect.arrayContaining(['justify-between', '@sm/option:contents']),
+    );
+    expect(chooser.element.lastElementChild!.getAttribute('class')).toContain(
+      'self-start',
+    );
   });
 
   it('shows the chosen price with VAT in the chooser on the inc side', () => {
@@ -763,6 +800,183 @@ describe('ConfiguratorOptionGroup', () => {
         .find('[data-testid="configurator-option-quantity"]')
         .exists(),
     ).toBe(true);
+  });
+
+  describe('a quantity-editable single choice with a chooser', () => {
+    const STEPPER = `${CHOOSER} [data-testid="configurator-option-quantity"]`;
+
+    /** The seeded table top: laminate chosen, its quantity open from 1 to 2. */
+    function editableTop() {
+      const workbench = makeInitialConfiguration();
+      const top = findOptionGroup(workbench, 'top');
+      top.quantityEditable = true;
+      for (const option of top.options) option.maxQuantity = 2;
+      return { workbench, top };
+    }
+
+    it('steps the chosen row on the page, within its bounds', () => {
+      const { top } = editableTop();
+
+      const wrapper = mountGroup(top);
+
+      const stepper = wrapper.find(STEPPER);
+      expect(stepper.exists()).toBe(true);
+      expect(stepper.find('[data-testid="qty-value"]').text()).toBe('1');
+      expect(
+        stepper.find('[data-testid="qty-decrement"]').attributes('disabled'),
+      ).toBeDefined();
+      expect(
+        stepper.find('[data-testid="qty-increment"]').attributes('disabled'),
+      ).toBeUndefined();
+    });
+
+    it('sends the quantity alone, deselecting nothing, and opens no panel', async () => {
+      const { top } = editableTop();
+
+      const wrapper = mountGroup(top);
+      await wrapper
+        .find(`${STEPPER} [data-testid="qty-increment"]`)
+        .trigger('click');
+
+      expect(firstBatch(wrapper)).toEqual([
+        {
+          type: 'option',
+          optionId: 'top-laminate',
+          instanceId: '0',
+          selected: true,
+          quantity: 2,
+          lock: 'none',
+        },
+      ]);
+      expect(wrapper.find(SHEET).exists()).toBe(false);
+    });
+
+    // The − and + are buttons, and a button cannot sit inside another one.
+    it('opens the panel from the one button the row holds besides the stepper', async () => {
+      const { top } = editableTop();
+
+      const wrapper = mountGroup(top);
+      const chooser = wrapper.find(CHOOSER);
+      expect(chooser.element.tagName).toBe('DIV');
+      const open = chooser
+        .findAll('button')
+        .filter((b) => !b.attributes('data-testid')?.startsWith('qty-'));
+      expect(open).toHaveLength(1);
+      expect(open[0]!.text()).toContain('Laminate top');
+
+      await open[0]!.trigger('click');
+
+      expect(wrapper.find(SHEET).exists()).toBe(true);
+    });
+
+    it('stops at the maximum', () => {
+      const { workbench, top } = editableTop();
+      findOption(workbench, 'top-laminate').quantity = 2;
+
+      const wrapper = mountGroup(top);
+
+      expect(
+        wrapper
+          .find(`${STEPPER} [data-testid="qty-increment"]`)
+          .attributes('disabled'),
+      ).toBeDefined();
+    });
+
+    it('locks the stepper while a batch is in flight', () => {
+      const { top } = editableTop();
+
+      const wrapper = mountComponent(ConfiguratorOptionGroup, {
+        props: { group: top, disabled: true },
+      });
+
+      expect(
+        wrapper
+          .find(`${STEPPER} [data-testid="qty-increment"]`)
+          .attributes('disabled'),
+      ).toBeDefined();
+    });
+
+    it('shows no stepper when the group does not let the quantity be edited', () => {
+      const { top } = editableTop();
+      top.quantityEditable = false;
+
+      const wrapper = mountGroup(top);
+
+      expect(wrapper.find(CHOOSER).exists()).toBe(true);
+      expect(wrapper.find(STEPPER).exists()).toBe(false);
+    });
+
+    it('shows no stepper for a chosen row whose quantity is fixed', () => {
+      const { workbench, top } = editableTop();
+      findOption(workbench, 'top-laminate').maxQuantity = 1;
+
+      const wrapper = mountGroup(top);
+
+      expect(wrapper.find(STEPPER).exists()).toBe(false);
+    });
+
+    it('shows no stepper while nothing is chosen', () => {
+      const { top } = editableTop();
+      top.minSelections = undefined;
+      for (const option of top.options) option.selected = false;
+
+      const wrapper = mountGroup(top);
+
+      expect(wrapper.find(CHOOSER).exists()).toBe(true);
+      expect(wrapper.find(STEPPER).exists()).toBe(false);
+    });
+
+    it('keeps the panel open when the quantity is stepped in it', async () => {
+      const { top } = editableTop();
+
+      const wrapper = mountGroup(top);
+      await wrapper.find(CHOOSER).trigger('click');
+      await wrapper
+        .find(
+          `${SHEET} [data-option-id="top-laminate"] [data-testid="qty-increment"]`,
+        )
+        .trigger('click');
+
+      expect(firstBatch(wrapper)).toMatchObject([
+        { optionId: 'top-laminate', selected: true, quantity: 2 },
+      ]);
+      expect(wrapper.find(SHEET).exists()).toBe(true);
+    });
+
+    it('still closes the panel on a pick, and the pick sends no quantity', async () => {
+      const { top } = editableTop();
+
+      const wrapper = mountGroup(top);
+      await wrapper.find(CHOOSER).trigger('click');
+      await wrapper
+        .find(`${SHEET} [data-option-id="top-wood"]`)
+        .trigger('click');
+
+      const batch = firstBatch(wrapper) ?? [];
+      expect(batch.at(-1)).toMatchObject({
+        optionId: 'top-wood',
+        selected: true,
+      });
+      for (const change of batch) expect(change).not.toHaveProperty('quantity');
+      expect(wrapper.find(SHEET).exists()).toBe(false);
+    });
+
+    it('sends no quantity when "nothing chosen" is picked', async () => {
+      const { top } = editableTop();
+      top.minSelections = undefined;
+
+      const wrapper = mountGroup(top);
+      await wrapper.find(CHOOSER).trigger('click');
+      await wrapper
+        .find(`${SHEET} [data-testid="configurator-option-none"]`)
+        .trigger('click');
+
+      const batch = firstBatch(wrapper) ?? [];
+      expect(batch).toMatchObject([
+        { optionId: 'top-laminate', selected: false },
+      ]);
+      for (const change of batch) expect(change).not.toHaveProperty('quantity');
+    });
   });
 
   it('renders the nested groups beside a chooser, each deciding for its own rows', () => {

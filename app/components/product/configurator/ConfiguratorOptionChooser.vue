@@ -1,7 +1,15 @@
 <script setup lang="ts">
-import type { ConfigurationOption } from '#shared/types/configurator';
+import type {
+  ConfigurationChange,
+  ConfigurationOption,
+} from '#shared/types/configurator';
 import { ChevronRight, Lock } from 'lucide-vue-next';
-import { optionBlockReason, optionImage } from '~/utils/configurator-form';
+import {
+  optionBlockReason,
+  optionImage,
+  quantityStepperMin,
+  showsQuantityStepper,
+} from '~/utils/configurator-form';
 import { isOptionReadOnly } from '#shared/utils/configurator-choice';
 
 /**
@@ -16,11 +24,17 @@ import { isOptionReadOnly } from '#shared/utils/configurator-choice';
  *
  * It stays openable while a batch is in flight: opening a list sends nothing,
  * and the rows in it carry the form's lock.
+ *
+ * A chosen row whose quantity the group lets the buyer edit carries the same
+ * stepper as an option row. The row is therefore not one button: the open
+ * button holds the text and stretches over the row, and the stepper sits above
+ * it, so a click on − or + changes the quantity and opens nothing.
  */
 const {
   chosen,
   none = false,
   count,
+  quantityEditable = false,
   imageColumn,
   disabled = false,
   unavailable = false,
@@ -31,6 +45,8 @@ const {
   none?: boolean;
   /** Every row of the group, for the line under the prompt. */
   count: number;
+  /** The group's: the chosen row's quantity can be edited. */
+  quantityEditable?: boolean;
   /** The group's: the chosen option's image or a placeholder, or no box. */
   imageColumn: boolean;
   /** The form's lock, which keeps a batch in flight out of the reason. */
@@ -41,7 +57,7 @@ const {
   nothingToChoose?: boolean;
 }>();
 
-const emit = defineEmits<{ open: [] }>();
+const emit = defineEmits<{ open: []; change: [ConfigurationChange] }>();
 
 const { t } = useI18n();
 
@@ -50,6 +66,27 @@ const readOnly = computed(() => !!chosen && isOptionReadOnly(chosen));
 const showsNothing = computed(() => !chosen && nothingToChoose);
 
 const showsNone = computed(() => !chosen && !nothingToChoose && none);
+
+const steppable = computed(
+  () => !!chosen && showsQuantityStepper(chosen, quantityEditable),
+);
+
+const stepperLocked = computed(
+  () => disabled || readOnly.value || !chosen?.available || unavailable,
+);
+
+/** Only the stepper sends a quantity (see `ConfiguratorOptionRow`). */
+function onQuantity(quantity: number) {
+  if (!chosen) return;
+  emit('change', {
+    type: 'option',
+    optionId: chosen.id,
+    instanceId: chosen.instanceId,
+    selected: true,
+    quantity,
+    lock: 'none',
+  });
+}
 
 const block = computed(() =>
   chosen ? optionBlockReason(chosen, disabled, unavailable) : undefined,
@@ -65,13 +102,12 @@ const reason = computed(() => {
 </script>
 
 <template>
-  <button
-    type="button"
+  <div
     data-testid="configurator-group-chooser"
     :data-option-id="chosen?.id"
     :data-selected="!!chosen"
     :data-none="showsNone"
-    class="hover:bg-accent/50 flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors"
+    class="hover:bg-accent/50 @container/option relative flex w-full cursor-pointer items-center gap-3 rounded-lg border p-3 text-left transition-colors"
     :class="chosen ? 'border-success/60 bg-success/5' : ''"
     @click="emit('open')"
   >
@@ -81,52 +117,78 @@ const reason = computed(() => {
       :url="chosen ? optionImage(chosen)?.url : null"
       :alt="chosen?.name ?? ''"
     />
-    <span class="min-w-0 flex-1">
-      <span
-        class="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium"
+    <ConfiguratorOptionBody :stacked="steppable">
+      <button
+        type="button"
+        class="focus-visible:after:ring-ring min-w-0 flex-1 text-left after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:after:ring-2"
       >
-        {{
-          chosen
-            ? chosen.name
-            : showsNothing
-              ? t('configurator.nothing_to_choose')
-              : showsNone
-                ? t('configurator.none_option')
-                : t('configurator.choose')
-        }}
-        <Lock
-          v-if="readOnly"
-          data-testid="configurator-chooser-lock"
-          class="text-muted-foreground size-3 shrink-0"
-          :aria-label="t('configurator.read_only')"
+        <span
+          class="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium"
+        >
+          {{
+            chosen
+              ? chosen.name
+              : showsNothing
+                ? t('configurator.nothing_to_choose')
+                : showsNone
+                  ? t('configurator.none_option')
+                  : t('configurator.choose')
+          }}
+          <Lock
+            v-if="readOnly"
+            data-testid="configurator-chooser-lock"
+            class="text-muted-foreground size-3 shrink-0"
+            :aria-label="t('configurator.read_only')"
+          />
+        </span>
+        <span
+          v-if="!showsNone && !showsNothing"
+          class="text-muted-foreground block text-xs"
+        >
+          {{
+            chosen
+              ? chosen.articleNumber
+              : t('configurator.option_count', { count })
+          }}
+        </span>
+        <span
+          v-if="reason"
+          data-testid="configurator-chooser-reason"
+          class="block text-xs"
+          :class="
+            chosen?.available && !unavailable
+              ? 'text-muted-foreground'
+              : 'text-danger'
+          "
+        >
+          {{ reason }}
+        </span>
+      </button>
+      <template #controls>
+        <QuantityStepper
+          v-if="chosen && steppable"
+          data-testid="configurator-option-quantity"
+          :model-value="chosen.quantity"
+          :min="quantityStepperMin(chosen)"
+          :max="chosen.maxQuantity"
+          :disabled="stepperLocked"
+          :aria-label="t('configurator.quantity')"
+          class="relative z-10 shrink-0"
+          @click.stop
+          @update:model-value="onQuantity"
         />
-      </span>
-      <span
-        v-if="!showsNone && !showsNothing"
-        class="text-muted-foreground block text-xs"
-      >
-        {{
-          chosen
-            ? chosen.articleNumber
-            : t('configurator.option_count', { count })
-        }}
-      </span>
-      <span
-        v-if="reason"
-        data-testid="configurator-chooser-reason"
-        class="block text-xs"
-        :class="
-          chosen?.available && !unavailable
-            ? 'text-muted-foreground'
-            : 'text-danger'
-        "
-      >
-        {{ reason }}
-      </span>
-    </span>
-    <!-- Centred at the right edge like the option rows, not on the name's
-         line as the prototype has it. -->
-    <ConfiguratorOptionPrice v-if="chosen" :option="chosen" class="shrink-0" />
-    <ChevronRight class="text-muted-foreground size-5 shrink-0" />
-  </button>
+        <!-- Centred at the right edge like the option rows, not on the name's
+             line as the prototype has it. -->
+        <ConfiguratorOptionPrice
+          v-if="chosen"
+          :option="chosen"
+          class="shrink-0"
+        />
+      </template>
+    </ConfiguratorOptionBody>
+    <ChevronRight
+      class="text-muted-foreground size-5 shrink-0"
+      :class="steppable ? 'self-start @sm/option:self-center' : ''"
+    />
+  </div>
 </template>

@@ -9,6 +9,8 @@ import {
   optionBlockReason,
   optionImage,
   quantityIsFixed,
+  quantityStepperMin,
+  showsQuantityStepper,
 } from '~/utils/configurator-form';
 import { isOptionReadOnly } from '#shared/utils/configurator-choice';
 import { Checkbox } from '~/components/ui/checkbox';
@@ -84,8 +86,14 @@ const image = computed(() => optionImage(option));
  * still said, beside the name, so the buyer sees how many are included.
  */
 const fixedQuantity = computed(() => quantityIsFixed(option));
-const steppable = computed(
-  () => quantityEditable && option.selected && !fixedQuantity.value,
+const steppable = computed(() =>
+  showsQuantityStepper(option, quantityEditable),
+);
+/** Beside the name, not centred on the row, once the controls move under it. */
+const indicatorClass = computed(() =>
+  steppable.value
+    ? '@sm/option:mt-0 @sm/option:self-center mt-0.5 self-start'
+    : '',
 );
 const shownQuantity = computed(
   () =>
@@ -134,7 +142,7 @@ function onRow() {
     data-testid="configurator-option"
     :data-option-id="option.id"
     :data-selected="option.selected"
-    class="rounded-lg border p-3 transition-colors"
+    class="@container/option rounded-lg border p-3 transition-colors"
     :class="[
       option.selected ? 'border-success/60 bg-success/5' : '',
       blocked ? 'opacity-50' : 'hover:bg-accent/50 cursor-pointer',
@@ -143,7 +151,8 @@ function onRow() {
     @click="onRow"
   >
     <!-- One centre line, as the prototype's option layouts: indicator, image,
-         text, stepper, and the price at the right edge. -->
+         text, stepper, and the price at the right edge. A narrow card moves the
+         stepper and price under the text, and the indicator up to the name. -->
     <div class="flex items-center gap-3">
       <!-- The chosen mark is the one colour the tenant theme does not get to
            decide: a tenant whose primary is a near-black neutral would mark
@@ -155,6 +164,7 @@ function onRow() {
         :disabled="blocked"
         :title="reason"
         class="data-[state=checked]:border-success [&_svg]:fill-success"
+        :class="indicatorClass"
         @click.stop
       />
       <Checkbox
@@ -163,6 +173,7 @@ function onRow() {
         :disabled="blocked"
         :title="reason"
         class="data-[state=checked]:border-success data-[state=checked]:bg-success"
+        :class="indicatorClass"
         @click.stop
         @update:model-value="onToggle"
       />
@@ -174,68 +185,72 @@ function onRow() {
         :alt="option.name"
       />
 
-      <div class="min-w-0 flex-1">
-        <p class="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-          {{ option.name }}
-          <span
-            v-if="shownQuantity"
-            data-testid="configurator-option-fixed-quantity"
-            class="text-muted-foreground shrink-0 font-normal"
+      <ConfiguratorOptionBody :stacked="steppable">
+        <div class="min-w-0 flex-1">
+          <p class="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+            {{ option.name }}
+            <span
+              v-if="shownQuantity"
+              data-testid="configurator-option-fixed-quantity"
+              class="text-muted-foreground shrink-0 font-normal"
+            >
+              {{
+                t('configurator.panel.quantity_suffix', {
+                  count: option.quantity,
+                })
+              }}
+            </span>
+            <Lock
+              v-if="readOnly"
+              data-testid="configurator-option-lock"
+              class="text-muted-foreground size-3 shrink-0"
+              :aria-label="t('configurator.read_only')"
+            />
+          </p>
+
+          <p
+            v-if="option.description"
+            data-testid="configurator-option-description"
+            class="text-muted-foreground text-xs"
           >
-            {{
-              t('configurator.panel.quantity_suffix', {
-                count: option.quantity,
-              })
-            }}
-          </span>
-          <Lock
-            v-if="readOnly"
-            data-testid="configurator-option-lock"
-            class="text-muted-foreground size-3 shrink-0"
-            :aria-label="t('configurator.read_only')"
+            {{ option.description }}
+          </p>
+
+          <p v-if="option.articleNumber" class="text-muted-foreground text-xs">
+            {{ option.articleNumber }}
+          </p>
+
+          <!-- A row the rules refuse states why in the colour of a refusal; one
+               the provider owns states it in the colour of a note. -->
+          <p
+            v-if="reason"
+            data-testid="configurator-option-reason"
+            class="text-xs"
+            :class="available ? 'text-muted-foreground' : 'text-danger'"
+          >
+            {{ reason }}
+          </p>
+
+          <ConfiguratorMessages :messages="messages" class="mt-2" />
+        </div>
+
+        <template #controls>
+          <QuantityStepper
+            v-if="steppable"
+            data-testid="configurator-option-quantity"
+            :model-value="option.quantity"
+            :min="quantityStepperMin(option)"
+            :max="option.maxQuantity"
+            :disabled="blocked"
+            :aria-label="t('configurator.quantity')"
+            class="shrink-0"
+            @click.stop
+            @update:model-value="onQuantity"
           />
-        </p>
 
-        <p
-          v-if="option.description"
-          data-testid="configurator-option-description"
-          class="text-muted-foreground text-xs"
-        >
-          {{ option.description }}
-        </p>
-
-        <p v-if="option.articleNumber" class="text-muted-foreground text-xs">
-          {{ option.articleNumber }}
-        </p>
-
-        <!-- A row the rules refuse states why in the colour of a refusal; one
-             the provider owns states it in the colour of a note. -->
-        <p
-          v-if="reason"
-          data-testid="configurator-option-reason"
-          class="text-xs"
-          :class="available ? 'text-muted-foreground' : 'text-danger'"
-        >
-          {{ reason }}
-        </p>
-
-        <ConfiguratorMessages :messages="messages" class="mt-2" />
-      </div>
-
-      <QuantityStepper
-        v-if="steppable"
-        data-testid="configurator-option-quantity"
-        :model-value="option.quantity"
-        :min="Math.max(1, option.minQuantity ?? 1)"
-        :max="option.maxQuantity"
-        :disabled="blocked"
-        :aria-label="t('configurator.quantity')"
-        class="shrink-0"
-        @click.stop
-        @update:model-value="onQuantity"
-      />
-
-      <ConfiguratorOptionPrice :option="option" class="shrink-0" />
+          <ConfiguratorOptionPrice :option="option" class="shrink-0" />
+        </template>
+      </ConfiguratorOptionBody>
     </div>
   </div>
 </template>

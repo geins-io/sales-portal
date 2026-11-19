@@ -26,6 +26,8 @@ function mountRow(
 const IMAGE = '[data-testid="configurator-option-image"]';
 /** The one line a row lays its parts out on. */
 const LINE = '[data-testid="configurator-option"] > div';
+/** The stepper and the price, which a narrow card moves under the text. */
+const CONTROLS = '[data-testid="configurator-option-controls"]';
 const PLACEHOLDER = '[data-testid="configurator-option-image-placeholder"]';
 
 function withImage(option: ConfigurationOption, fileName: string) {
@@ -543,7 +545,9 @@ describe('ConfiguratorOptionRow', () => {
   });
 
   // As the prototype's option layouts: [indicator][image][name][stepper][price],
-  // the price at the right edge whether or not the row has a stepper.
+  // the price at the right edge whether or not the row has a stepper. A narrow
+  // card moves the stepper and price to a line under the text, still in that
+  // order, stepper left and price right.
   it('puts the stepper left of the price and the price at the right edge', () => {
     const workbench = makeInitialConfiguration();
     const option = findOption(workbench, 'acc-power');
@@ -552,14 +556,23 @@ describe('ConfiguratorOptionRow', () => {
     const wrapper = mountRow(option, { quantityEditable: true });
 
     const line = wrapper.find(LINE).element;
+    const controls = wrapper.find(CONTROLS);
     const stepper = wrapper.find(
       '[data-testid="configurator-option-quantity"]',
     ).element;
     const price = wrapper.find('[data-testid="configurator-option-price"]');
-    expect(price.element.parentElement).toBe(line);
-    expect(line.lastElementChild).toBe(price.element);
-    expect(stepper.parentElement).toBe(line);
+    expect(stepper.parentElement).toBe(controls.element);
     expect(stepper.nextElementSibling).toBe(price.element);
+    expect(controls.element.lastElementChild).toBe(price.element);
+    expect(line.lastElementChild!.lastElementChild).toBe(controls.element);
+    // Their own line below the container breakpoint, the row's line above it.
+    expect(controls.classes()).toEqual(
+      expect.arrayContaining(['justify-between', '@sm/option:contents']),
+    );
+    expect(controls.element.parentElement!.className).toContain('flex-col');
+    expect(controls.element.parentElement!.className).toContain(
+      '@sm/option:flex-row',
+    );
   });
 
   it('puts the price at the right edge of a row with no quantity', () => {
@@ -568,8 +581,13 @@ describe('ConfiguratorOptionRow', () => {
     const wrapper = mountRow(findOption(workbench, 'top-wood'));
 
     const line = wrapper.find(LINE).element;
+    const controls = wrapper.find(CONTROLS);
     const price = wrapper.find('[data-testid="configurator-option-price"]');
-    expect(line.lastElementChild).toBe(price.element);
+    expect(controls.element.lastElementChild).toBe(price.element);
+    expect(line.lastElementChild!.lastElementChild).toBe(controls.element);
+    // No stepper, so nothing moves: the price stays on the row's line.
+    expect(controls.classes()).toEqual(['contents']);
+    expect(controls.element.parentElement!.className).not.toContain('flex-col');
   });
 
   it('writes the price once, with or without a stepper', () => {
@@ -586,8 +604,9 @@ describe('ConfiguratorOptionRow', () => {
     }
   });
 
-  // Indicator, image, text, stepper and price sit on one centre line, with
-  // or without a stepper.
+  // Indicator, image, text, stepper and price sit on one centre line. A row
+  // with a stepper keeps that from the container breakpoint up; below it, the
+  // indicator moves up beside the name as the controls move under the text.
   it('centres the indicator, the image and the text on the row', () => {
     const workbench = makeInitialConfiguration();
     const option = withImage(findOption(workbench, 'acc-pegboard'), 'peg.jpg');
@@ -599,9 +618,20 @@ describe('ConfiguratorOptionRow', () => {
       expect(line.classes()).toContain('items-center');
       expect(wrapper.find(IMAGE).element.parentElement).toBe(line.element);
       expect(wrapper.find('.items-start').exists()).toBe(false);
-      expect(wrapper.find('[role="checkbox"]').classes()).not.toContain(
-        'mt-0.5',
-      );
+      const indicator = wrapper.find('[role="checkbox"]').classes();
+      if (quantityEditable) {
+        expect(indicator).toEqual(
+          expect.arrayContaining([
+            'self-start',
+            'mt-0.5',
+            '@sm/option:self-center',
+            '@sm/option:mt-0',
+          ]),
+        );
+      } else {
+        expect(indicator).not.toContain('mt-0.5');
+        expect(indicator).not.toContain('self-start');
+      }
     }
   });
 

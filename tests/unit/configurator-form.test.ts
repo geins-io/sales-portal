@@ -24,10 +24,12 @@ import {
   optionImage,
   optionPricePrefix,
   quantityIsFixed,
+  quantityStepperMin,
   refusesOptionIn,
   refusesVariable,
   selectionLimit,
   shownOptions,
+  showsQuantityStepper,
   showsRequiredMark,
   signedOptionPrice,
   usesChooser,
@@ -784,6 +786,42 @@ describe('quantityIsFixed', () => {
 
   it('calls a maximum below the minimum fixed: nothing can be stepped to', () => {
     expect(quantityIsFixed({ minQuantity: 3, maxQuantity: 2 })).toBe(true);
+  });
+});
+
+describe('showsQuantityStepper', () => {
+  const open = { selected: true, minQuantity: 1, maxQuantity: 2 };
+
+  it('steps a chosen row with a range in a quantity-editable group', () => {
+    expect(showsQuantityStepper(open, true)).toBe(true);
+  });
+
+  it('leaves the stepper out where the group does not edit quantities', () => {
+    expect(showsQuantityStepper(open, false)).toBe(false);
+  });
+
+  it('leaves the stepper out of a row that is not chosen', () => {
+    expect(showsQuantityStepper({ ...open, selected: false }, true)).toBe(
+      false,
+    );
+  });
+
+  it('leaves the stepper out of a fixed quantity', () => {
+    expect(showsQuantityStepper({ ...open, maxQuantity: 1 }, true)).toBe(false);
+  });
+});
+
+describe('quantityStepperMin', () => {
+  it('reads a missing minimum as one', () => {
+    expect(quantityStepperMin({})).toBe(1);
+  });
+
+  it('never steps below one, even where the row allows 0', () => {
+    expect(quantityStepperMin({ minQuantity: 0 })).toBe(1);
+  });
+
+  it('keeps a minimum above one', () => {
+    expect(quantityStepperMin({ minQuantity: 2 })).toBe(2);
   });
 });
 

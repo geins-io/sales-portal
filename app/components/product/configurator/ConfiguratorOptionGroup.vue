@@ -175,11 +175,13 @@ function onPick(value: unknown) {
 
 /**
  * A single choice is made once, so the panel closes behind it. Several are
- * made in a row, so it stays open.
+ * made in a row, so it stays open. A quantity is stepped, and only the stepper
+ * sends one, so a step keeps it open too.
  */
 function onSheetChange(change: ConfigurationChange) {
   onRowChange(change);
-  if (single.value) sheetOpen.value = false;
+  const stepped = change.type === 'option' && change.quantity !== undefined;
+  if (single.value && !stepped) sheetOpen.value = false;
 }
 
 /** Deselects the chosen option; with nothing chosen there is nothing to send. */
@@ -242,11 +244,13 @@ function onSheetPick(value: unknown) {
         :chosen="chosen[0]"
         :none="none"
         :count="shown.options.length"
+        :quantity-editable="group.quantityEditable"
         :image-column="imageColumn"
         :disabled="disabled"
         :unavailable="unavailable"
         :nothing-to-choose="nothing"
         @open="openSheet"
+        @change="onRowChange"
       />
 
       <div v-else-if="chooser" class="space-y-2">
