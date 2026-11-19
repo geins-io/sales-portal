@@ -209,6 +209,22 @@ describe('ProductTabs', () => {
     expect(specContent.text()).not.toContain('empty');
   });
 
+  it('right-aligns the values and keeps the labels left in the mobile table', () => {
+    const wrapper = mountComponent(ProductTabs, {
+      props: { product: makeProduct(), related: [] },
+      global: { stubs },
+    });
+    const rows = wrapper.findAll(
+      '.accordion-content [data-testid="spec-table"] tr',
+    );
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      const [label, value] = row.findAll('td');
+      expect(label!.classes()).not.toContain('text-right');
+      expect(value!.classes()).toContain('text-right');
+    }
+  });
+
   it('hides description tab when no text', () => {
     const wrapper = mountComponent(ProductTabs, {
       props: { product: makeProduct({ texts: undefined }), related: [] },
