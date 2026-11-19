@@ -763,6 +763,56 @@ test.describe('Configurator option of quantity 0', () => {
 });
 
 /**
+ * The same seed's "Cable feed": a single choice whose chosen row allows 1 to 2,
+ * in a group that lets the quantity be edited.
+ */
+const CABLE_FEED_GROUP = 'cable-feed';
+
+test.describe('Configurator single choice with a quantity', () => {
+  test('steps the chosen row on the page, and in the panel without closing it', async ({
+    page,
+  }) => {
+    const unavailable = await unavailableReason(page, DEEP_ALIAS);
+    outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
+
+    await openConfigurator(page, DEEP_ALIAS);
+    await openSection(page, 'power');
+
+    const chooser = page
+      .locator(
+        `[data-testid="configurator-group"][data-group-id="${CABLE_FEED_GROUP}"]`,
+      )
+      .getByTestId('configurator-group-chooser');
+    const stepper = chooser.getByTestId('configurator-option-quantity');
+    await expect(stepper.getByTestId('qty-value')).toHaveText('1');
+
+    const changed = changeResponse(page);
+    await stepper.getByTestId('qty-increment').click();
+    const response = await changed;
+    expect(response.status()).toBe(200);
+    expect(response.request().postDataJSON()).toMatchObject({
+      changes: [{ optionId: 'feed-floor', selected: true, quantity: 2 }],
+    });
+    await expect(action(page)).toHaveAttribute('aria-busy', 'false');
+    await expect(stepper.getByTestId('qty-value')).toHaveText('2');
+    const sheet = page.getByTestId('configurator-group-sheet');
+    await expect(sheet).toBeHidden();
+
+    // At phone width the stepper sits at the row's centre, where a plain click
+    // on the row would land.
+    await chooser.getByRole('button', { name: /Floor cable box/ }).click();
+    await expect(sheet).toBeInViewport({ ratio: 1 });
+    const row = sheet.locator('[data-option-id="feed-floor"]');
+    const stepped = changeResponse(page);
+    await row.getByTestId('qty-decrement').click();
+    expect((await stepped).status()).toBe(200);
+    await expect(action(page)).toHaveAttribute('aria-busy', 'false');
+    await expect(row.getByTestId('qty-value')).toHaveText('1');
+    await expect(sheet).toBeInViewport({ ratio: 1 });
+  });
+});
+
+/**
  * The same seed's open number with a refusal the range cannot say: zero is
  * refused, as the real provider refuses it beside a length.
  */

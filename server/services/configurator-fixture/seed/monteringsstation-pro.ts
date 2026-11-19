@@ -648,6 +648,27 @@ function buildSections(): ConfigurationSection[] {
             option('warranty-1y', 'One year extended warranty', 990, 907_077),
           ],
         }),
+        // Single choice, yet the buyer sets how many: the template lets the
+        // quantity of the chosen row be edited, within that row's own range.
+        seedGroup({
+          id: 'cable-feed',
+          code: 'CABLE_FEED',
+          name: 'Cable feed',
+          sortIndex: 40,
+          minSelections: 1,
+          maxSelections: 1,
+          quantityEditable: true,
+          options: [
+            option('feed-floor', 'Floor cable box', 420, 907_078, {
+              selected: true,
+              selectionSource: 'initial',
+              maxQuantity: 2,
+            }),
+            option('feed-ceiling', 'Ceiling cable drop', 680, 907_079, {
+              maxQuantity: 2,
+            }),
+          ],
+        }),
       ],
     },
     logisticsSection(),
