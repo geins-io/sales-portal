@@ -248,10 +248,10 @@ const additionalImages = computed(() => {
   return images.filter((i) => i.fileName && i !== primary);
 });
 
-// Last-ordered summary for this product. Auth-gated, lazy — skips
-// the fetch entirely for anonymous visitors (the common case).
+// The company's newest order of this product. Not fetched for an anonymous
+// visitor (the common case).
 const { latestOrder, formattedDate: latestOrderDate } =
-  useLatestOrderForAlias(slug);
+  useLatestOrderForProduct(() => product.value?.productId);
 
 // The variant selector renders for two distinct shapes Geins returns.
 // Internal multi-SKU products surface their variants in `product.skus`
@@ -808,10 +808,8 @@ useProductSeo({
             <NuxtLink
               v-if="latestOrder"
               :to="
-                latestOrder.latestOrderPublicId
-                  ? localePath(
-                      `/portal/orders/${latestOrder.latestOrderPublicId}`,
-                    )
+                latestOrder.publicId
+                  ? localePath(`/portal/orders/${latestOrder.publicId}`)
                   : localePath('/portal/orders')
               "
               class="text-muted-foreground hover:text-foreground border-border flex items-center gap-2 border-t py-2.5 text-left text-[13px] transition-colors"
@@ -820,8 +818,8 @@ useProductSeo({
               <ShoppingCart class="size-4" />
               <span>
                 {{ $t('product.latest_ordered') }}: {{ latestOrderDate }}
-                <template v-if="latestOrder.latestOrderId">
-                  ({{ latestOrder.latestOrderId }})
+                <template v-if="latestOrder.id">
+                  ({{ latestOrder.id }})
                 </template>
               </span>
             </NuxtLink>

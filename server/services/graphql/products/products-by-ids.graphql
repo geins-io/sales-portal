@@ -23,6 +23,8 @@ query productsByIds(
         fileName
         url
       }
+      # Without unitPrice Geins answers no products at all for a productIds
+      # filter, with no error.
       unitPrice {
         sellingPriceIncVatFormatted
         sellingPriceExVatFormatted

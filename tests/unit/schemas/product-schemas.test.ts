@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   ProductAliasSchema,
+  ProductIdSchema,
   ProductReviewsSchema,
   PostReviewSchema,
   MonitorAvailabilitySchema,
@@ -38,6 +39,27 @@ describe('ProductAliasSchema', () => {
   it('rejects missing alias', () => {
     const result = ProductAliasSchema.safeParse({});
     expect(result.success).toBe(false);
+  });
+});
+
+describe('ProductIdSchema', () => {
+  it.each([
+    ['1', 1],
+    ['1031', 1031],
+    ['2147483647', 2147483647],
+  ])('reads %j as the id %d', (productId, id) => {
+    expect(ProductIdSchema.parse({ productId })).toEqual({ productId: id });
+  });
+
+  it.each(['', '0', '01', '-1', '1.5', '1e3', ' 1', 'abc', '2147483648'])(
+    'rejects %j',
+    (productId) => {
+      expect(ProductIdSchema.safeParse({ productId }).success).toBe(false);
+    },
+  );
+
+  it('rejects a missing id', () => {
+    expect(ProductIdSchema.safeParse({}).success).toBe(false);
   });
 });
 

@@ -1,0 +1,33 @@
+query getCompanyOrdersForPurchasedProductsOverview(
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  getCompanyOrders(
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    createdAt
+    cart {
+      items {
+        skuId
+        quantity
+        unitPrice {
+          sellingPriceExVat
+          sellingPriceExVatFormatted
+          sellingPriceIncVat
+          sellingPriceIncVatFormatted
+        }
+        product {
+          # For the catalogue lookup and the configurator seam only; neither
+          # reaches the response.
+          productId
+          type
+          articleNumber
+          name
+        }
+      }
+    }
+  }
+}

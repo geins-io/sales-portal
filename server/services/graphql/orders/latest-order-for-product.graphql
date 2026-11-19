@@ -1,0 +1,22 @@
+query getCompanyOrdersForLatestOrderOfProduct(
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  getCompanyOrders(
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    id
+    publicId
+    createdAt
+    cart {
+      items {
+        product {
+          productId
+        }
+      }
+    }
+  }
+}

@@ -509,7 +509,8 @@ export type OrderDetailType = Omit<OrderSummaryType, 'cart'> & {
 // ---------------------------------------------------------------------------
 // Purchased product (aggregated from order history)
 // ---------------------------------------------------------------------------
-export interface PurchasedProduct {
+/** What every purchased-product reader shows of a product. */
+interface PurchasedProductBase {
   name: string;
   articleNumber: string;
   alias?: string | null;
@@ -519,15 +520,37 @@ export interface PurchasedProduct {
   priceExVatFormatted?: string;
   priceIncVat?: number;
   priceIncVatFormatted?: string;
+}
+
+/** A row of "Köpta produkter". */
+export interface PurchasedProduct extends PurchasedProductBase {
   totalQuantity: number;
   latestOrderDate: string;
   latestOrderId: string;
   latestOrderPublicId: string | null;
   latestBuyerName: string;
-  /** The sku of the latest order line, which the portal adds to the cart. */
+}
+
+/** A start-page card of a purchased product. */
+export interface PurchasedProductCard extends PurchasedProductBase {
+  /** The sku of the latest order line, which the card adds to the cart. */
   skuId?: number;
   /** Set when the product is configured through the CPQ service. */
   configurable?: boolean;
+}
+
+/** The start page's purchased products: the newest few, the count of all, the most bought. */
+export interface PurchasedProductsOverview {
+  products: PurchasedProductCard[];
+  total: number;
+  mostPurchasedName: string | null;
+}
+
+/** The company's newest order holding a product, as the product page shows it. */
+export interface LatestProductOrder {
+  id: string;
+  publicId: string | null;
+  createdAt: string;
 }
 
 // ---------------------------------------------------------------------------

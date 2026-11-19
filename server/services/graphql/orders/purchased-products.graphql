@@ -18,7 +18,6 @@ query getCompanyOrdersForPurchasedProducts(
     }
     cart {
       items {
-        skuId
         quantity
         unitPrice {
           sellingPriceExVat
@@ -27,16 +26,11 @@ query getCompanyOrdersForPurchasedProducts(
           sellingPriceIncVatFormatted
         }
         product {
-          # For the configurator seam only; neither reaches the response.
+          # For the catalogue lookup only; it does not reach the response.
           productId
-          type
           articleNumber
           name
           alias
-          productImages {
-            fileName
-            url
-          }
         }
       }
     }

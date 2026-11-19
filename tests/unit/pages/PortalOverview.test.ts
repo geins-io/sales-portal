@@ -22,7 +22,9 @@ vi.mock('#app/composables/head', () => ({
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
-    t: (key: string) => key,
+    // A name shows as `key:name`, so a test can see which name a text got.
+    t: (key: string, params?: { name?: string }) =>
+      params?.name ? `${key}:${params.name}` : key,
     locale: ref('en'),
   }),
 }));
@@ -104,7 +106,11 @@ let mockOrdersData: { orders: unknown[]; total: number } | null = {
 let mockOrdersPending = false;
 let mockOrdersError: Error | null = null;
 const mockOrdersRefresh = vi.fn();
-let mockProductsData: { products: unknown[]; total?: number } | null = {
+let mockProductsData: {
+  products: unknown[];
+  total?: number;
+  mostPurchasedName?: string | null;
+} | null = {
   products: [],
 };
 let mockProductsPending = false;
@@ -664,6 +670,36 @@ describe('Portal Overview page', () => {
       expect(productsStatCount(wrapper)).toBe('0');
     });
 
+    it('reads the overview route, not the whole purchased-products list', async () => {
+      await mountPage();
+      expect(requested('/api/orders/products/overview')).toHaveLength(1);
+      expect(requested('/api/orders/products')).toHaveLength(0);
+    });
+
+    it('names the most-bought product the route answers under the count', async () => {
+      mockProductsData = {
+        products: [{ name: 'Widget', articleNumber: 'W-1' }],
+        total: 3,
+        mostPurchasedName: 'Hammer',
+      };
+      const wrapper = await mountPage();
+      expect(
+        wrapper
+          .findAll('[data-testid="portal-stat-card"]')[2]
+          ?.attributes('data-subtitle'),
+      ).toBe('portal.overview.stat.most_purchased_item:Hammer');
+    });
+
+    it('names no product when the route answers none', async () => {
+      mockProductsData = { products: [], total: 0, mostPurchasedName: null };
+      const wrapper = await mountPage();
+      expect(
+        wrapper
+          .findAll('[data-testid="portal-stat-card"]')[2]
+          ?.attributes('data-subtitle'),
+      ).toBeUndefined();
+    });
+
     it('shows the grid and the total for a filled answer', async () => {
       mockProductsData = {
         products: [{ name: 'Widget', articleNumber: 'W-1' }],
@@ -940,7 +976,7 @@ describe('Portal Overview page', () => {
       expect(wrapper.text()).not.toContain('portal.overview.latest_orders');
       expect(wrapper.html()).not.toContain('/portal/orders');
       // Purchased products have their own tab, which no flag hides.
-      expect(requested('/api/orders/products')).toHaveLength(1);
+      expect(requested('/api/orders/products/overview')).toHaveLength(1);
     });
 
     it('does not show the lists when lists is disabled', async () => {
