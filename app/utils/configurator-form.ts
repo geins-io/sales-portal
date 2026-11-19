@@ -267,6 +267,21 @@ export function quantityIsFixed(
   return (option.maxQuantity ?? Infinity) <= (option.minQuantity ?? 1);
 }
 
+/** Whether a row gets a stepper: wherever it is drawn, the rule is this one. */
+export function showsQuantityStepper(
+  option: Pick<ConfigurationOption, 'selected' | 'minQuantity' | 'maxQuantity'>,
+  quantityEditable: boolean,
+): boolean {
+  return quantityEditable && option.selected && !quantityIsFixed(option);
+}
+
+/** A chosen row is never stepped below one, whatever minimum it carries. */
+export function quantityStepperMin(
+  option: Pick<ConfigurationOption, 'minQuantity'>,
+): number {
+  return Math.max(1, option.minQuantity ?? 1);
+}
+
 /** What a row adds to the configuration, signed, or `''` when it adds nothing. */
 export function signedOptionPrice(
   net: number,
