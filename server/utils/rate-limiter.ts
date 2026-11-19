@@ -176,12 +176,6 @@ export function getClientIp(event: H3Event): string {
 
 // --- Pre-configured rate limiter instances ---
 
-export const errorEndpointRateLimiter = new RateLimiter({
-  limit: 10,
-  windowMs: 60000,
-  prefix: 'error-batch',
-});
-
 export const loginRateLimiter = new RateLimiter({
   limit: 5,
   windowMs: 60000,
