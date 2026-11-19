@@ -158,9 +158,9 @@ jobs:
     needs: e2e-build
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # Measured in the container: ~1.5 min of fixed steps before the project
-    # step. The longest job was 11 min (webkit unsharded at 2 workers, with the
-    # merchant API slow); every leg is shorter now, and 18 keeps the headroom.
+    # Measured: ~1.5 min of fixed steps per leg. Unsharded chromium legs took
+    # up to 13 min; a half-project leg is expected near 9, and 18 keeps room
+    # for a slow merchant API.
     timeout-minutes: 18
     # Playwright's image carries the browsers and their system libraries, so
     # no leg runs apt or downloads a browser. The tag must equal the locked
@@ -171,20 +171,31 @@ jobs:
       image: mcr.microsoft.com/playwright:v1.64.1-noble
       options: --ipc=host
     strategy:
-      # Each project is its own answer: a red webkit leaves chromium and
-      # Mobile Chrome running to the end.
+      # Each leg is its own answer: a red webkit shard leaves the other legs
+      # running to the end.
       fail-fast: false
       matrix:
         # `slug` names the artifacts, which should not carry a space.
-        # Webkit is the slowest project and gains nothing from more workers
-        # (playwright.config.ts), so it runs as two shards, each its own leg.
+        # Every project runs as two shards, each its own leg. More shards gain
+        # little: Playwright shards whole spec files, and portal.spec.ts alone
+        # sets a floor; each leg is also one more of the org's concurrent jobs.
         include:
           - project: chromium
-            label: chromium
-            slug: chromium
+            label: chromium 1/2
+            slug: chromium-1
+            shard: 1/2
+          - project: chromium
+            label: chromium 2/2
+            slug: chromium-2
+            shard: 2/2
           - project: Mobile Chrome
-            label: Mobile Chrome
-            slug: mobile-chrome
+            label: Mobile Chrome 1/2
+            slug: mobile-chrome-1
+            shard: 1/2
+          - project: Mobile Chrome
+            label: Mobile Chrome 2/2
+            slug: mobile-chrome-2
+            shard: 2/2
           - project: webkit
             label: webkit 1/2
             slug: webkit-1

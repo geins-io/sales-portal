@@ -5,7 +5,7 @@
 # five preflight layers. Triggered by hand, on any branch.
 #
 # The PR jobs in ci.yml run the same specs on the same three projects in
-# parallel after a shared build, one job per project and webkit in two shards.
+# parallel after a shared build, each project in two shards, one job each.
 # This one differs in what it is
 # for: it can be dispatched on any branch without a PR, and it runs the three
 # projects one after another in a single job, continuing past a failing one,
@@ -17,7 +17,7 @@
 # point at; it is deliberately not an input here.
 #
 # Wall-clock per project goes to the job summary. One job, so one preflight and
-# one sign-in serve all three projects; the PR gate in ci.yml gives each project
+# one sign-in serve all three projects; the PR gate in ci.yml gives each shard
 # its own job, with its own preflight and sign-in against its own server.
 # =============================================================================
 

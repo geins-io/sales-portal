@@ -236,7 +236,7 @@ export default defineConfig({
       testIgnore: [PREFLIGHT_FILES, ORDERS_FILES],
       dependencies: PREFLIGHT_PROJECT_NAMES,
       // On a 4-vCPU runner 4 webkit workers were no faster than 2: WebKit and
-      // the preview server compete for the same cores. ci.yml shards webkit.
+      // the preview server compete for the same cores.
       ...(process.env.CI ? { workers: 2 } : {}),
     },
     // Places a real order on the tenant under test. Never run by ci.yml or
