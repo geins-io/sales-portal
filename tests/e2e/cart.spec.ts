@@ -287,17 +287,11 @@ test.describe('Cart', () => {
     );
     await incrementButton.click();
 
-    // Wait for cart API response
-    await page
-      .waitForResponse(
-        (resp) => resp.url().includes('/api/cart') && resp.status() !== 0,
-        { timeout: 10000 },
-      )
-      .catch(() => {});
-
-    // Verify quantity changed
-    const updatedQty = await quantityInput.inputValue();
-    expect(Number(updatedQty)).toBe(Number(initialQty) + 1);
+    // The line shows the new quantity once the cart answers, which can land
+    // after the response event has fired.
+    await expect(quantityInput).toHaveValue(String(Number(initialQty) + 1), {
+      timeout: 10000,
+    });
   });
 
   test('should delete item from cart drawer', async ({ page }) => {
