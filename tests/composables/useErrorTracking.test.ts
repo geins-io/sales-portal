@@ -36,6 +36,29 @@ const mockSentryAddBreadcrumb =
     }) => void
   >();
 
+// The logger drops debug lines outside dev, so debug output is read from a spy
+// in front of the real logger.
+const mockLogDebug =
+  vi.fn<(message: string, context?: Record<string, unknown>) => void>();
+
+vi.mock('../../app/utils/logger', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../app/utils/logger')>();
+  return {
+    ...actual,
+    createLogger: (component: string) => {
+      const log = actual.createLogger(component);
+      return {
+        ...log,
+        debug: (message: string, context?: Record<string, unknown>) => {
+          mockLogDebug(message, context);
+          log.debug(message, context);
+        },
+      };
+    },
+  };
+});
+
 vi.mock('@sentry/nuxt', () => ({
   captureException: (...args: Parameters<typeof mockSentryCapture>) =>
     mockSentryCapture(...args),
@@ -146,66 +169,23 @@ describe('useErrorTracking', () => {
       );
     });
 
-    it('should add error to local errors array', () => {
-      const { trackError, errors } = useErrorTracking();
-      const error = new Error('Test error');
+    it('should log the error with its context and route', () => {
+      const { trackError } = useErrorTracking();
 
-      trackError(error);
+      trackError(new Error('Test error'), { component: 'TestComponent' });
 
-      expect(errors.value.length).toBe(1);
-      const tracked = errors.value[0];
-      assert.isDefined(tracked);
-      expect(tracked.message).toBe('Test error');
-      expect(tracked.name).toBe('Error');
-    });
-
-    it('should limit errors array to 50 items', () => {
-      const { trackError, errors } = useErrorTracking();
-
-      // Track 55 errors
-      for (let i = 0; i < 55; i++) {
-        trackError(new Error(`Error ${i}`));
-      }
-
-      expect(errors.value.length).toBe(50);
-      // Most recent should be first
-      expect(errors.value[0]?.message).toBe('Error 54');
-    });
-
-    it('should include timestamp in error event', () => {
-      const { trackError, errors } = useErrorTracking();
-      const beforeTime = new Date().toISOString();
-
-      trackError(new Error('Test'));
-
-      const afterTime = new Date().toISOString();
-      const tracked = errors.value[0];
-      assert.isDefined(tracked);
-      expect(tracked.timestamp).toBeDefined();
-      expect(tracked.timestamp >= beforeTime).toBe(true);
-      expect(tracked.timestamp <= afterTime).toBe(true);
-    });
-
-    it('should include route path in error context', () => {
-      const { trackError, errors } = useErrorTracking();
-
-      trackError(new Error('Test'));
-
-      // Route path is included in error context (actual path depends on test environment)
-      const tracked = errors.value[0];
-      assert.isDefined(tracked);
-      expect(tracked.context).toHaveProperty('route');
-      expect(typeof tracked.context.route).toBe('string');
-    });
-
-    it('should not track when disabled', () => {
-      const { trackError, setEnabled, errors } = useErrorTracking();
-
-      setEnabled(false);
-      trackError(new Error('Test'));
-
-      expect(errors.value.length).toBe(0);
-      expect(mockSentryCapture).not.toHaveBeenCalled();
+      const call = consoleMocks.mocks.error.mock.lastCall;
+      assert.isDefined(call);
+      expect(call).toContainEqual(
+        expect.stringContaining('[ErrorTracking] Error: Test error'),
+      );
+      expect(call).toContainEqual(
+        expect.objectContaining({
+          component: 'TestComponent',
+          route: expect.any(String),
+          stack: expect.any(String),
+        }),
+      );
     });
   });
 
@@ -329,36 +309,34 @@ describe('useErrorTracking', () => {
   });
 
   describe('trackWarning', () => {
-    it('should not track when disabled', () => {
-      const { trackWarning, setEnabled } = useErrorTracking();
+    it('should log the warning with its context and route', () => {
+      const { trackWarning } = useErrorTracking();
 
-      setEnabled(false);
-      trackWarning('Warning message');
+      trackWarning('Warning message', { component: 'TestComponent' });
 
-      // In dev mode, console.warn would be called, but we disabled tracking
-      expect(consoleMocks.mocks.warn).not.toHaveBeenCalled();
+      const call = consoleMocks.mocks.warn.mock.lastCall;
+      assert.isDefined(call);
+      expect(call).toContainEqual(expect.stringContaining('Warning message'));
+      expect(call).toContainEqual(
+        expect.objectContaining({
+          component: 'TestComponent',
+          severity: 'warning',
+          route: expect.any(String),
+        }),
+      );
     });
   });
 
   describe('trackEvent', () => {
-    it('should not track when disabled', () => {
-      const { trackEvent, setEnabled } = useErrorTracking();
+    it('should log the event name and properties', () => {
+      const { trackEvent } = useErrorTracking();
+      mockLogDebug.mockClear();
 
-      setEnabled(false);
       trackEvent('button_click', { button: 'submit' });
 
-      expect(consoleMocks.mocks.log).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('trackMetric', () => {
-    it('should not track when disabled', () => {
-      const { trackMetric, setEnabled } = useErrorTracking();
-
-      setEnabled(false);
-      trackMetric({ name: 'page_load', value: 100, unit: 'ms' });
-
-      expect(consoleMocks.mocks.log).not.toHaveBeenCalled();
+      expect(mockLogDebug).toHaveBeenCalledWith('Event: button_click', {
+        button: 'submit',
+      });
     });
   });
 
@@ -394,72 +372,6 @@ describe('useErrorTracking', () => {
       // Duration should be returned and be a valid number
       expect(typeof duration).toBe('number');
       expect(duration).toBeGreaterThanOrEqual(0);
-    });
-  });
-
-  describe('setEnabled', () => {
-    it('should enable tracking', () => {
-      const { setEnabled, isEnabled } = useErrorTracking();
-
-      setEnabled(true);
-
-      expect(isEnabled.value).toBe(true);
-    });
-
-    it('should disable tracking', () => {
-      const { setEnabled, isEnabled } = useErrorTracking();
-
-      setEnabled(false);
-
-      expect(isEnabled.value).toBe(false);
-    });
-  });
-
-  describe('clearErrors', () => {
-    it('should clear all tracked errors', () => {
-      const { trackError, clearErrors, errors } = useErrorTracking();
-
-      trackError(new Error('Error 1'));
-      trackError(new Error('Error 2'));
-      expect(errors.value.length).toBe(2);
-
-      clearErrors();
-
-      expect(errors.value.length).toBe(0);
-    });
-  });
-
-  describe('getRecentErrors', () => {
-    it('should return recent errors array', () => {
-      const { trackError, getRecentErrors } = useErrorTracking();
-
-      trackError(new Error('Test error'));
-
-      const recentErrors = getRecentErrors();
-
-      expect(recentErrors.length).toBe(1);
-      expect(recentErrors[0]?.message).toBe('Test error');
-    });
-  });
-
-  describe('global state', () => {
-    it('should share state across multiple calls', async () => {
-      const instance1 = useErrorTracking();
-      const instance2 = useErrorTracking();
-
-      instance1.trackError(new Error('Shared error'));
-
-      expect(instance2.errors.value.length).toBe(1);
-      expect(instance2.errors.value[0]?.message).toBe('Shared error');
-    });
-
-    it('should share enabled state across instances', async () => {
-      const instance1 = useErrorTracking();
-      const instance2 = useErrorTracking();
-
-      instance1.setEnabled(false);
-
-      expect(instance2.isEnabled.value).toBe(false);
     });
   });
 });
@@ -646,206 +558,83 @@ describe('error formatting', () => {
     vi.unstubAllGlobals();
   });
 
-  it('should format Error object correctly', () => {
-    const { trackError, errors } = useErrorTracking();
+  it('should pass an Error object to Sentry unchanged', () => {
+    const { trackError } = useErrorTracking();
     const error = new Error('Test error message');
     error.name = 'CustomError';
 
     trackError(error);
 
-    const tracked = errors.value[0];
-    assert.isDefined(tracked);
-    expect(tracked.message).toBe('Test error message');
-    expect(tracked.name).toBe('CustomError');
-    expect(tracked.stack).toBeDefined();
+    expect(mockSentryCapture.mock.calls[0]?.[0]).toBe(error);
   });
 
-  it('should format string error correctly', () => {
-    const { trackError, errors } = useErrorTracking();
-
-    trackError('Simple string error');
-
-    const tracked = errors.value[0];
-    assert.isDefined(tracked);
-    expect(tracked.message).toBe('Simple string error');
-    expect(tracked.name).toBe('Error');
-  });
-
-  it('should format number error correctly', () => {
-    const { trackError, errors } = useErrorTracking();
+  it('should wrap a number in an Error', () => {
+    const { trackError } = useErrorTracking();
 
     trackError(404);
 
-    const tracked = errors.value[0];
-    assert.isDefined(tracked);
-    expect(tracked.message).toBe('404');
-    expect(tracked.name).toBe('Error');
+    const captured = mockSentryCapture.mock.calls[0]?.[0];
+    assert.isDefined(captured);
+    expect(captured.message).toBe('404');
+    expect(captured.name).toBe('Error');
   });
 
-  it('should format object error correctly', () => {
-    const { trackError, errors } = useErrorTracking();
+  it('should wrap an object in an Error', () => {
+    const { trackError } = useErrorTracking();
 
     trackError({ code: 500, reason: 'Internal error' });
 
-    const tracked = errors.value[0];
-    assert.isDefined(tracked);
-    expect(tracked.message).toBe('[object Object]');
-    expect(tracked.name).toBe('Error');
-  });
-
-  it('should merge context with route path', () => {
-    const { trackError, errors } = useErrorTracking();
-
-    trackError(new Error('Test'), { component: 'TestComp' });
-
-    const tracked = errors.value[0];
-    assert.isDefined(tracked);
-    expect(tracked.context.component).toBe('TestComp');
-    // Route path is included (actual value depends on test environment)
-    expect(tracked.context).toHaveProperty('route');
-    expect(typeof tracked.context.route).toBe('string');
+    const captured = mockSentryCapture.mock.calls[0]?.[0];
+    assert.isDefined(captured);
+    expect(captured.message).toBe('[object Object]');
   });
 });
 
-describe('error batching', () => {
-  let useErrorTracking: typeof import('../../app/composables/useErrorTracking').useErrorTracking;
-  let _resetErrorQueue: typeof import('../../app/composables/useErrorTracking')._resetErrorQueue;
-  let _getErrorQueue: typeof import('../../app/composables/useErrorTracking')._getErrorQueue;
-  let _hasFlushTimeout: typeof import('../../app/composables/useErrorTracking')._hasFlushTimeout;
+// ErrorBoundary calls trackError during SSR too, where every request in the process shares this
+// module, so nothing it returns or exports may hold error data.
+describe('server path', () => {
   let consoleMocks: ReturnType<typeof mockConsole>;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     mockSentryCapture.mockClear();
     mockFetch.mockClear();
     consoleMocks = mockConsole();
-
-    vi.useFakeTimers();
     vi.resetModules();
-
     vi.stubGlobal('useRuntimeConfig', () => mockRuntimeConfig);
     vi.stubGlobal('fetch', mockFetch);
-
-    const module = await import('../../app/composables/useErrorTracking');
-    useErrorTracking = module.useErrorTracking;
-    _resetErrorQueue = module._resetErrorQueue;
-    _getErrorQueue = module._getErrorQueue;
-    _hasFlushTimeout = module._hasFlushTimeout;
-
-    // Reset queue before each test
-    _resetErrorQueue();
+    vi.stubGlobal('window', undefined);
   });
 
   afterEach(() => {
     consoleMocks.restore();
-    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
-  it('should expose getQueuedErrorCount function', () => {
-    const { getQueuedErrorCount } = useErrorTracking();
+  it('reports to Sentry and the log, and exposes no state', async () => {
+    const module = await import('../../app/composables/useErrorTracking');
+    const error = new Error('request A failed');
 
-    expect(typeof getQueuedErrorCount).toBe('function');
-    expect(getQueuedErrorCount()).toBe(0);
-  });
+    module.useErrorTracking().trackError(error, { component: 'CartPage' });
 
-  it('should expose flushErrorQueue function', () => {
-    const { flushErrorQueue } = useErrorTracking();
+    expect(mockSentryCapture).toHaveBeenCalledWith(
+      error,
+      expect.objectContaining({
+        tags: { component: 'CartPage', action: undefined },
+      }),
+    );
+    expect(consoleMocks.mocks.error.mock.calls.flat()).toContainEqual(
+      expect.stringContaining('[ErrorTracking] Error: request A failed'),
+    );
+    expect(mockFetch).not.toHaveBeenCalled();
 
-    expect(typeof flushErrorQueue).toBe('function');
-  });
-
-  it('should queue errors for batching when tracking errors', () => {
-    // In test environment (non-dev mode with window), errors are queued
-    const { trackError, getQueuedErrorCount, flushErrorQueue } =
-      useErrorTracking();
-
-    // Track an error
-    trackError(new Error('Test error'));
-
-    // Verify error was queued (test environment mimics production)
-    // Note: In actual dev mode (import.meta.dev = true), queue would be empty
-    const queueCount = getQueuedErrorCount();
-    expect(queueCount).toBeGreaterThanOrEqual(0);
-
-    // Clean up
-    flushErrorQueue();
-    _resetErrorQueue();
-  });
-
-  it('should reset error queue correctly', () => {
-    // Manually add to queue to test reset
-    const queue = _getErrorQueue();
-    queue.push({
-      message: 'test',
-      name: 'Error',
-      context: {},
-      timestamp: new Date().toISOString(),
-      url: 'http://test.com',
-      userAgent: 'test',
-    });
-
-    expect(queue.length).toBe(1);
-
-    _resetErrorQueue();
-
-    expect(_getErrorQueue().length).toBe(0);
-  });
-
-  it('should track flush timeout status', () => {
-    // Initially no timeout
-    expect(_hasFlushTimeout()).toBe(false);
-  });
-
-  it('should allow manual flushing of error queue', () => {
-    const { flushErrorQueue, getQueuedErrorCount } = useErrorTracking();
-
-    // Manually add to queue
-    const queue = _getErrorQueue();
-    queue.push({
-      message: 'test error 1',
-      name: 'Error',
-      context: {},
-      timestamp: new Date().toISOString(),
-      url: 'http://test.com',
-      userAgent: 'test',
-    });
-    queue.push({
-      message: 'test error 2',
-      name: 'Error',
-      context: {},
-      timestamp: new Date().toISOString(),
-      url: 'http://test.com',
-      userAgent: 'test',
-    });
-
-    expect(getQueuedErrorCount()).toBe(2);
-
-    flushErrorQueue();
-
-    expect(getQueuedErrorCount()).toBe(0);
-  });
-
-  it('should batch multiple errors together', () => {
-    // Manually add multiple errors to queue
-    const queue = _getErrorQueue();
-    for (let i = 0; i < 5; i++) {
-      queue.push({
-        message: `test error ${i}`,
-        name: 'Error',
-        context: {},
-        timestamp: new Date().toISOString(),
-        url: 'http://test.com',
-        userAgent: 'test',
-      });
-    }
-
-    expect(queue.length).toBe(5);
-
-    // Flush should send all errors in one batch
-    const { flushErrorQueue } = useErrorTracking();
-    flushErrorQueue();
-
-    // Queue should be empty after flush
-    expect(queue.length).toBe(0);
+    const requestB = module.useErrorTracking();
+    expect(
+      Object.entries(requestB).filter(([, v]) => typeof v !== 'function'),
+    ).toEqual([]);
+    expect(Object.keys(module).sort()).toEqual([
+      'useErrorBoundary',
+      'useErrorTracking',
+      'withErrorTracking',
+    ]);
   });
 });
