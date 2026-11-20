@@ -13,6 +13,7 @@ import {
   signedInState,
 } from './helpers';
 import { BASE_URL } from './target';
+import { apiGet } from './api-call';
 
 /**
  * Product Browsing E2E Tests
@@ -91,6 +92,98 @@ test.describe('Product Browsing', () => {
       await page.keyboard.press('Escape');
     }
     await expect(options.first()).toBeVisible({ timeout: 5000 });
+  });
+
+  // The list opens on the store's default sort, whatever it is set to: the
+  // rendered first page must be the API's first page for that sort. Picking
+  // Ö-A (A-Ö when Ö-A is the default) then reorders it. The API sorts the
+  // Swedish way (Å Ä Ö after Z), so names compare with an sv collator.
+  test('opens a category on the store default sort and reorders it by name', async ({
+    page,
+  }) => {
+    const config = await apiGet(page.request, '/api/config');
+    expect(config.ok(), '/api/config did not answer 200').toBe(true);
+    const setting: string =
+      (await config.json())?.productList?.defaultSort ?? 'name-asc';
+    const isPriceSort = setting === 'price-asc' || setting === 'price-desc';
+    const opensOn =
+      isPriceSort && !(await pricesShownSignedOut(page)) ? 'name-asc' : setting;
+    const sortEnum: Record<string, string> = {
+      'name-asc': 'ALPHABETICAL',
+      'name-desc': 'ALPHABETICAL_DESC',
+      newest: 'LATEST',
+      'price-asc': 'PRICE',
+      'price-desc': 'PRICE_DESC',
+    };
+    expect(sortEnum[opensOn], `unknown default sort ${opensOn}`).toBeDefined();
+
+    const category = await discoverCategory(page);
+    const categoryAlias = category.alias.split('/').pop()!;
+    const expected = await apiGet(page.request, '/api/product-lists/products', {
+      params: {
+        categoryAlias,
+        take: '24',
+        filter: JSON.stringify({ sort: sortEnum[opensOn] }),
+      },
+    });
+    expect(expected.ok()).toBe(true);
+    const expectedNames = ((await expected.json()).products ?? []).map(
+      (p: { name?: string }) => (p.name ?? '').trim(),
+    );
+
+    await page.goto(`/${category.alias}`);
+    const names = page.locator('[data-testid="product-card"] h3');
+    await expect(names.first()).toBeVisible({ timeout: 20000 });
+    await waitForHydration(page);
+
+    const collator = new Intl.Collator('sv');
+    const readNames = async () =>
+      (await names.allInnerTexts()).map((name) => name.trim());
+
+    expect(new URL(page.url()).searchParams.has('sort')).toBe(false);
+    const opened = await readNames();
+    expect(opened.length).toBeGreaterThan(1);
+    expect(opened).toEqual(expectedNames);
+
+    const target =
+      opensOn === 'name-desc'
+        ? { label: 'A-Ö', value: 'name-asc', sign: 1 }
+        : { label: 'Ö-A', value: 'name-desc', sign: -1 };
+    const sortDropdown = page.locator('[data-testid="sort-dropdown"]');
+    const targetOption = page.locator('[role="option"]', {
+      hasText: target.label,
+    });
+    // Retry the click — hydration patching can swallow the first one.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await sortDropdown.click();
+      const visible = await targetOption
+        .waitFor({ state: 'visible', timeout: 3000 })
+        .then(() => true)
+        .catch(() => false);
+      if (visible) break;
+      await page.keyboard.press('Escape');
+    }
+    await targetOption.click();
+
+    await expect(page).toHaveURL(new RegExp(`[?&]sort=${target.value}`));
+    // The first page after the switch can hold other products than the one
+    // before it, so check the order, not the set.
+    await expect
+      .poll(
+        async () => {
+          const shown = await readNames();
+          return (
+            shown.join('|') !== opened.join('|') &&
+            shown.every(
+              (name, i) =>
+                i === 0 ||
+                target.sign * collator.compare(shown[i - 1]!, name) <= 0,
+            )
+          );
+        },
+        { timeout: 15000 },
+      )
+      .toBe(true);
   });
 
   test('should have a filter button', async ({ page }) => {
