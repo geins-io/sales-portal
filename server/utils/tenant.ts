@@ -15,6 +15,7 @@ import {
   mergeStorefrontSettings,
 } from './storefront-settings-defaults';
 import { KV_STORAGE_KEYS } from '#shared/constants/storage';
+import { normalizeListDefaultSort } from '#shared/utils/filters';
 import { logger } from './logger';
 import { isDevMode } from './dev-mode';
 import { TENANT_LOOKUP_TIMEOUT_MS } from './outbound-timeouts';
@@ -471,6 +472,13 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
       ? 'externalNumber'
       : 'quotationNumber';
   const features = normalizeFeatureAccess(rawFeatures, merged.hostname);
+  const productList = {
+    defaultSort: normalizeListDefaultSort(
+      isPlainObject(merged.productList)
+        ? merged.productList.defaultSort
+        : undefined,
+    ),
+  };
 
   // Server-only, but typed with the same narrowed FeatureAccess.
   const overrides: TenantConfig['overrides'] = merged.overrides
@@ -538,6 +546,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     branding,
     features,
     quoteDisplayNumber,
+    productList,
     seo: merged.seo,
     contact: merged.contact,
     overrides,

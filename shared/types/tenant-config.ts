@@ -1,5 +1,6 @@
 import type { CmsSlotConfig, CmsSlotKey } from './cms-slots';
 import type { CmsMenuConfig, CmsMenuKey } from '../constants/cms';
+import type { ListSort } from '../utils/filters';
 
 export type {
   StoreSettings,
@@ -106,6 +107,12 @@ export interface TenantConfig {
    */
   quoteDisplayNumber?: QuoteDisplayNumber;
 
+  /**
+   * Studio's `productList.defaultSort`. Optional so a config cached before
+   * the field existed reads as the default, A-Ö.
+   */
+  productList?: { defaultSort: ListSort };
+
   // CMS slot + menu registry — see docs/patterns/cms-config.md for the
   // design. Tenant config wins per key over DEFAULT_CMS_CONFIG in
   // server/utils/tenant.ts; slots and menus neither layer defines
@@ -186,6 +193,7 @@ export interface PublicTenantConfig {
   cms?: TenantConfig['cms'];
   seo?: TenantConfig['seo'];
   contact?: TenantConfig['contact'];
+  productList?: TenantConfig['productList'];
   css: string;
 
   // Derived from channelSettings before stripping

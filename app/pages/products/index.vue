@@ -34,12 +34,7 @@ function restoreFiltersFromQuery(): Record<string, string[]> {
 }
 
 const filterState = ref<Record<string, string[]>>(restoreFiltersFromQuery());
-// The full-catalogue list defaults to newest for a stable order (see the
-// category/brand PLP); relevance with no sort param reshuffles on reload.
-const DEFAULT_SORT = 'newest';
-const sortBy = ref(
-  typeof route.query.sort === 'string' ? route.query.sort : DEFAULT_SORT,
-);
+const { sortBy, sortOptions, sortParam } = useListSort();
 const viewMode = useCookie<'grid' | 'list'>('plp-view-mode', {
   default: () => 'grid',
 });
@@ -50,15 +45,6 @@ const skip = computed(() => (currentPage.value - 1) * take);
 const { t } = useI18n();
 const { localeQuery, currentLocale, currentMarket } = useLocaleMarket();
 const siteConfig = useSiteConfig();
-
-const sortOptions = computed(() => [
-  { label: t('product.sort_relevance'), value: 'relevance' },
-  { label: t('product.sort_price_asc'), value: 'price-asc' },
-  { label: t('product.sort_price_desc'), value: 'price-desc' },
-  { label: t('product.sort_newest'), value: 'newest' },
-  { label: t('product.sort_name_asc'), value: 'name-asc' },
-  { label: t('product.sort_name_desc'), value: 'name-desc' },
-]);
 
 // --- Filter input ---
 const filterInput = computed(() =>
@@ -106,13 +92,13 @@ watch([totalPages, currentPage], ([pages, page]) => {
 
 // URL sync
 watch(
-  [filterState, sortBy, currentPage],
+  [filterState, sortBy, sortParam, currentPage],
   () => {
     const query: Record<string, string> = {};
     for (const [key, values] of Object.entries(filterState.value ?? {})) {
       if (values.length > 0) query[key] = values.join(',');
     }
-    if (sortBy.value !== DEFAULT_SORT) query.sort = sortBy.value;
+    if (sortParam.value) query.sort = sortParam.value;
     if (currentPage.value > 1) query.page = String(currentPage.value);
     router.replace({ query });
   },

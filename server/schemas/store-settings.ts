@@ -341,6 +341,8 @@ export const StoreSettingsSchema = z.object({
   features: z.record(z.string(), FeatureConfigInputSchema).default({}),
   seo: SeoConfigSchema.nullable().optional(),
   contact: ContactConfigSchema.nullable().optional(),
+  /** Any value: tenant.ts reads one that is not a list sort as A-Ö. */
+  productList: z.unknown().optional(),
   overrides: OverrideConfigSchema,
   cms: CmsConfigSchema,
   assetPath: z.string().nullable().default(null),

@@ -21,6 +21,7 @@ import { flushPromises } from '@vue/test-utils';
 import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductList from '../../../app/components/pages/ProductList.vue';
 import { useTenant } from '../../../app/composables/useTenant';
+import type { ListSort } from '../../../shared/utils/filters';
 import type { PrimaryRead } from '../../../app/composables/useEntityUrlRecovery';
 
 // ProductList uses `await useFetch(...)` so its setup is async. The top-level
@@ -1031,8 +1032,13 @@ describe('ProductList.vue', () => {
       });
 
       const values = captured[captured.length - 1]!.map((o) => o.value);
-      expect(values).toContain('price-asc');
-      expect(values).toContain('price-desc');
+      expect(values).toEqual([
+        'name-asc',
+        'name-desc',
+        'newest',
+        'price-asc',
+        'price-desc',
+      ]);
     });
 
     it('hides price sort options when showPrice is false', async () => {
@@ -1044,11 +1050,7 @@ describe('ProductList.vue', () => {
       });
 
       const values = captured[captured.length - 1]!.map((o) => o.value);
-      expect(values).not.toContain('price-asc');
-      expect(values).not.toContain('price-desc');
-      expect(values).toContain('relevance');
-      expect(values).toContain('newest');
-      expect(values).toContain('name-asc');
+      expect(values).toEqual(['name-asc', 'name-desc', 'newest']);
 
       mockShowPrice.value = true;
     });
@@ -1111,34 +1113,34 @@ describe('ProductList.vue', () => {
       return arg?.query;
     }
 
-    it('initialises a category list to the newest default', async () => {
+    it('initialises a category list to the A-Ö default', async () => {
       const { captured, capturingStubs } = withSortValueCapture();
       await mountProductList(categoryProps, {
         global: { stubs: capturingStubs },
       });
-      expect(captured[captured.length - 1]).toBe('newest');
+      expect(captured[captured.length - 1]).toBe('name-asc');
     });
 
-    it('initialises a brand list to the newest default', async () => {
+    it('initialises a brand list to the A-Ö default', async () => {
       const { captured, capturingStubs } = withSortValueCapture();
       await mountProductList(
         { type: 'brand' as const, alias: 'acme' },
         { global: { stubs: capturingStubs } },
       );
-      expect(captured[captured.length - 1]).toBe('newest');
+      expect(captured[captured.length - 1]).toBe('name-asc');
     });
 
-    it('omits ?sort= from the URL while sortBy is the newest default', async () => {
+    it('omits ?sort= from the URL while sortBy is the A-Ö default', async () => {
       const wrapper = await mountProductList(categoryProps, {
         global: { stubs: namedToolbarStubs },
       });
       const toolbar = wrapper.findComponent({ name: 'ProductListToolbar' });
 
-      // Move off the default, then back to it. Returning to 'newest' must write
+      // Move off the default, then back to it. Returning to 'name-asc' must write
       // a query with no `sort` key so the default never appears in the URL.
       toolbar.vm.$emit('update:sortValue', 'price-asc');
       await flushPromises();
-      toolbar.vm.$emit('update:sortValue', 'newest');
+      toolbar.vm.$emit('update:sortValue', 'name-asc');
       await flushPromises();
 
       const query = lastReplacedQuery();
@@ -1156,6 +1158,136 @@ describe('ProductList.vue', () => {
       await flushPromises();
 
       expect(lastReplacedQuery()?.sort).toBe('price-asc');
+    });
+
+    it('writes ?sort=newest to the URL when newest is picked', async () => {
+      const wrapper = await mountProductList(categoryProps, {
+        global: { stubs: namedToolbarStubs },
+      });
+      const toolbar = wrapper.findComponent({ name: 'ProductListToolbar' });
+
+      toolbar.vm.$emit('update:sortValue', 'newest');
+      await flushPromises();
+
+      expect(lastReplacedQuery()?.sort).toBe('newest');
+    });
+
+    describe('with a default sort set in the store settings', () => {
+      function setDefaultSort(defaultSort: ListSort | undefined) {
+        const { tenant } = useTenant();
+        const current = tenant.value;
+        assert.isDefined(current);
+        tenant.value = {
+          ...current,
+          productList: defaultSort === undefined ? undefined : { defaultSort },
+        };
+      }
+
+      afterEach(() => {
+        setDefaultSort(undefined);
+        mockShowPrice.value = true;
+      });
+
+      async function opensOn(defaultSort: ListSort) {
+        setDefaultSort(defaultSort);
+        const { captured, capturingStubs } = withSortValueCapture();
+        await mountProductList(categoryProps, {
+          global: { stubs: capturingStubs },
+        });
+        return captured[captured.length - 1];
+      }
+
+      it('opens on name-asc when the store setting is name-asc', async () => {
+        expect(await opensOn('name-asc')).toBe('name-asc');
+      });
+
+      it('opens on name-desc when the store setting is name-desc', async () => {
+        expect(await opensOn('name-desc')).toBe('name-desc');
+      });
+
+      it('opens on newest when the store setting is newest', async () => {
+        expect(await opensOn('newest')).toBe('newest');
+      });
+
+      it('opens on price-asc when the store setting is price-asc', async () => {
+        expect(await opensOn('price-asc')).toBe('price-asc');
+      });
+
+      it('opens on price-desc when the store setting is price-desc', async () => {
+        expect(await opensOn('price-desc')).toBe('price-desc');
+      });
+
+      it('omits ?sort= while sortBy is the configured default', async () => {
+        setDefaultSort('newest');
+        const wrapper = await mountProductList(categoryProps, {
+          global: { stubs: namedToolbarStubs },
+        });
+        const toolbar = wrapper.findComponent({ name: 'ProductListToolbar' });
+
+        toolbar.vm.$emit('update:sortValue', 'name-asc');
+        await flushPromises();
+        expect(lastReplacedQuery()?.sort).toBe('name-asc');
+
+        toolbar.vm.$emit('update:sortValue', 'newest');
+        await flushPromises();
+        expect(lastReplacedQuery()).not.toHaveProperty('sort');
+      });
+
+      it('opens on A-Ö for a price default while prices are hidden', async () => {
+        mockShowPrice.value = false;
+        expect(await opensOn('price-asc')).toBe('name-asc');
+      });
+
+      it('follows the price default once prices show, if nothing was picked', async () => {
+        setDefaultSort('price-asc');
+        mockShowPrice.value = false;
+        const wrapper = await mountProductList(categoryProps, {
+          global: { stubs: namedToolbarStubs },
+        });
+        const toolbar = wrapper.findComponent({ name: 'ProductListToolbar' });
+        expect(toolbar.props('sortValue')).toBe('name-asc');
+
+        mockShowPrice.value = true;
+        await flushPromises();
+
+        expect(toolbar.props('sortValue')).toBe('price-asc');
+      });
+
+      it('keeps a picked A-Ö when prices start to show', async () => {
+        setDefaultSort('price-asc');
+        mockShowPrice.value = false;
+        const wrapper = await mountProductList(categoryProps, {
+          global: { stubs: namedToolbarStubs },
+        });
+        const toolbar = wrapper.findComponent({ name: 'ProductListToolbar' });
+        toolbar.vm.$emit('update:sortValue', 'newest');
+        await flushPromises();
+        toolbar.vm.$emit('update:sortValue', 'name-asc');
+        await flushPromises();
+
+        mockShowPrice.value = true;
+        await flushPromises();
+
+        expect(toolbar.props('sortValue')).toBe('name-asc');
+        expect(lastReplacedQuery()?.sort).toBe('name-asc');
+      });
+
+      it('keeps a picked sort when prices start to show', async () => {
+        setDefaultSort('price-asc');
+        mockShowPrice.value = false;
+        const wrapper = await mountProductList(categoryProps, {
+          global: { stubs: namedToolbarStubs },
+        });
+        const toolbar = wrapper.findComponent({ name: 'ProductListToolbar' });
+        toolbar.vm.$emit('update:sortValue', 'newest');
+        await flushPromises();
+
+        mockShowPrice.value = true;
+        await flushPromises();
+
+        expect(toolbar.props('sortValue')).toBe('newest');
+        expect(lastReplacedQuery()?.sort).toBe('newest');
+      });
     });
   });
   describe('breadcrumbs', () => {
