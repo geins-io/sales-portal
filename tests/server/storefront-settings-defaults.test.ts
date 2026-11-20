@@ -72,6 +72,10 @@ describe('storefront-settings-defaults', () => {
       expect(STOREFRONT_SETTINGS_DEFAULTS.mode).toBe('commerce');
       expect(STOREFRONT_SETTINGS_DEFAULTS.theme.radius).toBe('0');
     });
+
+    it('defaults cardBorders to on, as cards looked before the setting', () => {
+      expect(STOREFRONT_SETTINGS_DEFAULTS.theme.cardBorders).toBe(true);
+    });
   });
 
   describe('mergeStorefrontSettings', () => {

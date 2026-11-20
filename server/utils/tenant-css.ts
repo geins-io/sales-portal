@@ -256,6 +256,7 @@ export function generateTenantCss(
   radius?: string | null,
   overrideCss?: Record<string, string> | null,
   typography?: ThemeTypography | null,
+  cardBorders?: boolean | null,
 ): string {
   const lines: string[] = [];
 
@@ -264,6 +265,13 @@ export function generateTenantCss(
 
   if (radius) {
     lines.push(generateRadiusCss(radius));
+  }
+
+  // Only off is emitted: on is the stylesheet's own default, so the CSS of a
+  // tenant with borders stays exactly as it was before the setting existed.
+  // Transparent rather than none keeps the width, so no card shifts.
+  if (cardBorders === false) {
+    lines.push('  --card-border: transparent;');
   }
 
   const fontCss = generateFontCss(typography);
@@ -370,6 +378,7 @@ export function buildDerivedTheme(
     themeWithDerived.radius,
     overrideCss,
     themeWithDerived.typography,
+    themeWithDerived.cardBorders,
   );
   return { themeWithDerived, css, themeHash };
 }

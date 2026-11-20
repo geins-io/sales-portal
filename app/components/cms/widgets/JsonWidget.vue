@@ -202,7 +202,9 @@ function bannerPlacementClasses(placement?: string): string {
           :key="`rich-slide-${i}`"
           class="basis-4/5"
         >
-          <div class="bg-card h-full overflow-hidden rounded-md border">
+          <div
+            class="bg-card border-card-border h-full overflow-hidden rounded-md border"
+          >
             <GeinsImage
               v-if="item.image?.src"
               :file-name="item.image.src"
@@ -248,7 +250,7 @@ function bannerPlacementClasses(placement?: string): string {
       <div
         v-for="(item, i) in items"
         :key="i"
-        class="bg-card overflow-hidden rounded-md border"
+        class="bg-card border-card-border overflow-hidden rounded-md border"
       >
         <GeinsImage
           v-if="item.image?.src"
@@ -308,7 +310,7 @@ function bannerPlacementClasses(placement?: string): string {
           <component
             :is="linkTo(item.url ?? '/') ? NuxtLink : 'div'"
             :to="linkTo(item.url ?? '/') || undefined"
-            class="bg-card group block overflow-hidden rounded-md border"
+            class="bg-card group border-card-border block overflow-hidden rounded-md border"
           >
             <div class="bg-muted aspect-square overflow-hidden">
               <GeinsImage
@@ -341,7 +343,7 @@ function bannerPlacementClasses(placement?: string): string {
         v-for="(item, i) in simpleItems"
         :key="i"
         :to="linkTo(item.url ?? '/') || undefined"
-        class="bg-card group overflow-hidden rounded-md border"
+        class="bg-card group border-card-border overflow-hidden rounded-md border"
       >
         <div class="bg-muted aspect-square overflow-hidden">
           <GeinsImage

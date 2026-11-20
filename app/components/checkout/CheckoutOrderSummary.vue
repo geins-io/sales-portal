@@ -53,7 +53,7 @@ const emit = defineEmits<{
 
 <template>
   <div
-    class="bg-muted border-border sticky top-24 space-y-4 rounded-lg border p-6"
+    class="bg-muted border-card-border sticky top-24 space-y-4 rounded-lg border p-6"
     data-testid="checkout-order-summary"
   >
     <div

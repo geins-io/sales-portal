@@ -498,6 +498,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     merged.theme.radius,
     merged.overrides?.css,
     merged.theme.typography,
+    merged.theme.cardBorders,
   );
 
   const theme: TenantConfig['theme'] = {

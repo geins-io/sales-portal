@@ -38,7 +38,7 @@ const isRichTextFramed = computed(
 // so non-framed blocks render through the wrapper unchanged.
 const cardClasses = computed(() =>
   isRichTextFramed.value
-    ? 'border-border rounded-lg border bg-white p-6 md:p-8'
+    ? 'rounded-lg border border-card-border bg-white p-6 md:p-8'
     : '',
 );
 

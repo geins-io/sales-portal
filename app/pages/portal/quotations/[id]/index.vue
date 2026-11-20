@@ -518,7 +518,7 @@ const customerSummary = computed(() => {
     <div
       v-if="quote"
       data-testid="quote-detail"
-      class="border-border rounded-lg border bg-white p-6"
+      class="border-card-border rounded-lg border bg-white p-6"
     >
       <div
         data-testid="quote-toolbar"

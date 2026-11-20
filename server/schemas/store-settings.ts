@@ -89,6 +89,9 @@ export const ThemeConfigSchema = z.object({
   displayName: z.string().nullable().optional(),
   colors: ThemeColorsSchema,
   radius: z.string().nullable().optional(),
+  // Studio's boolean toggle. Unset means on, so tenants saved before the
+  // setting existed keep their card borders.
+  cardBorders: z.boolean().nullable().optional(),
   typography: ThemeTypographySchema.nullable().optional(),
 });
 

@@ -358,6 +358,38 @@ describe('StoreSettingsSchema', () => {
     });
   });
 
+  describe('theme.cardBorders', () => {
+    const withCardBorders = (cardBorders: unknown) => ({
+      ...ALPHA_MOCK,
+      theme: { ...ALPHA_MOCK.theme, cardBorders },
+    });
+
+    it('accepts the boolean the Studio toggle saves', () => {
+      for (const value of [true, false]) {
+        const result = StoreSettingsSchema.safeParse(withCardBorders(value));
+        expect(result.success, String(value)).toBe(true);
+        expect(result.data?.theme.cardBorders, String(value)).toBe(value);
+      }
+    });
+
+    it('accepts a theme without cardBorders', () => {
+      const result = StoreSettingsSchema.safeParse(ALPHA_MOCK);
+      expect(result.success).toBe(true);
+      expect(result.data?.theme.cardBorders).toBeUndefined();
+    });
+
+    it('rejects a cardBorders that is not a boolean', () => {
+      for (const value of ['false', 'off', 0]) {
+        const result = StoreSettingsSchema.safeParse(withCardBorders(value));
+        expect(result.success, String(value)).toBe(false);
+        expect(result.error?.issues[0]?.path, String(value)).toEqual([
+          'theme',
+          'cardBorders',
+        ]);
+      }
+    });
+  });
+
   describe('missing required fields', () => {
     it('should reject missing required color fields', () => {
       const incomplete = {

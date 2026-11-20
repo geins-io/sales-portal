@@ -1538,6 +1538,38 @@ export const CONFIG_COVERAGE_MAP = {
       note: 'The getter, and the emitter for both the set and the null value.',
     },
 
+    cardBorders: {
+      status: 'has-test',
+      test: [
+        {
+          spec: TENANT_CSS,
+          title: 'makes the card border transparent when card borders are off',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        {
+          spec: TENANT_CSS,
+          title:
+            'emits nothing for on, null or unset, so the CSS stays as before',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        {
+          spec: SERVER_TENANT,
+          title:
+            'turns card borders off in config.css when the theme says false',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        {
+          spec: SERVER_TENANT,
+          title: 'keeps cardBorders false through the resilient path',
+          kind: 'carrier',
+        },
+      ],
+      note: 'The emitter for off and for on, null and unset, and the merge carrying false into config.css. The card frames read the emitted --card-border; card-borders.spec.ts proves they follow it.',
+    },
+
     typography: {
       presence: {
         present: {

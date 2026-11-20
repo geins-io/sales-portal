@@ -133,6 +133,41 @@ describe('generateTenantCss surface colors', () => {
   });
 });
 
+describe('generateTenantCss card borders', () => {
+  const derived = () => deriveThemeColors(coreColors);
+
+  it('makes the card border transparent when card borders are off', () => {
+    const css = generateTenantCss('test', derived(), null, null, null, false);
+    expect(css).toContain('  --card-border: transparent;');
+    // Inside the theme selector, not after its closing brace.
+    expect(css.indexOf('--card-border')).toBeLessThan(css.lastIndexOf('}'));
+  });
+
+  it('emits nothing for on, null or unset, so the CSS stays as before', () => {
+    const baseline = generateTenantCss('test', derived());
+    for (const value of [true, null, undefined]) {
+      const css = generateTenantCss('test', derived(), null, null, null, value);
+      expect(css, String(value)).toBe(baseline);
+      expect(css, String(value)).not.toContain('--card-border');
+    }
+  });
+
+  it('emits the card border before override.css, so an override still wins', () => {
+    const css = generateTenantCss(
+      'test',
+      derived(),
+      null,
+      { '--card-border': 'red' },
+      null,
+      false,
+    );
+    expect(css.indexOf('--card-border: transparent;')).toBeGreaterThan(-1);
+    expect(css.indexOf('--card-border: transparent;')).toBeLessThan(
+      css.indexOf('--card-border: red;'),
+    );
+  });
+});
+
 describe('generateTenantCss override.css', () => {
   beforeEach(() => {
     vi.restoreAllMocks();

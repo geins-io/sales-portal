@@ -12,7 +12,7 @@
 
       <!-- Main content: bordered card with two columns -->
       <div
-        class="grid gap-8 rounded-lg border p-4 md:grid-cols-2 md:p-6 lg:p-8"
+        class="border-card-border grid gap-8 rounded-lg border p-4 md:grid-cols-2 md:p-6 lg:p-8"
       >
         <!-- Left: Gallery -->
         <div data-testid="pdp-skeleton-gallery" class="space-y-2">
@@ -84,7 +84,11 @@
       <div data-testid="pdp-skeleton-related" class="space-y-4">
         <Skeleton class="h-6 w-40" />
         <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <div v-for="i in 4" :key="i" class="rounded-md border p-0">
+          <div
+            v-for="i in 4"
+            :key="i"
+            class="border-card-border rounded-md border p-0"
+          >
             <Skeleton
               class="aspect-square w-full rounded-t-md rounded-b-none"
             />

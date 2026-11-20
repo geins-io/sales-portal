@@ -228,7 +228,7 @@ function formatDate(dateStr: string): string {
 
 <template>
   <PortalShell>
-    <div class="border-border rounded-lg border bg-white p-6">
+    <div class="border-card-border rounded-lg border bg-white p-6">
       <!-- Page header -->
       <div
         class="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between"

@@ -467,6 +467,21 @@ describe('Tenant utilities', () => {
       // The merge must not rewrite the value it was handed.
       expect(built.theme.colors.primary).toBe('oklch(0.20 0 0)');
     });
+
+    it('turns card borders off in config.css when the theme says false', () => {
+      const built = buildTenantConfig({
+        ...baseSettings,
+        theme: { ...baseSettings.theme, cardBorders: false },
+      });
+      expect(built.css).toContain('--card-border: transparent;');
+      expect(built.theme.cardBorders).toBe(false);
+    });
+
+    it('keeps card borders on when the theme has no cardBorders', () => {
+      const built = buildTenantConfig(baseSettings);
+      expect(built.css).not.toContain('--card-border');
+      expect(built.theme.cardBorders).toBe(true);
+    });
   });
 
   describe('buildTenantConfig override.features resolution', () => {
@@ -1552,6 +1567,35 @@ describe('Tenant utilities', () => {
         expect(out?.branding.name, bad).toBe('A');
         expect(out?.theme.colors.primary, bad).toBe('oklch(0.5 0.1 200)');
       }
+    });
+
+    it('drops a cardBorders that is not a boolean and keeps the theme', () => {
+      for (const bad of ['false', 'off', 0]) {
+        const candidate = fullCandidate();
+        candidate.theme = {
+          ...(candidate.theme as object),
+          radius: '0.375rem',
+          cardBorders: bad,
+        };
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out, String(bad)).not.toBeNull();
+        expect(out?.theme.cardBorders, String(bad)).toBeUndefined();
+        expect(out?.theme.radius, String(bad)).toBe('0.375rem');
+        expect(out?.theme.colors.primary, String(bad)).toBe(
+          'oklch(0.5 0.1 200)',
+        );
+      }
+    });
+
+    it('keeps cardBorders false through the resilient path', () => {
+      const candidate = fullCandidate();
+      candidate.theme = { ...(candidate.theme as object), cardBorders: false };
+
+      expect(
+        parseStoreSettingsResilient(candidate, 'h')?.theme.cardBorders,
+      ).toBe(false);
     });
 
     it('keeps a valid timezone through the resilient path', () => {

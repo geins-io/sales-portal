@@ -91,7 +91,7 @@ useHead({
     >
       <div
         data-testid="quote-thanks-contents"
-        class="border-border mt-8 grid grid-cols-1 gap-6 rounded-lg border bg-white p-6 lg:grid-cols-3"
+        class="border-card-border mt-8 grid grid-cols-1 gap-6 rounded-lg border bg-white p-6 lg:grid-cols-3"
       >
         <!-- Left: the lines (desktop only; below lg they are in the sheet) -->
         <div class="hidden min-w-0 lg:col-span-2 lg:block">
