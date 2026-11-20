@@ -23,6 +23,7 @@ describe('deriveThemeColors surface forwarding', () => {
       buttonPurchaseBackground: '#4a497e',
       buttonText: '#f1e2d3',
       buttonPurchaseText: '#d3e2f1',
+      navBarText: '#e0e0e0',
     });
     expect(result.topBarBackground).toBe('#111111');
     expect(result.footerBackground).toBe('#222222');
@@ -32,6 +33,7 @@ describe('deriveThemeColors surface forwarding', () => {
     expect(result.buttonPurchaseBackground).toBe('#4a497e');
     expect(result.buttonText).toBe('#f1e2d3');
     expect(result.buttonPurchaseText).toBe('#d3e2f1');
+    expect(result.navBarText).toBe('#e0e0e0');
   });
 
   it('collapses unset surface keys to the empty-string sentinel', () => {
@@ -42,10 +44,11 @@ describe('deriveThemeColors surface forwarding', () => {
     expect(result.buttonPurchaseBackground).toBe('');
     expect(result.buttonText).toBe('');
     expect(result.buttonPurchaseText).toBe('');
+    expect(result.navBarText).toBe('');
   });
 
-  it('returns 42 keys total (32 standard + 10 surfaces)', () => {
+  it('returns 43 keys total (32 standard + 11 surfaces)', () => {
     const result = deriveThemeColors({ ...coreColors });
-    expect(Object.keys(result)).toHaveLength(42);
+    expect(Object.keys(result)).toHaveLength(43);
   });
 });

@@ -84,6 +84,9 @@ describe('generateTenantCss surface colors', () => {
     expect(css).toContain('--footer-text: #cecece;');
     expect(css).toContain('--button-text: var(--primary-foreground);');
     expect(css).toContain('--button-purchase-text: var(--button-text);');
+    // The nav bar text falls back to the page text, so White and Light grey
+    // bars read as they did before the setting existed.
+    expect(css).toContain('--nav-bar-text: var(--foreground);');
   });
 
   it('chains buttonPurchaseBackground through buttonBackground when only buttonBackground is set', () => {
@@ -409,6 +412,7 @@ describe('generateTenantCss configured colours reach their CSS variable', () => 
         'oklch(0.65 0 0)',
         '#8f8f8f',
       ],
+      ['navBarText', '--nav-bar-text', 'oklch(0.70 0 0)', '#9e9e9e'],
     ];
     expectEachCase(emitFor(cases), cases);
   });
@@ -581,5 +585,37 @@ describe('deriveThemeColors fallbacks per derivation family', () => {
     // proves the hue rotation at all.
     expect(css, 'chart1').toContain('--chart-1: #3a3a3a;');
     expect(css, 'chart5').toContain('--chart-5: #010101;');
+  });
+});
+
+describe('generateTenantCss nav bar alignment', () => {
+  const derived = deriveThemeColors({ ...coreColors });
+
+  it('centres the nav bar items, falling back to the start on overflow, when the alignment is center', () => {
+    const css = generateTenantCss(
+      'test',
+      derived,
+      null,
+      null,
+      null,
+      null,
+      'center',
+    );
+    expect(css).toContain('--nav-bar-justify: safe center;');
+  });
+
+  it('emits no nav bar alignment when it is left or unset', () => {
+    for (const alignment of ['left', null, undefined] as const) {
+      const css = generateTenantCss(
+        'test',
+        derived,
+        null,
+        null,
+        null,
+        null,
+        alignment,
+      );
+      expect(css, String(alignment)).not.toContain('--nav-bar-justify');
+    }
   });
 });

@@ -187,7 +187,7 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
 <template>
   <nav
     v-if="visibleItems.length"
-    class="bg-nav-bar-background relative hidden h-12 items-center border-b lg:flex"
+    class="bg-nav-bar-background text-nav-bar-text relative hidden h-12 items-center border-b lg:flex"
     :aria-label="$t('layout.main_navigation')"
   >
     <!--
@@ -230,10 +230,14 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
             It must stay unpositioned: the mega menus are anchored to the <nav>,
             outside it, which keeps them from being clipped or scrolled along.
             The 3px of padding is room for the focus rings the overflow would clip;
-            the negative margin keeps the items where they were.
+            the negative margin keeps the items where they were. The tenant
+            theme may centre the items with `safe center`, which starts them
+            at the edge again when they overflow. Important, because
+            tailwind-merge does not see an arbitrary property as replacing the
+            list's own `justify-center`.
           -->
           <NavigationMenuList
-            class="mx-[-3px] scrollbar-none justify-start gap-2 overflow-x-auto overflow-y-hidden p-[3px]"
+            class="mx-[-3px] scrollbar-none [justify-content:var(--nav-bar-justify,flex-start)]! gap-2 overflow-x-auto overflow-y-hidden p-[3px]"
           >
             <NavigationMenuItem
               v-for="item in visibleItems"
@@ -243,7 +247,7 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
               <!-- Item with children: trigger + mega menu -->
               <template v-if="visibleChildren(item).length">
                 <NavigationMenuTrigger
-                  class="bg-transparent underline-offset-4 hover:bg-transparent hover:underline focus:bg-transparent data-[state=open]:bg-transparent data-[state=open]:underline data-[state=open]:hover:bg-transparent data-[state=open]:focus:bg-transparent"
+                  class="bg-transparent underline-offset-4 hover:bg-transparent hover:text-inherit hover:underline focus:bg-transparent focus:text-inherit data-[state=open]:bg-transparent data-[state=open]:text-inherit data-[state=open]:underline data-[state=open]:hover:bg-transparent data-[state=open]:focus:bg-transparent"
                 >
                   {{ getMenuLabel(item) }}
                 </NavigationMenuTrigger>

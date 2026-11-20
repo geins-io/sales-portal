@@ -86,6 +86,7 @@ const COLOR_CSS_MAP: Record<keyof FullThemeColors, string> = {
   buttonPurchaseBackground: '--button-purchase-background',
   topBarText: '--top-bar-text',
   footerText: '--footer-text',
+  navBarText: '--nav-bar-text',
   buttonText: '--button-text',
   buttonPurchaseText: '--button-purchase-text',
 };
@@ -116,6 +117,7 @@ const SURFACE_FALLBACKS: Record<string, string> = {
   buttonPurchaseBackground: 'var(--button-background)',
   topBarText: 'var(--primary-foreground)',
   footerText: 'oklch(0.85 0 0)',
+  navBarText: 'var(--foreground)',
   buttonText: 'var(--primary-foreground)',
   buttonPurchaseText: 'var(--button-text)',
 };
@@ -257,11 +259,18 @@ export function generateTenantCss(
   overrideCss?: Record<string, string> | null,
   typography?: ThemeTypography | null,
   cardBorders?: boolean | null,
+  navBarAlignment?: 'left' | 'center' | null,
 ): string {
   const lines: string[] = [];
 
   lines.push(`[data-theme='${themeName}'] {`);
   lines.push(generateColorCss(derivedColors));
+
+  // `safe` falls back to the start when the items overflow, so the first
+  // ones are never cut off out of scroll reach.
+  if (navBarAlignment === 'center') {
+    lines.push('  --nav-bar-justify: safe center;');
+  }
 
   if (radius) {
     lines.push(generateRadiusCss(radius));

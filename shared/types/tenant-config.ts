@@ -97,6 +97,9 @@ export interface TenantConfig {
   // Missing keys fall back to component defaults.
   layout?: {
     headerNavVariant?: 'grey' | 'white' | null;
+    menu?: {
+      navbarAlignment?: 'left' | 'center' | null;
+    } | null;
   } | null;
 
   // Features — keyed by feature name
