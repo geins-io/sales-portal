@@ -14,7 +14,12 @@ import type {
   ProductListResponse,
   ProductFiltersResponse,
 } from '#shared/types/commerce';
-import { buildFilterInput, SORT_MAP } from '#shared/utils/filters';
+import {
+  buildFilterInput,
+  SORT_LABEL_KEYS,
+  SORT_MAP,
+  sortValuesFor,
+} from '#shared/utils/filters';
 import { toAbsoluteUrl } from '~/utils/absolute-url';
 
 const route = useRoute();
@@ -28,7 +33,7 @@ const searchTerm = computed(() => {
 
 const filterState = ref<Record<string, string[]>>({});
 // Search defaults to relevance: the API ranks results by match quality, which
-// is the meaningful order for a query. Product lists default to newest instead.
+// is the meaningful order for a query. Product lists follow the store setting.
 const DEFAULT_SORT = 'relevance';
 const sortBy = ref(DEFAULT_SORT);
 const viewMode = useCookie<'grid' | 'list'>('plp-view-mode', {
@@ -44,14 +49,13 @@ const showFilesPlaceholder = false;
 const { t } = useI18n();
 const { currentLocale, currentMarket, localeQuery } = useLocaleMarket();
 const siteConfig = useSiteConfig();
-const sortOptions = computed(() => [
-  { label: t('product.sort_relevance'), value: 'relevance' },
-  { label: t('product.sort_price_asc'), value: 'price-asc' },
-  { label: t('product.sort_price_desc'), value: 'price-desc' },
-  { label: t('product.sort_newest'), value: 'newest' },
-  { label: t('product.sort_name_asc'), value: 'name-asc' },
-  { label: t('product.sort_name_desc'), value: 'name-desc' },
-]);
+const { showPrice } = usePriceVisibility();
+const sortOptions = computed(() =>
+  sortValuesFor('search', showPrice.value).map((value) => ({
+    label: t(SORT_LABEL_KEYS[value]),
+    value,
+  })),
+);
 
 // --- SEO ---
 const searchUrl = computed(

@@ -230,6 +230,7 @@ type Seo = NonNullable<PublicTenantConfig['seo']>;
 type Contact = NonNullable<PublicTenantConfig['contact']>;
 type Address = NonNullable<Contact['address']>;
 type Social = NonNullable<Contact['social']>;
+type ProductList = NonNullable<PublicTenantConfig['productList']>;
 
 /**
  * Whether the block arrives at all is one behaviour — it decides if a fonts
@@ -286,6 +287,12 @@ export type ContactCoverage = {
       : StringFieldCoverage;
 };
 
+export type ProductListCoverage = {
+  [K in keyof ProductList]-?: K extends 'defaultSort'
+    ? Record<ProductList['defaultSort'] | 'absent', Coverage>
+    : Coverage;
+};
+
 /**
  * The shape of each field's entry. The conditional picks a precise shape per
  * known key and falls through to a single `Coverage` for identity fields, so
@@ -309,7 +316,9 @@ type FieldCoverage<K extends keyof PublicTenantConfig> = K extends 'mode'
                 ? SeoCoverage
                 : K extends 'contact'
                   ? ContactCoverage
-                  : Coverage;
+                  : K extends 'productList'
+                    ? ProductListCoverage
+                    : Coverage;
 
 /**
  * The totality contract. `-?` strips optionality, so the eight optional fields

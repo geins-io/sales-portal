@@ -41,7 +41,59 @@ export const SORT_MAP: Record<string, string> = {
   'price-desc': 'PRICE_DESC',
   newest: 'LATEST',
   'name-asc': 'ALPHABETICAL',
+  'name-desc': 'ALPHABETICAL_DESC',
 };
+
+/** i18n label key for each sort value a page offers. */
+export const SORT_LABEL_KEYS: Record<SortValue, string> = {
+  relevance: 'product.sort_relevance',
+  'name-asc': 'product.sort_name_asc',
+  'name-desc': 'product.sort_name_desc',
+  newest: 'product.sort_newest',
+  'price-asc': 'product.sort_price_asc',
+  'price-desc': 'product.sort_price_desc',
+};
+
+/**
+ * Sorts a product list (category, brand, `/products`) offers, and the values
+ * the store setting `productList.defaultSort` accepts. Relevance is search
+ * only: without a search term the API returns a different order on every read.
+ */
+export const LIST_SORTS = [
+  'name-asc',
+  'name-desc',
+  'newest',
+  'price-asc',
+  'price-desc',
+] as const;
+export type ListSort = (typeof LIST_SORTS)[number];
+export type SortValue = ListSort | 'relevance';
+
+const PRICE_SORTS: ReadonlySet<string> = new Set(['price-asc', 'price-desc']);
+
+/** The sort values a page offers; price sorts only while prices show. */
+export function sortValuesFor(
+  page: 'list' | 'search',
+  showPrice: boolean,
+): SortValue[] {
+  const values: readonly SortValue[] =
+    page === 'search' ? ['relevance', ...LIST_SORTS] : LIST_SORTS;
+  return values.filter((value) => showPrice || !PRICE_SORTS.has(value));
+}
+
+/** The stored default sort, or A-Ö when it is unset or not a list sort. */
+export function normalizeListDefaultSort(raw: unknown): ListSort {
+  return LIST_SORTS.find((value) => value === raw) ?? 'name-asc';
+}
+
+/** The default a visitor gets: a price default needs visible prices. */
+export function effectiveListDefaultSort(
+  setting: unknown,
+  showPrice: boolean,
+): ListSort {
+  const sort = normalizeListDefaultSort(setting);
+  return !showPrice && PRICE_SORTS.has(sort) ? 'name-asc' : sort;
+}
 
 export interface FilterInput {
   facets?: string[];

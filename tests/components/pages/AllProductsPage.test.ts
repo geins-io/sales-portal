@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { shallowMount, flushPromises } from '@vue/test-utils';
 
 // --- Shared mocks ---
-// The full-catalogue list (/products) must default sort to `newest`, matching
+// The full-catalogue list (/products) must default sort to `name-asc`, matching
 // the category/brand PLP, and must omit `?sort=` from the URL while at that
 // default. router.replace is a shared spy so the URL-sync write is observable.
 const { replaceMock, pageRoute } = vi.hoisted(() => ({
@@ -11,7 +11,7 @@ const { replaceMock, pageRoute } = vi.hoisted(() => ({
   pageRoute: {
     path: '/se/sv/products',
     params: {},
-    query: {} as Record<string, string>,
+    query: {} as Record<string, string | string[]>,
     hash: '',
     fullPath: '/se/sv/products',
     name: 'products',
@@ -89,6 +89,15 @@ vi.mock('../../../app/composables/useLocaleMarket', () => ({
   }),
 }));
 
+const mockShowPrice = ref(true);
+vi.mock('../../../app/composables/usePriceVisibility', () => ({
+  usePriceVisibility: () => ({ showPrice: mockShowPrice }),
+}));
+const mockTenant = ref<{ productList?: { defaultSort: string } } | null>({});
+vi.mock('../../../app/composables/useTenant', () => ({
+  useTenant: () => ({ tenant: mockTenant }),
+}));
+
 const { default: AllProductsPage } =
   await import('../../../app/pages/products/index.vue');
 
@@ -111,29 +120,31 @@ describe('All products page (/products) sort', () => {
     replaceMock.mockClear();
     mockProductsData.value = { products: [], count: 0 };
     mockProductsStatus.value = 'success';
+    mockShowPrice.value = true;
+    mockTenant.value = {};
   });
 
-  it('initialises sortBy to the newest default when no ?sort param', () => {
+  it('initialises sortBy to the A-Ö default when no ?sort param', () => {
     const wrapper = mountPage();
     const toolbar = wrapper.findComponent({ name: 'ProductListToolbar' });
     expect(toolbar.exists()).toBe(true);
-    expect(toolbar.props('sortValue')).toBe('newest');
-  });
-
-  it('honours an explicit ?sort param over the default', () => {
-    pageRoute.query = { sort: 'name-asc' };
-    const wrapper = mountPage();
-    const toolbar = wrapper.findComponent({ name: 'ProductListToolbar' });
     expect(toolbar.props('sortValue')).toBe('name-asc');
   });
 
-  it('omits ?sort= from the URL while sortBy is the newest default', async () => {
+  it('honours an explicit ?sort param over the default', () => {
+    pageRoute.query = { sort: 'newest' };
+    const wrapper = mountPage();
+    const toolbar = wrapper.findComponent({ name: 'ProductListToolbar' });
+    expect(toolbar.props('sortValue')).toBe('newest');
+  });
+
+  it('omits ?sort= from the URL while sortBy is the A-Ö default', async () => {
     const wrapper = mountPage();
     const toolbar = wrapper.findComponent({ name: 'ProductListToolbar' });
 
     toolbar.vm.$emit('update:sortValue', 'price-asc');
     await flushPromises();
-    toolbar.vm.$emit('update:sortValue', 'newest');
+    toolbar.vm.$emit('update:sortValue', 'name-asc');
     await flushPromises();
 
     const query = lastReplacedQuery();
@@ -149,6 +160,72 @@ describe('All products page (/products) sort', () => {
     await flushPromises();
 
     expect(lastReplacedQuery()?.sort).toBe('price-asc');
+  });
+
+  it('writes ?sort=newest to the URL when newest is picked', async () => {
+    const wrapper = mountPage();
+    const toolbar = wrapper.findComponent({ name: 'ProductListToolbar' });
+
+    toolbar.vm.$emit('update:sortValue', 'newest');
+    await flushPromises();
+
+    expect(lastReplacedQuery()?.sort).toBe('newest');
+  });
+
+  function sortValues(wrapper: ReturnType<typeof mountPage>) {
+    const toolbar = wrapper.findComponent({ name: 'ProductListToolbar' });
+    return (toolbar.props('sortOptions') as { value: string }[]).map(
+      (o) => o.value,
+    );
+  }
+
+  it('offers A-Ö, Ö-A, newest and both prices, without relevance', () => {
+    expect(sortValues(mountPage())).toEqual([
+      'name-asc',
+      'name-desc',
+      'newest',
+      'price-asc',
+      'price-desc',
+    ]);
+  });
+
+  it('ignores a repeated ?sort= param and opens on the default', () => {
+    pageRoute.query = { sort: ['newest', 'price-asc'] };
+    const toolbar = mountPage().findComponent({ name: 'ProductListToolbar' });
+    expect(toolbar.props('sortValue')).toBe('name-asc');
+  });
+
+  it('hides the price sorts when prices are hidden', () => {
+    mockShowPrice.value = false;
+    expect(sortValues(mountPage())).toEqual([
+      'name-asc',
+      'name-desc',
+      'newest',
+    ]);
+  });
+
+  describe('with a default sort set in the store settings', () => {
+    it('opens on the configured sort and leaves it out of the URL', async () => {
+      mockTenant.value = { productList: { defaultSort: 'newest' } };
+      const wrapper = mountPage();
+      const toolbar = wrapper.findComponent({ name: 'ProductListToolbar' });
+      expect(toolbar.props('sortValue')).toBe('newest');
+
+      toolbar.vm.$emit('update:sortValue', 'name-asc');
+      await flushPromises();
+      expect(lastReplacedQuery()?.sort).toBe('name-asc');
+
+      toolbar.vm.$emit('update:sortValue', 'newest');
+      await flushPromises();
+      expect(lastReplacedQuery()).not.toHaveProperty('sort');
+    });
+
+    it('opens on A-Ö for a price default while prices are hidden', () => {
+      mockTenant.value = { productList: { defaultSort: 'price-desc' } };
+      mockShowPrice.value = false;
+      const toolbar = mountPage().findComponent({ name: 'ProductListToolbar' });
+      expect(toolbar.props('sortValue')).toBe('name-asc');
+    });
   });
 });
 

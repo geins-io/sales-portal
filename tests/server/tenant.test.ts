@@ -1446,6 +1446,52 @@ describe('Tenant utilities', () => {
       });
     });
 
+    // Studio's radio in Base settings: "productList.defaultSort". Absent or
+    // unknown means A-Ö, so every tenant that has not set it gets A-Ö.
+    describe('the default sort of the product lists', () => {
+      function defaultSort(productList: unknown) {
+        const candidate = { ...fullCandidate(), productList };
+        const out = parseStoreSettingsResilient(candidate, 'h');
+        if (!out) throw new Error('candidate did not parse');
+        return buildTenantConfig(out).productList?.defaultSort;
+      }
+
+      it.each([
+        ['no productList key', undefined],
+        ['productList as null', null],
+        ['no saved value', {}],
+        ['an empty value', { defaultSort: '' }],
+        ['an unknown value', { defaultSort: 'bogus' }],
+        ['relevance, which lists do not offer', { defaultSort: 'relevance' }],
+        ['a value that is not a string', { defaultSort: 5 }],
+        ['productList that is not an object', 'name-desc'],
+      ])('is name-asc with %s', (_label, productList) => {
+        expect(defaultSort(productList)).toBe('name-asc');
+      });
+
+      it.each(['name-asc', 'name-desc', 'newest', 'price-asc', 'price-desc'])(
+        'keeps %s',
+        (value) => {
+          expect(defaultSort({ defaultSort: value })).toBe(value);
+        },
+      );
+
+      it('is sent to the client', async () => {
+        const candidate = {
+          ...fullCandidate(),
+          productList: { defaultSort: 'newest' },
+        };
+        const out = parseStoreSettingsResilient(candidate, 'h');
+        if (!out) throw new Error('candidate did not parse');
+        const event = {
+          context: { tenant: { config: buildTenantConfig(out) } },
+        } as unknown as H3Event;
+        const config = await getPublicConfig(event);
+
+        expect(config?.productList).toEqual({ defaultSort: 'newest' });
+      });
+    });
+
     it('returns the strict-parsed value on a clean candidate', () => {
       const out = parseStoreSettingsResilient(fullCandidate(), 'h');
       expect(out).not.toBeNull();

@@ -3329,6 +3329,81 @@ export const CONFIG_COVERAGE_MAP = {
     },
   },
 
+  // --- Product lists ---------------------------------------------------------
+  productList: {
+    defaultSort: {
+      'name-asc': {
+        status: 'has-test',
+        test: {
+          spec: PRODUCT_LIST,
+          title: 'opens on name-asc when the store setting is name-asc',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        note: 'The same order as absent; the setting only makes it explicit.',
+      },
+      'name-desc': {
+        status: 'has-test',
+        test: {
+          spec: PRODUCT_LIST,
+          title: 'opens on name-desc when the store setting is name-desc',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        note: 'Sent as ALPHABETICAL_DESC.',
+      },
+      newest: {
+        status: 'has-test',
+        test: {
+          spec: PRODUCT_LIST,
+          title: 'opens on newest when the store setting is newest',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        note: 'Sent as LATEST. `/products` follows it too, asserted in AllProductsPage.test.ts.',
+      },
+      'price-asc': {
+        status: 'has-test',
+        test: {
+          spec: PRODUCT_LIST,
+          title: 'opens on price-asc when the store setting is price-asc',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        note: 'Falls back to name-asc while prices are hidden, asserted in the same describe.',
+      },
+      'price-desc': {
+        status: 'has-test',
+        test: {
+          spec: PRODUCT_LIST,
+          title: 'opens on price-desc when the store setting is price-desc',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        note: 'Falls back to name-asc while prices are hidden, through the same reader as price-asc.',
+      },
+      absent: {
+        status: 'has-test',
+        test: [
+          {
+            spec: PRODUCT_LIST,
+            title: 'initialises a category list to the A-Ö default',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: SERVER_TENANT,
+            title: 'is sent to the client',
+            kind: 'carrier',
+          },
+        ],
+        note:
+          'tenant.ts turns absent, empty and unknown values into name-asc, so ' +
+          'the client never sees anything outside the five list sorts.',
+      },
+    },
+  },
+
   // --- Computed and derived ------------------------------------------------
   css: {
     status: 'has-test',

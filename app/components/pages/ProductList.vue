@@ -66,13 +66,7 @@ function stripHiddenFacetKeys(
 const filterState = ref<Record<string, string[]>>(
   stripHiddenFacetKeys(restoreFiltersFromQuery()),
 );
-// Product lists (category and brand) default to newest. Relevance with no
-// sort param yields a non-deterministic API order that reshuffles on reload,
-// so newest gives a stable, predictable ordering. Search uses relevance.
-const DEFAULT_SORT = 'newest';
-const sortBy = ref(
-  typeof route.query.sort === 'string' ? route.query.sort : DEFAULT_SORT,
-);
+const { sortBy, sortOptions, sortParam } = useListSort();
 const viewMode = useCookie<'grid' | 'list'>('plp-view-mode', {
   default: () => 'grid',
 });
@@ -88,23 +82,6 @@ const { t } = useI18n();
 const { localePath, currentLocale, currentMarket, localeQuery } =
   useLocaleMarket();
 const { settle } = useEntityUrlRecovery();
-// Price sorts are meaningless when the tenant hides prices, so gate them on
-// the same store-settings visibility flag the price facet and VAT selector
-// already use (usePriceVisibility -> showPrice).
-const sortOptions = computed(() => {
-  const options = [
-    { label: t('product.sort_relevance'), value: 'relevance' },
-    { label: t('product.sort_price_asc'), value: 'price-asc' },
-    { label: t('product.sort_price_desc'), value: 'price-desc' },
-    { label: t('product.sort_newest'), value: 'newest' },
-    { label: t('product.sort_name_asc'), value: 'name-asc' },
-  ];
-  if (showPrice.value) return options;
-  return options.filter(
-    (o) => o.value !== 'price-asc' && o.value !== 'price-desc',
-  );
-});
-
 // --- Build filter object for GraphQL FilterInputType ---
 const filterInput = computed(() =>
   buildFilterInput(
@@ -321,7 +298,7 @@ watch(filterText, (value) => {
 
 // --- URL sync ---
 watch(
-  [filterState, sortBy, currentPage],
+  [filterState, sortBy, sortParam, currentPage],
   () => {
     const query: Record<string, string> = {};
     for (const [key, values] of Object.entries(filterState.value ?? {})) {
@@ -329,8 +306,8 @@ watch(
         query[key] = values.join(',');
       }
     }
-    if (sortBy.value !== DEFAULT_SORT) {
-      query.sort = sortBy.value;
+    if (sortParam.value) {
+      query.sort = sortParam.value;
     }
     if (currentPage.value > 1) {
       query.page = String(currentPage.value);

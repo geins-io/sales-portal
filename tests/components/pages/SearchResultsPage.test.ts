@@ -5,7 +5,8 @@ import { shallowMount, flushPromises } from '@vue/test-utils';
 // --- Shared mocks ---
 // The search results page (/s/{query}) must keep `relevance` as its default
 // sort (the API ranks by match quality), unlike the product lists which default
-// to `newest`. The URL omits `?sort=` while at the relevance default.
+// to the store setting (A-Ö when unset). The URL omits `?sort=` while at the
+// relevance default.
 const { replaceMock, pageRoute } = vi.hoisted(() => ({
   replaceMock: vi.fn(),
   pageRoute: {
@@ -89,6 +90,11 @@ vi.mock('../../../app/composables/useLocaleMarket', () => ({
   }),
 }));
 
+const mockShowPrice = ref(true);
+vi.mock('../../../app/composables/usePriceVisibility', () => ({
+  usePriceVisibility: () => ({ showPrice: mockShowPrice }),
+}));
+
 const { default: SearchResultsPage } =
   await import('../../../app/pages/s/[query].vue');
 
@@ -142,6 +148,36 @@ describe('Search results page (/s/[query]) sort', () => {
     await flushPromises();
 
     expect(lastReplacedQuery()?.sort).toBe('newest');
+  });
+
+  function sortValues(wrapper: ReturnType<typeof mountPage>) {
+    const toolbar = wrapper.findComponent({ name: 'ProductListToolbar' });
+    return (toolbar.props('sortOptions') as { value: string }[]).map(
+      (o) => o.value,
+    );
+  }
+
+  it('offers relevance first, then the list sorts with Ö-A', () => {
+    mockShowPrice.value = true;
+    expect(sortValues(mountPage())).toEqual([
+      'relevance',
+      'name-asc',
+      'name-desc',
+      'newest',
+      'price-asc',
+      'price-desc',
+    ]);
+  });
+
+  it('hides the price sorts when prices are hidden', () => {
+    mockShowPrice.value = false;
+    expect(sortValues(mountPage())).toEqual([
+      'relevance',
+      'name-asc',
+      'name-desc',
+      'newest',
+    ]);
+    mockShowPrice.value = true;
   });
 });
 

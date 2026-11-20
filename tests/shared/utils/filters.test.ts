@@ -2,8 +2,12 @@ import { describe, it, expect } from 'vitest';
 import {
   buildFilterInput,
   SORT_MAP,
+  SORT_LABEL_KEYS,
   isPriceFacet,
   isStockFacet,
+  normalizeListDefaultSort,
+  effectiveListDefaultSort,
+  sortValuesFor,
 } from '../../../shared/utils/filters';
 
 describe('buildFilterInput', () => {
@@ -245,14 +249,106 @@ describe('SORT_MAP', () => {
     expect(SORT_MAP['price-desc']).toBe('PRICE_DESC');
     expect(SORT_MAP['newest']).toBe('LATEST');
     expect(SORT_MAP['name-asc']).toBe('ALPHABETICAL');
+    expect(SORT_MAP['name-desc']).toBe('ALPHABETICAL_DESC');
   });
 
-  it('does not include name-desc (no API support for descending alphabetical)', () => {
-    expect(SORT_MAP['name-desc']).toBeUndefined();
+  it('sends ALPHABETICAL_DESC for name-desc', () => {
+    expect(buildFilterInput({}, 'name-desc')?.sort).toBe('ALPHABETICAL_DESC');
+  });
+});
+
+describe('sortValuesFor', () => {
+  it('offers lists A-Ö, Ö-A, newest and both prices, without relevance', () => {
+    expect(sortValuesFor('list', true)).toEqual([
+      'name-asc',
+      'name-desc',
+      'newest',
+      'price-asc',
+      'price-desc',
+    ]);
   });
 
-  it('falls back to RELEVANCE when name-desc is used in buildFilterInput', () => {
-    const result = buildFilterInput({}, 'name-desc');
-    expect(result?.sort).toBe('RELEVANCE');
+  it('drops the price sorts from lists when prices are hidden', () => {
+    expect(sortValuesFor('list', false)).toEqual([
+      'name-asc',
+      'name-desc',
+      'newest',
+    ]);
+  });
+
+  it('offers search relevance first, then the list sorts', () => {
+    expect(sortValuesFor('search', true)).toEqual([
+      'relevance',
+      'name-asc',
+      'name-desc',
+      'newest',
+      'price-asc',
+      'price-desc',
+    ]);
+  });
+
+  it('drops the price sorts from search when prices are hidden', () => {
+    expect(sortValuesFor('search', false)).toEqual([
+      'relevance',
+      'name-asc',
+      'name-desc',
+      'newest',
+    ]);
+  });
+
+  it('offers only values that SORT_MAP sends and that have a label', () => {
+    for (const value of sortValuesFor('search', true)) {
+      expect(SORT_MAP[value]).toBeDefined();
+      expect(SORT_LABEL_KEYS[value]).toMatch(/^product\.sort_/);
+    }
+  });
+
+  it('labels each value with its own key', () => {
+    expect(SORT_LABEL_KEYS).toEqual({
+      relevance: 'product.sort_relevance',
+      'name-asc': 'product.sort_name_asc',
+      'name-desc': 'product.sort_name_desc',
+      newest: 'product.sort_newest',
+      'price-asc': 'product.sort_price_asc',
+      'price-desc': 'product.sort_price_desc',
+    });
+  });
+});
+
+describe('normalizeListDefaultSort', () => {
+  it.each(['name-asc', 'name-desc', 'newest', 'price-asc', 'price-desc'])(
+    'keeps %s',
+    (value) => {
+      expect(normalizeListDefaultSort(value)).toBe(value);
+    },
+  );
+
+  it.each([undefined, null, '', 'relevance', 'bogus', 5, {}])(
+    'turns %s into name-asc',
+    (value) => {
+      expect(normalizeListDefaultSort(value)).toBe('name-asc');
+    },
+  );
+});
+
+describe('effectiveListDefaultSort', () => {
+  it('is the setting when prices are visible', () => {
+    expect(effectiveListDefaultSort('price-desc', true)).toBe('price-desc');
+  });
+
+  it.each(['price-asc', 'price-desc'])(
+    'falls back to name-asc for %s when prices are hidden',
+    (value) => {
+      expect(effectiveListDefaultSort(value, false)).toBe('name-asc');
+    },
+  );
+
+  it('keeps a non-price setting when prices are hidden', () => {
+    expect(effectiveListDefaultSort('newest', false)).toBe('newest');
+  });
+
+  it('is name-asc for a missing or unknown setting', () => {
+    expect(effectiveListDefaultSort(undefined, true)).toBe('name-asc');
+    expect(effectiveListDefaultSort('relevance', true)).toBe('name-asc');
   });
 });
