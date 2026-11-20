@@ -58,7 +58,7 @@ export type ConsumerDrives = 'field' | 'reader' | 'stub';
  *
  *   1. Would the assertion pass unchanged with a different value in the
  *      field? Yes → `carrier`. Identity, presence and validity are all
- *      `carrier`: "returns 42 keys total" and "should return checkoutMode
+ *      `carrier`: "returns 43 keys total" and "should return checkoutMode
  *      from config" both prove the value came back, not that anything acted
  *      on it.
  *   2. Otherwise: is the test's subject the code the map names as the
@@ -182,7 +182,7 @@ export interface StringFieldCoverage {
 }
 
 /**
- * The 42 keys `ThemeColorsSchema` names, taken from the schema rather than
+ * The 43 keys `ThemeColorsSchema` names, taken from the schema rather than
  * from `TenantConfig['theme']['colors']` — the latter is `Record<string, …>`
  * and cannot be made total.
  */
@@ -257,10 +257,19 @@ export type BrandingCoverage = {
       : StringFieldCoverage;
 };
 
+type Menu = NonNullable<Layout['menu']>;
+
 export type LayoutCoverage = {
   [K in keyof Layout]-?: K extends 'headerNavVariant'
     ? Record<NonNullable<Layout['headerNavVariant']> | 'absent', Coverage>
-    : Coverage;
+    : K extends 'menu'
+      ? {
+          navbarAlignment: Record<
+            NonNullable<Menu['navbarAlignment']> | 'absent',
+            Coverage
+          >;
+        }
+      : Coverage;
 };
 
 export type CmsCoverage = {

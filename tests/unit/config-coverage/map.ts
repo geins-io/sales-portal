@@ -730,6 +730,21 @@ const BUTTON_TEXT_PARSE: TestRef = {
   drives: 'field',
 };
 
+const NAV_BAR_CUSTOM: TestRef = {
+  spec: SERVER_TENANT,
+  title:
+    'paints a Custom nav bar with the custom background and its own text colour',
+  kind: 'consumer',
+  drives: 'field',
+};
+
+const NAV_BAR_PRESET: TestRef = {
+  spec: SERVER_TENANT,
+  title: 'ignores the stored custom colours when White is chosen',
+  kind: 'consumer',
+  drives: 'field',
+};
+
 const BUILD_MERGE: TestRef = {
   spec: SERVER_TENANT,
   title:
@@ -1019,7 +1034,7 @@ const SURFACE_COLOR = {
     kind: 'consumer',
     drives: 'field',
   },
-  note: "The unset case is asserted by 'emits the documented fallback chain when no surface is set', which covers all ten surface fallbacks including the four text ones.",
+  note: "The unset case is asserted by 'emits the documented fallback chain when no surface is set', which covers all eleven surface fallbacks including the five text ones.",
 } as const;
 
 export const CONFIG_COVERAGE_MAP = {
@@ -1476,7 +1491,7 @@ export const CONFIG_COVERAGE_MAP = {
       sidebarBorder: derivedColor(SIDEBAR_GROUP, BG_FAMILY),
       sidebarRing: derivedColor(SIDEBAR_GROUP, PRIMARY_FAMILY),
 
-      // The ten surfaces.
+      // The eleven surfaces.
       topBarBackground: SURFACE_COLOR,
       footerBackground: SURFACE_COLOR,
       navBarBackground: SURFACE_COLOR,
@@ -1501,6 +1516,11 @@ export const CONFIG_COVERAGE_MAP = {
         SURFACE_TEXT_GROUP,
         SURFACE_TEXT_FALLBACK,
         'The unset case falls back to a hardcoded oklch(0.85 0 0) that converts to #cecece, asserted in the fallback-chain test. That is why this key must never take sentinel L 0.85.',
+      ),
+      navBarText: derivedColor(
+        SURFACE_TEXT_GROUP,
+        [SURFACE_TEXT_FALLBACK, NAV_BAR_CUSTOM, NAV_BAR_PRESET],
+        'Unset falls back to var(--foreground), so White and Light grey bars keep the page text. The adapter keeps a stored value only when the background is Custom.',
       ),
       buttonText: derivedColor(
         SURFACE_TEXT_GROUP,
@@ -1938,6 +1958,68 @@ export const CONFIG_COVERAGE_MAP = {
           drives: 'field',
         },
         note: "Resolves to 'grey' through `??`.",
+      },
+    },
+    menu: {
+      navbarAlignment: {
+        center: {
+          status: 'has-test',
+          test: [
+            {
+              spec: TENANT_CSS,
+              title:
+                'centres the nav bar items, falling back to the start on overflow, when the alignment is center',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: SERVER_TENANT,
+              title:
+                'serves layout.menu.navbarAlignment and centres the nav bar when it is center',
+              kind: 'consumer',
+              drives: 'field',
+            },
+          ],
+          note: 'The emitter, and the whole path from the merchant API answer to config.css. LayoutHeaderNav reads the variable; the e2e spec proves the overflow fallback.',
+        },
+        left: {
+          status: 'has-test',
+          test: [
+            {
+              spec: TENANT_CSS,
+              title: 'emits no nav bar alignment when it is left or unset',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: SERVER_TENANT,
+              title:
+                'leaves the nav bar at the start when layout.menu.navbarAlignment is left',
+              kind: 'consumer',
+              drives: 'field',
+            },
+          ],
+          note: 'No variable, so LayoutHeaderNav uses its flex-start fallback.',
+        },
+        absent: {
+          status: 'has-test',
+          test: [
+            {
+              spec: SERVER_TENANT,
+              title: 'leaves the nav bar at the start when there is no layout',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: SERVER_TENANT,
+              title:
+                'drops an unknown nav bar alignment and still serves the tenant',
+              kind: 'consumer',
+              drives: 'field',
+            },
+          ],
+          note: 'An unknown value is leaf-stripped and lands here too.',
+        },
       },
     },
   },

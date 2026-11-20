@@ -2683,3 +2683,232 @@ describe('Tenant utilities', () => {
     });
   });
 });
+
+/**
+ * Studio stores the nav bar background as one of two preset colours or the
+ * literal "custom", with the custom colours in their own keys. Studio also
+ * saves the hidden fields' defaults, so a White tenant carries a text colour
+ * too. These run the merchant API answer through the whole server path, down
+ * to what /api/config serves.
+ */
+describe('the nav bar settings Studio saves', () => {
+  function rawAnswer(
+    colors: Record<string, unknown>,
+    extraAppSettings: Record<string, unknown> = {},
+  ) {
+    return {
+      accountName: 'navbar',
+      apiKey: 'k',
+      channelSettings: {
+        channelId: '1|se',
+        defaultHostName: 'navbar.example',
+        hostNames: ['navbar.example'],
+        defaultLocale: 'sv-SE',
+        defaultMarket: 'se',
+        locales: ['sv-SE'],
+        markets: ['se'],
+      },
+      appSettings: {
+        mode: 'commerce',
+        theme: {
+          colors: {
+            primary: 'oklch(0.5 0.1 200)',
+            primaryForeground: 'oklch(0.9 0 0)',
+            secondary: 'oklch(0.8 0 0)',
+            secondaryForeground: 'oklch(0.2 0 0)',
+            background: 'oklch(1 0 0)',
+            foreground: 'oklch(0.1 0 0)',
+            ...colors,
+          },
+        },
+        branding: { name: 'Navbar', watermark: 'full' },
+        features: {},
+        ...extraAppSettings,
+      },
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+  }
+
+  async function serve(raw: Record<string, unknown>) {
+    const candidate = adaptMerchantApiResponse(raw);
+    if (!candidate) throw new Error('expected an adapted candidate');
+    const settings = parseStoreSettingsResilient(candidate, 'navbar.example');
+    if (!settings) throw new Error('the tenant did not parse');
+    const event = {
+      context: { tenant: { config: buildTenantConfig(settings) } },
+    } as unknown as H3Event;
+    const config = await getPublicConfig(event);
+    if (!config) throw new Error('no public config');
+    return config;
+  }
+
+  const STORED_CUSTOM = {
+    navBarCustomBackground: '#363636',
+    navBarText: '#ffffff',
+  };
+
+  it('paints a Custom nav bar with the custom background and its own text colour', async () => {
+    const config = await serve(
+      rawAnswer({ navBarBackground: 'custom', ...STORED_CUSTOM }),
+    );
+    expect(config.css).toContain('--nav-bar-background: #363636;');
+    expect(config.css).toContain('--nav-bar-text: #ffffff;');
+  });
+
+  it('ignores the stored custom colours when White is chosen', async () => {
+    const config = await serve(
+      rawAnswer({ navBarBackground: '#FFFFFF', ...STORED_CUSTOM }),
+    );
+    expect(config.css).toContain('--nav-bar-background: #ffffff;');
+    expect(config.css).toContain('--nav-bar-text: var(--foreground);');
+  });
+
+  it('ignores the stored custom colours when Light grey is chosen', async () => {
+    const config = await serve(
+      rawAnswer({ navBarBackground: '#F5F5F5', ...STORED_CUSTOM }),
+    );
+    expect(config.css).toContain('--nav-bar-background: #f5f5f5;');
+    expect(config.css).toContain('--nav-bar-text: var(--foreground);');
+  });
+
+  it('gives Custom without a custom background the white default and the normal text', async () => {
+    const config = await serve(
+      rawAnswer({ navBarBackground: 'custom', navBarText: '#ffffff' }),
+    );
+    expect(config.css).toContain('--nav-bar-background: #ffffff;');
+    expect(config.css).toContain('--nav-bar-text: var(--foreground);');
+  });
+
+  it('gives Custom with a background that is not a colour the white default and the normal text', async () => {
+    const config = await serve(
+      rawAnswer({
+        navBarBackground: 'custom',
+        navBarCustomBackground: 'not-a-colour',
+        navBarText: '#ffffff',
+      }),
+    );
+    expect(config.css).toContain('--nav-bar-background: #ffffff;');
+    expect(config.css).toContain('--nav-bar-text: var(--foreground);');
+  });
+
+  it('never serves the custom background key itself', async () => {
+    const config = await serve(
+      rawAnswer({ navBarBackground: 'custom', ...STORED_CUSTOM }),
+    );
+    expect(config.theme.colors).not.toHaveProperty('navBarCustomBackground');
+    expect(config.css).not.toContain('custom');
+  });
+
+  it('leaves the merchant API answer itself untouched', () => {
+    const raw = rawAnswer({ navBarBackground: 'custom', ...STORED_CUSTOM });
+    const before = structuredClone(raw);
+    adaptMerchantApiResponse(raw);
+    expect(raw).toEqual(before);
+  });
+
+  it('keeps a preset background exactly as Studio stored it', () => {
+    const raw = rawAnswer({ navBarBackground: '#F5F5F5', ...STORED_CUSTOM });
+    const colors = (
+      adaptMerchantApiResponse(raw)?.theme as {
+        colors: Record<string, unknown>;
+      }
+    ).colors;
+    expect(colors.navBarBackground).toBe('#F5F5F5');
+    expect(colors).not.toHaveProperty('navBarText');
+  });
+
+  it('adds no nav bar keys to an answer that has none', () => {
+    const raw = rawAnswer({});
+    const colors = (
+      adaptMerchantApiResponse(raw)?.theme as {
+        colors: Record<string, unknown>;
+      }
+    ).colors;
+    expect(colors).not.toHaveProperty('navBarBackground');
+    expect(colors).not.toHaveProperty('navBarText');
+  });
+
+  it('keeps Custom without a stored text colour free of a text key', () => {
+    const raw = rawAnswer({
+      navBarBackground: 'custom',
+      navBarCustomBackground: '#363636',
+    });
+    const colors = (
+      adaptMerchantApiResponse(raw)?.theme as {
+        colors: Record<string, unknown>;
+      }
+    ).colors;
+    expect(colors.navBarBackground).toBe('#363636');
+    expect(colors).not.toHaveProperty('navBarText');
+  });
+
+  it('adapts an answer whose theme carries no colours', () => {
+    const raw = rawAnswer({});
+    (raw.appSettings as Record<string, unknown>).theme = { radius: '0.5rem' };
+    expect(adaptMerchantApiResponse(raw)?.theme).toEqual({ radius: '0.5rem' });
+  });
+
+  it('serves layout.menu.navbarAlignment and centres the nav bar when it is center', async () => {
+    const config = await serve(
+      rawAnswer({}, { layout: { menu: { navbarAlignment: 'center' } } }),
+    );
+    expect(config.layout?.menu?.navbarAlignment).toBe('center');
+    expect(config.css).toContain('--nav-bar-justify: safe center;');
+  });
+
+  it('leaves the nav bar at the start when layout.menu.navbarAlignment is left', async () => {
+    const config = await serve(
+      rawAnswer({}, { layout: { menu: { navbarAlignment: 'left' } } }),
+    );
+    expect(config.layout?.menu?.navbarAlignment).toBe('left');
+    expect(config.css).not.toContain('--nav-bar-justify');
+  });
+
+  it('leaves the nav bar at the start when there is no layout', async () => {
+    const config = await serve(rawAnswer({}));
+    expect(config.layout?.menu?.navbarAlignment).toBeUndefined();
+    expect(config.css).not.toContain('--nav-bar-justify');
+  });
+
+  it('leaves the nav bar at the start when the layout has no menu block', async () => {
+    for (const layout of [{}, { menu: null }]) {
+      const config = await serve(rawAnswer({}, { layout }));
+      expect(config.css, JSON.stringify(layout)).not.toContain(
+        '--nav-bar-justify',
+      );
+    }
+  });
+
+  it('serves the alignment next to menu keys it does not read yet', async () => {
+    const config = await serve(
+      rawAnswer(
+        {},
+        {
+          layout: {
+            menu: {
+              type: 'catalogue',
+              navbarAlignment: 'center',
+              collapsibleCategories: true,
+            },
+          },
+        },
+      ),
+    );
+    expect(config.layout?.menu?.navbarAlignment).toBe('center');
+    expect(config.css).toContain('--nav-bar-justify: safe center;');
+  });
+
+  it('drops an unknown nav bar alignment and still serves the tenant', async () => {
+    const config = await serve(
+      rawAnswer({}, { layout: { menu: { navbarAlignment: 'right' } } }),
+    );
+    expect(config.layout?.menu?.navbarAlignment).toBeUndefined();
+    expect(config.css).not.toContain('--nav-bar-justify');
+  });
+
+  it('drops a layout that is not an object and still serves the tenant', async () => {
+    const config = await serve(rawAnswer({}, { layout: 'mega' }));
+    expect(config.layout).toBeUndefined();
+  });
+});

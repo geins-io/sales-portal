@@ -10,6 +10,7 @@ import type {
 } from '../schemas/store-settings';
 import { StoreSettingsSchema } from '../schemas/store-settings';
 import { deriveThemeColors } from './theme';
+import { coerceToOklch } from './color-coercion';
 import {
   STOREFRONT_SETTINGS_DEFAULTS,
   mergeStorefrontSettings,
@@ -499,6 +500,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     merged.overrides?.css,
     merged.theme.typography,
     merged.theme.cardBorders,
+    merged.layout?.menu?.navbarAlignment,
   );
 
   const theme: TenantConfig['theme'] = {
@@ -545,6 +547,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     timezone: merged.timezone,
     theme,
     branding,
+    layout: merged.layout,
     features,
     quoteDisplayNumber,
     productList,
@@ -642,7 +645,36 @@ export function adaptMerchantApiResponse(
   };
   delete candidate.geinsApiSettings;
   delete candidate.id;
+  resolveNavBarCustomColours(candidate);
   return candidate;
+}
+
+/**
+ * Studio stores the nav bar background as a preset colour or the literal
+ * `"custom"`, with the custom colours in `navBarCustomBackground` and
+ * `navBarText`. Studio also saves those hidden fields' defaults, so they are
+ * present whichever background is chosen. Leaves a real colour in
+ * `navBarBackground` and a text colour only for a usable Custom choice:
+ * light text on the white default would be unreadable.
+ */
+function resolveNavBarCustomColours(candidate: Record<string, unknown>): void {
+  const theme = candidate.theme;
+  if (!isPlainObject(theme) || !isPlainObject(theme.colors)) return;
+  // A copy: `theme` is still the merchant API answer's own object.
+  const {
+    navBarCustomBackground: custom,
+    navBarText,
+    navBarBackground,
+    ...colors
+  } = theme.colors;
+  if (navBarBackground !== 'custom') {
+    if (navBarBackground !== undefined)
+      colors.navBarBackground = navBarBackground;
+  } else if (typeof custom === 'string' && coerceToOklch(custom)) {
+    colors.navBarBackground = custom;
+    if (navBarText !== undefined) colors.navBarText = navBarText;
+  }
+  candidate.theme = { ...theme, colors };
 }
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -821,6 +853,7 @@ export function parseStoreSettingsResilient(
     // skips the leaf-strip branch and returns null — and a null resolution is
     // negative-cached, so one bad date field takes a storefront down.
     timezone: undefined,
+    layout: undefined,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     // `theme` intentionally omitted: it's computed lazily from

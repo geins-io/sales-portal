@@ -266,3 +266,159 @@ test.describe('Tenant button text colours', () => {
     }
   });
 });
+
+/**
+ * The nav bar's custom colours and alignment arrive from the tenant theme as
+ * variables. The values are simulated on the bar, so the assertions hold
+ * whatever the tenant has chosen; that the Studio values reach the variables
+ * is the unit tests' job.
+ */
+test.describe('Tenant nav bar colour and alignment', () => {
+  // The outer <nav>; the menu root inside it is a <nav> too.
+  const BAR = 'nav.bg-nav-bar-background';
+  const WHITE = 'rgb(255, 255, 255)';
+
+  test.beforeEach(({ isMobile }) => {
+    outOfScope(isMobile, 'mobile-project', 'the nav bar is desktop only');
+  });
+
+  async function openBar(page: Page, vars: Record<string, string>) {
+    await page.goto('/');
+    await waitForHydration(page);
+    const bar = page.locator(BAR);
+    await expect(bar).toBeVisible();
+    await bar.evaluate((el, values) => {
+      for (const [name, value] of Object.entries(values)) {
+        (el as HTMLElement).style.setProperty(name, value);
+      }
+    }, vars);
+    return bar;
+  }
+
+  test('a custom bar paints its labels in its own text colour at rest, hovered and open, and leaves the dropdown alone (simulated values)', async ({
+    page,
+  }) => {
+    const bar = await openBar(page, {
+      '--nav-bar-background': 'rgb(54, 54, 54)',
+      '--nav-bar-text': WHITE,
+    });
+    await expect(bar).toHaveCSS('background-color', 'rgb(54, 54, 54)');
+
+    // Only the top-level links: the dropdown's links share the slot.
+    const plain = bar
+      .locator(
+        '[data-slot="navigation-menu-item"] > [data-slot="navigation-menu-link"]',
+      )
+      .first();
+    if ((await plain.count()) === 0) {
+      // Still runs the trigger half below.
+      noteOutOfScope(
+        'tenant-config',
+        'the header menu has no item without children',
+      );
+    } else {
+      await expect(plain).toHaveCSS('color', WHITE);
+      await plain.hover();
+      await expect(plain).toHaveCSS('color', WHITE);
+    }
+
+    const trigger = bar
+      .locator('[data-slot="navigation-menu-trigger"]')
+      .first();
+    outOfScope(
+      (await trigger.count()) === 0,
+      'tenant-config',
+      'the header menu has no item with children',
+    );
+    await expect(trigger).toHaveCSS('color', WHITE);
+    await trigger.hover();
+    await expect(trigger).toHaveAttribute('data-state', 'open');
+    await expect(trigger).toHaveCSS('color', WHITE);
+
+    const panel = bar.locator('[data-slot="navigation-menu-content"]').first();
+    await expect(panel).toBeVisible();
+    const panelColor = await panel.evaluate((el) => getComputedStyle(el).color);
+    expect(panelColor, 'the dropdown keeps the popover text').not.toBe(WHITE);
+    await expect(panel.locator('a').first()).toHaveCSS('color', panelColor);
+  });
+
+  test('items start at the edge of the bar when no alignment is set', async ({
+    page,
+  }) => {
+    const bar = await openBar(page, {});
+    const offset = await bar.evaluate((el) => {
+      const list = el.querySelector<HTMLElement>(
+        '[data-slot="navigation-menu-list"]',
+      )!;
+      const style = getComputedStyle(list);
+      const left =
+        list.getBoundingClientRect().left + parseFloat(style.paddingLeft);
+      return (
+        (list.firstElementChild as HTMLElement).getBoundingClientRect().left -
+        left
+      );
+    });
+    expect(Math.abs(offset)).toBeLessThanOrEqual(1);
+  });
+
+  test('centred items sit in the middle of the bar when they fit (simulated value)', async ({
+    page,
+  }) => {
+    const bar = await openBar(page, { '--nav-bar-justify': 'safe center' });
+    // Three items fit any desktop bar, whatever the tenant's menu holds.
+    const geometry = await bar.evaluate((el) => {
+      const list = el.querySelector<HTMLElement>(
+        '[data-slot="navigation-menu-list"]',
+      )!;
+      const items = Array.from(list.children) as HTMLElement[];
+      items.slice(3).forEach((item) => (item.style.display = 'none'));
+      const style = getComputedStyle(list);
+      const box = list.getBoundingClientRect();
+      const left = box.left + parseFloat(style.paddingLeft);
+      const right = box.right - parseFloat(style.paddingRight);
+      const shown = items.slice(0, 3).map((i) => i.getBoundingClientRect());
+      return {
+        before: shown[0]!.left - left,
+        after: right - shown[shown.length - 1]!.right,
+        overflowing: list.scrollWidth > list.clientWidth,
+      };
+    });
+    expect(geometry.overflowing, 'three items must fit').toBe(false);
+    expect(
+      geometry.before,
+      'the items are centred, not at the start',
+    ).toBeGreaterThan(20);
+    expect(Math.abs(geometry.before - geometry.after)).toBeLessThanOrEqual(2);
+  });
+
+  test('centred items that do not fit start at the edge, so none are cut off (simulated value)', async ({
+    page,
+  }) => {
+    const bar = await openBar(page, { '--nav-bar-justify': 'safe center' });
+    const geometry = await bar.evaluate((el) => {
+      const list = el.querySelector<HTMLElement>(
+        '[data-slot="navigation-menu-list"]',
+      )!;
+      // A gap wider than the bar makes any menu of two items overflow.
+      list.style.gap = '1400px';
+      const style = getComputedStyle(list);
+      const left =
+        list.getBoundingClientRect().left + parseFloat(style.paddingLeft);
+      const first = (
+        list.firstElementChild as HTMLElement
+      ).getBoundingClientRect();
+      return {
+        offset: first.left - left,
+        scrollLeft: list.scrollLeft,
+        overflowing: list.scrollWidth > list.clientWidth,
+      };
+    });
+    expect(geometry.overflowing, 'the items must overflow').toBe(true);
+    expect(geometry.scrollLeft).toBe(0);
+    expect(
+      geometry.offset,
+      'the first item starts at the edge, inside scroll reach',
+    ).toBeGreaterThanOrEqual(-1);
+    expect(geometry.offset).toBeLessThanOrEqual(1);
+  });
+});

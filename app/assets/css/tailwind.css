@@ -62,6 +62,7 @@
   --color-button-purchase-background: var(--button-purchase-background);
   --color-top-bar-text: var(--top-bar-text);
   --color-footer-text: var(--footer-text);
+  --color-nav-bar-text: var(--nav-bar-text);
   --color-button-text: var(--button-text);
   --color-button-purchase-text: var(--button-purchase-text);
 }

@@ -224,6 +224,54 @@ describe('LayoutHeaderNav', () => {
     expect(wrapper.text()).toContain('Sub B');
   });
 
+  describe('tenant nav bar colour and alignment', () => {
+    beforeEach(() => {
+      mockMenu.value = {
+        id: '1',
+        title: 'Main',
+        menuItems: [
+          {
+            id: '1',
+            label: 'Category',
+            order: 1,
+            children: [
+              { id: '1-1', label: 'Sub A', canonicalUrl: '/sub-a', order: 1 },
+            ],
+          },
+          { id: '2', label: 'Plain', canonicalUrl: '/plain', order: 2 },
+        ],
+      };
+    });
+
+    it('paints the bar text, arrows and underlines with the nav bar text colour', () => {
+      const wrapper = shallowMountComponent(LayoutHeaderNav, mountOptions);
+      expect(wrapper.find('nav').classes()).toContain('text-nav-bar-text');
+    });
+
+    it('aligns the items from the tenant nav bar alignment, at the start by default', () => {
+      const wrapper = shallowMountComponent(LayoutHeaderNav, mountOptions);
+      const list = wrapper.find('[data-slot="navigation-menu-list"]');
+      // Important: the list's own `justify-center` would win otherwise.
+      expect(list.classes()).toContain(
+        '[justify-content:var(--nav-bar-justify,flex-start)]!',
+      );
+      expect(list.classes()).not.toContain('justify-start');
+    });
+
+    it('keeps the bar text colour on a top-level trigger when hovered, focused or open', () => {
+      const wrapper = shallowMountComponent(LayoutHeaderNav, mountOptions);
+      const trigger = wrapper.find('button');
+      expect(trigger.text()).toContain('Category');
+      expect(trigger.classes()).toEqual(
+        expect.arrayContaining([
+          'hover:text-inherit',
+          'focus:text-inherit',
+          'data-[state=open]:text-inherit',
+        ]),
+      );
+    });
+  });
+
   it('caps the mega menu height and scrolls its contents internally', () => {
     mockMenu.value = {
       id: '1',

@@ -70,6 +70,7 @@ export const ThemeColorsSchema = z.object({
   buttonPurchaseBackground: CoercedColorSchema.nullable().optional(),
   topBarText: CoercedColorSchema.nullable().optional(),
   footerText: CoercedColorSchema.nullable().optional(),
+  navBarText: CoercedColorSchema.nullable().optional(),
   buttonText: CoercedColorSchema.nullable().optional(),
   buttonPurchaseText: CoercedColorSchema.nullable().optional(),
 });
@@ -317,6 +318,19 @@ const CmsConfigSchema = z
   .optional();
 
 /**
+ * Presentation choices Studio keeps under `layout`. Every key is optional and
+ * absent means today's look.
+ */
+export const LayoutConfigSchema = z.object({
+  menu: z
+    .object({
+      navbarAlignment: z.enum(['left', 'center']).nullable().optional(),
+    })
+    .nullable()
+    .optional(),
+});
+
+/**
  * Tenant mode. Merchant admin has historically emitted both `catalog`
  * (US) and `catalogue` (UK) spellings; we normalise to `catalog` so
  * downstream code only sees one. `z.preprocess` runs before validation
@@ -341,6 +355,7 @@ export const StoreSettingsSchema = z.object({
   timezone: TimezoneSchema.optional(),
   theme: ThemeConfigSchema,
   branding: BrandingConfigSchema,
+  layout: LayoutConfigSchema.nullable().optional(),
   features: z.record(z.string(), FeatureConfigInputSchema).default({}),
   seo: SeoConfigSchema.nullable().optional(),
   contact: ContactConfigSchema.nullable().optional(),
