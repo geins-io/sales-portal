@@ -74,6 +74,7 @@ export interface TenantConfig {
     displayName?: string | null;
     colors: Record<string, string | null | undefined>;
     radius?: string | null;
+    cardBorders?: boolean | null;
     typography?: {
       fontFamily: string;
       headingFontFamily?: string | null;

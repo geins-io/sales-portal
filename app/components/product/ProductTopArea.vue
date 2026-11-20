@@ -25,7 +25,7 @@ const { t } = useI18n();
          md:  gallery + info on first row, right card below
          mobile: stacked single column -->
   <div
-    class="bg-card grid gap-6 rounded-lg border p-4 md:p-6 lg:grid-cols-[400px_1fr_265px] lg:gap-10"
+    class="bg-card border-card-border grid gap-6 rounded-lg border p-4 md:p-6 lg:grid-cols-[400px_1fr_265px] lg:gap-10"
     data-testid="pdp-top-area"
   >
     <!-- Left: Gallery -->

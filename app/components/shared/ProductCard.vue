@@ -184,7 +184,7 @@ async function addToCart() {
   <!-- Grid variant -->
   <div
     v-if="variant === 'grid'"
-    class="bg-card flex h-full flex-col overflow-hidden rounded-md border"
+    class="bg-card border-card-border flex h-full flex-col overflow-hidden rounded-md border"
     data-testid="product-card"
   >
     <div class="relative p-3">
@@ -404,7 +404,7 @@ async function addToCart() {
   <!-- List variant: compact single-row on md+, stacked on mobile -->
   <div
     v-else
-    class="bg-card flex flex-col gap-3 rounded-md border px-3 py-2 md:flex-row md:items-center md:gap-4"
+    class="bg-card border-card-border flex flex-col gap-3 rounded-md border px-3 py-2 md:flex-row md:items-center md:gap-4"
     data-testid="product-card"
   >
     <div class="flex min-w-0 items-center gap-3 md:contents">

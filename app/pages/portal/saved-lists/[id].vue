@@ -254,7 +254,7 @@ function addToCart(product: ListProduct) {
     <ClientOnly>
       <template #fallback>
         <div
-          class="border-border min-h-105 animate-pulse rounded-lg border"
+          class="border-card-border min-h-105 animate-pulse rounded-lg border"
           data-testid="list-detail-skeleton"
         />
       </template>
@@ -276,7 +276,9 @@ function addToCart(product: ListProduct) {
 
       <div v-else data-testid="list-detail">
         <!-- Card wrapper (matches Figma node 25387:121485) -->
-        <div class="border-border overflow-hidden rounded-lg border bg-white">
+        <div
+          class="border-card-border overflow-hidden rounded-lg border bg-white"
+        >
           <!-- Top row: back link (left) + action buttons (right) -->
           <div class="flex items-center justify-between gap-4 px-6 py-4">
             <NuxtLink

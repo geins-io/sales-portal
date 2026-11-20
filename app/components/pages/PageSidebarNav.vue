@@ -107,7 +107,7 @@ const activeLabel = computed<string | null>(() => {
   >
     <!-- Desktop: sticky vertical nav, hidden on mobile -->
     <ul
-      class="border-border divide-border sticky top-4 hidden divide-y overflow-hidden rounded-lg border bg-white md:block"
+      class="divide-border border-card-border sticky top-4 hidden divide-y overflow-hidden rounded-lg border bg-white md:block"
     >
       <li v-for="item in visibleItems" :key="item.id ?? getMenuLabel(item)">
         <template v-if="visibleChildren(item.children).length > 0">
@@ -166,14 +166,14 @@ const activeLabel = computed<string | null>(() => {
       <Accordion type="single" collapsible>
         <AccordionItem value="sidebar-menu" class="border-b-0">
           <AccordionTrigger
-            class="border-border text-foreground items-center rounded-lg border bg-white px-4 py-3 font-normal hover:no-underline"
+            class="text-foreground border-card-border items-center rounded-lg border bg-white px-4 py-3 font-normal hover:no-underline"
             data-testid="sidebar-nav-trigger"
           >
             {{ activeLabel ?? $t('nav.sidebar_navigation') }}
           </AccordionTrigger>
           <AccordionContent class="pb-0">
             <ul
-              class="border-border divide-border mt-2 divide-y overflow-hidden rounded-lg border bg-white"
+              class="divide-border border-card-border mt-2 divide-y overflow-hidden rounded-lg border bg-white"
             >
               <li
                 v-for="item in visibleItems"

@@ -145,7 +145,10 @@ const isFramedFormPage = computed(
           />
         </ErrorBoundary>
         <div class="min-w-0 flex-1">
-          <div class="border-border rounded-lg border bg-white p-2 pt-4 md:p-8">
+          <div
+            data-testid="content-frame"
+            class="border-card-border rounded-lg border bg-white p-2 pt-4 md:p-8"
+          >
             <ErrorBoundary section="cms-content">
               <CmsWidgetArea
                 :containers="page.containers"
@@ -164,7 +167,10 @@ const isFramedFormPage = computed(
       v-else-if="isFramedFormPage && page?.containers?.length"
       class="mx-auto max-w-7xl px-4 py-8 lg:px-6"
     >
-      <div class="border-border rounded-lg border bg-white p-8">
+      <div
+        data-testid="content-frame"
+        class="border-card-border rounded-lg border bg-white p-8"
+      >
         <ErrorBoundary section="cms-content">
           <CmsWidgetArea
             :containers="page.containers"

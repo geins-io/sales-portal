@@ -51,7 +51,7 @@ function isActive(href: string): boolean {
     <!-- Main content -->
     <div
       data-testid="organisation-main"
-      class="border-border rounded-lg border bg-white p-6"
+      class="border-card-border rounded-lg border bg-white p-6"
     >
       <slot />
     </div>

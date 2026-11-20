@@ -19,7 +19,7 @@ withDefaults(
         v-for="i in count"
         :key="i"
         data-testid="plp-skeleton-card"
-        class="flex flex-col rounded-md border p-0"
+        class="border-card-border flex flex-col rounded-md border p-0"
       >
         <Skeleton class="aspect-square w-full rounded-t-md rounded-b-none" />
         <div class="flex flex-1 flex-col gap-2 p-4 pt-2">
@@ -49,7 +49,7 @@ withDefaults(
         v-for="i in count"
         :key="i"
         data-testid="plp-skeleton-row"
-        class="flex gap-4 rounded-md border p-3"
+        class="border-card-border flex gap-4 rounded-md border p-3"
       >
         <Skeleton class="size-32 shrink-0 rounded-md" />
         <div class="flex flex-1 flex-col gap-2">

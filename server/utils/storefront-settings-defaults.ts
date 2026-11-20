@@ -88,6 +88,7 @@ export const STOREFRONT_SETTINGS_DEFAULTS = {
   },
   theme: {
     radius: '0',
+    cardBorders: true,
     typography: {
       fontFamily: 'Geist',
       headingFontFamily: 'Hanuman',

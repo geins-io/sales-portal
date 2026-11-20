@@ -241,7 +241,7 @@ function mapPurchasedProduct(product: PurchasedProductCard): ProductCardItem {
     <!-- Latest Orders — bordered card per Figma -->
     <div
       v-if="showOrders"
-      class="border-border mb-6 rounded-lg border bg-white p-6"
+      class="border-card-border mb-6 rounded-lg border bg-white p-6"
     >
       <div class="mb-4 flex items-center justify-between">
         <h3 class="text-xl font-semibold">
@@ -292,7 +292,7 @@ function mapPurchasedProduct(product: PurchasedProductCard): ProductCardItem {
       <!-- Pending Quotations mini-table -->
       <div
         v-if="showQuotes"
-        class="border-border rounded-lg border bg-white p-6"
+        class="border-card-border rounded-lg border bg-white p-6"
       >
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-xl font-semibold">
@@ -404,7 +404,7 @@ function mapPurchasedProduct(product: PurchasedProductCard): ProductCardItem {
       <!-- Your Lists mini-table -->
       <div
         v-if="showLists"
-        class="border-border rounded-lg border bg-white p-6"
+        class="border-card-border rounded-lg border bg-white p-6"
       >
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-xl font-semibold">
@@ -498,7 +498,7 @@ function mapPurchasedProduct(product: PurchasedProductCard): ProductCardItem {
     </div>
 
     <!-- Purchased Products — bordered card per Figma -->
-    <div class="border-border rounded-lg border bg-white p-6">
+    <div class="border-card-border rounded-lg border bg-white p-6">
       <div class="mb-4 flex items-center justify-between">
         <h3 class="text-xl font-semibold">
           {{ t('portal.overview.purchased_products') }}

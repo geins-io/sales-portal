@@ -956,7 +956,7 @@ function onRetryOpen(): void {
         <TabsContent
           value="configuration"
           force-mount
-          class="bg-card mt-6 rounded-lg border p-6 data-[state=inactive]:hidden"
+          class="bg-card border-card-border mt-6 rounded-lg border p-6 data-[state=inactive]:hidden"
         >
           <!--
             Source order is the prototype's: heading, rail and form, status
@@ -1494,7 +1494,7 @@ function onRetryOpen(): void {
           value="description"
           data-print="description"
           force-mount
-          class="bg-card mt-6 rounded-lg border p-6 data-[state=inactive]:hidden"
+          class="bg-card border-card-border mt-6 rounded-lg border p-6 data-[state=inactive]:hidden"
         >
           <ProductDescriptionPanel
             :text2="descriptionTexts.text2"
@@ -1507,7 +1507,7 @@ function onRetryOpen(): void {
           value="specifications"
           data-print="specifications"
           force-mount
-          class="bg-card mt-6 rounded-lg border p-6 data-[state=inactive]:hidden"
+          class="bg-card border-card-border mt-6 rounded-lg border p-6 data-[state=inactive]:hidden"
         >
           <ProductSpecificationsPanel :groups="visibleGroups" />
         </TabsContent>
@@ -1515,7 +1515,7 @@ function onRetryOpen(): void {
         <TabsContent
           value="documents"
           data-print="documents"
-          class="bg-card mt-6 rounded-lg border p-6"
+          class="bg-card border-card-border mt-6 rounded-lg border p-6"
         >
           <ProductDocumentsPanel :documents="documents" />
         </TabsContent>
@@ -1524,7 +1524,7 @@ function onRetryOpen(): void {
           v-if="hasRelated"
           value="related"
           data-print="related"
-          class="bg-card mt-6 rounded-lg border p-6"
+          class="bg-card border-card-border mt-6 rounded-lg border p-6"
         >
           <ProductRelatedPanel :products="related ?? []" />
         </TabsContent>
