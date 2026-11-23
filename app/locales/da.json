@@ -473,6 +473,8 @@
     "apply_for_account": "Ansøg om konto",
     "customer_portal": "Kundeportal",
     "main_navigation": "Hovednavigation",
+    "menu_all_in": "Alt i {name}",
+    "menu_go_to": "Gå til {name}",
     "subscribe_heading": "Tilmeld dig vores nyhedsbrev",
     "subscribe_description": "Få de seneste nyheder og opdateringer fra vores team.",
     "subscribe": "Tilmeld",

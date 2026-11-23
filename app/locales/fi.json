@@ -473,6 +473,8 @@
     "apply_for_account": "Hae tiliä",
     "customer_portal": "Asiakasportaali",
     "main_navigation": "Päänavigointi",
+    "menu_all_in": "Kaikki: {name}",
+    "menu_go_to": "Siirry: {name}",
     "subscribe_heading": "Tilaa uutiskirjeemme",
     "subscribe_description": "Saat tiimimme uusimmat uutiset ja päivitykset.",
     "subscribe": "Tilaa",

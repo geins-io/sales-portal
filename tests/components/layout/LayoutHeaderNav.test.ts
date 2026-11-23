@@ -1,10 +1,21 @@
-import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  assert,
+} from 'vitest';
 import { nextTick, ref } from 'vue';
 import { shallowMountComponent } from '../../utils/component';
 import LayoutHeaderNav from '../../../app/components/layout/header/LayoutHeaderNav.vue';
+import LayoutHeaderMenuCollapsible from '../../../app/components/layout/header/LayoutHeaderMenuCollapsible.vue';
+import LayoutHeaderMenuCatalogue from '../../../app/components/layout/header/LayoutHeaderMenuCatalogue.vue';
 import { useTenant } from '../../../app/composables/useTenant';
 
 import type { MenuType } from '@geins/types';
+import type { PublicTenantConfig } from '#shared/types/tenant-config';
 
 const mockMenu = ref<MenuType | null>(null);
 
@@ -269,6 +280,240 @@ describe('LayoutHeaderNav', () => {
           'data-[state=open]:text-inherit',
         ]),
       );
+    });
+  });
+
+  describe('menu layout from the store settings', () => {
+    type Menu = NonNullable<NonNullable<PublicTenantConfig['layout']>['menu']>;
+
+    // A NavigationMenu stand-in that keeps reka's v-model contract.
+    const NavigationMenu = {
+      props: ['modelValue'],
+      emits: ['update:modelValue'],
+      template:
+        '<div data-slot="navigation-menu" :data-open="modelValue"><slot /></div>',
+    };
+    const options = {
+      global: { stubs: { ...navStubs, NavigationMenu } },
+    };
+
+    let saved: PublicTenantConfig['layout'];
+
+    function setMenu(menu: Menu | null | undefined) {
+      const { tenant } = useTenant();
+      assert.isDefined(tenant.value);
+      tenant.value = {
+        ...tenant.value,
+        layout: menu === undefined ? undefined : { menu },
+      };
+    }
+
+    beforeEach(() => {
+      saved = useTenant().tenant.value?.layout;
+      mockMenu.value = {
+        id: '1',
+        title: 'Main',
+        menuItems: [
+          {
+            id: '1',
+            label: 'Category',
+            order: 1,
+            children: [
+              {
+                id: '1-1',
+                label: 'Sub A',
+                canonicalUrl: '/sub-a',
+                order: 1,
+                children: [
+                  {
+                    id: '1-1-1',
+                    label: 'Leaf',
+                    canonicalUrl: '/leaf',
+                    order: 1,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+    });
+
+    afterEach(() => {
+      const { tenant } = useTenant();
+      assert.isDefined(tenant.value);
+      tenant.value = { ...tenant.value, layout: saved };
+    });
+
+    function rendersMega(wrapper: ReturnType<typeof shallowMountComponent>) {
+      expect(wrapper.findComponent(LayoutHeaderMenuCollapsible).exists()).toBe(
+        false,
+      );
+      expect(wrapper.findComponent(LayoutHeaderMenuCatalogue).exists()).toBe(
+        false,
+      );
+      expect(wrapper.find('.grid.grid-cols-4').exists()).toBe(true);
+      expect(wrapper.text()).toContain('Sub A');
+      expect(wrapper.text()).toContain('Leaf');
+    }
+
+    it("renders today's mega menu when the tenant has no menu layout", () => {
+      for (const menu of [undefined, null, {}] as const) {
+        setMenu(menu);
+        rendersMega(shallowMountComponent(LayoutHeaderNav, options));
+      }
+    });
+
+    it("renders today's mega menu for megaMenu without collapsible categories", () => {
+      for (const collapsibleCategories of [false, null, undefined]) {
+        setMenu({ type: 'megaMenu', collapsibleCategories });
+        rendersMega(shallowMountComponent(LayoutHeaderNav, options));
+      }
+    });
+
+    it('renders the collapsible categories for a mega menu with collapsibleCategories on', () => {
+      for (const type of ['megaMenu', null, undefined] as const) {
+        setMenu({ type, collapsibleCategories: true });
+        const wrapper = shallowMountComponent(LayoutHeaderNav, options);
+        const menu = wrapper.findComponent(LayoutHeaderMenuCollapsible);
+        expect(menu.exists(), String(type)).toBe(true);
+        expect(
+          (menu.props('items') as { id: string }[]).map((i) => i.id),
+        ).toEqual(['1-1']);
+        expect(wrapper.findComponent(LayoutHeaderMenuCatalogue).exists()).toBe(
+          false,
+        );
+        expect(wrapper.find('.grid.grid-cols-4').exists()).toBe(false);
+      }
+    });
+
+    it('renders the catalogue for type catalogue, whatever collapsibleCategories says', () => {
+      for (const collapsibleCategories of [true, false, undefined]) {
+        setMenu({ type: 'catalogue', collapsibleCategories });
+        const wrapper = shallowMountComponent(LayoutHeaderNav, options);
+        const menu = wrapper.findComponent(LayoutHeaderMenuCatalogue);
+        expect(menu.exists()).toBe(true);
+        expect(
+          (menu.props('items') as { id: string }[]).map((i) => i.id),
+        ).toEqual(['1-1']);
+        expect(
+          wrapper.findComponent(LayoutHeaderMenuCollapsible).exists(),
+        ).toBe(false);
+        expect(wrapper.find('.grid.grid-cols-4').exists()).toBe(false);
+      }
+    });
+
+    it("turns off the dropdown's own padding, frame and zoom for the catalogue only", () => {
+      const frame = [
+        'p-0!',
+        'border-0!',
+        'bg-transparent!',
+        'shadow-none!',
+        'animate-none!',
+      ];
+      setMenu({ type: 'catalogue' });
+      const catalogue = shallowMountComponent(LayoutHeaderNav, options);
+      expect(
+        catalogue.find('[data-slot="navigation-menu-content"]').classes(),
+      ).toEqual(expect.arrayContaining(frame));
+
+      setMenu({ type: 'megaMenu', collapsibleCategories: true });
+      const mega = shallowMountComponent(LayoutHeaderNav, options);
+      const classes = mega
+        .find('[data-slot="navigation-menu-content"]')
+        .classes();
+      for (const c of frame) expect(classes).not.toContain(c);
+    });
+
+    it('puts the catalogue panel in the content column, only as wide as its columns, with a shadow', () => {
+      setMenu({ type: 'catalogue' });
+      const wrapper = shallowMountComponent(LayoutHeaderNav, options);
+      const panel = wrapper.find('[data-testid="menu-catalogue-panel"]');
+      expect(panel.classes()).toEqual(
+        expect.arrayContaining(['w-fit', 'shadow-lg']),
+      );
+      expect(panel.element.parentElement?.className).toContain('max-w-7xl');
+    });
+
+    it('drops the catalogue panel down, with no drop when the visitor prefers reduced motion', () => {
+      setMenu({ type: 'catalogue' });
+      const wrapper = shallowMountComponent(LayoutHeaderNav, options);
+      expect(
+        wrapper.find('[data-testid="menu-catalogue-panel"]').classes(),
+      ).toEqual(
+        expect.arrayContaining([
+          'slide-in-from-top-2',
+          'motion-reduce:animate-none',
+        ]),
+      );
+    });
+
+    it('dims the page under the catalogue, and a click on the dim closes the menu', async () => {
+      setMenu({ type: 'catalogue' });
+      const wrapper = shallowMountComponent(LayoutHeaderNav, options);
+      const root = wrapper.findComponent(NavigationMenu);
+      await root.vm.$emit('update:modelValue', 'item-1');
+      expect(root.props('modelValue')).toBe('item-1');
+
+      await wrapper
+        .find('[data-testid="menu-catalogue-backdrop"]')
+        .trigger('click');
+      expect(root.props('modelValue')).toBe('');
+    });
+
+    it('closes on a click on the dim beside the panel, not on a click inside it', async () => {
+      setMenu({ type: 'catalogue' });
+      const wrapper = shallowMountComponent(LayoutHeaderNav, options);
+      const root = wrapper.findComponent(NavigationMenu);
+      await root.vm.$emit('update:modelValue', 'item-1');
+
+      await wrapper
+        .find('[data-testid="menu-catalogue-panel"]')
+        .trigger('click');
+      expect(root.props('modelValue')).toBe('item-1');
+
+      const column = wrapper.find('[data-testid="menu-catalogue-panel"]')
+        .element.parentElement as HTMLElement;
+      column.click();
+      await wrapper.vm.$nextTick();
+      expect(root.props('modelValue')).toBe('');
+    });
+
+    it("sizes the dim from the bar's padding box to the bottom of the viewport", async () => {
+      setMenu({ type: 'catalogue' });
+      const wrapper = shallowMountComponent(LayoutHeaderNav, {
+        ...options,
+        attachTo: document.body,
+      });
+      const nav = wrapper.find('nav').element as HTMLElement;
+      // Top rows 120px, a 48px bar with a 1px bottom border: the dropdown
+      // starts at the padding box, 167px down.
+      vi.spyOn(nav, 'getBoundingClientRect').mockReturnValue({
+        top: 120,
+        bottom: 168,
+      } as DOMRect);
+      Object.defineProperty(nav, 'clientTop', { value: 0 });
+      Object.defineProperty(nav, 'clientHeight', { value: 47 });
+      vi.stubGlobal('innerHeight', 900);
+      const root = wrapper.findComponent(NavigationMenu);
+      await root.vm.$emit('update:modelValue', 'item-1');
+      await wrapper.vm.$nextTick();
+      const dim = wrapper.find('[data-testid="menu-catalogue-backdrop"]');
+      expect((dim.element as HTMLElement).style.height).toBe('733px');
+      vi.unstubAllGlobals();
+      vi.stubGlobal('useFetch', menuFetchReturn);
+      vi.stubGlobal('useRequestURL', () => new URL('https://test.example.com'));
+      wrapper.unmount();
+    });
+
+    it('renders no dim for the mega menu layouts', () => {
+      for (const menu of [{}, { collapsibleCategories: true }] as Menu[]) {
+        setMenu(menu);
+        const wrapper = shallowMountComponent(LayoutHeaderNav, options);
+        expect(
+          wrapper.find('[data-testid="menu-catalogue-backdrop"]').exists(),
+        ).toBe(false);
+      }
     });
   });
 

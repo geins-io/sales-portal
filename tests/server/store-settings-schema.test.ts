@@ -390,6 +390,43 @@ describe('StoreSettingsSchema', () => {
     });
   });
 
+  describe('layout.menu', () => {
+    const withMenu = (menu: unknown) => ({
+      ...ALPHA_MOCK,
+      layout: { menu },
+    });
+
+    it('accepts the menu type and collapsibleCategories Studio saves', () => {
+      for (const menu of [
+        { type: 'megaMenu', collapsibleCategories: false },
+        { type: 'catalogue', collapsibleCategories: true },
+        { type: null, collapsibleCategories: null },
+      ]) {
+        const result = StoreSettingsSchema.safeParse(withMenu(menu));
+        expect(result.success, JSON.stringify(menu)).toBe(true);
+        expect(result.data?.layout?.menu, JSON.stringify(menu)).toEqual(menu);
+      }
+    });
+
+    it('rejects a menu type outside megaMenu and catalogue', () => {
+      const result = StoreSettingsSchema.safeParse(withMenu({ type: 'mega' }));
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.path).toEqual(['layout', 'menu', 'type']);
+    });
+
+    it('rejects a collapsibleCategories that is not a boolean', () => {
+      const result = StoreSettingsSchema.safeParse(
+        withMenu({ collapsibleCategories: 'true' }),
+      );
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.path).toEqual([
+        'layout',
+        'menu',
+        'collapsibleCategories',
+      ]);
+    });
+  });
+
   describe('missing required fields', () => {
     it('should reject missing required color fields', () => {
       const incomplete = {

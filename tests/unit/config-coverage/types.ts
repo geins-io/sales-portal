@@ -264,10 +264,12 @@ export type LayoutCoverage = {
     ? Record<NonNullable<Layout['headerNavVariant']> | 'absent', Coverage>
     : K extends 'menu'
       ? {
+          type: Record<NonNullable<Menu['type']> | 'absent', Coverage>;
           navbarAlignment: Record<
             NonNullable<Menu['navbarAlignment']> | 'absent',
             Coverage
           >;
+          collapsibleCategories: Record<'on' | 'off' | 'absent', Coverage>;
         }
       : Coverage;
 };

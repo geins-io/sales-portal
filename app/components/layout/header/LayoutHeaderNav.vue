@@ -1,13 +1,8 @@
 <script setup lang="ts">
-import { NuxtLink } from '#components';
-import type { MenuItemType } from '#shared/types/cms';
 import { CMS_MENUS } from '#shared/constants/cms';
 import {
-  normalizeMenuUrl,
   getMenuLabel,
   getVisibleItems,
-  isExternalUrl,
-  addCategoryPrefix,
   splitLabelInTwo,
 } from '#shared/utils/menu';
 import {
@@ -20,6 +15,8 @@ import {
 } from '~/components/ui/navigation-menu';
 import { useEventListener, usePreferredReducedMotion } from '@vueuse/core';
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import LayoutHeaderMenuCollapsible from './LayoutHeaderMenuCollapsible.vue';
+import LayoutHeaderMenuCatalogue from './LayoutHeaderMenuCatalogue.vue';
 
 withDefaults(defineProps<{ variant?: 'grey' | 'white' }>(), {
   variant: 'grey',
@@ -29,35 +26,39 @@ withDefaults(defineProps<{ variant?: 'grey' | 'white' }>(), {
 // Falls back gracefully to "no nav bar shown" when the tenant hasn't
 // configured the slot — the header still has the logo + search + cart.
 const { menu } = useCmsMenuData(CMS_MENUS.HEADER_MAIN);
-const currentHost = computed(() => useRequestURL().host);
-const { localePath } = useLocaleMarket();
+const { visibleChildren, linkTag, linkAttrs } = useHeaderMenuLinks();
+const { tenant } = useTenant();
 
 const visibleItems = computed(() => getVisibleItems(menu.value?.menuItems));
 
-function visibleChildren(item: MenuItemType): MenuItemType[] {
-  return getVisibleItems(item.children);
+// Store setting Menu layout. Absent keys are today's mega menu.
+const menuLayout = computed<'mega' | 'collapsible' | 'catalogue'>(() => {
+  const settings = tenant.value?.layout?.menu;
+  if (settings?.type === 'catalogue') return 'catalogue';
+  return settings?.collapsibleCategories === true ? 'collapsible' : 'mega';
+});
+
+// The open top item; '' closes the menu, which the catalogue's dim does.
+const openItem = ref('');
+
+const nav = useTemplateRef<HTMLElement>('nav');
+const dimHeight = ref('100dvh');
+
+// The dim covers the viewport below the bar. Measured, not assumed: the
+// header rows above the bar are the tenant's. The header is sticky, so the
+// value holds while the menu is open. The dropdown starts at the bar's
+// padding box, above its bottom border.
+function measureDim() {
+  const el = nav.value;
+  if (!el) return;
+  const top = el.getBoundingClientRect().top + el.clientTop + el.clientHeight;
+  const below = window.innerHeight - top;
+  dimHeight.value = `${Math.max(below, 0)}px`;
 }
 
-function isExternal(item: MenuItemType): boolean {
-  const url = normalizeMenuUrl(item.canonicalUrl, currentHost.value);
-  return isExternalUrl(url, currentHost.value) || !!item.targetBlank;
-}
-
-function linkTag(item: MenuItemType) {
-  return isExternal(item) ? 'a' : NuxtLink;
-}
-
-function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
-  let url = normalizeMenuUrl(item.canonicalUrl, currentHost.value, item.type);
-  const ext = isExternal(item);
-  if (!ext) url = addCategoryPrefix(url, item);
-  const href = ext ? url || '/' : localePath(url || '/');
-  return {
-    [ext ? 'href' : 'to']: href,
-    target: ext ? '_blank' : undefined,
-    rel: ext ? 'noopener' : undefined,
-  };
-}
+watch(openItem, (open) => {
+  if (open && menuLayout.value === 'catalogue') measureDim();
+});
 
 const bar = useTemplateRef<HTMLElement>('bar');
 const list = shallowRef<HTMLElement | null>(null);
@@ -178,7 +179,14 @@ onMounted(() => {
   if ('fonts' in document) document.fonts.ready.then(updateOverflow);
 });
 watch(visibleItems, updateOverflow, { flush: 'post' });
-useEventListener('resize', updateOverflow, { passive: true });
+useEventListener(
+  'resize',
+  () => {
+    updateOverflow();
+    if (openItem.value && menuLayout.value === 'catalogue') measureDim();
+  },
+  { passive: true },
+);
 useEventListener(list, 'scroll', updateEnds, { passive: true });
 useEventListener(list, 'focusin', keepFocusedInView);
 useEventListener(bar, 'wheel', onWheel, { passive: false });
@@ -187,6 +195,7 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
 <template>
   <nav
     v-if="visibleItems.length"
+    ref="nav"
     class="bg-nav-bar-background text-nav-bar-text relative hidden h-12 items-center border-b lg:flex"
     :aria-label="$t('layout.main_navigation')"
   >
@@ -222,6 +231,7 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
       </div>
       <div ref="bar" class="flex min-w-0 flex-1 items-center">
         <NavigationMenu
+          v-model="openItem"
           :viewport="false"
           class="static max-w-none min-w-0 flex-1 justify-start [&>div]:static! [&>div]:min-w-0 [&>div]:flex-1"
         >
@@ -253,7 +263,41 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
                 </NavigationMenuTrigger>
                 <NavigationMenuContent
                   class="absolute! top-full! left-0! mt-0! w-screen! max-w-none! rounded-none! border-x-0! border-t-0!"
+                  :class="
+                    menuLayout === 'catalogue'
+                      ? 'animate-none! overflow-visible! border-0! bg-transparent! p-0! shadow-none!'
+                      : ''
+                  "
                 >
+                  <!--
+                  The catalogue: a panel only as wide as its columns, at the
+                  content edge, over the page dimmed below the bar. The dim is
+                  inside the dropdown, so the mouse leaving the panel does not
+                  close the menu; a click on the dim does. The dim comes at
+                  once and only the panel drops down: the dropdown's own
+                  padding, frame and zoom are off.
+                -->
+                  <div
+                    v-if="menuLayout === 'catalogue'"
+                    class="bg-foreground/40"
+                    :style="{ height: dimHeight }"
+                    data-testid="menu-catalogue-backdrop"
+                    @click.self="openItem = ''"
+                  >
+                    <div
+                      class="mx-auto max-w-7xl px-6"
+                      @click.self="openItem = ''"
+                    >
+                      <div
+                        class="bg-popover text-popover-foreground border-border animate-in slide-in-from-top-2 fade-in-0 max-h-[min(500px,calc(100vh-11rem))] w-fit overflow-y-auto rounded-b-md border border-t-0 p-6 shadow-lg duration-150 motion-reduce:animate-none"
+                        data-testid="menu-catalogue-panel"
+                      >
+                        <LayoutHeaderMenuCatalogue
+                          :items="visibleChildren(item)"
+                        />
+                      </div>
+                    </div>
+                  </div>
                   <!--
                   Cap the open mega menu and scroll its contents internally so a
                   category with many submenus never pushes links below the fold
@@ -263,9 +307,14 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
                   stays inside the viewport on short screens too.
                 -->
                   <div
+                    v-else
                     class="mx-auto max-h-[min(500px,calc(100vh-11rem))] max-w-7xl overflow-y-auto px-4 py-6 lg:px-6"
                   >
-                    <div class="grid grid-cols-4 gap-x-8 gap-y-4">
+                    <LayoutHeaderMenuCollapsible
+                      v-if="menuLayout === 'collapsible'"
+                      :items="visibleChildren(item)"
+                    />
+                    <div v-else class="grid grid-cols-4 gap-x-8 gap-y-4">
                       <div
                         v-for="child in visibleChildren(item)"
                         :key="child.id"
