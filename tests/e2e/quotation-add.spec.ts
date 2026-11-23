@@ -40,7 +40,21 @@ const ADD_TIMEOUT = 90_000;
 const OFF = 'quotes and quoteRequests are not both on for this tenant';
 /** How long the test keeps asking Geins for the new draft. */
 const CREATE_BUDGET = 90_000;
-const CREATE_FAILED = 'Create quotation request failed.';
+/**
+ * How the server answers a create Geins failed. The production build sends
+ * the code only, never Geins's text, so the code is all there is to go by.
+ */
+const GEINS_FAILED = 'EXTERNAL_API_ERROR';
+
+function geinsFailed(status: number, body: string): boolean {
+  if (status !== 502) return false;
+  try {
+    const { data } = JSON.parse(body) as { data?: { code?: string } };
+    return data?.code === GEINS_FAILED;
+  } catch {
+    return false;
+  }
+}
 
 interface ListedDraft {
   id: string;
@@ -205,7 +219,7 @@ async function createDraft(page: Page, name: string, testInfo: TestInfo) {
     if (response.ok()) return;
     const body = await response.text();
     expect(
-      response.status() === 502 && body.includes(CREATE_FAILED),
+      geinsFailed(response.status(), body),
       `the draft was not made: ${response.status()} ${body.slice(0, 300)}`,
     ).toBe(true);
     await expect(page.getByTestId('rename-draft-failed')).toBeVisible();
@@ -217,7 +231,7 @@ async function createDraft(page: Page, name: string, testInfo: TestInfo) {
     );
     testInfo.annotations.push({
       type: 'geins create retried',
-      description: `attempt ${attempt} answered "${CREATE_FAILED}"`,
+      description: `attempt ${attempt} answered 502 ${GEINS_FAILED}`,
     });
     await page.waitForTimeout(2000 * attempt);
   }
