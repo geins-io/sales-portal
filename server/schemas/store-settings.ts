@@ -324,7 +324,9 @@ const CmsConfigSchema = z
 export const LayoutConfigSchema = z.object({
   menu: z
     .object({
+      type: z.enum(['megaMenu', 'catalogue']).nullable().optional(),
       navbarAlignment: z.enum(['left', 'center']).nullable().optional(),
+      collapsibleCategories: z.boolean().nullable().optional(),
     })
     .nullable()
     .optional(),

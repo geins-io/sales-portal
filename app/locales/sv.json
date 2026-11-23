@@ -473,6 +473,8 @@
     "apply_for_account": "Ansök om konto",
     "customer_portal": "Kundportal",
     "main_navigation": "Huvudnavigering",
+    "menu_all_in": "Allt inom {name}",
+    "menu_go_to": "Gå till {name}",
     "subscribe_heading": "Prenumerera på vårt nyhetsbrev",
     "subscribe_description": "Få de senaste nyheterna och uppdateringarna från vårt team.",
     "subscribe": "Prenumerera",

@@ -1961,6 +1961,108 @@ export const CONFIG_COVERAGE_MAP = {
       },
     },
     menu: {
+      type: {
+        megaMenu: {
+          status: 'has-test',
+          test: [
+            {
+              spec: HEADER_NAV,
+              title:
+                "renders today's mega menu for megaMenu without collapsible categories",
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: SERVER_TENANT,
+              title: 'serves layout.menu.type and collapsibleCategories',
+              kind: 'consumer',
+              drives: 'field',
+            },
+          ],
+          note: "Today's mega menu; collapsibleCategories picks the folded variant.",
+        },
+        catalogue: {
+          status: 'has-test',
+          test: [
+            {
+              spec: HEADER_NAV,
+              title:
+                'renders the catalogue for type catalogue, whatever collapsibleCategories says',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: SERVER_TENANT,
+              title:
+                'leaves a catalogue at the start when the alignment is center, and keeps the saved alignment',
+              kind: 'consumer',
+              drives: 'field',
+            },
+          ],
+          note: 'The catalogue is always left aligned: buildTenantConfig emits no centring for it.',
+        },
+        absent: {
+          status: 'has-test',
+          test: [
+            {
+              spec: HEADER_NAV,
+              title:
+                "renders today's mega menu when the tenant has no menu layout",
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: SERVER_TENANT,
+              title:
+                'drops an unknown menu type, keeps the other menu keys, and still serves the tenant',
+              kind: 'consumer',
+              drives: 'field',
+            },
+          ],
+          note: 'An unknown value is leaf-stripped and lands here too.',
+        },
+      },
+      collapsibleCategories: {
+        on: {
+          status: 'has-test',
+          test: {
+            spec: HEADER_NAV,
+            title:
+              'renders the collapsible categories for a mega menu with collapsibleCategories on',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        },
+        off: {
+          status: 'has-test',
+          test: {
+            spec: HEADER_NAV,
+            title:
+              "renders today's mega menu for megaMenu without collapsible categories",
+            kind: 'consumer',
+            drives: 'field',
+          },
+        },
+        absent: {
+          status: 'has-test',
+          test: [
+            {
+              spec: HEADER_NAV,
+              title:
+                "renders today's mega menu when the tenant has no menu layout",
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: SERVER_TENANT,
+              title: 'drops a collapsibleCategories that is not a boolean',
+              kind: 'consumer',
+              drives: 'field',
+            },
+          ],
+          note: 'A non-boolean is leaf-stripped and lands here too.',
+        },
+      },
       navbarAlignment: {
         center: {
           status: 'has-test',

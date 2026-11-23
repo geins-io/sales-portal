@@ -473,6 +473,8 @@
     "apply_for_account": "Apply for account",
     "customer_portal": "Customer portal",
     "main_navigation": "Main navigation",
+    "menu_all_in": "All in {name}",
+    "menu_go_to": "Go to {name}",
     "subscribe_heading": "Subscribe to our newsletter",
     "subscribe_description": "Get the latest news and updates from our team.",
     "subscribe": "Subscribe",

@@ -473,6 +473,8 @@
     "apply_for_account": "Konto beantragen",
     "customer_portal": "Kundenportal",
     "main_navigation": "Hauptnavigation",
+    "menu_all_in": "Alles in {name}",
+    "menu_go_to": "Zu {name}",
     "subscribe_heading": "Abonnieren Sie unseren Newsletter",
     "subscribe_description": "Erhalten Sie die neuesten Nachrichten und Updates von unserem Team.",
     "subscribe": "Abonnieren",

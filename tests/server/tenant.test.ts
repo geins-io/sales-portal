@@ -2880,7 +2880,26 @@ describe('the nav bar settings Studio saves', () => {
     }
   });
 
-  it('serves the alignment next to menu keys it does not read yet', async () => {
+  it('serves layout.menu.type and collapsibleCategories', async () => {
+    const config = await serve(
+      rawAnswer(
+        {},
+        { layout: { menu: { type: 'megaMenu', collapsibleCategories: true } } },
+      ),
+    );
+    expect(config.layout?.menu?.type).toBe('megaMenu');
+    expect(config.layout?.menu?.collapsibleCategories).toBe(true);
+  });
+
+  it('serves no menu type or collapsibleCategories when the menu has none', async () => {
+    const config = await serve(
+      rawAnswer({}, { layout: { menu: { navbarAlignment: 'left' } } }),
+    );
+    expect(config.layout?.menu).not.toHaveProperty('type');
+    expect(config.layout?.menu).not.toHaveProperty('collapsibleCategories');
+  });
+
+  it('leaves a catalogue at the start when the alignment is center, and keeps the saved alignment', async () => {
     const config = await serve(
       rawAnswer(
         {},
@@ -2895,8 +2914,54 @@ describe('the nav bar settings Studio saves', () => {
         },
       ),
     );
+    expect(config.layout?.menu?.type).toBe('catalogue');
     expect(config.layout?.menu?.navbarAlignment).toBe('center');
+    expect(config.css).not.toContain('--nav-bar-justify');
+  });
+
+  it('centres a mega menu when the alignment is center', async () => {
+    const config = await serve(
+      rawAnswer(
+        {},
+        {
+          layout: {
+            menu: {
+              type: 'megaMenu',
+              navbarAlignment: 'center',
+              collapsibleCategories: true,
+            },
+          },
+        },
+      ),
+    );
     expect(config.css).toContain('--nav-bar-justify: safe center;');
+  });
+
+  it('drops an unknown menu type, keeps the other menu keys, and still serves the tenant', async () => {
+    const config = await serve(
+      rawAnswer(
+        {},
+        {
+          layout: {
+            menu: {
+              type: 'sidebar',
+              navbarAlignment: 'center',
+              collapsibleCategories: true,
+            },
+          },
+        },
+      ),
+    );
+    expect(config.layout?.menu).not.toHaveProperty('type');
+    expect(config.layout?.menu?.collapsibleCategories).toBe(true);
+    expect(config.css).toContain('--nav-bar-justify: safe center;');
+  });
+
+  it('drops a collapsibleCategories that is not a boolean', async () => {
+    const config = await serve(
+      rawAnswer({}, { layout: { menu: { collapsibleCategories: 'yes' } } }),
+    );
+    expect(config.layout?.menu).not.toHaveProperty('collapsibleCategories');
   });
 
   it('drops an unknown nav bar alignment and still serves the tenant', async () => {

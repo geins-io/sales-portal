@@ -493,6 +493,12 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
 
   const themeName = merged.theme.name ?? merged.accountName;
 
+  // The catalogue is always left aligned; the saved alignment stays in
+  // `layout` for when the merchant switches back to the mega menu.
+  const menu = merged.layout?.menu;
+  const navBarAlignment =
+    menu?.type === 'catalogue' ? null : menu?.navbarAlignment;
+
   const css = generateTenantCss(
     themeName,
     derivedColors,
@@ -500,7 +506,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     merged.overrides?.css,
     merged.theme.typography,
     merged.theme.cardBorders,
-    merged.layout?.menu?.navbarAlignment,
+    navBarAlignment,
   );
 
   const theme: TenantConfig['theme'] = {

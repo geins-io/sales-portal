@@ -98,7 +98,9 @@ export interface TenantConfig {
   layout?: {
     headerNavVariant?: 'grey' | 'white' | null;
     menu?: {
+      type?: 'megaMenu' | 'catalogue' | null;
       navbarAlignment?: 'left' | 'center' | null;
+      collapsibleCategories?: boolean | null;
     } | null;
   } | null;
 
