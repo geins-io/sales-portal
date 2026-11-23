@@ -1357,6 +1357,37 @@ export async function waitForHydration(page: Page, timeout = 15000) {
   );
 }
 
+/**
+ * Goes to a page with the app's own router, so the page's reads run in the
+ * browser, where `page.route` answers them; a `goto` reads them on the server.
+ */
+export async function routerPush(page: Page, to: string): Promise<void> {
+  await page.evaluate((path) => {
+    const app = (
+      document.querySelector('#__nuxt') as unknown as {
+        __vue_app__: {
+          config: {
+            globalProperties: { $router: { push: (to: string) => unknown } };
+          };
+        };
+      }
+    ).__vue_app__;
+    return app.config.globalProperties.$router.push(path);
+  }, to);
+}
+
+/** Loads `start`, then goes on to `to` in the app, as `routerPush` does. */
+export async function openInApp(
+  page: Page,
+  start: string,
+  to: string,
+): Promise<void> {
+  await page.goto(start);
+  await page.waitForLoadState('load');
+  await waitForHydration(page);
+  await routerPush(page, to);
+}
+
 // ---------- Viewport ----------
 
 export async function setMobileViewport(page: Page) {

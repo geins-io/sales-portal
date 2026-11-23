@@ -2,7 +2,9 @@ import { test, expect, type Page } from './fixtures';
 import {
   waitForHydration,
   hasE2ECredentials,
+  openInApp,
   outOfScope,
+  routerPush,
   signedInState,
 } from './helpers';
 import { apiRoute, apiGet } from './api-call';
@@ -21,6 +23,7 @@ outOfScope(
 test.use({ storageState: signedInState });
 
 const PAGE_TIMEOUT = 20000;
+const LIST_PATH = '/se/sv/portal/quotations';
 
 interface ListedQuote {
   id: string;
@@ -115,6 +118,21 @@ async function openOrderPageFromView(
   await expect(page.locator('[data-testid="quote-order-page"]')).toBeVisible({
     timeout: PAGE_TIMEOUT,
   });
+}
+
+/**
+ * The quotation as one with an external system's number, read as the test
+ * says; `current` is what the next read answers.
+ */
+async function serveExternal(page: Page, quote: FullQuote, status: string) {
+  const state = {
+    current: { ...quote, hasExternalNumber: true, status } as FullQuote,
+  };
+  await page.route(apiRoute(`/api/quotes/${quote.id}`), async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    await route.fulfill({ json: { quote: state.current } });
+  });
+  return state;
 }
 
 test.describe('Order from a quotation', () => {
@@ -298,6 +316,95 @@ test.describe('Order from a quotation', () => {
     });
     await expect(page.locator('[data-testid="quote-detail"]')).toBeVisible({
       timeout: PAGE_TIMEOUT,
+    });
+  });
+
+  // An external system places the order for a quotation it numbered, once
+  // the buyer accepts it. The accept is answered by the test.
+  test.describe('a quotation with an external number', () => {
+    test('"Lägg order" sends the order, and the thanks carry no order number', async ({
+      page,
+    }) => {
+      const quote = await findOrderable(page);
+      outOfScope(
+        !quote,
+        'fixture-missing',
+        'the test account has no pending quotation without confirmation to order from',
+      );
+      const state = await serveExternal(page, quote!, 'pending');
+      const accepted = { ...state.current, status: 'accepted' };
+      const finalizeCalls: unknown[] = [];
+      await page.route(apiRoute('/api/quotes/*/finalize'), async (route) => {
+        finalizeCalls.push(route.request().postDataJSON());
+        state.current = accepted;
+        await route.fulfill({ json: { quote: accepted } });
+      });
+
+      const viewPath = `/se/sv/portal/quotations/${quote!.id}`;
+      await openInApp(page, LIST_PATH, `${viewPath}/order`);
+      await expect(
+        page.locator('[data-testid="quote-order-page"]'),
+      ).toBeVisible({ timeout: PAGE_TIMEOUT });
+
+      await page
+        .locator('[data-testid="quote-order-message"]')
+        .fill('Ring innan leverans');
+      await page.locator('#checkout-terms-checkbox').click();
+      await page.locator('[data-testid="place-order-button"]').click();
+      await page.waitForURL(new RegExp(`${viewPath}/ordered$`), {
+        timeout: PAGE_TIMEOUT,
+      });
+      expect(finalizeCalls).toEqual([{ message: 'Ring innan leverans' }]);
+
+      const thanks = page.locator('[data-testid="quote-thanks"]');
+      await expect(thanks).toHaveAttribute('data-kind', 'placed', {
+        timeout: PAGE_TIMEOUT,
+      });
+      await expect(thanks).toContainText('visas under Beställningar');
+      if (quote!.quoteNumber) {
+        await expect(
+          page.locator('[data-testid="quote-thanks-from"]'),
+        ).toContainText(quote!.quoteNumber);
+      }
+      await expect(
+        page.locator('[data-testid="quote-thanks-number"]'),
+      ).toHaveCount(0);
+      await expect(
+        page.locator('[data-testid="confirmation-order-loading"]'),
+      ).toHaveCount(0);
+      await expect(
+        page.locator('[data-testid="quote-thanks-portal"]'),
+      ).toHaveAttribute('href', viewPath);
+    });
+
+    test('an accepted one is ordered: no "Lägg order", and the order page sends the buyer back', async ({
+      page,
+    }) => {
+      const quote = await findOrderable(page);
+      outOfScope(
+        !quote,
+        'fixture-missing',
+        'the test account has no pending quotation to show as accepted',
+      );
+      await serveExternal(page, quote!, 'accepted');
+
+      const viewPath = `/se/sv/portal/quotations/${quote!.id}`;
+      await openInApp(page, LIST_PATH, viewPath);
+      const detail = page.locator('[data-testid="quote-detail"]');
+      await expect(detail).toBeVisible({ timeout: PAGE_TIMEOUT });
+      await expect(
+        page.locator('[data-testid="quote-meta-status"]'),
+      ).toContainText('ordern är lagd');
+      await expect(
+        page.locator('[data-testid="quote-place-order"]'),
+      ).toHaveCount(0);
+      await expect(page.locator('[data-testid="accept-btn"]')).toHaveCount(0);
+
+      await routerPush(page, `${viewPath}/order`);
+      await page.waitForURL(new RegExp(`${viewPath}$`), {
+        timeout: PAGE_TIMEOUT,
+      });
+      await expect(detail).toBeVisible({ timeout: PAGE_TIMEOUT });
     });
   });
 });

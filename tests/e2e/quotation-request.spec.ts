@@ -1,7 +1,7 @@
 import { test, expect, type Page, type Route } from './fixtures';
 import {
-  waitForHydration,
   hasE2ECredentials,
+  openInApp,
   outOfScope,
   signedInState,
 } from './helpers';
@@ -252,32 +252,13 @@ async function answerQuotation(
 const writtenId = (n: number) =>
   `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
-/** Nothing links to the page yet, so the app's own router takes the buyer there. */
-async function openInApp(page: Page, to: string) {
-  await page.goto(LIST_PATH);
-  await page.waitForLoadState('load');
-  await waitForHydration(page);
-  await page.evaluate((path) => {
-    const app = (
-      document.querySelector('#__nuxt') as unknown as {
-        __vue_app__: {
-          config: {
-            globalProperties: { $router: { push: (to: string) => unknown } };
-          };
-        };
-      }
-    ).__vue_app__;
-    return app.config.globalProperties.$router.push(path);
-  }, to);
-}
-
 test.describe('Send a quote request', () => {
   test('sends the entered details, then the request, and shows them on the sent page and in the view', async ({
     page,
   }) => {
     const calls = await answerQuotation(page, 'request_draft');
 
-    await openInApp(page, `${VIEW_PATH}/request`);
+    await openInApp(page, LIST_PATH, `${VIEW_PATH}/request`);
     await expect(
       page.locator('[data-testid="quote-request-page"]'),
     ).toBeVisible({ timeout: PAGE_TIMEOUT });
@@ -392,7 +373,7 @@ test.describe('Send a quote request', () => {
   test('shows a configured line with its configuration', async ({ page }) => {
     await answerQuotation(page, 'request_draft', [CONFIGURED_LINE]);
 
-    await openInApp(page, `${VIEW_PATH}/request`);
+    await openInApp(page, LIST_PATH, `${VIEW_PATH}/request`);
     await expect(
       page.locator('[data-testid="quote-request-page"]'),
     ).toBeVisible({ timeout: PAGE_TIMEOUT });
@@ -434,7 +415,7 @@ test.describe('Send a quote request', () => {
   }) => {
     await answerQuotation(page, 'request_draft');
 
-    await openInApp(page, `${VIEW_PATH}/request`);
+    await openInApp(page, LIST_PATH, `${VIEW_PATH}/request`);
     const badge = page.locator('[data-testid="quote-estimate-badge"]');
     await expect(badge).toBeVisible({ timeout: PAGE_TIMEOUT });
     const note = page.locator('[data-testid="quote-estimate-note"]');
@@ -463,7 +444,7 @@ test.describe('Send a quote request', () => {
       route.fulfill({ status: 502, json: { message: 'Bad gateway' } }),
     );
 
-    await openInApp(page, `${VIEW_PATH}/request`);
+    await openInApp(page, LIST_PATH, `${VIEW_PATH}/request`);
     await expect(
       page.locator('[data-testid="quote-request-page"]'),
     ).toBeVisible({ timeout: PAGE_TIMEOUT });
@@ -480,7 +461,7 @@ test.describe('Send a quote request', () => {
   }) => {
     await answerQuotation(page, 'pending');
 
-    await openInApp(page, `${VIEW_PATH}/sent`);
+    await openInApp(page, LIST_PATH, `${VIEW_PATH}/sent`);
     await page.waitForURL(new RegExp(`${VIEW_PATH}$`), {
       timeout: PAGE_TIMEOUT,
     });
@@ -494,7 +475,7 @@ test.describe('Send a quote request', () => {
   }) => {
     await answerQuotation(page, 'pending');
 
-    await openInApp(page, `${VIEW_PATH}/request`);
+    await openInApp(page, LIST_PATH, `${VIEW_PATH}/request`);
     await page.waitForURL(new RegExp(`${VIEW_PATH}$`), {
       timeout: PAGE_TIMEOUT,
     });
@@ -528,7 +509,7 @@ test.describe('Read the quote log with the conversation off', () => {
     page,
   }) => {
     await answerQuotation(page, 'requested');
-    await openInApp(page, VIEW_PATH);
+    await openInApp(page, LIST_PATH, VIEW_PATH);
     const open = page.locator('[data-testid="quote-thread-open"]');
     await expect(open).toHaveText(/Offertlogg/, { timeout: PAGE_TIMEOUT });
     await expect(open.locator('svg')).toHaveCount(0);
@@ -561,7 +542,7 @@ test.describe('Write in the quote log', () => {
     page,
   }) => {
     const calls = await answerQuotation(page, 'requested');
-    await openInApp(page, VIEW_PATH);
+    await openInApp(page, LIST_PATH, VIEW_PATH);
     const open = page.locator('[data-testid="quote-thread-open"]');
     await expect(open).toHaveText(/Offertlogg/, { timeout: PAGE_TIMEOUT });
     await expect(open.locator('svg')).toHaveCount(1);
@@ -617,7 +598,7 @@ test.describe('Write in the quote log', () => {
           ? route.fulfill({ status: 502, json: { message: 'Bad Gateway' } })
           : route.fallback(),
     );
-    await openInApp(page, VIEW_PATH);
+    await openInApp(page, LIST_PATH, VIEW_PATH);
     await page
       .locator('[data-testid="quote-thread-open"]')
       .click({ timeout: PAGE_TIMEOUT });
@@ -639,7 +620,7 @@ test.describe('Write in the quote log', () => {
     page,
   }) => {
     const calls = await answerQuotation(page, 'requested');
-    await openInApp(page, VIEW_PATH);
+    await openInApp(page, LIST_PATH, VIEW_PATH);
     const open = page.locator('[data-testid="quote-thread-open"]');
     await expect(open).toHaveText(/Offertlogg/, { timeout: PAGE_TIMEOUT });
     await open.click();
@@ -708,7 +689,7 @@ test.describe('Write in the quote log', () => {
         });
       },
     );
-    await openInApp(page, VIEW_PATH);
+    await openInApp(page, LIST_PATH, VIEW_PATH);
     const open = page.locator('[data-testid="quote-thread-open"]');
     await expect(open).toHaveText(/Offertlogg/, { timeout: PAGE_TIMEOUT });
     await open.click();
