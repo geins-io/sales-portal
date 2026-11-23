@@ -342,23 +342,47 @@ test.describe('Tenant nav bar colour and alignment', () => {
     await expect(panel.locator('a').first()).toHaveCSS('color', panelColor);
   });
 
-  test('items start at the edge of the bar when no alignment is set', async ({
+  // The saved alignment, read as buildTenantConfig reads it: the catalogue is
+  // always at the start, whatever alignment is saved.
+  test('items sit where the saved nav bar alignment puts them', async ({
     page,
   }) => {
+    const config = await apiGet(page.request, '/api/config');
+    expect(config.ok(), '/api/config did not answer 200').toBe(true);
+    const menu = (await config.json())?.layout?.menu as
+      | { type?: string | null; navbarAlignment?: string | null }
+      | null
+      | undefined;
+    const centred =
+      menu?.type !== 'catalogue' && menu?.navbarAlignment === 'center';
+
     const bar = await openBar(page, {});
-    const offset = await bar.evaluate((el) => {
+    const geometry = await bar.evaluate((el) => {
       const list = el.querySelector<HTMLElement>(
         '[data-slot="navigation-menu-list"]',
       )!;
       const style = getComputedStyle(list);
-      const left =
-        list.getBoundingClientRect().left + parseFloat(style.paddingLeft);
-      return (
-        (list.firstElementChild as HTMLElement).getBoundingClientRect().left -
-        left
-      );
+      const box = list.getBoundingClientRect();
+      const left = box.left + parseFloat(style.paddingLeft);
+      const right = box.right - parseFloat(style.paddingRight);
+      const items = Array.from(list.children, (i) => i.getBoundingClientRect());
+      return {
+        before: items[0]!.left - left,
+        after: right - items[items.length - 1]!.right,
+        overflowing: list.scrollWidth > list.clientWidth,
+      };
     });
-    expect(Math.abs(offset)).toBeLessThanOrEqual(1);
+
+    if (centred && !geometry.overflowing) {
+      expect(
+        geometry.before,
+        'the items are centred, not at the start',
+      ).toBeGreaterThan(1);
+      expect(Math.abs(geometry.before - geometry.after)).toBeLessThanOrEqual(2);
+    } else {
+      // Left, absent, the catalogue, or centred items that do not fit.
+      expect(Math.abs(geometry.before)).toBeLessThanOrEqual(1);
+    }
   });
 
   test('centred items sit in the middle of the bar when they fit (simulated value)', async ({
