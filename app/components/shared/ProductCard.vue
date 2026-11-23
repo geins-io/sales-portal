@@ -291,8 +291,7 @@ async function addToCart() {
         {{ product?.name }}
       </h3>
 
-      <!-- Stock badge -->
-      <StockBadge
+      <StockIndicator
         v-if="isFullProduct(product) && product.totalStock"
         :stock="product.totalStock"
         size="sm"
@@ -475,7 +474,7 @@ async function addToCart() {
             {{ product.articleNumber }}
           </template>
         </p>
-        <StockBadge
+        <StockIndicator
           v-if="isFullProduct(product) && product.totalStock"
           :stock="product.totalStock"
           size="sm"

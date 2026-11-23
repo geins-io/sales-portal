@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
 import type { AuthUser } from '@geins/types';
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { mountComponent } from '../../utils/component';
-import StockBadge from '../../../app/components/shared/StockBadge.vue';
+import StockIndicator from '../../../app/components/shared/StockIndicator.vue';
 import { useTenant } from '../../../app/composables/useTenant';
 import { useAuthStore } from '../../../app/stores/auth';
 
@@ -27,17 +27,6 @@ const SIGNED_IN: AuthUser = {
   username: 'buyer@example.com',
 };
 
-const badgeStub = {
-  template:
-    '<span class="badge" :class="$attrs.class" :data-variant="variant"><slot /></span>',
-  props: ['variant'],
-};
-
-const stubs = {
-  Badge: badgeStub,
-  UiBadge: badgeStub,
-};
-
 function makeStock(overrides: Record<string, number> = {}) {
   return {
     inStock: 100,
@@ -48,7 +37,7 @@ function makeStock(overrides: Record<string, number> = {}) {
   };
 }
 
-describe('StockBadge', () => {
+describe('StockIndicator', () => {
   beforeEach(() => {
     setFeatures({});
     // Sign out: the Pinia store is shared across this file's tests.
@@ -56,90 +45,139 @@ describe('StockBadge', () => {
   });
 
   it('renders in-stock state', () => {
-    const wrapper = mountComponent(StockBadge, {
+    const wrapper = mountComponent(StockIndicator, {
       props: { stock: makeStock() },
-      global: { stubs },
     });
-    expect(wrapper.text()).toContain('product.in_stock');
+    expect(wrapper.text()).toBe('product.in_stock');
   });
 
   it('renders low-stock state when totalStock <= threshold', () => {
-    const wrapper = mountComponent(StockBadge, {
+    const wrapper = mountComponent(StockIndicator, {
       props: { stock: makeStock({ totalStock: 3, inStock: 3 }) },
-      global: { stubs },
     });
-    expect(wrapper.text()).toContain('product.low_stock');
+    expect(wrapper.text()).toBe('product.low_stock');
+  });
+
+  it('renders low-stock state at the default threshold of 5 and in-stock at 6', () => {
+    const at = mountComponent(StockIndicator, {
+      props: { stock: makeStock({ totalStock: 5, inStock: 5 }) },
+    });
+    const above = mountComponent(StockIndicator, {
+      props: { stock: makeStock({ totalStock: 6, inStock: 6 }) },
+    });
+    expect(at.text()).toBe('product.low_stock');
+    expect(above.text()).toBe('product.in_stock');
   });
 
   it('renders out-of-stock state', () => {
-    const wrapper = mountComponent(StockBadge, {
+    const wrapper = mountComponent(StockIndicator, {
       props: { stock: makeStock({ totalStock: 0, inStock: 0 }) },
-      global: { stubs },
     });
-    expect(wrapper.text()).toContain('product.out_of_stock');
+    expect(wrapper.text()).toBe('product.out_of_stock');
   });
 
   it('renders on-demand state when static > 0 and inStock === 0', () => {
-    const wrapper = mountComponent(StockBadge, {
+    const wrapper = mountComponent(StockIndicator, {
       props: { stock: makeStock({ totalStock: 0, inStock: 0, static: 10 }) },
-      global: { stubs },
     });
-    expect(wrapper.text()).toContain('product.on_demand');
+    expect(wrapper.text()).toBe('product.on_demand');
   });
 
   it('respects custom threshold', () => {
-    const wrapper = mountComponent(StockBadge, {
+    const wrapper = mountComponent(StockIndicator, {
       props: {
         stock: makeStock({ totalStock: 8, inStock: 8 }),
         threshold: 10,
       },
-      global: { stubs },
     });
-    expect(wrapper.text()).toContain('product.low_stock');
+    expect(wrapper.text()).toBe('product.low_stock');
   });
 
   it('renders nothing when stock is undefined', () => {
-    const wrapper = mountComponent(StockBadge, {
+    const wrapper = mountComponent(StockIndicator, {
       props: { stock: undefined },
-      global: { stubs },
     });
     expect(wrapper.text()).toBe('');
+    expect(wrapper.find('[data-stock-status]').exists()).toBe(false);
+  });
+
+  it('renders a given status over the one the stock gives', () => {
+    const wrapper = mountComponent(StockIndicator, {
+      props: { stock: makeStock(), status: 'out-of-stock' },
+    });
+    expect(wrapper.text()).toBe('product.out_of_stock');
+  });
+
+  it('renders a given status without stock', () => {
+    const wrapper = mountComponent(StockIndicator, {
+      props: { status: 'on-demand' },
+    });
+    expect(wrapper.text()).toBe('product.on_demand');
+  });
+
+  it('keeps the dot and the text on one line, the dot hidden from screen readers', () => {
+    const wrapper = mountComponent(StockIndicator, {
+      props: { stock: makeStock() },
+    });
+    const root = wrapper.find('[data-stock-status]');
+    expect(root.classes()).toEqual(
+      expect.arrayContaining([
+        'inline-flex',
+        'items-center',
+        'whitespace-nowrap',
+      ]),
+    );
+    expect(root.find('.rounded-full').attributes('aria-hidden')).toBe('true');
   });
 
   describe('tone', () => {
     it.each([
-      ['in-stock', 'success', 'border-success', makeStock()],
+      ['in-stock', 'text-success', 'bg-success', makeStock()],
       [
         'low-stock',
-        'warning',
-        'border-warning',
+        'text-stock-low',
+        'bg-stock-low-dot',
         makeStock({ totalStock: 3, inStock: 3 }),
       ],
       [
         'out-of-stock',
-        'destructive-soft',
-        'border-danger',
+        'text-stock-out',
+        'bg-stock-out-dot',
         makeStock({ totalStock: 0, inStock: 0 }),
       ],
       [
         'on-demand',
-        'info',
-        'border-info',
+        'text-info',
+        'bg-info',
         makeStock({ totalStock: 0, inStock: 0, static: 10 }),
       ],
-    ])('renders %s as the %s badge, dot %s', (_, variant, dot, stock) => {
-      const pill = mountComponent(StockBadge, {
-        props: { stock },
-        global: { stubs },
-      });
-      expect(pill.find('.badge').attributes('data-variant')).toBe(variant);
-      expect(pill.find('.badge').attributes('class')).toBe('badge');
+    ])(
+      'renders %s with text %s and a filled %s dot in both sizes',
+      (status, text, dot, stock) => {
+        for (const size of ['default', 'sm'] as const) {
+          const wrapper = mountComponent(StockIndicator, {
+            props: { stock, size },
+          });
+          const root = wrapper.find('[data-stock-status]');
+          expect(root.attributes('data-stock-status')).toBe(status);
+          expect(root.classes()).toContain(text);
+          expect(root.find('.rounded-full').classes()).toContain(dot);
+        }
+      },
+    );
+  });
 
-      const compact = mountComponent(StockBadge, {
-        props: { stock, size: 'sm' },
-        global: { stubs },
+  describe('size', () => {
+    it.each([
+      ['default', ['gap-2', 'text-sm'], 'size-2.5'],
+      ['sm', ['gap-1.5', 'text-xs'], 'size-2'],
+    ] as const)('renders the %s size', (size, rootClasses, dotSize) => {
+      const wrapper = mountComponent(StockIndicator, {
+        props: { stock: makeStock(), size },
       });
-      expect(compact.find('.rounded-full').classes()).toContain(dot);
+      const root = wrapper.find('[data-stock-status]');
+      expect(root.classes()).toEqual(expect.arrayContaining([...rootClasses]));
+      expect(root.find('.rounded-full').classes()).toContain(dotSize);
     });
   });
 
@@ -148,28 +186,27 @@ describe('StockBadge', () => {
   // tests/unit/config-coverage/map.ts, which requires the key in the title.
   describe('stockStatus', () => {
     function mount() {
-      return mountComponent(StockBadge, {
+      return mountComponent(StockIndicator, {
         props: { stock: makeStock() },
-        global: { stubs },
       });
     }
 
-    it('shows the stock badge when stockStatus is absent from features', () => {
+    it('shows the stock indicator when stockStatus is absent from features', () => {
       setFeatures({});
       expect(mount().text()).toContain('product.in_stock');
     });
 
-    it('shows the stock badge when stockStatus is enabled with no access rule', () => {
+    it('shows the stock indicator when stockStatus is enabled with no access rule', () => {
       setFeatures({ stockStatus: { enabled: true } });
       expect(mount().text()).toContain('product.in_stock');
     });
 
-    it('hides the stock badge when stockStatus requires authentication and the user is anonymous', () => {
+    it('hides the stock indicator when stockStatus requires authentication and the user is anonymous', () => {
       setFeatures({ stockStatus: { enabled: true, access: 'authenticated' } });
       expect(mount().text()).toBe('');
     });
 
-    it('shows the stock badge when stockStatus requires authentication and the user is signed in', () => {
+    it('shows the stock indicator when stockStatus requires authentication and the user is signed in', () => {
       setFeatures({ stockStatus: { enabled: true, access: 'authenticated' } });
       useAuthStore().user = SIGNED_IN;
       expect(mount().text()).toContain('product.in_stock');

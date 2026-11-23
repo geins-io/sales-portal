@@ -13,7 +13,7 @@ describe('VariantSheetRow', () => {
         title: 'Widget',
         subtitle: 'Size 44',
         showStock: false,
-        inStock: true,
+        stock: null,
         selected: false,
       },
     }).find('img');
@@ -29,7 +29,7 @@ describe('VariantSheetRow', () => {
     title: 'Widget',
     subtitle: 'Size 44',
     showStock: false,
-    inStock: true,
+    stock: null,
     selected: false,
   };
 
@@ -56,13 +56,60 @@ describe('VariantSheetRow', () => {
 
   it('shows a hint in place of the stock line', () => {
     const wrapper = mountComponent(VariantSheetRow, {
-      props: { ...textProps, showStock: true, hint: 'Gänga: M6 · M8' },
+      props: {
+        ...textProps,
+        showStock: true,
+        stock: stock(20),
+        hint: 'Gänga: M6 · M8',
+      },
     });
 
     expect(wrapper.find('[data-testid="variant-row-hint"]').text()).toBe(
       'Gänga: M6 · M8',
     );
     expect(wrapper.text()).not.toContain('product.in_stock');
+    expect(wrapper.find('[data-stock-status]').exists()).toBe(false);
+  });
+
+  const stock = (totalStock: number, staticStock = 0) => ({
+    inStock: totalStock,
+    oversellable: 0,
+    totalStock,
+    static: staticStock,
+  });
+
+  it.each([
+    ['in-stock', 'product.in_stock', stock(20)],
+    ['low-stock', 'product.low_stock', stock(3)],
+    ['on-demand', 'product.on_demand', stock(0, 4)],
+    ['out-of-stock', 'product.out_of_stock', stock(0)],
+  ])('shows %s in the compact stock indicator', (status, label, rowStock) => {
+    const wrapper = mountComponent(VariantSheetRow, {
+      props: { ...textProps, showStock: true, stock: rowStock },
+    });
+
+    const indicator = wrapper.find('[data-stock-status]');
+    expect(indicator.attributes('data-stock-status')).toBe(status);
+    expect(indicator.text()).toBe(label);
+    expect(indicator.classes()).toContain('text-xs');
+  });
+
+  it('shows out of stock for a row without stock', () => {
+    const wrapper = mountComponent(VariantSheetRow, {
+      props: { ...textProps, showStock: true, stock: null },
+    });
+
+    const indicator = wrapper.find('[data-stock-status]');
+    expect(indicator.attributes('data-stock-status')).toBe('out-of-stock');
+    expect(indicator.text()).toBe('product.out_of_stock');
+  });
+
+  it('shows no stock status when stock is hidden for the buyer', () => {
+    const wrapper = mountComponent(VariantSheetRow, {
+      props: { ...textProps, showStock: false, stock: stock(20) },
+    });
+
+    expect(wrapper.find('[data-stock-status]').exists()).toBe(false);
   });
 
   it('leaves out an empty subtitle', () => {

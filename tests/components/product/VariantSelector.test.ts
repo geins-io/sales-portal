@@ -505,6 +505,28 @@ describe('VariantSelector row price follows the VAT preference', () => {
 // reshuffled from one sibling page to the next. Through the tree the order is
 // the payload's, the same on every sibling page.
 describe('VariantSelector value order on one dimension', () => {
+  it('shows each value row its own stock status, low stock included', async () => {
+    const wrapper = mountComponent(VariantSelector, {
+      props: {
+        variantDimensions: [],
+        variants: oneDimensionTree,
+        combinations: variantCombinations(oneDimensionTree),
+        modelValue: { Dimension: '20 mm' },
+      },
+      global: { stubs: sheetStubs },
+    });
+    await wrapper
+      .find('[data-testid="variant-trigger-Dimension"]')
+      .trigger('click');
+
+    const statuses = wrapper
+      .findAll('[data-testid="variant-option"]')
+      .map((r) =>
+        r.find('[data-stock-status]').attributes('data-stock-status'),
+      );
+    expect(statuses).toEqual(['low-stock', 'out-of-stock']);
+  });
+
   it('lists values in tree order even when the current product is not first', async () => {
     const node = (value: string) => ({
       alias: `glidlager-brons-${value.replace(' ', '-')}`,
@@ -1116,7 +1138,8 @@ describe('VariantSelector SKU choice', () => {
     expect(m.text()).toContain('M');
     expect(m.text()).toContain('Art nr. SKY-GLAS-KLAR-M');
     expect(m.text()).toContain('product.out_of_stock');
-    expect(rows[1]!.text()).toContain('product.in_stock');
+    // 5 left is low stock, as on the variant's own product page.
+    expect(rows[1]!.text()).toContain('product.low_stock');
     expect(m.find('[data-testid="variant-row-price"]').text()).toBe(
       '112,50 kr',
     );

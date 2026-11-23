@@ -48,20 +48,12 @@ vi.stubGlobal('computed', computed);
 // ---------------------------------------------------------------------------
 // Subject
 // ---------------------------------------------------------------------------
-const StockBadge = await import('../../app/components/shared/StockBadge.vue');
+const StockIndicator =
+  await import('../../app/components/shared/StockIndicator.vue');
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-const badgeStub = {
-  template: '<span class="badge"><slot /></span>',
-  props: ['variant'],
-};
-
-const stubs = {
-  Badge: badgeStub,
-};
-
 function makeStock(overrides: Record<string, number> = {}) {
   return {
     inStock: 100,
@@ -75,7 +67,7 @@ function makeStock(overrides: Record<string, number> = {}) {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-describe('StockBadge (unit)', () => {
+describe('StockIndicator (unit)', () => {
   beforeEach(() => {
     mockIsFeatureConfigured = () => false;
     mockHasFeature = () => false;
@@ -83,46 +75,42 @@ describe('StockBadge (unit)', () => {
   });
 
   describe('stock feature not configured (fail-open)', () => {
-    it('shows the badge when stock feature is absent', () => {
+    it('shows the indicator when stock feature is absent', () => {
       mockIsFeatureConfigured = () => false;
       mockHasFeature = () => false;
-      const wrapper = mount(StockBadge.default, {
+      const wrapper = mount(StockIndicator.default, {
         props: { stock: makeStock() },
-        global: { stubs },
       });
       expect(wrapper.text()).toContain('product.in_stock');
     });
 
-    it('shows the badge even when canAccess would return false', () => {
+    it('shows the indicator even when canAccess would return false', () => {
       mockHasFeature = () => false;
       mockCanAccess = () => false;
-      const wrapper = mount(StockBadge.default, {
+      const wrapper = mount(StockIndicator.default, {
         props: { stock: makeStock() },
-        global: { stubs },
       });
       expect(wrapper.text()).toContain('product.in_stock');
     });
   });
 
   describe('stock feature enabled', () => {
-    it('hides badge when canAccess returns false', () => {
+    it('hides the indicator when canAccess returns false', () => {
       mockIsFeatureConfigured = (name) => name === 'stockStatus';
       mockHasFeature = (name) => name === 'stockStatus';
       mockCanAccess = () => false;
-      const wrapper = mount(StockBadge.default, {
+      const wrapper = mount(StockIndicator.default, {
         props: { stock: makeStock() },
-        global: { stubs },
       });
       expect(wrapper.text()).toBe('');
     });
 
-    it('shows badge when canAccess returns true for stockStatus', () => {
+    it('shows the indicator when canAccess returns true for stockStatus', () => {
       mockIsFeatureConfigured = (name) => name === 'stockStatus';
       mockHasFeature = (name) => name === 'stockStatus';
       mockCanAccess = (name) => name === 'stockStatus';
-      const wrapper = mount(StockBadge.default, {
+      const wrapper = mount(StockIndicator.default, {
         props: { stock: makeStock() },
-        global: { stubs },
       });
       expect(wrapper.text()).toContain('product.in_stock');
     });
@@ -135,28 +123,25 @@ describe('StockBadge (unit)', () => {
     });
 
     it('renders in-stock state', () => {
-      const wrapper = mount(StockBadge.default, {
+      const wrapper = mount(StockIndicator.default, {
         props: { stock: makeStock({ totalStock: 100, inStock: 100 }) },
-        global: { stubs },
       });
       expect(wrapper.text()).toContain('product.in_stock');
     });
 
     it('renders low-stock state', () => {
-      const wrapper = mount(StockBadge.default, {
+      const wrapper = mount(StockIndicator.default, {
         props: {
           stock: makeStock({ totalStock: 3, inStock: 3 }),
           threshold: 5,
         },
-        global: { stubs },
       });
       expect(wrapper.text()).toContain('product.low_stock');
     });
 
     it('renders nothing when no stock prop provided', () => {
-      const wrapper = mount(StockBadge.default, {
+      const wrapper = mount(StockIndicator.default, {
         props: {},
-        global: { stubs },
       });
       expect(wrapper.text()).toBe('');
     });

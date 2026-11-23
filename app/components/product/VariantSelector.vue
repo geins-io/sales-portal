@@ -4,6 +4,7 @@ import type {
   VariantDimensionRow,
   VariantNode,
   ProductImageType,
+  StockType,
 } from '#shared/types/commerce';
 import type { SkuType } from '@geins/types';
 import {
@@ -228,7 +229,7 @@ function variantInfoFor(
   value: string,
 ): {
   articleNumber?: string;
-  stockTotal: number;
+  stock: StockType | null;
   priceIncVatFormatted?: string | null;
   priceExVatFormatted?: string | null;
   name?: string | null;
@@ -245,7 +246,7 @@ function variantInfoFor(
     return {
       articleNumber:
         meta?.articleNumber || props.productArticleNumber || undefined,
-      stockTotal: combo.stock?.totalStock ?? 0,
+      stock: combo.stock ?? null,
       priceIncVatFormatted: meta?.priceIncVatFormatted ?? null,
       priceExVatFormatted: meta?.priceExVatFormatted ?? null,
       name: meta?.name ?? props.productName ?? undefined,
@@ -265,8 +266,7 @@ function variantInfoFor(
     sku?.articleNumber ||
     props.productArticleNumber ||
     undefined;
-  const stockTotal =
-    matchingVariant?.stock?.totalStock ?? sku?.stock?.totalStock ?? 0;
+  const stock = matchingVariant?.stock ?? sku?.stock ?? null;
   const priceIncVatFormatted = sibling?.priceIncVatFormatted ?? null;
   const priceExVatFormatted = sibling?.priceExVatFormatted ?? null;
   // Sibling-variant products each carry their own product name; fall
@@ -276,7 +276,7 @@ function variantInfoFor(
   if (!articleNumber && !matchingVariant) return null;
   return {
     articleNumber,
-    stockTotal,
+    stock,
     priceIncVatFormatted,
     priceExVatFormatted,
     name,
@@ -487,10 +487,10 @@ function isValueSelectable(dimensionName: string, value: string): boolean {
   });
 }
 
-// Stock status drives only the in-stock indicator, never selectability.
-// Resolved per value so each row reflects its own variant's stock.
-function isValueInStock(dimensionName: string, value: string): boolean {
-  return (variantInfoFor(dimensionName, value)?.stockTotal ?? 0) > 0;
+// Stock drives only the stock indicator, never selectability. Resolved per
+// value so each row reflects its own variant's stock.
+function valueStock(dimensionName: string, value: string): StockType | null {
+  return variantInfoFor(dimensionName, value)?.stock ?? null;
 }
 
 const activeDimension = computed(
@@ -736,7 +736,7 @@ const { showPrice } = usePriceVisibility();
                 :subtitle="sku.name ?? ''"
                 :article-number="sku.articleNumber"
                 :show-stock="showStock"
-                :in-stock="(sku.stock?.totalStock ?? 0) > 0"
+                :stock="sku.stock"
                 :price="showPrice ? productPriceFormatted : null"
                 :selected="sku.skuId === skuId"
                 @click="selectSku(sku.skuId)"
@@ -791,9 +791,7 @@ const { showPrice } = usePriceVisibility();
                       ?.articleNumber
                   "
                   :show-stock="showStock"
-                  :in-stock="
-                    isValueInStock(activeDimension.dimensionName, value)
-                  "
+                  :stock="valueStock(activeDimension.dimensionName, value)"
                   :price="
                     showPrice
                       ? rowPriceFormatted(activeDimension.dimensionName, value)
@@ -830,7 +828,6 @@ const { showPrice } = usePriceVisibility();
                   :title="labelFor(activeDimension.dimensionName, value)"
                   subtitle=""
                   :show-stock="false"
-                  :in-stock="false"
                   :selected="false"
                   :hint="
                     changeHint(activeDimension.dimensionName, value, group)
@@ -908,7 +905,7 @@ const { showPrice } = usePriceVisibility();
                       productArticleNumber
                     "
                     :show-stock="showStock"
-                    :in-stock="(combo.stock?.totalStock ?? 0) > 0"
+                    :stock="combo.stock"
                     :price="showPrice ? comboPrice(combo) : null"
                     :selected="false"
                     @click="selectCombination(combo)"

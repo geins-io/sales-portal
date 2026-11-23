@@ -47,7 +47,7 @@
             <Skeleton class="h-4 w-2/3" />
           </div>
 
-          <!-- Stock badge -->
+          <!-- Stock indicator -->
           <Skeleton class="h-6 w-20 rounded-full" />
 
           <!-- Variant selector -->

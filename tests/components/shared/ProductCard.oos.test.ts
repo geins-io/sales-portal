@@ -50,8 +50,8 @@ const stubs = {
     template: '<span data-testid="price-display" />',
     props: ['price', 'lowestPrice', 'discountType', 'campaignNames'],
   },
-  StockBadge: {
-    template: '<span data-testid="stock-badge" />',
+  StockIndicator: {
+    template: '<span data-testid="stock-indicator" />',
     props: ['stock', 'size'],
   },
   Button: {

@@ -437,7 +437,7 @@ function addToCart(product: ListProduct) {
                         })
                       }}
                     </p>
-                    <StockBadge
+                    <StockIndicator
                       v-if="product.totalStock"
                       :stock="product.totalStock"
                       size="sm"
@@ -464,7 +464,7 @@ function addToCart(product: ListProduct) {
                         })
                       }}
                     </p>
-                    <StockBadge
+                    <StockIndicator
                       v-if="product.totalStock"
                       :stock="product.totalStock"
                       size="sm"

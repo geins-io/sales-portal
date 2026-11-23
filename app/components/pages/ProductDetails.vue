@@ -68,7 +68,7 @@ const slug = computed(() => props.alias);
 
 const { localeQuery, localePath } = useLocaleMarket();
 // Visibility flags gate the price/stock blocks in the top area. PriceDisplay
-// and StockBadge render an empty root when hidden, so without these the empty
+// and StockIndicator render an empty root when hidden, so without these the empty
 // containers still take gap-6 spacing and leave a gap above the variant
 // selector. Gating here keeps those blocks out of the layout entirely.
 const { showPrice } = usePriceVisibility();
@@ -655,8 +655,8 @@ useProductSeo({
             </div>
 
             <!-- Stock -->
-            <div v-if="displayStock && showStock" data-testid="stock-badge">
-              <StockBadge :stock="displayStock" />
+            <div v-if="displayStock && showStock" data-testid="stock-indicator">
+              <StockIndicator :stock="displayStock" />
             </div>
 
             <!-- Variant selector — pass product-level data through so each

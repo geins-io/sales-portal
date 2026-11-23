@@ -375,12 +375,12 @@ const defaultStubs = {
     template: '<span class="price-display" />',
     props: ['price', 'lowestPrice', 'discountType', 'campaignNames'],
   },
-  StockBadge: {
-    template: '<span class="stock-badge" />',
+  StockIndicator: {
+    template: '<span class="stock-indicator" />',
     props: ['stock'],
   },
-  SharedStockBadge: {
-    template: '<span class="stock-badge" />',
+  SharedStockIndicator: {
+    template: '<span class="stock-indicator" />',
     props: ['stock'],
   },
   QuantityInput: {
@@ -1521,9 +1521,9 @@ describe('ProductDetails', () => {
     const stubs = {
       ...defaultStubs,
       VariantSelector: Selector,
-      StockBadge: {
+      StockIndicator: {
         template:
-          '<span class="stock-badge" :data-total="stock?.totalStock" />',
+          '<span class="stock-indicator" :data-total="stock?.totalStock" />',
         props: ['stock'],
       },
       QuantityInput: {
@@ -1589,11 +1589,12 @@ describe('ProductDetails', () => {
 
     it('shows the product stock before a pick and the picked SKU stock after', async () => {
       const wrapper = await mountSkuProduct();
-      const badge = () => wrapper.find('.stock-badge').attributes('data-total');
+      const indicator = () =>
+        wrapper.find('.stock-indicator').attributes('data-total');
 
-      expect(badge()).toBe('289');
+      expect(indicator()).toBe('289');
       await pick(wrapper, 1113);
-      expect(badge()).toBe('5');
+      expect(indicator()).toBe('5');
     });
 
     it('caps the quantity at the picked SKU stock', async () => {
@@ -1810,7 +1811,9 @@ describe('ProductDetails', () => {
         false,
       );
       expect(wrapper.find('.quantity-input').exists()).toBe(false);
-      expect(wrapper.find('[data-testid="stock-badge"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="stock-indicator"]').exists()).toBe(
+        false,
+      );
       expect(wrapper.find('[data-testid="pdp-campaign-badges"]').exists()).toBe(
         false,
       );
@@ -1890,7 +1893,9 @@ describe('ProductDetails', () => {
 
       expect(publishedOffers()).toMatchObject({ '@type': 'Offer' });
       expect(wrapper.find('.price-display').exists()).toBe(true);
-      expect(wrapper.find('[data-testid="stock-badge"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="stock-indicator"]').exists()).toBe(
+        true,
+      );
       expect(wrapper.find('[data-testid="pdp-campaign-badges"]').exists()).toBe(
         true,
       );
@@ -1963,7 +1968,9 @@ describe('ProductDetails', () => {
 
       expect(wrapper.find('[data-testid="pdp-price"]').exists()).toBe(false);
       expect(wrapper.find('.price-display').exists()).toBe(false);
-      expect(wrapper.find('[data-testid="stock-badge"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="stock-indicator"]').exists()).toBe(
+        false,
+      );
       expect(wrapper.find('[data-testid="pdp-campaign-badges"]').exists()).toBe(
         false,
       );
@@ -2038,7 +2045,9 @@ describe('ProductDetails', () => {
 
       expect(publishedOffers()).toMatchObject({ '@type': 'Offer' });
       expect(wrapper.find('.price-display').exists()).toBe(true);
-      expect(wrapper.find('[data-testid="stock-badge"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="stock-indicator"]').exists()).toBe(
+        true,
+      );
       expect(wrapper.find('[data-testid="variant-selector"]').exists()).toBe(
         true,
       );

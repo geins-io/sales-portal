@@ -153,7 +153,7 @@ const stubs = {
     template: '<div></div>',
     props: ['fileName', 'alt', 'size', 'radius'],
   },
-  StockBadge: { template: '<div></div>', props: ['stock', 'size'] },
+  StockIndicator: { template: '<div></div>', props: ['stock', 'size'] },
   AddToListDialog: { template: '<div></div>', props: ['open', 'productAlias'] },
 };
 

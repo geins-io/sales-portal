@@ -38,6 +38,10 @@
   --color-warning: var(--warning);
   --color-info: var(--info);
   --color-danger: var(--danger);
+  --color-stock-low: var(--stock-low);
+  --color-stock-low-dot: var(--stock-low-dot);
+  --color-stock-out: var(--stock-out);
+  --color-stock-out-dot: var(--stock-out-dot);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -109,6 +113,14 @@
     --warning: #b24800;
     --info: #00598a;
     --danger: #c10007;
+    /* Low and out of stock in the stock indicator only: calmer than --warning
+       and --danger and further apart (hue 40 vs 358), so the two read apart.
+       Text tones pass 4.5:1 on white and on --muted; the dots sit next to the
+       written status. */
+    --stock-low: #8f5f00;
+    --stock-low-dot: #c27c00;
+    --stock-out: #a73538;
+    --stock-out-dot: #c95458;
     --border: #e5e5e5;
     /* A card's own frame (`border-card-border`). The tenant theme sets it to
        transparent when the store turns card borders off; rows, tables and

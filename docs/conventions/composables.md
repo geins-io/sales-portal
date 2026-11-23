@@ -62,7 +62,7 @@ export function useSomething() {
 | `useImpersonation()`    | Admin impersonation state | Spoofed-by cookie detection       |
 | `useCmsPreview()`       | CMS preview mode toggle   | Preview enter/exit, Studio iframe |
 | `usePriceVisibility()`  | Controls price visibility | PriceDisplay, ProductCard gating  |
-| `useStockVisibility()`  | Controls stock visibility | StockBadge, PDP gating            |
+| `useStockVisibility()`  | Controls stock visibility | StockIndicator, PDP gating        |
 
 ## API Data in Composables
 
