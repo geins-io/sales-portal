@@ -29,6 +29,8 @@ describe('quotation thank-you copy', () => {
       order_body:
         'Tack för din beställning. En bekräftelse har skickats till e-postadressen som är angiven som kontakt för ditt företag.',
       order_number: 'Ordernummer',
+      placed_body:
+        'Tack för din beställning. Ordern är lagd och visas under Beställningar i kundportalen inom kort.',
       from_quotation: 'Beställd från offert {number}',
       view_quotation: 'Visa offerten i kundportalen',
       continue_shopping: 'Fortsätt handla',
@@ -41,6 +43,16 @@ describe('quotation thank-you copy', () => {
       '{number}',
     );
   });
+
+  it.each(LOCALES)(
+    'thanks for an order placed by accepting, without a number, in %s',
+    (l) => {
+      const body = messages(l).portal.quotations.confirm.placed_body;
+      expect(typeof body).toBe('string');
+      expect(body.trim()).not.toBe('');
+      expect(body).not.toContain('{');
+    },
+  );
 
   it.each(LOCALES)('has no copy left for the old confirmation in %s', (l) => {
     const quote = messages(l).quote ?? {};

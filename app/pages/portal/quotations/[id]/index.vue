@@ -145,7 +145,11 @@ function openVersion(id: string) {
 const canPlaceOrders = computed(() => canAccess('orderPlacement'));
 const responses = computed(() =>
   quoteResponses(
-    quote.value ?? { status: 'unknown', requiresConfirmation: false },
+    quote.value ?? {
+      status: 'unknown',
+      requiresConfirmation: false,
+      hasExternalNumber: false,
+    },
     canPlaceOrders.value,
   ),
 );

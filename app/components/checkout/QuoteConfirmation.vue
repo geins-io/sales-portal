@@ -3,12 +3,13 @@ import { CircleCheck } from 'lucide-vue-next';
 
 /**
  * The top card of the thank-you pages in the quotation flow, in the order
- * confirmation's look: after a quote request was sent (`request`) and after an
- * order was placed from a quotation (`order`). What it contains renders in the
- * default slot, below the card.
+ * confirmation's look: after a quote request was sent (`request`), after an
+ * order was placed from a quotation (`order`), and after an accept had an
+ * external system place it, before its number is known (`placed`). What it
+ * contains renders in the default slot, below the card.
  */
 const props = defineProps<{
-  kind: 'request' | 'order';
+  kind: 'request' | 'order' | 'placed';
   /** The request's quotation number, or the order's number. */
   number: string;
   /** The quotation an order came from, by its number. */
@@ -22,6 +23,12 @@ const { localePath } = useLocaleMarket();
 
 const isRequest = computed(() => props.kind === 'request');
 const key = (name: string) => `portal.quotations.confirm.${name}`;
+const BODY = {
+  request: 'request_body',
+  order: 'order_body',
+  placed: 'placed_body',
+} as const;
+const body = computed(() => BODY[props.kind]);
 </script>
 
 <template>
@@ -35,7 +42,7 @@ const key = (name: string) => `portal.quotations.confirm.${name}`;
           {{ t(key(isRequest ? 'request_title' : 'order_title')) }}
         </h1>
         <p class="text-muted-foreground max-w-md text-sm">
-          {{ t(key(isRequest ? 'request_body' : 'order_body')) }}
+          {{ t(key(body)) }}
         </p>
         <div
           v-if="number"

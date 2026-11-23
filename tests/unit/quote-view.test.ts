@@ -8,6 +8,7 @@ import {
   quoteEstimated,
   quoteKindLabelKey,
   quoteLinksConfiguredLines,
+  quoteOrdersByAccept,
   quoteResponses,
   quoteStatusInfoKey,
   quoteRows,
@@ -553,6 +554,177 @@ describe('quoteStatusInfoKey', () => {
       expect(quoteStatusInfoKey(makeQuote({ status }), true)).toBeUndefined();
     },
   );
+});
+
+// An external system places the order on a quotation it numbered, once the
+// buyer accepts it, whether or not the seller confirms it first.
+describe('a quotation with an external number', () => {
+  const external = { hasExternalNumber: true };
+  const confirm = { requiresConfirmation: true };
+  const none = {
+    withdraw: false,
+    decline: false,
+    accept: null,
+    placeOrder: false,
+  };
+
+  describe('quoteOrdersByAccept', () => {
+    it('is true with an external number, with or without confirmation', () => {
+      expect(quoteOrdersByAccept(makeQuote(external))).toBe(true);
+      expect(
+        quoteOrdersByAccept(
+          makeQuote({ ...external, requiresConfirmation: false }),
+        ),
+      ).toBe(true);
+      expect(quoteOrdersByAccept(makeQuote({ ...external, ...confirm }))).toBe(
+        true,
+      );
+    });
+
+    it('is false without an external number', () => {
+      expect(quoteOrdersByAccept(makeQuote())).toBe(false);
+      expect(quoteOrdersByAccept(makeQuote({ hasExternalNumber: false }))).toBe(
+        false,
+      );
+    });
+  });
+
+  describe('without confirmation', () => {
+    it('orders a pending one', () => {
+      expect(quoteCanOrder(makeQuote({ status: 'pending', ...external }))).toBe(
+        true,
+      );
+    });
+
+    it.each<QuoteStatus>([
+      'accepted',
+      'confirmed',
+      'finalized',
+      'requested',
+      'rejected',
+    ])('does not order a %s one', (status) => {
+      expect(quoteCanOrder(makeQuote({ status, ...external }))).toBe(false);
+    });
+
+    it('offers accepting only through the order page', () => {
+      expect(
+        quoteResponses(makeQuote({ status: 'pending', ...external }), true),
+      ).toEqual({
+        ...none,
+        decline: true,
+        accept: 'order',
+        noteKey: 'portal.quotations.note_order',
+      });
+    });
+
+    it('offers a buyer without order rights only to decline', () => {
+      expect(
+        quoteResponses(makeQuote({ status: 'pending', ...external }), false),
+      ).toEqual({ ...none, decline: true });
+    });
+
+    it.each([true, false])(
+      'offers nothing on an accepted one, which is ordered (orders: %s)',
+      (canPlaceOrders) => {
+        expect(
+          quoteResponses(
+            makeQuote({ status: 'accepted', ...external }),
+            canPlaceOrders,
+          ),
+        ).toEqual(none);
+      },
+    );
+
+    it.each([true, false])(
+      'says an accepted one is ordered (orders: %s)',
+      (canPlaceOrders) => {
+        expect(
+          quoteStatusInfoKey(
+            makeQuote({ status: 'accepted', ...external }),
+            canPlaceOrders,
+          ),
+        ).toBe('portal.quotations.status_info_accepted_ordered');
+      },
+    );
+
+    it.each<QuoteStatus>(['pending', 'finalized'])(
+      'explains a %s one as any other',
+      (status) => {
+        expect(
+          quoteStatusInfoKey(makeQuote({ status, ...external }), true),
+        ).toBe(`portal.quotations.status_info_${status}`);
+      },
+    );
+  });
+
+  // Confirmation keeps today's paths, but an accept still places the order.
+  describe('with confirmation', () => {
+    const both = { ...external, ...confirm };
+
+    it('orders only once confirmed, as today, and never once accepted', () => {
+      expect(quoteCanOrder(makeQuote({ status: 'confirmed', ...both }))).toBe(
+        true,
+      );
+      expect(quoteCanOrder(makeQuote({ status: 'pending', ...both }))).toBe(
+        false,
+      );
+      expect(quoteCanOrder(makeQuote({ status: 'accepted', ...both }))).toBe(
+        false,
+      );
+    });
+
+    it('accepts a pending one in the confirm dialog, as today', () => {
+      expect(
+        quoteResponses(makeQuote({ status: 'pending', ...both }), true),
+      ).toEqual({
+        ...none,
+        decline: true,
+        accept: 'confirm',
+        acceptBodyKey: 'portal.quotations.accept_confirm_order_body',
+        noteKey: 'portal.quotations.note_confirm_order',
+      });
+    });
+
+    it('offers a buyer without order rights only to decline a pending one', () => {
+      expect(
+        quoteResponses(makeQuote({ status: 'pending', ...both }), false),
+      ).toEqual({ ...none, decline: true });
+    });
+
+    it.each([true, false])(
+      'offers nothing on an accepted one, which is ordered (orders: %s)',
+      (canPlaceOrders) => {
+        expect(
+          quoteResponses(
+            makeQuote({ status: 'accepted', ...both }),
+            canPlaceOrders,
+          ),
+        ).toEqual(none);
+      },
+    );
+
+    it.each([true, false])(
+      'says an accepted one is ordered (orders: %s)',
+      (canPlaceOrders) => {
+        expect(
+          quoteStatusInfoKey(
+            makeQuote({ status: 'accepted', ...both }),
+            canPlaceOrders,
+          ),
+        ).toBe('portal.quotations.status_info_accepted_ordered');
+      },
+    );
+
+    // CONFIRMED is never reached here: ACCEPTED already counts as ordered.
+    it('leaves the client logic for a confirmed one as it was', () => {
+      expect(
+        quoteResponses(makeQuote({ status: 'confirmed', ...both }), true),
+      ).toEqual({ ...none, placeOrder: true });
+      expect(
+        quoteStatusInfoKey(makeQuote({ status: 'confirmed', ...both }), true),
+      ).toBe('portal.quotations.status_info_confirmed_order');
+    });
+  });
 });
 
 describe('quoteKindLabelKey', () => {

@@ -1029,6 +1029,7 @@
       "status_info_accepted_plain": "Du har accepteret tilbuddet. Din sælger kan se, at det er accepteret.",
       "status_info_accepted_plain_order": "Du har accepteret tilbuddet. Du kan afgive ordren.",
       "status_info_accepted_confirm": "Du har accepteret tilbuddet. Det venter på bekræftelse fra din sælger.",
+      "status_info_accepted_ordered": "Du har accepteret tilbuddet, og ordren er afgivet. Den vises snart under Ordrer.",
       "status_info_confirmed": "Din sælger har bekræftet tilbuddet.",
       "status_info_confirmed_order": "Tilbuddet er bekræftet. Du kan afgive ordren.",
       "status_info_finalized": "Ordren er afgivet fra dette tilbud.",
@@ -1105,6 +1106,7 @@
         "order_title": "Bestilling bekræftet!",
         "order_body": "Tak for din bestilling. En bekræftelse er sendt til den e-mailadresse, der er angivet som kontakt for din virksomhed.",
         "order_number": "Ordrenummer",
+        "placed_body": "Tak for din bestilling. Ordren er afgivet og vises snart under Ordrer i kundeportalen.",
         "from_quotation": "Bestilt fra tilbud {number}",
         "view_quotation": "Vis tilbuddet i kundeportalen",
         "continue_shopping": "Fortsæt med at handle"

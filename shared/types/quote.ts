@@ -152,6 +152,8 @@ export interface Quote {
   company?: QuoteCompany;
   /** The seller confirms an accepted quotation before the order. */
   requiresConfirmation?: boolean;
+  /** Whether an external system numbered it, whichever number is shown. */
+  hasExternalNumber: boolean;
   /** The seller who owns the quotation. */
   seller?: { name: string; phone?: string };
   /** When the buyer accepted, once the API sets it. */

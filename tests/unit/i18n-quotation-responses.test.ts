@@ -32,7 +32,12 @@ function lookup(obj: Record<string, unknown>, key: string): unknown {
 }
 
 const statuses = Object.keys(QUOTE_STATUS_DISPLAY) as QuoteStatus[];
-const acceptCases = [{}, { requiresConfirmation: true }];
+const acceptCases = [
+  {},
+  { requiresConfirmation: true },
+  { hasExternalNumber: true },
+  { hasExternalNumber: true, requiresConfirmation: true },
+];
 
 const helperKeys = [
   ...statuses.map((status) => quoteKindLabelKey(status)),
@@ -105,6 +110,11 @@ describe('quotation response texts', () => {
       'confirmed',
       'Din säljare har bekräftat offerten.',
       'Your seller has confirmed the quotation.',
+    ],
+    [
+      'accepted_ordered',
+      'Du har accepterat offerten och ordern är lagd. Den visas under Beställningar inom kort.',
+      'You have accepted the quotation and the order is placed. It will show under Orders shortly.',
     ],
   ])('words status_info_%s as agreed', (key, sv, en) => {
     const full = `portal.quotations.status_info_${key}`;

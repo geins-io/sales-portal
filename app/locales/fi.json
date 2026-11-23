@@ -1029,6 +1029,7 @@
       "status_info_accepted_plain": "Olet hyväksynyt tarjouksen. Myyjäsi näkee, että se on hyväksytty.",
       "status_info_accepted_plain_order": "Olet hyväksynyt tarjouksen. Voit lähettää tilauksen.",
       "status_info_accepted_confirm": "Olet hyväksynyt tarjouksen. Se odottaa myyjäsi vahvistusta.",
+      "status_info_accepted_ordered": "Olet hyväksynyt tarjouksen, ja tilaus on tehty. Se näkyy pian kohdassa Tilaukset.",
       "status_info_confirmed": "Myyjäsi on vahvistanut tarjouksen.",
       "status_info_confirmed_order": "Tarjous on vahvistettu. Voit lähettää tilauksen.",
       "status_info_finalized": "Tilaus on tehty tästä tarjouksesta.",
@@ -1105,6 +1106,7 @@
         "order_title": "Tilaus vahvistettu!",
         "order_body": "Kiitos tilauksestasi. Vahvistus on lähetetty sähköpostiosoitteeseen, joka on ilmoitettu yrityksesi yhteystiedoksi.",
         "order_number": "Tilausnumero",
+        "placed_body": "Kiitos tilauksestasi. Tilaus on tehty, ja se näkyy pian asiakasportaalin kohdassa Tilaukset.",
         "from_quotation": "Tilattu tarjouksesta {number}",
         "view_quotation": "Näytä tarjous asiakasportaalissa",
         "continue_shopping": "Jatka ostoksia"

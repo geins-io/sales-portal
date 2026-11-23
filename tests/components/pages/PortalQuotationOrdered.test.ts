@@ -294,6 +294,85 @@ describe('PortalQuotationOrdered', () => {
     ).toBe('30 dagar netto');
   });
 
+  // The external system places the order after the accept; its number comes
+  // later, so the page thanks without one and reads no order.
+  describe('a quotation that orders by accept', () => {
+    const external = { hasExternalNumber: true };
+
+    it.each([
+      ['accepted, just after the accept', { status: 'accepted' as const }],
+      [
+        'finalized without an order number yet',
+        { status: 'finalized' as const, orderId: undefined },
+      ],
+      [
+        'finalized with its order',
+        { status: 'finalized' as const, orderPublicId: PUBLIC_ID },
+      ],
+    ])(
+      'thanks for the order on a quotation %s, reading no order',
+      async (_label, o) => {
+        const { wrapper } = await mountWith(
+          ordered({ orderId: undefined, ...external, ...o }),
+        );
+
+        await vi.advanceTimersByTimeAsync(10000);
+
+        expect(mockNavigateTo).not.toHaveBeenCalled();
+        expect(wrapper.findComponent(QuoteConfirmationStub).props()).toEqual({
+          kind: 'placed',
+          number: '',
+          quoteNumber: '2610-2-0011-00',
+          quotationPath: VIEW_PATH,
+        });
+        expect(orderRequests()).toEqual([]);
+        expect(mockPollFetch).not.toHaveBeenCalled();
+        expect(loading(wrapper).exists()).toBe(false);
+        expect(slow(wrapper).exists()).toBe(false);
+        expect(wrapper.findComponent(ConfirmedOrderStub).exists()).toBe(false);
+      },
+    );
+
+    it.each<QuoteStatus>(['pending', 'confirmed', 'rejected', 'unknown'])(
+      'sends a %s one to the quotation view',
+      async (status) => {
+        await mountWith(ordered({ status, orderId: undefined, ...external }));
+
+        expect(mockNavigateTo).toHaveBeenCalledWith(VIEW_PATH, {
+          replace: true,
+        });
+        expect(orderRequests()).toEqual([]);
+      },
+    );
+
+    describe('with confirmation', () => {
+      const both = { ...external, requiresConfirmation: true };
+
+      it.each([
+        ['accepted', { status: 'accepted' as const }],
+        ['finalized', { status: 'finalized' as const }],
+      ])('thanks for the order on an %s one, too', async (_label, o) => {
+        const { wrapper } = await mountWith(ordered({ ...both, ...o }));
+
+        expect(mockNavigateTo).not.toHaveBeenCalled();
+        expect(wrapper.findComponent(QuoteConfirmationStub).props('kind')).toBe(
+          'placed',
+        );
+        expect(orderRequests()).toEqual([]);
+      });
+
+      it('sends a confirmed one to the quotation view', async () => {
+        await mountWith(
+          ordered({ status: 'confirmed', orderId: undefined, ...both }),
+        );
+
+        expect(mockNavigateTo).toHaveBeenCalledWith(VIEW_PATH, {
+          replace: true,
+        });
+      });
+    });
+  });
+
   describe('while the order is awaited', () => {
     it('says it is fetching the order, as a status', async () => {
       resultFor(ORDER_URL).error.value = notFound();

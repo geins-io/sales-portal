@@ -1029,6 +1029,7 @@
       "status_info_accepted_plain": "Du har godtatt tilbudet. Selgeren din ser at det er godtatt.",
       "status_info_accepted_plain_order": "Du har godtatt tilbudet. Du kan legge inn ordren.",
       "status_info_accepted_confirm": "Du har godtatt tilbudet. Det venter på bekreftelse fra selgeren din.",
+      "status_info_accepted_ordered": "Du har godtatt tilbudet, og ordren er lagt inn. Den vises snart under Ordrer.",
       "status_info_confirmed": "Selgeren din har bekreftet tilbudet.",
       "status_info_confirmed_order": "Tilbudet er bekreftet. Du kan legge inn ordren.",
       "status_info_finalized": "Ordren er lagt inn fra dette tilbudet.",
@@ -1105,6 +1106,7 @@
         "order_title": "Bestilling bekreftet!",
         "order_body": "Takk for bestillingen. En bekreftelse er sendt til e-postadressen som er registrert som kontakt for bedriften din.",
         "order_number": "Ordrenummer",
+        "placed_body": "Takk for bestillingen. Ordren er lagt inn og vises snart under Ordrer i kundeportalen.",
         "from_quotation": "Bestilt fra tilbud {number}",
         "view_quotation": "Vis tilbudet i kundeportalen",
         "continue_shopping": "Fortsett å handle"

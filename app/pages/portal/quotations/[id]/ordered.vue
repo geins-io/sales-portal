@@ -2,6 +2,7 @@
 import { LoaderCircle } from 'lucide-vue-next';
 import type { OrderDetailType } from '#shared/types/commerce';
 import type { Quote } from '#shared/types/quote';
+import { quoteOrdersByAccept } from '~/utils/quote-view';
 
 definePageMeta({
   layout: 'checkout',
@@ -31,19 +32,25 @@ if (error.value || !data.value?.quote) {
   });
 }
 
+// The external system places the order after the accept, and its number
+// comes only later, so the thanks carries no order.
+const placed =
+  quoteOrdersByAccept(data.value.quote) &&
+  ['accepted', 'finalized'].includes(data.value.quote.status);
+
 // Only once it became an order; otherwise the quotation itself.
 const orderNumber =
-  data.value.quote.status === 'finalized'
+  !placed && data.value.quote.status === 'finalized'
     ? (data.value.quote.orderId ?? '')
     : '';
-if (!orderNumber) {
+if (!placed && !orderNumber) {
   await navigateTo(quotationPath.value, { replace: true });
 }
 
 const quote = computed(() => data.value!.quote);
 
 // An older quotation knows its order by number only.
-const orderPublicId = data.value.quote.orderPublicId;
+const orderPublicId = placed ? undefined : data.value.quote.orderPublicId;
 const orderUrl = orderPublicId
   ? `/api/orders/${encodeURIComponent(orderPublicId)}`
   : orderNumber
@@ -74,15 +81,15 @@ useHead({
 </script>
 
 <template>
-  <div v-if="orderNumber" class="mx-auto max-w-7xl px-4 py-8 lg:px-6">
+  <div v-if="orderNumber || placed" class="mx-auto max-w-7xl px-4 py-8 lg:px-6">
     <QuoteConfirmation
-      kind="order"
+      :kind="placed ? 'placed' : 'order'"
       :number="orderNumber"
       :quote-number="quote.quoteNumber"
       :quotation-path="quotationPath"
     >
       <div
-        v-if="!order && !gaveUp"
+        v-if="orderUrl && !order && !gaveUp"
         role="status"
         data-testid="confirmation-order-loading"
         class="text-muted-foreground mt-8 flex flex-col items-center gap-3 py-8"
@@ -91,7 +98,7 @@ useHead({
         <p class="text-sm">{{ t('common.fetching_order') }}</p>
       </div>
       <p
-        v-else-if="!order"
+        v-else-if="orderUrl && !order"
         role="status"
         data-testid="confirmation-order-slow"
         class="text-muted-foreground mx-auto mt-8 max-w-3xl text-center text-sm"
