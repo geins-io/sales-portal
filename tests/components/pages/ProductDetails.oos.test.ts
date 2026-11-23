@@ -161,12 +161,12 @@ const defaultStubs = {
     template: '<span class="price-display" />',
     props: ['price', 'lowestPrice', 'discountType', 'campaignNames'],
   },
-  StockBadge: {
-    template: '<span class="stock-badge" />',
+  StockIndicator: {
+    template: '<span class="stock-indicator" />',
     props: ['stock'],
   },
-  SharedStockBadge: {
-    template: '<span class="stock-badge" />',
+  SharedStockIndicator: {
+    template: '<span class="stock-indicator" />',
     props: ['stock'],
   },
   QuantityInput: {

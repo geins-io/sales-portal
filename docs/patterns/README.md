@@ -160,7 +160,7 @@ const { showStock } = useStockVisibility();
 
 <template>
   <PriceDisplay v-if="showPrice" :price="product.price" />
-  <StockBadge v-if="showStock" :status="product.stock" />
+  <StockIndicator v-if="showStock" :stock="product.stock" />
 </template>
 ```
 

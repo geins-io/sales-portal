@@ -30,7 +30,7 @@ withDefaults(
           </div>
           <!-- Title -->
           <Skeleton class="h-4 w-3/4" />
-          <!-- Stock badge -->
+          <!-- Stock indicator -->
           <Skeleton class="h-5 w-16 rounded-full" />
           <!-- Price -->
           <Skeleton class="mt-1 h-5 w-1/2" />

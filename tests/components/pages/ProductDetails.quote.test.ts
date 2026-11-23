@@ -181,8 +181,8 @@ const stubs = {
   VariantSelector: Selector,
   PriceDisplay: { template: '<span />', props: ['price'] },
   SharedPriceDisplay: { template: '<span />', props: ['price'] },
-  StockBadge: { template: '<span />', props: ['stock'] },
-  SharedStockBadge: { template: '<span />', props: ['stock'] },
+  StockIndicator: { template: '<span />', props: ['stock'] },
+  SharedStockIndicator: { template: '<span />', props: ['stock'] },
   QuantityInput: {
     template:
       '<div class="quantity-input"><button data-testid="set-quantity-4" @click="$emit(\'update:modelValue\', 4)" /></div>',

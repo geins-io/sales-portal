@@ -97,12 +97,12 @@ const stubs = {
     template: '<span class="price-display" />',
     props: ['price'],
   },
-  StockBadge: {
-    template: '<span class="stock-badge" />',
+  StockIndicator: {
+    template: '<span class="stock-indicator" />',
     props: ['stock', 'size'],
   },
-  SharedStockBadge: {
-    template: '<span class="stock-badge" />',
+  SharedStockIndicator: {
+    template: '<span class="stock-indicator" />',
     props: ['stock', 'size'],
   },
   QuantityInput: {
@@ -177,12 +177,12 @@ describe('ProductCard', () => {
     );
   });
 
-  it('renders stock badge below the title', () => {
+  it('renders the stock indicator below the title', () => {
     const wrapper = mountComponent(ProductCard, {
       props: { product: makeProduct() },
       global: { stubs },
     });
-    expect(wrapper.find('.stock-badge').exists()).toBe(true);
+    expect(wrapper.find('.stock-indicator').exists()).toBe(true);
   });
 
   it('renders GeinsImage with first product image', () => {
@@ -230,12 +230,12 @@ describe('ProductCard', () => {
     expect(wrapper.find('.price-display').exists()).toBe(true);
   });
 
-  it('does not render stock badge when totalStock is missing', () => {
+  it('does not render the stock indicator when totalStock is missing', () => {
     const wrapper = mountComponent(ProductCard, {
       props: { product: makeProduct({ totalStock: undefined }) },
       global: { stubs },
     });
-    expect(wrapper.find('.stock-badge').exists()).toBe(false);
+    expect(wrapper.find('.stock-indicator').exists()).toBe(false);
   });
 
   it('only wraps image and title in NuxtLink, not the entire card', () => {
@@ -325,7 +325,7 @@ describe('ProductCard', () => {
       props: { product: makeProduct({ totalStock: undefined }) },
       global: { stubs },
     });
-    expect(wrapper.find('.stock-badge').exists()).toBe(false);
+    expect(wrapper.find('.stock-indicator').exists()).toBe(false);
   });
 
   it('handles missing article number gracefully', () => {

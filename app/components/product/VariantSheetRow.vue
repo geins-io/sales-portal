@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Check, ChevronRight, ImageOff } from 'lucide-vue-next';
+import type { StockType } from '#shared/types/commerce';
 import { THUMBNAIL_WIDTHS } from '#shared/utils/image';
 
 /** One row of the variant sheet. A missing price leaves its column out. */
@@ -14,7 +15,8 @@ defineProps<{
   subtitle: string;
   articleNumber?: string | null;
   showStock: boolean;
-  inStock: boolean;
+  /** The variant's stock; none reads as out of stock. */
+  stock?: StockType | null;
   price?: string | null;
   selected: boolean;
   disabled?: boolean;
@@ -83,16 +85,12 @@ defineProps<{
       >
         {{ hint }}
       </div>
-      <div
-        v-else-if="showStock"
-        class="mt-1 flex items-center gap-1 text-xs"
-        :class="inStock ? 'text-success' : 'text-muted-foreground'"
-      >
-        <span
-          class="size-1.5 rounded-full"
-          :class="inStock ? 'bg-success' : 'bg-muted-foreground'"
+      <div v-else-if="showStock" class="mt-1 flex">
+        <StockIndicator
+          :stock="stock"
+          :status="stock ? null : 'out-of-stock'"
+          size="sm"
         />
-        {{ inStock ? $t('product.in_stock') : $t('product.out_of_stock') }}
       </div>
     </div>
 

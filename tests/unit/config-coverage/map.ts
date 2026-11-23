@@ -163,8 +163,8 @@ const CART_QUOTE_REQUEST_SHOWN =
 const PORTAL_ORDERS_TABLE = 'tests/components/portal/PortalOrdersTable.test.ts';
 const TENANT_CONFIG_SERVICE = 'tests/server/tenant-config-service.test.ts';
 const PRICE_DISPLAY = 'tests/components/commerce/PriceDisplay.test.ts';
-const STOCK_BADGE = 'tests/components/commerce/StockBadge.test.ts';
-const STOCK_BADGE_UNIT = 'tests/unit/StockBadge.test.ts';
+const STOCK_INDICATOR = 'tests/components/commerce/StockIndicator.test.ts';
+const STOCK_INDICATOR_UNIT = 'tests/unit/StockIndicator.test.ts';
 const PRODUCT_CARD_OOS = 'tests/components/shared/ProductCard.oos.test.ts';
 const PRODUCT_DETAILS_OOS = 'tests/components/pages/ProductDetails.oos.test.ts';
 const PRICE_VISIBILITY = 'tests/composables/usePriceVisibility.test.ts';
@@ -2557,7 +2557,7 @@ export const CONFIG_COVERAGE_MAP = {
         '`{enabled: true}`.',
     }),
     stockStatus: namedFeature({
-      consumer: 'app/components/shared/StockBadge.vue:15',
+      consumer: 'app/components/shared/StockIndicator.vue:18',
       readers: {
         on: [
           {
@@ -2584,17 +2584,17 @@ export const CONFIG_COVERAGE_MAP = {
           },
         ],
       },
-      cells: visibilityCells(STOCK_BADGE, {
+      cells: visibilityCells(STOCK_INDICATOR, {
         openRule:
-          'shows the stock badge when stockStatus is enabled with no access rule',
+          'shows the stock indicator when stockStatus is enabled with no access rule',
         anonymous:
-          'hides the stock badge when stockStatus requires authentication and the user is anonymous',
+          'hides the stock indicator when stockStatus requires authentication and the user is anonymous',
         signedIn:
-          'shows the stock badge when stockStatus requires authentication and the user is signed in',
+          'shows the stock indicator when stockStatus requires authentication and the user is signed in',
       }),
       off: [
         {
-          spec: STOCK_BADGE,
+          spec: STOCK_INDICATOR,
           title:
             'hides stock when stockStatus is enabled:false with access defined',
           kind: 'consumer',
@@ -2615,29 +2615,30 @@ export const CONFIG_COVERAGE_MAP = {
       ],
       granted: [
         {
-          spec: STOCK_BADGE_UNIT,
-          title: 'shows badge when canAccess returns true for stockStatus',
+          spec: STOCK_INDICATOR_UNIT,
+          title:
+            'shows the indicator when canAccess returns true for stockStatus',
           kind: 'consumer',
           drives: 'reader',
         },
       ],
       denied: [
         {
-          spec: STOCK_BADGE_UNIT,
-          title: 'hides badge when canAccess returns false',
+          spec: STOCK_INDICATOR_UNIT,
+          title: 'hides the indicator when canAccess returns false',
           kind: 'consumer',
           drives: 'stub',
         },
       ],
       note:
         'useStockVisibility.test.ts asserts the composable for every state; it ' +
-        'sits between the config and StockBadge, so those are reader ' +
-        'references. The StockBadge tests un-mock useFeatureAccess and write ' +
+        'sits between the config and StockIndicator, so those are reader ' +
+        'references. The StockIndicator tests un-mock useFeatureAccess and write ' +
         'the configured value into the tenant fixture, so the real ' +
         'useStockVisibility and canAccessFeature run and each test drives the ' +
         'cell it is hung on. The two OOS specs stub useStockVisibility itself ' +
         'and prove independence from its answer. access.all keeps its ' +
-        'predicate-form reference from tests/unit/StockBadge.test.ts; a field ' +
+        'predicate-form reference from tests/unit/StockIndicator.test.ts; a field ' +
         'case there would add a fixture without adding a cell.',
     }),
     wishlist: namedFeature({

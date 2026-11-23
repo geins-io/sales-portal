@@ -411,14 +411,14 @@ const mockProductOutOfStock = {
 
       <Separator />
 
-      <!-- StockBadge -->
+      <!-- StockIndicator -->
       <div class="space-y-3">
-        <h3 class="text-sm font-medium">StockBadge</h3>
+        <h3 class="text-sm font-medium">StockIndicator</h3>
         <div class="flex flex-wrap items-center gap-3">
-          <StockBadge :stock="mockStockInStock" />
-          <StockBadge :stock="mockStockLow" />
-          <StockBadge :stock="mockStockOut" />
-          <StockBadge :stock="mockStockOnDemand" />
+          <StockIndicator :stock="mockStockInStock" />
+          <StockIndicator :stock="mockStockLow" />
+          <StockIndicator :stock="mockStockOut" />
+          <StockIndicator :stock="mockStockOnDemand" />
         </div>
       </div>
 
@@ -441,7 +441,7 @@ const mockProductOutOfStock = {
       <div class="space-y-4">
         <h3 class="text-sm font-medium">ProductCard</h3>
         <p class="text-muted-foreground text-xs">
-          Composes GeinsImage + PriceDisplay + StockBadge internally.
+          Composes GeinsImage + PriceDisplay + StockIndicator internally.
         </p>
 
         <h4
