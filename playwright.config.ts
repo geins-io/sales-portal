@@ -1,4 +1,5 @@
 import { defineConfig, devices, type Project } from '@playwright/test';
+import { createHash, X509Certificate } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
@@ -6,6 +7,7 @@ import {
   EXPECTED_TENANT_ID,
   EXTERNAL_SERVER,
   PRODUCTION_BUILD,
+  REMOTE_TARGET,
 } from './tests/e2e/target';
 
 /**
@@ -55,21 +57,43 @@ import {
 // hold PEM *contents* (not paths). Read them here so `pnpm preview` started
 // by Playwright gets them.
 const CERT_DIR = resolve(import.meta.dirname, '.certs');
-function tlsEnv(): Record<string, string> {
-  if (!PRODUCTION_BUILD) return {};
-  const cert = resolve(CERT_DIR, 'local.crt');
-  const key = resolve(CERT_DIR, 'local.key');
-  if (!existsSync(cert) || !existsSync(key)) {
+const CERT_FILE = resolve(CERT_DIR, 'local.crt');
+const KEY_FILE = resolve(CERT_DIR, 'local.key');
+function requireCertFiles() {
+  if (!existsSync(CERT_FILE) || !existsSync(KEY_FILE)) {
     throw new Error(
       `Production-build e2e needs a TLS cert at ${CERT_DIR}. ` +
         'Run `infra/scripts/local-cert.sh` (or `pnpm local:setup`) first.',
     );
   }
+}
+function tlsEnv(): Record<string, string> {
+  if (!PRODUCTION_BUILD) return {};
+  requireCertFiles();
   return {
-    NITRO_SSL_CERT: readFileSync(cert, 'utf8'),
-    NITRO_SSL_KEY: readFileSync(key, 'utf8'),
+    NITRO_SSL_CERT: readFileSync(CERT_FILE, 'utf8'),
+    NITRO_SSL_KEY: readFileSync(KEY_FILE, 'utf8'),
   };
 }
+
+// Chromium trusts the local cert by its public key instead of relying on
+// ignoreHTTPSErrors, which overrides the cert error one request at a time:
+// every new connection fails its handshake and the request restarts, and the
+// pool hands each freed connection to the highest-priority waiter, the entry
+// stylesheet. Behind a page's many module preloads it can restart 32 times,
+// Chromium's limit, and the page renders unstyled (ERR_TOO_MANY_RETRIES).
+// A deployed target (E2E_REMOTE) has a real cert and needs none of this.
+function chromiumLaunchArgs(): string[] {
+  if (!PRODUCTION_BUILD || REMOTE_TARGET) return [];
+  requireCertFiles();
+  const spki = new X509Certificate(readFileSync(CERT_FILE)).publicKey.export({
+    type: 'spki',
+    format: 'der',
+  });
+  const hash = createHash('sha256').update(spki).digest('base64');
+  return [`--ignore-certificate-errors-spki-list=${hash}`];
+}
+const CHROMIUM_LAUNCH = { launchOptions: { args: chromiumLaunchArgs() } };
 
 // The preview's keep-alive preload, appended to any NODE_OPTIONS already set.
 // Why it exists: tests/e2e/preview-keepalive.mjs. Preflight L1 checks it.
@@ -121,7 +145,9 @@ const preflightProjects: Project[] = PREFLIGHT_LAYERS.map((layer, index) => ({
   name: layer.name,
   testMatch: new RegExp(`preflight/${layer.file}\\.spec\\.ts$`),
   dependencies: PREFLIGHT_PROJECT_NAMES.slice(0, index),
-  ...(layer.browser ? { use: { ...devices['Desktop Chrome'] } } : {}),
+  ...(layer.browser
+    ? { use: { ...devices['Desktop Chrome'], ...CHROMIUM_LAUNCH } }
+    : {}),
 }));
 
 const PREFLIGHT_FILES = /preflight\//;
@@ -212,13 +238,13 @@ export default defineConfig({
     ...preflightProjects,
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], ...CHROMIUM_LAUNCH },
       testIgnore: [PREFLIGHT_FILES, ORDERS_FILES],
       dependencies: PREFLIGHT_PROJECT_NAMES,
     },
     {
       name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
+      use: { ...devices['Pixel 5'], ...CHROMIUM_LAUNCH },
       testIgnore: [PREFLIGHT_FILES, ORDERS_FILES],
       dependencies: PREFLIGHT_PROJECT_NAMES,
     },
@@ -245,7 +271,7 @@ export default defineConfig({
     {
       name: 'orders',
       testMatch: /e2e\/orders\/.*\.spec\.ts$/,
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], ...CHROMIUM_LAUNCH },
       dependencies: PREFLIGHT_PROJECT_NAMES,
       // Restated rather than inherited from the global zero: here a retry is a
       // second real order, so a later change to the global must not take this
