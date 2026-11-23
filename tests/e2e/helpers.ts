@@ -474,43 +474,60 @@ function stripMarketLocalePrefix(path: string): string {
   return path.replace(/^\/[a-z]{2}\/[a-z]{2}(?:-[a-z]{2})?\//i, '/');
 }
 
+interface MenuEntry {
+  type?: string;
+  canonicalUrl?: string | null;
+  title?: string | null;
+  label?: string | null;
+  children?: MenuEntry[] | null;
+}
+
+/**
+ * Every category in the tenant's main menu, the top level first, then each
+ * level below it. The menu is edited freely, so a test that needs something
+ * of its category (add-to-cart cards, enough products) tries these in turn
+ * rather than counting on the first one.
+ *
+ * Aliases carry the `/c/` type prefix (e.g. `c/material`) so tests can
+ * navigate with `page.goto(`/${category.alias}`)`.
+ */
+export async function menuCategories(
+  page: Page,
+): Promise<DiscoveredCategory[]> {
+  const menuResponse = await apiGet(page.request, '/api/cms/menu', {
+    params: { menuLocationId: 'main' },
+  });
+  if (!menuResponse.ok()) return [];
+
+  const categories: DiscoveredCategory[] = [];
+  let level: MenuEntry[] = (await menuResponse.json())?.menuItems ?? [];
+  while (level.length) {
+    for (const item of level) {
+      if (item.type !== 'category' || !item.canonicalUrl) continue;
+      // Strip market/locale prefix (e.g. /se/sv/material → /material)
+      // then add /c/ type prefix for category routing (ADR-015), unless the
+      // menu already gives it (/se/sv/c/material).
+      const stripped = stripMarketLocalePrefix(item.canonicalUrl);
+      categories.push({
+        alias: stripped.startsWith('/c/') ? stripped.slice(1) : `c${stripped}`,
+        name: item.title || item.label || 'Category',
+      });
+    }
+    level = level.flatMap((item) => item.children ?? []);
+  }
+  return categories;
+}
+
 /**
  * The first category in the tenant's main menu, measured stable over four
  * reads — unlike the product endpoint, this one needs no sort.
- *
- * Returns alias with `/c/` type prefix (e.g. `c/material`) so tests can
- * navigate with `page.goto(`/${category.alias}`)`.
  */
 export async function discoverCategory(
   page: Page,
 ): Promise<DiscoveredCategory> {
-  // Fetch the main menu — items have a `type` field (category, brand, page, etc.)
-  const menuResponse = await apiGet(page.request, '/api/cms/menu', {
-    params: { menuLocationId: 'main' },
-  });
-
-  if (menuResponse.ok()) {
-    const menu = await menuResponse.json();
-    const items = menu?.menuItems ?? [];
-
-    // Find first category-type menu item
-    for (const item of items) {
-      if (item.type === 'category' && item.canonicalUrl) {
-        // Strip market/locale prefix (e.g. /se/sv/material → /material)
-        // then add /c/ type prefix for category routing (ADR-015), unless the
-        // menu already gives it (/se/sv/c/material).
-        const stripped = stripMarketLocalePrefix(item.canonicalUrl);
-        return {
-          alias: stripped.startsWith('/c/')
-            ? stripped.slice(1)
-            : `c${stripped}`,
-          name: item.title || item.label || 'Category',
-        };
-      }
-    }
-  }
-
-  throw new Error('Could not discover any category from menu');
+  const [first] = await menuCategories(page);
+  if (!first) throw new Error('Could not discover any category from menu');
+  return first;
 }
 
 // ---------- Authentication ----------
