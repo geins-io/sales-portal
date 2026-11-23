@@ -122,13 +122,29 @@ export function quoteAcceptKind(
   return quote.requiresConfirmation ? 'confirm' : 'plain';
 }
 
+type QuoteFlow = Pick<
+  Quote,
+  'status' | 'requiresConfirmation' | 'hasExternalNumber'
+>;
+
+/**
+ * Temporary rule, until Geins tells on the quotation which flow applies: an
+ * external system orders a quotation it numbered once the buyer accepts it,
+ * so accepting is ordering, and ACCEPTED means ordered. The server's finalize
+ * follows the same rule.
+ */
+export function quoteOrdersByAccept(
+  quote: Pick<Quote, 'hasExternalNumber'>,
+): boolean {
+  return quote.hasExternalNumber;
+}
+
 /**
  * Whether the buyer may place the order now. A quotation that needs
  * confirmation waits for the seller's.
  */
-export function quoteCanOrder(
-  quote: Pick<Quote, 'status' | 'requiresConfirmation'>,
-): boolean {
+export function quoteCanOrder(quote: QuoteFlow): boolean {
+  if (quoteOrdersByAccept(quote) && quote.status === 'accepted') return false;
   return quoteAcceptKind(quote) === 'confirm'
     ? quote.status === 'confirmed'
     : quote.status === 'pending' || quote.status === 'accepted';
@@ -155,7 +171,7 @@ const K = 'portal.quotations.';
  * else in, so without it nothing leads to the order page and no text offers it.
  */
 export function quoteResponses(
-  quote: Pick<Quote, 'status' | 'requiresConfirmation'>,
+  quote: QuoteFlow,
   canPlaceOrders: boolean,
 ): QuoteResponses {
   const pending = quote.status === 'pending';
@@ -171,6 +187,8 @@ export function quoteResponses(
   if (kind === 'plain' && canPlaceOrders) {
     return { ...responses, accept: 'order', noteKey: `${K}note_order` };
   }
+  // An accept there places an order, which this buyer may not.
+  if (!canPlaceOrders && quoteOrdersByAccept(quote)) return responses;
   const order = canPlaceOrders ? '_order' : '';
   return {
     ...responses,
@@ -193,9 +211,12 @@ const STATUSES_WITH_INFO = new Set<QuoteStatus>([
 
 /** The details card's status text; none for a draft or an unknown status. */
 export function quoteStatusInfoKey(
-  quote: Pick<Quote, 'status' | 'requiresConfirmation'>,
+  quote: QuoteFlow,
   canPlaceOrders: boolean,
 ): string | undefined {
+  if (quote.status === 'accepted' && quoteOrdersByAccept(quote)) {
+    return `${K}status_info_accepted_ordered`;
+  }
   // Pending keeps its own text; its card offers the response.
   const order =
     quote.status !== 'pending' && canPlaceOrders && quoteCanOrder(quote)

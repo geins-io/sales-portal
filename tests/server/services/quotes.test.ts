@@ -89,6 +89,22 @@ describe('quotes service', () => {
     quotesService = await import('../../../server/services/quotes');
   });
 
+  /** The light read finalize starts with, as Geins answers it. */
+  const queueFinalizeRead = (quotation: Record<string, unknown> = {}) =>
+    mockGraphqlQuery.mockResolvedValueOnce({
+      getQuotationCart: {
+        id: 'cart-001',
+        quotation: { quotationNumber: 'Q-20260101001', ...quotation },
+      },
+    });
+
+  /** The full reads of the quotation, the one an answer ends with. */
+  const fullReads = () =>
+    mockGraphqlQuery.mock.calls.filter(
+      ([options]) =>
+        options.queryAsString === 'query:quotes/get-quotation.graphql',
+    );
+
   // -------------------------------------------------------------------------
   // The quotation list's reads: each asks Geins for what its place shows
   // -------------------------------------------------------------------------
@@ -1765,6 +1781,7 @@ describe('quotes service', () => {
       file: 'quotes/accept-quotation.graphql',
       rawStatus: 'ACCEPTED',
       status: 'accepted',
+      before: () => {},
     },
     {
       action: 'rejectQuote' as const,
@@ -1772,6 +1789,7 @@ describe('quotes service', () => {
       file: 'quotes/reject-quotation.graphql',
       rawStatus: 'REJECTED',
       status: 'rejected',
+      before: () => {},
     },
     {
       action: 'finalizeQuote' as const,
@@ -1779,8 +1797,12 @@ describe('quotes service', () => {
       file: 'quotes/finalize-quotation.graphql',
       rawStatus: 'FINALIZED',
       status: 'finalized',
+      // Finalize first reads which way the quotation is ordered.
+      before: () => queueFinalizeRead(),
     },
-  ])('$action', ({ action, field, file, rawStatus, status }) => {
+  ])('$action', ({ action, field, file, rawStatus, status, before }) => {
+    beforeEach(() => before());
+
     it('asks for no timeout: a write may finish upstream after a cut', async () => {
       mockGraphqlMutation.mockResolvedValueOnce({ [field]: true });
       mockGraphqlQuery.mockResolvedValueOnce({
@@ -1828,7 +1850,7 @@ describe('quotes service', () => {
         await expect(
           quotesService[action]('cart-001', mockEvent),
         ).rejects.toMatchObject({ code: 'EXTERNAL_API_ERROR' });
-        expect(mockGraphqlQuery).not.toHaveBeenCalled();
+        expect(fullReads()).toHaveLength(0);
       },
     );
 
@@ -1839,7 +1861,7 @@ describe('quotes service', () => {
       await expect(quotesService[action]('cart-001', mockEvent)).rejects.toBe(
         geinsError,
       );
-      expect(mockGraphqlQuery).not.toHaveBeenCalled();
+      expect(fullReads()).toHaveLength(0);
     });
   });
 
@@ -1948,6 +1970,7 @@ describe('quotes service', () => {
   // finalize then puts on the order.
   describe('finalizeQuote with an order message', () => {
     function finalizes() {
+      queueFinalizeRead();
       mockGraphqlMutation
         .mockResolvedValueOnce({ createOrUpdateCheckout: { message: 'x' } })
         .mockResolvedValueOnce({ finalizeQuotation: true });
@@ -1986,6 +2009,7 @@ describe('quotes service', () => {
     });
 
     it('finalizes alone without a message', async () => {
+      queueFinalizeRead();
       mockGraphqlMutation.mockResolvedValueOnce({ finalizeQuotation: true });
       mockGraphqlQuery.mockResolvedValueOnce({
         getQuotationCart: makeRawQuotationCart({ status: 'FINALIZED' }),
@@ -2018,16 +2042,18 @@ describe('quotes service', () => {
 
     it('places no order when the message is refused', async () => {
       const refused = new Error('message too long');
+      queueFinalizeRead();
       mockGraphqlMutation.mockRejectedValueOnce(refused);
 
       await expect(
         quotesService.finalizeQuote('cart-001', mockEvent, { message: 'Hej' }),
       ).rejects.toBe(refused);
       expect(mockGraphqlMutation).toHaveBeenCalledTimes(1);
-      expect(mockGraphqlQuery).not.toHaveBeenCalled();
+      expect(fullReads()).toHaveLength(0);
     });
 
     it('places no order when Geins answers the checkout with nothing', async () => {
+      queueFinalizeRead();
       mockGraphqlMutation.mockResolvedValueOnce({
         createOrUpdateCheckout: null,
       });
@@ -2058,14 +2084,201 @@ describe('quotes service', () => {
     it('sends no user token when the request carries no context', async () => {
       const { buildRequestContext } =
         await import('../../../server/services/_sdk');
-      vi.mocked(buildRequestContext).mockReturnValueOnce(undefined);
+      // The read first, then the message.
+      vi.mocked(buildRequestContext)
+        .mockReturnValueOnce(undefined)
+        .mockReturnValueOnce(undefined);
       finalizes();
 
       await quotesService.finalizeQuote('cart-001', mockEvent, {
         message: 'Hej',
       });
 
+      expect(mockGraphqlQuery.mock.calls[0]![0].userToken).toBeUndefined();
       expect(mockGraphqlMutation.mock.calls[0]![0].userToken).toBeUndefined();
+    });
+  });
+
+  // An external system places the order for a quotation it numbered: Geins
+  // refuses finalize on it, and an accept makes the external system order.
+  describe('finalizeQuote on a quotation with an external number', () => {
+    const external = { externalReference: { number: '180' } };
+
+    function accepts(quotation: Record<string, unknown> = external) {
+      queueFinalizeRead(quotation);
+      mockGraphqlMutation.mockResolvedValueOnce({ acceptQuotation: true });
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: makeRawQuotationCart({
+          ...quotation,
+          status: 'ACCEPTED',
+        }),
+      });
+    }
+
+    it('reads the number first, as the buyer', async () => {
+      accepts();
+
+      await quotesService.finalizeQuote('cart-001', mockEvent, {});
+
+      expect(mockGraphqlQuery.mock.calls[0]![0]).toMatchObject({
+        queryAsString: 'query:quotes/quotation-number.graphql',
+        userToken: 'test-user-token',
+        variables: { quotationId: 'cart-001', languageId: 'sv-SE' },
+      });
+    });
+
+    it('accepts with the message, trimmed, and neither writes the cart nor finalizes', async () => {
+      accepts();
+
+      const result = await quotesService.finalizeQuote('cart-001', mockEvent, {
+        message: '  Ring innan leverans  ',
+      });
+
+      expect(mockGraphqlMutation).toHaveBeenCalledTimes(1);
+      expect(mockGraphqlMutation.mock.calls[0]![0]).toMatchObject({
+        queryAsString: 'query:quotes/accept-quotation.graphql',
+        userToken: 'test-user-token',
+        variables: {
+          quotationId: 'cart-001',
+          languageId: 'sv-SE',
+          message: 'Ring innan leverans',
+        },
+        requestOptions: { context: { timeoutMs: 0 } },
+      });
+      expect(result.status).toBe('accepted');
+      expect(result.hasExternalNumber).toBe(true);
+    });
+
+    it.each([
+      ['no message', {}],
+      ['a blank message', { message: '   ' }],
+    ])('accepts without a message for %s', async (_label, options) => {
+      accepts();
+
+      await quotesService.finalizeQuote('cart-001', mockEvent, options);
+
+      expect(mockGraphqlMutation.mock.calls[0]![0].variables).toEqual({
+        quotationId: 'cart-001',
+        languageId: 'sv-SE',
+      });
+    });
+
+    it('accepts whatever number the tenant shows', async () => {
+      accepts();
+      const showingExternal = {
+        context: {
+          tenant: {
+            config: {
+              channelSettings: { locales: ['sv-SE'] },
+              quoteDisplayNumber: 'externalNumber',
+            },
+          },
+        },
+      } as unknown as H3Event;
+
+      await quotesService.finalizeQuote('cart-001', showingExternal, {});
+
+      expect(mockGraphqlMutation.mock.calls[0]![0].queryAsString).toBe(
+        'query:quotes/accept-quotation.graphql',
+      );
+    });
+
+    it('accepts, never finalizes, when the quotation needs confirmation too', async () => {
+      accepts({ ...external, settings: { requireConfirmation: true } });
+
+      await quotesService.finalizeQuote('cart-001', mockEvent, {
+        message: 'Hej',
+      });
+
+      expect(
+        mockGraphqlMutation.mock.calls.map(
+          ([options]) => options.queryAsString,
+        ),
+      ).toEqual(['query:quotes/accept-quotation.graphql']);
+    });
+
+    it.each([
+      ['no external reference', { externalReference: null }],
+      ['an empty external number', { externalReference: { number: '' } }],
+      ['a null external number', { externalReference: { number: null } }],
+    ])('finalizes as today with %s', async (_label, quotation) => {
+      queueFinalizeRead(quotation);
+      mockGraphqlMutation.mockResolvedValueOnce({ finalizeQuotation: true });
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getQuotationCart: makeRawQuotationCart({ status: 'FINALIZED' }),
+      });
+
+      await quotesService.finalizeQuote('cart-001', mockEvent, {});
+
+      expect(mockGraphqlMutation).toHaveBeenCalledTimes(1);
+      expect(mockGraphqlMutation.mock.calls[0]![0].queryAsString).toBe(
+        'query:quotes/finalize-quotation.graphql',
+      );
+    });
+
+    it('orders nothing for a quotation the buyer cannot read', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: null });
+
+      await expect(
+        quotesService.finalizeQuote('cart-001', mockEvent, { message: 'Hej' }),
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+      expect(mockGraphqlMutation).not.toHaveBeenCalled();
+    });
+  });
+
+  // Whether the quotation carries an external system's number, whichever
+  // number the tenant shows.
+  describe('hasExternalNumber', () => {
+    const eventShowing = (choice?: string) =>
+      ({
+        context: {
+          tenant: {
+            config: {
+              channelSettings: { locales: ['sv-SE'] },
+              ...(choice ? { quoteDisplayNumber: choice } : {}),
+            },
+          },
+        },
+      }) as unknown as H3Event;
+
+    describe.each([
+      ['no saved value', undefined],
+      ['quotationNumber', 'quotationNumber'],
+      ['externalNumber', 'externalNumber'],
+    ])('with %s', (_label, choice) => {
+      it('is true for a quotation with an external number', async () => {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          getQuotationCart: makeRawQuotationCart({
+            externalReference: { number: '180' },
+          }),
+        });
+
+        const quote = await quotesService.getQuote(
+          'cart-001',
+          eventShowing(choice),
+        );
+
+        expect(quote.hasExternalNumber).toBe(true);
+      });
+
+      it.each([
+        ['no external reference', {}],
+        ['a null external reference', { externalReference: null }],
+        ['an external reference without a number', { externalReference: {} }],
+        ['an empty external number', { externalReference: { number: '' } }],
+        ['a null external number', { externalReference: { number: null } }],
+      ])('is false for %s', async (_case, quotation) => {
+        mockGraphqlQuery.mockResolvedValueOnce({
+          getQuotationCart: makeRawQuotationCart(quotation),
+        });
+
+        const quote = await quotesService.getQuote(
+          'cart-001',
+          eventShowing(choice),
+        );
+
+        expect(quote.hasExternalNumber).toBe(false);
+      });
     });
   });
 

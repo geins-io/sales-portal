@@ -427,6 +427,19 @@ function shownNumber(
     : q.quotationNumber || '';
 }
 
+function hasExternalNumber(q: RawQuotation): boolean {
+  return !!q.externalReference?.number;
+}
+
+/**
+ * Temporary rule, until Geins tells on the quotation which flow applies: an
+ * external system orders a quotation it numbered once the buyer accepts it,
+ * and refuses a finalize.
+ */
+function ordersByAccept(q: RawQuotation): boolean {
+  return hasExternalNumber(q);
+}
+
 function mapQuotationCartToQuote(
   cart: RawQuotationCart,
   locale: string,
@@ -503,6 +516,7 @@ function mapQuotationCartToQuote(
       : undefined,
     company: q.company ? mapCompany(q.company) : undefined,
     requiresConfirmation: q.settings?.requireConfirmation === true,
+    hasExternalNumber: hasExternalNumber(q),
     seller: mapSeller(q.owner),
     ...mapAccepted(q.customer),
     ...(q.orderId ? { orderId: q.orderId } : {}),
@@ -793,6 +807,15 @@ export async function getQuoteNumber(
   quoteId: string,
   event: H3Event,
 ): Promise<string> {
+  const quotation = await readQuotationNumber(quoteId, event);
+  return shownNumber(quotation, numberChoice(event));
+}
+
+/** The quotation's numbers alone, read as the signed-in buyer. */
+async function readQuotationNumber(
+  quoteId: string,
+  event: H3Event,
+): Promise<RawQuotation> {
   const sdk = await getTenantSDK(event);
   const requestContext = buildRequestContext(event);
   const { languageId } = getRequestChannelVariables(sdk, event);
@@ -809,7 +832,7 @@ export async function getQuoteNumber(
   if (!cart?.quotation) {
     throw createAppError(ErrorCode.NOT_FOUND, `Quote ${quoteId} not found`);
   }
-  return shownNumber(cart.quotation, numberChoice(event));
+  return cart.quotation;
 }
 
 /** The buyer's message to the seller, stored with the status change. */
@@ -894,6 +917,12 @@ export async function finalizeQuote(
   event: H3Event,
   options: { message?: string } = {},
 ): Promise<Quote> {
+  const quotation = await readQuotationNumber(quoteId, event);
+  if (ordersByAccept(quotation)) {
+    // The external system owns the quotation, so the message goes with the
+    // accept, not on its cart.
+    return acceptQuote(quoteId, event, options);
+  }
   // An empty message clears one an earlier try wrote on the cart.
   if (options.message !== undefined) {
     await writeOrderMessage(quoteId, options.message.trim(), event);

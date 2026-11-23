@@ -1029,6 +1029,7 @@
       "status_info_accepted_plain": "You have accepted the quotation. Your seller can see that it is accepted.",
       "status_info_accepted_plain_order": "You have accepted the quotation. You can place the order.",
       "status_info_accepted_confirm": "You have accepted the quotation. It is waiting for confirmation from your seller.",
+      "status_info_accepted_ordered": "You have accepted the quotation and the order is placed. It will show under Orders shortly.",
       "status_info_confirmed": "Your seller has confirmed the quotation.",
       "status_info_confirmed_order": "The quotation is confirmed. You can place the order.",
       "status_info_finalized": "The order has been placed from this quotation.",
@@ -1105,6 +1106,7 @@
         "order_title": "Order confirmed!",
         "order_body": "Thank you for your order. A confirmation has been sent to the email address registered as your company's contact.",
         "order_number": "Order number",
+        "placed_body": "Thank you for your order. The order is placed and will show under Orders in the customer portal shortly.",
         "from_quotation": "Ordered from quotation {number}",
         "view_quotation": "View quotation in the customer portal",
         "continue_shopping": "Continue shopping"

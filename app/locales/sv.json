@@ -1029,6 +1029,7 @@
       "status_info_accepted_plain": "Du har accepterat offerten. Din säljare ser att den är accepterad.",
       "status_info_accepted_plain_order": "Du har accepterat offerten. Du kan lägga ordern.",
       "status_info_accepted_confirm": "Du har accepterat offerten. Den väntar på bekräftelse från din säljare.",
+      "status_info_accepted_ordered": "Du har accepterat offerten och ordern är lagd. Den visas under Beställningar inom kort.",
       "status_info_confirmed": "Din säljare har bekräftat offerten.",
       "status_info_confirmed_order": "Offerten är bekräftad. Du kan lägga ordern.",
       "status_info_finalized": "Ordern är lagd från den här offerten.",
@@ -1105,6 +1106,7 @@
         "order_title": "Beställning bekräftad!",
         "order_body": "Tack för din beställning. En bekräftelse har skickats till e-postadressen som är angiven som kontakt för ditt företag.",
         "order_number": "Ordernummer",
+        "placed_body": "Tack för din beställning. Ordern är lagd och visas under Beställningar i kundportalen inom kort.",
         "from_quotation": "Beställd från offert {number}",
         "view_quotation": "Visa offerten i kundportalen",
         "continue_shopping": "Fortsätt handla"

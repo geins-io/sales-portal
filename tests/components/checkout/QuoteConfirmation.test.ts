@@ -15,7 +15,7 @@ vi.mock('vue-i18n', () => ({
 const QUOTATION_PATH = '/se/en/portal/quotations/q-001';
 
 function mountCard(props: {
-  kind: 'request' | 'order';
+  kind: 'request' | 'order' | 'placed';
   number: string;
   quoteNumber?: string;
 }) {
@@ -113,6 +113,45 @@ describe('QuoteConfirmation', () => {
 
     it('leads to the quotation in the portal', () => {
       const cta = find(mountOrder(), 'quote-thanks-portal');
+
+      expect(cta.attributes('href')).toBe(QUOTATION_PATH);
+      expect(cta.text()).toBe('portal.quotations.confirm.view_quotation');
+    });
+  });
+
+  // The external system places the order; its number comes later.
+  describe('after an order placed by accepting the quotation', () => {
+    const mountPlaced = () =>
+      mountCard({ kind: 'placed', number: '', quoteNumber: '180' });
+
+    it('thanks for the order and says where it will show, with no number', () => {
+      const wrapper = mountPlaced();
+
+      expect(find(wrapper, 'quote-thanks').attributes('data-kind')).toBe(
+        'placed',
+      );
+      expect(wrapper.find('h1').text()).toBe(
+        'portal.quotations.confirm.order_title',
+      );
+      expect(wrapper.text()).toContain('portal.quotations.confirm.placed_body');
+      expect(wrapper.text()).not.toContain(
+        'portal.quotations.confirm.order_body',
+      );
+      expect(find(wrapper, 'quote-thanks-number').exists()).toBe(false);
+    });
+
+    it('names the quotation the order came from', () => {
+      expect(find(mountPlaced(), 'quote-thanks-from').text()).toBe(
+        'portal.quotations.confirm.from_quotation 180',
+      );
+    });
+
+    it('lists no next steps', () => {
+      expect(find(mountPlaced(), 'quote-thanks-next').exists()).toBe(false);
+    });
+
+    it('leads to the quotation in the portal', () => {
+      const cta = find(mountPlaced(), 'quote-thanks-portal');
 
       expect(cta.attributes('href')).toBe(QUOTATION_PATH);
       expect(cta.text()).toBe('portal.quotations.confirm.view_quotation');
