@@ -3,6 +3,7 @@ import {
   discoverPurchasableProduct,
   discoverProduct,
   discoverCategory,
+  menuCategories,
   addToCart,
   fetchCart,
   readPrice,
@@ -229,26 +230,31 @@ test.describe('Cart', () => {
   test('should add product from PLP grid add-to-cart button', async ({
     page,
   }) => {
-    const category = await discoverCategory(page);
-    await page.goto(`/${category.alias}`);
-
-    // Wait for products to load
-    await expect(
-      page.locator('[data-testid="product-card"]').first(),
-    ).toBeVisible({ timeout: 20000 });
-    await waitForHydration(page);
-
     // Click the first add-to-cart button on the PLP (grid view shows "Köp", list shows "Lägg i varukorg")
-    // canPurchase depends on auth, catalog mode and stock, so a category
-    // whose first cards offer no button is a real state — the suite already
-    // treats this as something to probe (discoverPurchasableProduct).
+    // canPurchase depends on auth, catalog mode and stock, and a category of
+    // configurable products offers none at all, so the menu's categories are
+    // tried in turn until one has a card with the button.
+    const loaded = page
+      .locator('[data-testid="product-card"]')
+      .first()
+      .or(page.locator('[data-testid="plp-empty"]'));
     const addButton = page
       .locator('[data-testid="add-to-cart-button"]')
       .first();
+    let offersAddToCart = false;
+    for (const category of await menuCategories(page)) {
+      await page.goto(`/${category.alias}`);
+      await expect(loaded).toBeVisible({ timeout: 20000 });
+      await waitForHydration(page);
+      if (await addButton.isVisible().catch(() => false)) {
+        offersAddToCart = true;
+        break;
+      }
+    }
     outOfScope(
-      !(await addButton.isVisible().catch(() => false)),
+      !offersAddToCart,
       'fixture-missing',
-      'no product card in the discovered category offers add-to-cart',
+      'no category in the main menu has a product card that offers add-to-cart',
     );
 
     await addButton.click();

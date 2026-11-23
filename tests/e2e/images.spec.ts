@@ -5,6 +5,7 @@ import {
   discoverPurchasableProduct,
   hasE2ECredentials,
   isConfigurable,
+  menuCategories,
   outOfScope,
   signedInState,
   waitForHydration,
@@ -269,15 +270,20 @@ test.describe('Images from the asset library', () => {
   test('a card image below the fold shows once scrolled into view', async ({
     page,
   }) => {
-    const category = await discoverCategory(page);
-    await page.goto(`/${category.alias}`);
-    await waitForHydration(page);
-
     const cards = page.locator('[data-testid="product-card"]');
+    let enough = false;
+    for (const category of await menuCategories(page)) {
+      await page.goto(`/${category.alias}`);
+      await waitForHydration(page);
+      if ((await cards.count()) >= 6) {
+        enough = true;
+        break;
+      }
+    }
     outOfScope(
-      (await cards.count()) < 6,
+      !enough,
       'tenant-config',
-      'the first category has too few products for a lazy card',
+      'no category in the main menu has enough products for a lazy card',
     );
     const card = cards.nth(5);
     const img = card.locator('img');
@@ -295,19 +301,23 @@ test.describe('Images from the asset library', () => {
   test('the product list gives its first card priority and loads the rest by place', async ({
     page,
   }) => {
-    const category = await discoverCategory(page);
-    const html = await (await page.request.get(`/${category.alias}`)).text();
-    // Each card's own image: the first img after its data-testid, so a
-    // library image in the header or a CMS area above the grid never counts.
-    const imgs = html
-      .split('data-testid="product-card"')
-      .slice(1)
-      .map((card) => card.match(/<img[^>]*>/)?.[0] ?? '')
-      .filter((tag) => tag.includes('srcset='));
+    let html = '';
+    let imgs: string[] = [];
+    for (const category of await menuCategories(page)) {
+      html = await (await page.request.get(`/${category.alias}`)).text();
+      // Each card's own image: the first img after its data-testid, so a
+      // library image in the header or a CMS area above the grid never counts.
+      imgs = html
+        .split('data-testid="product-card"')
+        .slice(1)
+        .map((card) => card.match(/<img[^>]*>/)?.[0] ?? '')
+        .filter((tag) => tag.includes('srcset='));
+      if (imgs.length >= 6) break;
+    }
     outOfScope(
       imgs.length < 6,
       'tenant-config',
-      'fewer than six library card images in the first category',
+      'no category in the main menu has six library card images',
     );
 
     expect(imgs[0]).toContain('fetchpriority="high"');
