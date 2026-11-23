@@ -223,6 +223,52 @@ describe('JsonWidget banner-cards placement', () => {
   });
 });
 
+describe('JsonWidget banner-cards gradient overlay', () => {
+  const GRADIENT = ['bg-linear-to-t', 'from-black/60', 'to-transparent'];
+
+  function overlays(gradientOverlay?: unknown) {
+    const card = {
+      text: { title: 'Heading', byline: 'Byline' },
+      cta: { text: 'Shop', url: '/shop' },
+    };
+    return mountJson({
+      templateId: 'banner-cards',
+      ...(gradientOverlay === undefined ? {} : { gradientOverlay }),
+      bannerImages: [card, card],
+    }).findAll('.absolute.inset-0');
+  }
+
+  it.each([
+    ['absent', undefined],
+    ['true', true],
+    ['the string "true"', 'true'],
+  ])('puts the gradient on every card when the setting is %s', (_, value) => {
+    const all = overlays(value);
+    expect(all).toHaveLength(2);
+    for (const overlay of all) {
+      for (const cls of GRADIENT) expect(overlay.classes()).toContain(cls);
+    }
+  });
+
+  it.each([
+    ['false', false],
+    ['the string "false"', 'false'],
+  ])(
+    'leaves the gradient off every card when the setting is %s',
+    (_, value) => {
+      const all = overlays(value);
+      expect(all).toHaveLength(2);
+      for (const overlay of all) {
+        for (const cls of GRADIENT)
+          expect(overlay.classes()).not.toContain(cls);
+        expect(overlay.find('h3').classes()).toContain('text-white');
+        expect(overlay.find('p').classes()).toContain('text-white/80');
+        expect(overlay.find('a').exists()).toBe(true);
+      }
+    },
+  );
+});
+
 describe('JsonWidget collapse slider (cards-rich / cards-simple)', () => {
   // Slot scroll-state refs are module-level; reset between tests so the dots
   // test can't leak its scrollable state into a later one.

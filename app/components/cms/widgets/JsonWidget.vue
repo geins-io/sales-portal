@@ -86,6 +86,13 @@ const cta = computed(() => props.data.cta as JsonWidgetCta | undefined);
 const bannerImages = computed(
   () => (props.data.bannerImages as BannerCardItem[]) ?? [],
 );
+// Blocks saved before the setting existed have no field and keep the gradient.
+// How Create widget stores a true/false field is unmeasured, so "false" counts too.
+const bannerGradient = computed(
+  () =>
+    props.data.gradientOverlay !== false &&
+    props.data.gradientOverlay !== 'false',
+);
 
 const { localePath } = useLocaleMarket();
 const currentHost = useRequestURL().host;
@@ -415,8 +422,11 @@ function bannerPlacementClasses(placement?: string): string {
         aspect-ratio="16/9"
       />
       <div
-        class="absolute inset-0 flex flex-col bg-linear-to-t from-black/60 to-transparent p-6"
-        :class="bannerPlacementClasses(banner.cta?.placement)"
+        class="absolute inset-0 flex flex-col p-6"
+        :class="[
+          bannerPlacementClasses(banner.cta?.placement),
+          { 'bg-linear-to-t from-black/60 to-transparent': bannerGradient },
+        ]"
       >
         <!-- eslint-disable tailwindcss/no-unnecessary-arbitrary-value -- leading-1.1 is not a Tailwind 4 class, so the fix would drop line-height 1.1 -->
         <h3
