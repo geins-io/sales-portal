@@ -235,6 +235,54 @@ describe('LayoutHeaderNav', () => {
     expect(wrapper.text()).toContain('Sub B');
   });
 
+  it('leaves out an unnamed child and everything under it', () => {
+    mockMenu.value = {
+      id: '1',
+      title: 'Main',
+      menuItems: [
+        {
+          id: '1',
+          label: 'Category',
+          order: 1,
+          children: [
+            {
+              id: '1-1',
+              label: '',
+              title: '',
+              order: 1,
+              children: [{ id: '1-1-1', label: 'Under unnamed', order: 1 }],
+            },
+            { id: '1-2', label: 'Sub B', order: 2 },
+          ],
+        },
+      ],
+    };
+    const wrapper = shallowMountComponent(LayoutHeaderNav, mountOptions);
+    const panel = wrapper.find('[data-slot="navigation-menu-content"]');
+    expect(panel.findAll('a').map((a) => a.text())).toEqual(['Sub B']);
+  });
+
+  it('shows a top item whose children are all unnamed as a plain link', () => {
+    mockMenu.value = {
+      id: '1',
+      title: 'Main',
+      menuItems: [
+        {
+          id: '1',
+          label: 'Category',
+          canonicalUrl: '/se/sv/l/category',
+          order: 1,
+          children: [{ id: '1-1', label: '', title: '', order: 1 }],
+        },
+      ],
+    };
+    const wrapper = shallowMountComponent(LayoutHeaderNav, mountOptions);
+    expect(wrapper.find('[data-slot="navigation-menu-content"]').exists()).toBe(
+      false,
+    );
+    expect(wrapper.find('a').text()).toBe('Category');
+  });
+
   describe('tenant nav bar colour and alignment', () => {
     beforeEach(() => {
       mockMenu.value = {

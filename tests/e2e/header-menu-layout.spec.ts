@@ -42,8 +42,9 @@ const OPEN_PANEL = `${PANEL}[data-state="open"]`;
 
 async function loadBar(
   page: Page,
+  path = '/',
 ): Promise<{ bar: Locator; triggers: Locator }> {
-  await page.goto('/');
+  await page.goto(path);
   await waitForHydration(page);
   const bar = page.locator(BAR);
   await expect(bar).toBeVisible();
@@ -140,6 +141,31 @@ function rowLook(row: Locator) {
   });
 }
 
+/**
+ * The links and buttons under `root`, as named (text or aria-label) and
+ * unnamed. Decoration hidden from assistive tech, such as the bar's scroll
+ * arrows, is left out. Text, not visible text: a folded row is still named.
+ */
+function rowNames(root: Locator) {
+  return root.locator('a, button').evaluateAll((rows) => {
+    const shown = rows.filter((row) => !row.closest('[aria-hidden="true"]'));
+    const named = (row: Element) =>
+      !!row.textContent?.trim() || !!row.getAttribute('aria-label')?.trim();
+    return {
+      named: shown.filter(named).length,
+      unnamed: shown
+        .filter((row) => !named(row))
+        .map((row) => row.outerHTML.slice(0, 200)),
+    };
+  });
+}
+
+async function expectNamedRows(root: Locator, where: string) {
+  const { named, unnamed } = await rowNames(root);
+  expect(unnamed, `rows without a name in ${where}`).toEqual([]);
+  expect(named, `named rows in ${where}`).toBeGreaterThan(0);
+}
+
 /** Whether focus sits in a folded (inert) part of the menu. */
 function focusIsInert(page: Page) {
   return page.evaluate(() => !!document.activeElement?.closest('[inert]'));
@@ -168,6 +194,40 @@ test.describe('Header menu layout from the store settings', () => {
     await expect(
       page.locator('[data-testid="menu-catalogue-backdrop"]'),
     ).toHaveCount(0);
+  });
+
+  test('names every row in a non-default locale, whatever the layout', async ({
+    page,
+  }) => {
+    // A CMS item has no name in a language nobody translated it into.
+    const response = await apiGet(page.request, '/api/config');
+    expect(response.ok(), '/api/config did not answer 200').toBe(true);
+    const config = await response.json();
+    const short = (tag: string) => tag.split('-')[0]!;
+    const fallback = short(String(config?.locale ?? ''));
+    const others = ((config?.availableLocales ?? []) as string[])
+      .map(short)
+      .filter((code) => code !== fallback);
+    outOfScope(
+      others.length === 0,
+      'tenant-config',
+      'the store offers a single locale',
+    );
+    const code = others.includes('en') ? 'en' : others[0]!;
+
+    const { bar, triggers } = await loadBar(
+      page,
+      `/${config?.market}/${code}/`,
+    );
+    await expectNamedRows(bar, `the bar in ${code}`);
+    const count = await triggers.count();
+    for (let i = 0; i < count; i++) {
+      await triggers.nth(i).hover();
+      await expect(triggers.nth(i)).toHaveAttribute('data-state', 'open');
+      const panel = bar.locator(OPEN_PANEL);
+      await expect(panel).toBeVisible();
+      await expectNamedRows(panel, `menu ${i + 1} in ${code}`);
+    }
   });
 
   test.describe('collapsible categories', () => {
