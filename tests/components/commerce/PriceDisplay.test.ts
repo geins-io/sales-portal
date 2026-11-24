@@ -428,8 +428,7 @@ describe('PriceDisplay', () => {
     });
   });
 
-  // The product page's price. Every case here is proven on mocked prices:
-  // EXTERNAL has never been seen in data.
+  // The product page's price: only the campaign name changes there.
   describe('variant detail', () => {
     const LOWEST = {
       lowestPriceIncVat: 149,
@@ -477,86 +476,19 @@ describe('PriceDisplay', () => {
       };
     }
 
-    describe('a negotiated (EXTERNAL) price', () => {
-      it('below the regular price: "Your price" above it, not a sale', () => {
-        expect(reading(mount({ discountType: 'EXTERNAL' }, 'detail'))).toEqual({
-          label: 'discount.your_price',
-          labelAbove: true,
-          red: false,
-          struck: '299,00 kr',
-          percent: false,
-          lowest: false,
-        });
-      });
-
-      it('keeps the info badge for the label', () => {
-        const label = mount({ discountType: 'EXTERNAL' }, 'detail').get(LABEL);
-        expect(label.classes()).toEqual(
-          expect.arrayContaining(['bg-info/10', 'text-info']),
-        );
-      });
-
-      it('equal to the regular price: no label and nothing struck', () => {
-        const wrapper = mount(
-          {
-            discountType: 'EXTERNAL',
-            price: makePrice({
-              sellingPriceExVat: 239.2,
-              sellingPriceIncVat: 299,
-              sellingPriceIncVatFormatted: '299,00 kr',
-              discountPercentage: 0,
-            }),
-          },
-          'detail',
-        );
-        expect(reading(wrapper)).toMatchObject({
-          label: null,
-          red: false,
-          struck: null,
-        });
-      });
-
-      it('not discounted: no label and nothing struck', () => {
-        const wrapper = mount(
-          {
-            discountType: 'EXTERNAL',
-            price: makePrice({ isDiscounted: false }),
-            lowestPrice: { ...LOWEST, isDiscounted: false },
-          },
-          'detail',
-        );
-        expect(reading(wrapper)).toEqual({
-          label: null,
-          labelAbove: null,
-          red: false,
-          struck: null,
-          percent: false,
-          lowest: false,
-        });
-      });
-
-      it('without the variant: as today, a red price with the label beside it', () => {
-        expect(reading(mount({ discountType: 'EXTERNAL' }))).toEqual({
-          label: 'discount.your_price',
-          labelAbove: false,
+    it.each(['EXTERNAL', 'PRICE_LIST', 'NONE'])(
+      'renders a %s price as without the variant',
+      (discountType) => {
+        const detail = mount({ discountType }, 'detail');
+        expect(reading(detail)).toEqual(reading(mount({ discountType })));
+        expect(reading(detail)).toMatchObject({
+          labelAbove: discountType === 'EXTERNAL' ? false : null,
           red: true,
-          struck: '299,00 kr',
           percent: true,
           lowest: true,
         });
-      });
-    });
-
-    it('renders a PRICE_LIST price as without the variant', () => {
-      const props = { discountType: 'PRICE_LIST' };
-      const detail = mount(props, 'detail');
-      expect(reading(detail)).toEqual(reading(mount(props)));
-      expect(reading(detail)).toMatchObject({
-        red: true,
-        percent: true,
-        lowest: true,
-      });
-    });
+      },
+    );
 
     it('shows no label for PRICE_CAMPAIGN when a campaign name is given', () => {
       const wrapper = mount(

@@ -991,15 +991,9 @@ describe('ProductDetails', () => {
       const banner = wrapper.find('[data-testid="negotiated-price-banner"]');
       expect(banner.exists()).toBe(true);
       expect(banner.text()).toContain('discount.negotiated_price_info');
-      // A line with an icon, not a box: no fill, no padding. The icon starts
-      // at the first line when the text wraps.
       expect(banner.classes()).toEqual(
-        expect.arrayContaining(['text-info', 'items-start']),
+        expect.arrayContaining(['bg-info/10', 'text-info']),
       );
-      expect(banner.classes()).not.toEqual(
-        expect.arrayContaining(['bg-info/10']),
-      );
-      expect(banner.classes().filter((c) => /^(px|py|p)-/.test(c))).toEqual([]);
     });
 
     it('does not show banner for SALE_PRICE', async () => {
@@ -1121,7 +1115,7 @@ describe('ProductDetails', () => {
       }
     });
 
-    it('groups the price, the campaign badges and the negotiated notice, in that order', async () => {
+    it('groups the price and the campaign badges, with the negotiated notice after the group', async () => {
       const wrapper = await mount();
 
       const group = wrapper.get('[data-testid="pdp-price-group"]').element;
@@ -1130,11 +1124,10 @@ describe('ProductDetails', () => {
           ? 'price'
           : child.getAttribute('data-testid'),
       );
-      expect(ids).toEqual([
-        'price',
-        'pdp-campaign-badges',
+      expect(ids).toEqual(['price', 'pdp-campaign-badges']);
+      expect(group.nextElementSibling?.getAttribute('data-testid')).toBe(
         'negotiated-price-banner',
-      ]);
+      );
     });
 
     it("renders the price as the product page's own, the detail variant", async () => {

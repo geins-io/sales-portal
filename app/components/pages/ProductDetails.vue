@@ -537,8 +537,7 @@ const showsPriceGroup = computed(
     !hidesCatalogueSku.value &&
     Boolean(
       (product.value?.unitPrice && showPrice.value) ||
-      visibleCampaigns.value.length ||
-      product.value?.discountType === 'EXTERNAL',
+      visibleCampaigns.value.length,
     ),
 );
 
@@ -662,15 +661,16 @@ useProductSeo({
                 {{ campaign.name }}
               </Badge>
             </div>
+          </div>
 
-            <div
-              v-if="product.discountType === 'EXTERNAL'"
-              class="text-info flex items-start gap-2 text-sm"
-              data-testid="negotiated-price-banner"
-            >
-              <BadgeCheck class="mt-0.5 size-4 shrink-0" />
-              <span>{{ $t('discount.negotiated_price_info') }}</span>
-            </div>
+          <!-- Negotiated price info banner -->
+          <div
+            v-if="!hidesCatalogueSku && product.discountType === 'EXTERNAL'"
+            class="bg-info/10 text-info flex items-center gap-2 rounded-md px-3 py-2 text-sm"
+            data-testid="negotiated-price-banner"
+          >
+            <BadgeCheck class="size-4 shrink-0" />
+            <span>{{ $t('discount.negotiated_price_info') }}</span>
           </div>
 
           <!-- Variant selector — pass product-level data through so each
