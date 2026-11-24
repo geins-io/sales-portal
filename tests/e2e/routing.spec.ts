@@ -138,10 +138,12 @@ test.describe('Routing', () => {
       .first();
     await expect(plpMarker).toBeVisible({ timeout: 20000 });
 
-    // Confirm we are not on a 404 page
-    const notFound = page.locator('text=404').first();
-    const isNotFoundVisible = await notFound.isVisible().catch(() => false);
-    expect(isNotFoundVisible).toBe(false);
+    // Neither error page's status code: app/error.vue after a client-side
+    // miss, server/error.ts on a document load. Not the text "404", which an
+    // article number on the cards can contain.
+    await expect(
+      page.locator('.error-page__code, main.wrap > p.code'),
+    ).toHaveCount(0);
   });
 
   test('hard refresh of the switched /c/ page holds (no 404)', async ({
