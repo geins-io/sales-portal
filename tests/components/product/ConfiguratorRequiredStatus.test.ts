@@ -5,10 +5,12 @@ import { ref } from 'vue';
 import { mountComponent } from '../../utils/component';
 import ConfiguratorRequiredStatus from '../../../app/components/product/configurator/ConfiguratorRequiredStatus.vue';
 import {
+  findOptionGroup,
   makeInitialConfiguration,
   makeInvalidConfiguration,
   makeValidConfiguration,
 } from '../../fixtures/configurator';
+import { shownConfiguration } from '../../../app/utils/configurator-shown';
 
 // The tier's passthrough `t` drops parameters the key has no placeholder for,
 // so the count would never reach the text; this one appends them.
@@ -199,6 +201,59 @@ describe('ConfiguratorRequiredStatus', () => {
       'configurator.required_status.cannot_complete',
     );
     expect(toggle(wrapper).exists()).toBe(false);
+  });
+
+  describe('when the store hides what cannot be chosen', () => {
+    /** The initial document, its only unmet group (Colour) left with no row to choose. */
+    function colourClosedByChoices() {
+      const sent = makeInitialConfiguration();
+      for (const row of findOptionGroup(sent, 'color').options) {
+        row.available = false;
+      }
+      return sent;
+    }
+
+    function mountHiding(sent: ReturnType<typeof colourClosedByChoices>) {
+      return mountComponent(ConfiguratorRequiredStatus, {
+        props: { configuration: shownConfiguration(sent, true), sent },
+      });
+    }
+
+    it('says the buyer’s choices block the configuration when only a hidden group is missing', () => {
+      const wrapper = mountHiding(colourClosedByChoices());
+
+      expect(box(wrapper).text()).toBe(
+        'configurator.required_status.blocked_by_choices',
+      );
+      expect(toggle(wrapper).exists()).toBe(false);
+    });
+
+    it('says the configuration cannot be completed when a section the provider hid is missing something too', () => {
+      const sent = colourClosedByChoices();
+      // A second, untouched Colour in a section the provider hid.
+      const unreachable = findOptionGroup(makeInitialConfiguration(), 'color');
+      sent.sections.push({
+        id: 'provider-hidden',
+        name: 'Provider hidden',
+        description: '',
+        visible: false,
+        sections: [],
+        variables: [],
+        optionGroups: [{ ...unreachable, id: 'unreachable' }],
+        messages: [],
+      });
+
+      expect(box(mountHiding(sent)).text()).toBe(
+        'configurator.required_status.cannot_complete',
+      );
+    });
+
+    it('reads the document it is shown when no sent document is given', () => {
+      const shown = shownConfiguration(colourClosedByChoices(), true);
+      expect(box(mountStatus(shown)).text()).toBe(
+        'configurator.required_status.unspecified',
+      );
+    });
   });
 
   it('keeps the count on the line of the word before it, in every locale', () => {

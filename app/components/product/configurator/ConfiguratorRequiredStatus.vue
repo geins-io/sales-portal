@@ -2,6 +2,7 @@
 import { CheckCircle2, ChevronDown, Info } from 'lucide-vue-next';
 import type { Configuration } from '#shared/types/configurator';
 import {
+  blockedOnlyByHiddenChoices,
   blockedOnlyByHiddenSections,
   collectBlockingItems,
   unnamedBlockingMessages,
@@ -17,7 +18,12 @@ import {
  * document, not this component, so a list the buyer opened stays open while
  * they work through it.
  */
-const { configuration } = defineProps<{ configuration: Configuration }>();
+const { configuration, sent } = defineProps<{
+  /** The document as the buyer is shown it. */
+  configuration: Configuration;
+  /** The document as the provider sent it, when the two differ. */
+  sent?: Configuration;
+}>();
 
 const emit = defineEmits<{ 'go-to': [item: BlockingItem] }>();
 
@@ -27,6 +33,9 @@ const items = computed(() => collectBlockingItems(configuration));
 const messages = computed(() => unnamedBlockingMessages(configuration));
 const count = computed(() => items.value.length + messages.value.length);
 const hiddenOnly = computed(() => blockedOnlyByHiddenSections(configuration));
+const choicesOnly = computed(() =>
+  blockedOnlyByHiddenChoices(configuration, sent ?? configuration),
+);
 
 const open = ref(false);
 const listId = useId();
@@ -100,6 +109,9 @@ const listId = useId();
       </template>
       <p v-else-if="hiddenOnly">
         {{ t('configurator.required_status.cannot_complete') }}
+      </p>
+      <p v-else-if="choicesOnly">
+        {{ t('configurator.required_status.blocked_by_choices') }}
       </p>
       <p v-else>
         {{ t('configurator.required_status.unspecified') }}

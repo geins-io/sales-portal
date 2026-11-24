@@ -244,6 +244,27 @@ export function blockedOnlyByHiddenSections(config: Configuration): boolean {
   return holdsUnmet(config.sections);
 }
 
+/**
+ * Whether the document is invalid only because of a required group the store
+ * hides because the buyer's choices left nothing in it to choose: `shown` has
+ * nothing to name or show, and the document as sent has a missing choice the
+ * buyer would otherwise see. Unlike a section the provider hid, the buyer's
+ * own choices closed it, so changing them can open it again.
+ *
+ * A section the provider hid wins when both hold: nothing the buyer chooses
+ * reaches that one.
+ */
+export function blockedOnlyByHiddenChoices(
+  shown: Configuration,
+  sent: Configuration,
+): boolean {
+  if (shown.isValid) return false;
+  if (blockedOnlyByHiddenSections(shown)) return false;
+  if (collectBlockingItems(shown).length) return false;
+  if (unnamedBlockingMessages(shown).length) return false;
+  return collectBlockingItems(sent).length > 0;
+}
+
 // ---------------------------------------------------------------------------
 // The specification: what has been chosen, grouped the way the form is
 // ---------------------------------------------------------------------------

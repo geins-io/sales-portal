@@ -357,7 +357,8 @@
       "remaining_count": "Verbleibende Pflichtauswahlen ({count})",
       "all_done": "Alle Pflichtauswahlen sind getroffen",
       "unspecified": "Die Konfiguration ist nicht vollständig.",
-      "cannot_complete": "Die Konfiguration kann nicht abgeschlossen werden. Wenden Sie sich an den Verkäufer."
+      "cannot_complete": "Die Konfiguration kann nicht abgeschlossen werden. Wenden Sie sich an den Verkäufer.",
+      "blocked_by_choices": "Die Konfiguration kann mit Ihrer aktuellen Auswahl nicht abgeschlossen werden. Ändern Sie Ihre Auswahl."
     },
     "read_only": "Wird von der Konfiguration festgelegt",
     "set_automatically": "Wird automatisch gesetzt",

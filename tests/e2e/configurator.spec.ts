@@ -721,6 +721,49 @@ test.describe('Configurator group message', () => {
 });
 
 /**
+ * A steel worktop leaves the surface treatment with nothing to choose. What
+ * the buyer sees then is the store's setting, read as saved: hidden, or on
+ * show saying so.
+ */
+test.describe('Configurator group with nothing to choose', () => {
+  test('is hidden or says so, as the store setting is saved', async ({
+    page,
+  }) => {
+    const unavailable = await unavailableReason(page, DEEP_ALIAS);
+    outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
+
+    const config = await (await apiGet(page.request, '/api/config')).json();
+    const hides = config?.productConfigurator?.hideUnavailableOptions === true;
+
+    await openConfigurator(page, DEEP_ALIAS);
+    await openSection(page, 'worktop');
+    const treatment = page.locator(
+      '[data-testid="configurator-group"][data-group-id="top-treatment"]',
+    );
+    await expect(treatment).toBeVisible();
+
+    await page
+      .locator('[data-testid="configurator-group"][data-group-id="top"]')
+      .getByTestId('configurator-group-chooser')
+      .click();
+    const sheet = page.getByTestId('configurator-group-sheet');
+    await expect(sheet).toBeInViewport({ ratio: 1 });
+    const changed = changeResponse(page);
+    await sheet.locator('[data-option-id="top-steel"]').click();
+    await changed;
+    await expect(action(page)).toHaveAttribute('aria-busy', 'false');
+
+    if (hides) {
+      await expect(treatment).toHaveCount(0);
+    } else {
+      await expect(
+        treatment.getByTestId('configurator-group-chooser'),
+      ).toContainText(await localeText(page, 'configurator.nothing_to_choose'));
+    }
+  });
+});
+
+/**
  * The same seed's "No extended warranty": quantity, minimum and maximum all 0,
  * preselected, as the real provider sends it. A pick that carried its 0 was
  * refused before it reached the provider.

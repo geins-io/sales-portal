@@ -481,6 +481,11 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
         : undefined,
     ),
   };
+  const productConfigurator = {
+    hideUnavailableOptions:
+      isPlainObject(merged.productConfigurator) &&
+      merged.productConfigurator.hideUnavailableOptions === true,
+  };
 
   // Server-only, but typed with the same narrowed FeatureAccess.
   const overrides: TenantConfig['overrides'] = merged.overrides
@@ -554,6 +559,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     features,
     quoteDisplayNumber,
     productList,
+    productConfigurator,
     seo: merged.seo,
     contact: merged.contact,
     overrides,

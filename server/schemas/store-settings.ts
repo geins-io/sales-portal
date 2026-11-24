@@ -363,6 +363,8 @@ export const StoreSettingsSchema = z.object({
   contact: ContactConfigSchema.nullable().optional(),
   /** Any value: tenant.ts reads one that is not a list sort as A-Ö. */
   productList: z.unknown().optional(),
+  /** Any value: tenant.ts reads anything but a saved true as off. */
+  productConfigurator: z.unknown().optional(),
   overrides: OverrideConfigSchema,
   cms: CmsConfigSchema,
   assetPath: z.string().nullable().default(null),

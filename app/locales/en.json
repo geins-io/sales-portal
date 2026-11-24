@@ -357,7 +357,8 @@
       "remaining_count": "Required choices remaining ({count})",
       "all_done": "All required choices are made",
       "unspecified": "The configuration is not complete.",
-      "cannot_complete": "The configuration cannot be completed. Contact the seller."
+      "cannot_complete": "The configuration cannot be completed. Contact the seller.",
+      "blocked_by_choices": "The configuration cannot be completed with your current choices. Change your choices."
     },
     "read_only": "Set by the configuration",
     "set_automatically": "Set automatically",

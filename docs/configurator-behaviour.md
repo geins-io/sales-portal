@@ -162,6 +162,23 @@ The field is hidden until a choice makes it available.
 
 The group says "Nothing to choose with your current choices".
 
+### The store hides what cannot be picked
+
+A store can switch on "Hide options that cannot be chosen" under Product configuration in its
+settings. It is off unless the store turns it on. When it is on:
+
+- An option that cannot be picked with the current choices is not shown. An option the buyer has
+  already chosen is always shown, even when the rules have since ruled it out.
+- A group with nothing to pick is not shown, unless something in it, or in a group inside it, is
+  chosen.
+- A section with nothing left to show is taken out of the section list, and the sections after it
+  are numbered without it. This includes a section whose only content is values that are not
+  available.
+- The specification lists only what is shown.
+- When the only thing missing is a required group that is hidden because nothing in it can be
+  picked, the status says "The configuration cannot be completed with your current choices.
+  Change your choices.".
+
 ### A group offers several options
 
 The group shows the chosen option, or "Choose". Pressing it opens a side panel, "Choose {name}", with

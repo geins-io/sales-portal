@@ -101,6 +101,7 @@ export async function getPublicConfig(
     seo: config.seo,
     contact: config.contact,
     productList: config.productList,
+    productConfigurator: config.productConfigurator,
     css: config.css,
     locale: config.channelSettings?.defaultLocale,
     market: config.channelSettings?.defaultMarket,

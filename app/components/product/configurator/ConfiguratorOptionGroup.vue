@@ -22,6 +22,7 @@ import {
 import {
   isOptionReadOnly,
   isSingleSelect,
+  repicksTheChoice,
   singleChoiceChanges,
 } from '#shared/utils/configurator-choice';
 import { Input } from '~/components/ui/input';
@@ -151,8 +152,12 @@ const noneLocked = computed(
     locked.value || (!!chosen.value[0] && isOptionReadOnly(chosen.value[0])),
 );
 
-/** A row's change as the group sends it: a single-choice pick replaces. */
+/**
+ * A row's change as the group sends it: a single-choice pick replaces, and a
+ * pick of the row already chosen sends nothing.
+ */
 function onRowChange(change: ConfigurationChange) {
+  if (repicksTheChoice(group, change)) return;
   emit(
     'change',
     single.value && change.type === 'option' && change.selected

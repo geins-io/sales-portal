@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import type { ConfigurationOption } from '#shared/types/configurator';
+import type {
+  ConfigurationChange,
+  ConfigurationOption,
+} from '#shared/types/configurator';
 import { formatPrice } from '#shared/types/commerce';
 import {
   blockingMessage,
@@ -38,6 +41,7 @@ import {
 import {
   isOptionReadOnly,
   isSingleSelect,
+  repicksTheChoice,
   singleChoiceChanges,
 } from '../../shared/utils/configurator-choice';
 import {
@@ -48,6 +52,8 @@ import {
   makeCascadedConfiguration,
   makeInitialConfiguration,
 } from '../fixtures/configurator';
+
+type OptionChange = Extract<ConfigurationChange, { type: 'option' }>;
 
 describe('variableControl', () => {
   it('reads the control off the seeded variables', () => {
@@ -116,6 +122,68 @@ describe('isOptionReadOnly', () => {
       expect(isOptionReadOnly(option)).toBe(false);
     },
   );
+});
+
+describe('repicksTheChoice', () => {
+  function top() {
+    return findOptionGroup(makeInitialConfiguration(), 'top');
+  }
+  const pick = (optionId: string, parts: Partial<OptionChange> = {}) => ({
+    type: 'option' as const,
+    optionId,
+    instanceId: '0',
+    selected: true,
+    lock: 'none' as const,
+    ...parts,
+  });
+
+  it('is true for a pick of the one row a single choice already holds', () => {
+    expect(repicksTheChoice(top(), pick('top-laminate'))).toBe(true);
+  });
+
+  it('is false for a pick of a row not chosen', () => {
+    expect(repicksTheChoice(top(), pick('top-steel'))).toBe(false);
+  });
+
+  it('is false for the chosen row in another instance', () => {
+    expect(
+      repicksTheChoice(top(), pick('top-laminate', { instanceId: '1' })),
+    ).toBe(false);
+  });
+
+  it('is false while another row is chosen too, so the replace batch repairs it', () => {
+    const group = top();
+    group.options.find((o) => o.id === 'top-steel')!.selected = true;
+    expect(repicksTheChoice(group, pick('top-laminate'))).toBe(false);
+  });
+
+  it('is false for a quantity on the chosen row', () => {
+    expect(repicksTheChoice(top(), pick('top-laminate', { quantity: 2 }))).toBe(
+      false,
+    );
+  });
+
+  it('is false for a deselect of the chosen row', () => {
+    expect(
+      repicksTheChoice(top(), pick('top-laminate', { selected: false })),
+    ).toBe(false);
+  });
+
+  it('is false in a group that allows several', () => {
+    const group = top();
+    group.maxSelections = 3;
+    expect(repicksTheChoice(group, pick('top-laminate'))).toBe(false);
+  });
+
+  it('is false for a variable change', () => {
+    expect(
+      repicksTheChoice(top(), {
+        type: 'variable',
+        variableId: 'width',
+        value: 1200,
+      }),
+    ).toBe(false);
+  });
 });
 
 describe('singleChoiceChanges', () => {

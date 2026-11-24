@@ -357,7 +357,8 @@
       "remaining_count": "Jäljellä olevat pakolliset valinnat ({count})",
       "all_done": "Kaikki pakolliset valinnat on tehty",
       "unspecified": "Kokoonpano ei ole valmis.",
-      "cannot_complete": "Kokoonpanoa ei voi viimeistellä. Ota yhteyttä myyjään."
+      "cannot_complete": "Kokoonpanoa ei voi viimeistellä. Ota yhteyttä myyjään.",
+      "blocked_by_choices": "Kokoonpanoa ei voi viimeistellä nykyisillä valinnoilla. Muuta valintojasi."
     },
     "read_only": "Määräytyy kokoonpanon mukaan",
     "set_automatically": "Asetetaan automaattisesti",
