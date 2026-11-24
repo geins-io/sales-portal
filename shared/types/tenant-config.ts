@@ -119,6 +119,13 @@ export interface TenantConfig {
    */
   productList?: { defaultSort: ListSort };
 
+  /**
+   * Studio's `productConfigurator.hideUnavailableOptions`: hide the options and
+   * groups the buyer's choices rule out instead of showing them disabled.
+   * Optional so a config cached before the field existed reads as off.
+   */
+  productConfigurator?: { hideUnavailableOptions: boolean };
+
   // CMS slot + menu registry — see docs/patterns/cms-config.md for the
   // design. Tenant config wins per key over DEFAULT_CMS_CONFIG in
   // server/utils/tenant.ts; slots and menus neither layer defines
@@ -200,6 +207,7 @@ export interface PublicTenantConfig {
   seo?: TenantConfig['seo'];
   contact?: TenantConfig['contact'];
   productList?: TenantConfig['productList'];
+  productConfigurator?: TenantConfig['productConfigurator'];
   css: string;
 
   // Derived from channelSettings before stripping

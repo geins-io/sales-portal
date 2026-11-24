@@ -733,6 +733,22 @@ function steelTopRestrictsTheEdgeTrim(config: Configuration): void {
   ];
 }
 
+/**
+ * Steel takes neither coating nor oil, so every row of the surface treatment
+ * goes unavailable and the group is left with nothing to choose. The group
+ * itself stays available, as Monitor sends it for an open group whose rows a
+ * choice elsewhere ruled out, and it is skippable, so the document stays valid.
+ */
+function steelTopEmptiesTheSurfaceTreatment(config: Configuration): void {
+  if (findOption(config, 'top-steel')?.selected !== true) return;
+  const treatment = findGroupOf(config, 'treat-esd');
+  if (!treatment) return;
+  for (const row of treatment.options) {
+    row.available = false;
+    row.selected = false;
+  }
+}
+
 export const monteringsstationPro: Seed = {
   productId: MONTERINGSSTATION_PRO_ID,
   geinsProductId: MONTERINGSSTATION_PRO_GEINS_ID,
@@ -763,6 +779,10 @@ export const monteringsstationPro: Seed = {
     'transport-time': (value) =>
       value === 0 ? 'A speed cannot be computed from no time' : undefined,
   },
-  cascades: [longStationNeedsTheThirdLegPair, steelTopRestrictsTheEdgeTrim],
+  cascades: [
+    longStationNeedsTheThirdLegPair,
+    steelTopRestrictsTheEdgeTrim,
+    steelTopEmptiesTheSurfaceTreatment,
+  ],
   buildSections,
 };

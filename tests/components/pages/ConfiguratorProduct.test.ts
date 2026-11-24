@@ -23,11 +23,18 @@ import {
   type ConfiguratorSessionStatus,
 } from '../../../app/composables/useConfiguratorSession';
 import {
+  findOptionGroup,
   makeCabinetConfiguration,
   makeInvalidConfiguration,
   makeSectionTreeConfiguration,
   makeValidConfiguration,
 } from '../../fixtures/configurator';
+import { useTenant } from '../../../app/composables/useTenant';
+import {
+  blockedOnlyByHiddenChoices,
+  collectBlockingItems,
+  specificationRows,
+} from '../../../app/utils/configurator-panel';
 import { useCartStore } from '../../../app/stores/cart';
 import { useAuthStore } from '../../../app/stores/auth';
 import { useQuotesStore } from '../../../app/stores/quotes';
@@ -401,7 +408,7 @@ const stubs = {
       <button data-testid="required-go-to"
         @click="$emit('go-to', goToTarget)"></button>
     </div>`,
-    props: ['configuration'],
+    props: ['configuration', 'sent'],
     emits: ['go-to'],
     setup: () => ({ goToTarget }),
   },
@@ -4461,5 +4468,134 @@ describe('ConfiguratorProduct, the notice belongs to the product it was added fr
     page.unmount();
 
     expect(useQuotesStore().lastAdd).toEqual(added('another-page'));
+  });
+});
+
+describe('ConfiguratorProduct when the store hides what cannot be chosen', () => {
+  const { tenant } = useTenant();
+  const saved = tenant.value;
+
+  function setHiding(hideUnavailableOptions: boolean) {
+    if (!saved) throw new Error('the tenant mock has no config');
+    tenant.value = {
+      ...saved,
+      productConfigurator: { hideUnavailableOptions },
+    };
+  }
+
+  afterEach(() => {
+    if (saved) tenant.value = saved;
+  });
+
+  /**
+   * The section tree with Edge trim's and Extras' only groups closed by the
+   * rules, and Colour, the one required choice left, with no row to pick.
+   * Industrial is made a choice the buyer may skip, so the specification has a
+   * "None" row for it to lose.
+   */
+  function closedByChoices(): Configuration {
+    const config = makeSectionTreeConfiguration({ isValid: false });
+    Object.assign(findOptionGroup(config, 'industrial'), {
+      minSelections: 0,
+      maxSelections: 1,
+    });
+    for (const id of ['industrial', 'accessories']) {
+      const group = findOptionGroup(config, id);
+      group.available = false;
+      for (const row of group.options) {
+        row.available = false;
+        row.selected = false;
+      }
+    }
+    for (const row of findOptionGroup(config, 'color').options) {
+      row.available = false;
+    }
+    return config;
+  }
+
+  const railIds = (wrapper: ReturnType<typeof mountPage>) =>
+    wrapper
+      .findAll('[data-testid="configurator-rail-entry"]')
+      .map((entry) => [
+        entry.attributes('data-section-id'),
+        entry.attributes('data-number'),
+      ]);
+
+  const specIds = (config: Configuration) =>
+    specificationRows(config).map((row) => row.id);
+
+  it('draws the rail, the banner and the specification from what is shown', async () => {
+    setHiding(true);
+    const sent = closedByChoices();
+    const wrapper = mountPage();
+    activeWith(sent);
+    await nextTick();
+
+    expect(railIds(wrapper)).toEqual([
+      ['frame', '1'],
+      ['finish', '1.1'],
+      ['cable-mgmt', '2'],
+    ]);
+
+    const status = wrapper.findComponent(stubs.ConfiguratorRequiredStatus);
+    const shown = status.props('configuration') as Configuration;
+    expect(status.props('sent')).toEqual(sent);
+    expect(collectBlockingItems(sent).map((item) => item.nodeId)).toEqual([
+      'color',
+    ]);
+    expect(collectBlockingItems(shown)).toEqual([]);
+    expect(blockedOnlyByHiddenChoices(shown, sent)).toBe(true);
+
+    const panel = wrapper
+      .findComponent(stubs.ConfigurationPanel)
+      .props('configuration') as Configuration;
+    expect(panel).toEqual(shown);
+    expect(specIds(sent)).toContain('group:industrial');
+    expect(specIds(panel)).toEqual(
+      specIds(sent).filter((id) => id !== 'group:industrial'),
+    );
+  });
+
+  it('draws everything the provider sent when the store never saved the setting', async () => {
+    const sent = closedByChoices();
+    const wrapper = mountPage();
+    activeWith(sent);
+    await nextTick();
+
+    expect(saved?.productConfigurator).toBeUndefined();
+    expect(railIds(wrapper).map(([id]) => id)).toEqual([
+      'frame',
+      'finish',
+      'edge-trim',
+      'cable-mgmt',
+      'extras',
+    ]);
+    expect(
+      wrapper.findComponent(stubs.ConfigurationPanel).props('configuration'),
+    ).toEqual(sent);
+  });
+
+  it('draws everything the provider sent when the setting is off', async () => {
+    setHiding(false);
+    const sent = closedByChoices();
+    const wrapper = mountPage();
+    activeWith(sent);
+    await nextTick();
+
+    expect(railIds(wrapper)).toEqual([
+      ['frame', '1'],
+      ['finish', '1.1'],
+      ['edge-trim', '1.1.1'],
+      ['cable-mgmt', '2'],
+      ['extras', '3'],
+    ]);
+    expect(
+      wrapper
+        .findComponent(stubs.ConfiguratorRequiredStatus)
+        .props('configuration'),
+    ).toEqual(sent);
+    expect(
+      wrapper.findComponent(stubs.ConfigurationPanel).props('configuration'),
+    ).toEqual(sent);
   });
 });

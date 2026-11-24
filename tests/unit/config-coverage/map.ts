@@ -135,6 +135,7 @@ const CART_DRAWER = 'tests/components/cart/CartDrawer.test.ts';
 const PRODUCT_CARD = 'tests/components/commerce/ProductCard.test.ts';
 const PRODUCT_DETAILS = 'tests/components/pages/ProductDetails.test.ts';
 const PRODUCT_LIST = 'tests/components/pages/ProductList.test.ts';
+const CONFIGURATOR_PAGE = 'tests/components/pages/ConfiguratorProduct.test.ts';
 const INDEX_PAGE = 'tests/components/pages/IndexPage.test.ts';
 const ORDER_DETAIL = 'tests/components/pages/order-detail.test.ts';
 const SAVED_LIST_DETAIL = 'tests/components/portal/saved-list-detail.test.ts';
@@ -3617,6 +3618,63 @@ export const CONFIG_COVERAGE_MAP = {
         note:
           'tenant.ts turns absent, empty and unknown values into name-asc, so ' +
           'the client never sees anything outside the five list sorts.',
+      },
+    },
+  },
+
+  // --- Product configuration -------------------------------------------------
+  productConfigurator: {
+    hideUnavailableOptions: {
+      on: {
+        status: 'has-test',
+        test: [
+          {
+            spec: CONFIGURATOR_PAGE,
+            title:
+              'draws the rail, the banner and the specification from what is shown',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: SERVER_TENANT,
+            title: 'is true when saved as true',
+            kind: 'carrier',
+          },
+        ],
+        note:
+          'What is hidden is asserted on the pure view in ' +
+          'tests/unit/configurator-shown.test.ts; the page test proves the ' +
+          'setting reaches it.',
+      },
+      off: {
+        status: 'has-test',
+        test: {
+          spec: CONFIGURATOR_PAGE,
+          title: 'draws everything the provider sent when the setting is off',
+          kind: 'consumer',
+          drives: 'field',
+        },
+      },
+      absent: {
+        status: 'has-test',
+        test: [
+          {
+            spec: CONFIGURATOR_PAGE,
+            title:
+              'draws everything the provider sent when the store never saved the setting',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: SERVER_TENANT,
+            title:
+              'sends off to the client when the store never saved the setting',
+            kind: 'carrier',
+          },
+        ],
+        note:
+          'tenant.ts reads anything but a saved true as false, so the client ' +
+          'sees off, the behaviour every store had before the setting.',
       },
     },
   },

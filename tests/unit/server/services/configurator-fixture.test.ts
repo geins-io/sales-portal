@@ -1657,6 +1657,42 @@ describe('the third seeded product', () => {
     );
     expect(profile(laminate)?.messages).toEqual([]);
   });
+
+  it('empties the surface treatment for a steel top, clears its choice, and fills it again', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+    const treatment = (doc: Configuration) =>
+      everyGroup(doc.sections).find((group) => group.id === 'top-treatment');
+    await backend.applyChanges(
+      config.configurationId,
+      [selectOption('treat-oil')],
+      CTX,
+    );
+
+    const steel = await backend.applyChanges(
+      config.configurationId,
+      [selectOption('top-steel')],
+      CTX,
+    );
+    // Every row, with the group itself left open: nothing to choose.
+    expect(treatment(steel)?.available).toBe(true);
+    expect(treatment(steel)?.options.map((row) => row.available)).toEqual([
+      false,
+      false,
+    ]);
+    expect(findOption(steel, 'treat-oil').selected).toBe(false);
+    // Skippable, so closing it leaves nothing unmet.
+    expect(steel.isValid).toBe(true);
+
+    const laminate = await backend.applyChanges(
+      config.configurationId,
+      [selectOption('top-laminate')],
+      CTX,
+    );
+    expect(treatment(laminate)?.options.map((row) => row.available)).toEqual([
+      true,
+      true,
+    ]);
+  });
 });
 
 // ---------------------------------------------------------------------------

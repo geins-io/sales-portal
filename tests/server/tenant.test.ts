@@ -1507,6 +1507,64 @@ describe('Tenant utilities', () => {
       });
     });
 
+    // Studio's switch in Base settings: "productConfigurator.hideUnavailableOptions".
+    // Only a saved true hides; every other value is today's behaviour.
+    describe('whether the configurator hides what cannot be chosen', () => {
+      function hides(productConfigurator: unknown) {
+        const candidate = { ...fullCandidate(), productConfigurator };
+        const out = parseStoreSettingsResilient(candidate, 'h');
+        if (!out) throw new Error('candidate did not parse');
+        return buildTenantConfig(out).productConfigurator
+          ?.hideUnavailableOptions;
+      }
+
+      it.each([
+        ['no productConfigurator key', undefined],
+        ['productConfigurator as null', null],
+        ['no saved value', {}],
+        ['false', { hideUnavailableOptions: false }],
+        ['a string', { hideUnavailableOptions: 'true' }],
+        ['a number', { hideUnavailableOptions: 1 }],
+        ['productConfigurator that is not an object', true],
+      ])('is false with %s', (_label, productConfigurator) => {
+        expect(hides(productConfigurator)).toBe(false);
+      });
+
+      it('is true when saved as true', () => {
+        expect(hides({ hideUnavailableOptions: true })).toBe(true);
+      });
+
+      it('sends off to the client when the store never saved the setting', async () => {
+        const out = parseStoreSettingsResilient(fullCandidate(), 'h');
+        if (!out) throw new Error('candidate did not parse');
+        const event = {
+          context: { tenant: { config: buildTenantConfig(out) } },
+        } as unknown as H3Event;
+        const config = await getPublicConfig(event);
+
+        expect(config?.productConfigurator).toEqual({
+          hideUnavailableOptions: false,
+        });
+      });
+
+      it('sends the configurator setting to the client', async () => {
+        const candidate = {
+          ...fullCandidate(),
+          productConfigurator: { hideUnavailableOptions: true },
+        };
+        const out = parseStoreSettingsResilient(candidate, 'h');
+        if (!out) throw new Error('candidate did not parse');
+        const event = {
+          context: { tenant: { config: buildTenantConfig(out) } },
+        } as unknown as H3Event;
+        const config = await getPublicConfig(event);
+
+        expect(config?.productConfigurator).toEqual({
+          hideUnavailableOptions: true,
+        });
+      });
+    });
+
     it('returns the strict-parsed value on a clean candidate', () => {
       const out = parseStoreSettingsResilient(fullCandidate(), 'h');
       expect(out).not.toBeNull();

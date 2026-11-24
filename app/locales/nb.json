@@ -357,7 +357,8 @@
       "remaining_count": "Gjenstående obligatoriske valg ({count})",
       "all_done": "Alle obligatoriske valg er gjort",
       "unspecified": "Konfigurasjonen er ikke komplett.",
-      "cannot_complete": "Konfigurasjonen kan ikke fullføres. Kontakt selgeren."
+      "cannot_complete": "Konfigurasjonen kan ikke fullføres. Kontakt selgeren.",
+      "blocked_by_choices": "Konfigurasjonen kan ikke fullføres med dine nåværende valg. Endre valgene dine."
     },
     "read_only": "Settes av konfigurasjonen",
     "set_automatically": "Settes automatisk",

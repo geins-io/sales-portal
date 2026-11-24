@@ -53,6 +53,7 @@ import {
   type ConfiguratorAction,
   type FollowedQuantity,
 } from '~/utils/configurator-page';
+import { shownConfiguration } from '~/utils/configurator-shown';
 import {
   activeIndex,
   flattenVisibleSections,
@@ -544,6 +545,22 @@ const ownError = computed(() =>
 );
 
 // ---------------------------------------------------------------------------
+// What the buyer is shown
+//
+// The rail, the form, the banner and the specification draw `shown`; anything
+// that sends, commits, replays or compares keeps reading `configuration`.
+// ---------------------------------------------------------------------------
+const { tenant } = useTenant();
+const shown = computed(() =>
+  configuration.value
+    ? shownConfiguration(
+        configuration.value,
+        tenant.value?.productConfigurator?.hideUnavailableOptions === true,
+      )
+    : null,
+);
+
+// ---------------------------------------------------------------------------
 // The rail
 //
 // One section at a time, with every visible section of the tree beside it. The
@@ -551,8 +568,8 @@ const ownError = computed(() =>
 // expired and committed faces render exactly as they did.
 // ---------------------------------------------------------------------------
 const railEntries = computed(() =>
-  stage.value === 'form' && configuration.value
-    ? flattenVisibleSections(configuration.value.sections)
+  stage.value === 'form' && shown.value
+    ? flattenVisibleSections(shown.value.sections)
     : [],
 );
 
@@ -1003,7 +1020,7 @@ function onRetryOpen(): void {
                      as the aside does: the rail keeps its own cap and the
                      status takes the rest. -->
                 <div
-                  v-if="stage === 'form' && configuration"
+                  v-if="stage === 'form' && configuration && shown"
                   class="lg:sticky lg:top-48 lg:flex lg:max-h-[calc(100vh-13rem)] lg:flex-col"
                 >
                   <nav
@@ -1079,7 +1096,8 @@ function onRetryOpen(): void {
                     :released="configuration.released"
                   />
                   <ConfiguratorRequiredStatus
-                    :configuration="configuration"
+                    :configuration="shown"
+                    :sent="configuration"
                     @go-to="goToMissing"
                   />
                 </div>
@@ -1452,7 +1470,7 @@ function onRetryOpen(): void {
                   {{ t('configurator.quote.marker') }}
                 </div>
                 <ConfigurationPanel
-                  :configuration="configuration"
+                  :configuration="shown"
                   :status="status"
                   :busy="waiting"
                   :product-name="product.name ?? ''"

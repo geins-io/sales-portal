@@ -357,7 +357,8 @@
       "remaining_count": "Resterende obligatoriske valg ({count})",
       "all_done": "Alle obligatoriske valg er truffet",
       "unspecified": "Konfigurationen er ikke komplet.",
-      "cannot_complete": "Konfigurationen kan ikke færdiggøres. Kontakt sælgeren."
+      "cannot_complete": "Konfigurationen kan ikke færdiggøres. Kontakt sælgeren.",
+      "blocked_by_choices": "Konfigurationen kan ikke færdiggøres med dine nuværende valg. Ændr dine valg."
     },
     "read_only": "Angives af konfigurationen",
     "set_automatically": "Sættes automatisk",
