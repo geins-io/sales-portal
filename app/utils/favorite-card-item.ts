@@ -1,3 +1,4 @@
+import type { ProductDiscountType } from '#shared/types/commerce';
 import type { ProductCardItem } from '~/components/shared/ProductCard.vue';
 
 // Minimal product shape returned by /api/products/by-aliases. We only need
@@ -26,6 +27,7 @@ export interface FavoriteProduct {
   } | null;
   skus?: Array<{ skuId?: number | null } | null> | null;
   configurable?: boolean;
+  discountType?: ProductDiscountType | null;
 }
 
 export function toFavoriteCardItem(
@@ -47,9 +49,11 @@ export function toFavoriteCardItem(
     : unitPrice?.sellingPriceExVatFormatted;
   const skus = (product.skus ?? []).filter((s) => s?.skuId != null);
   const skuId = skus[0]?.skuId;
+  // A price-list price is the buyer's ordinary price; see isShownAsDiscount.
   const hasDiscount =
-    unitPrice?.isDiscounted === true ||
-    (regular != null && selling != null && regular > selling);
+    product.discountType !== 'PRICE_LIST' &&
+    (unitPrice?.isDiscounted === true ||
+      (regular != null && selling != null && regular > selling));
 
   return {
     name: product.name ?? '',

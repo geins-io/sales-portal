@@ -279,6 +279,28 @@ describe('CheckoutCartItems', () => {
     expect(total.attributes('data-quantity')).toBe(String(item.quantity));
   });
 
+  it("passes the line product's discount type to the total and the unit price", () => {
+    const item = createItem({
+      product: { ...createItem().product, discountType: 'PRICE_LIST' },
+    } as Partial<CartItemType>);
+    const wrapper = mountComponent(CheckoutCartItems, {
+      props: { items: [item] },
+      global: {
+        stubs: {
+          ...stubs,
+          PriceDisplay: {
+            template: '<span data-testid="price" :data-type="discountType" />',
+            props: ['price', 'discountType'],
+          },
+        },
+      },
+    });
+    const types = wrapper
+      .findAll('[data-testid="price"]')
+      .map((price) => price.attributes('data-type'));
+    expect(types).toEqual(['PRICE_LIST', 'PRICE_LIST']);
+  });
+
   it('handles item with missing product data gracefully', () => {
     const item = createItem({
       product: undefined as unknown as CartItemType['product'],

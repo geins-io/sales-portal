@@ -972,55 +972,26 @@ describe('ProductDetails', () => {
     });
   });
 
-  describe('negotiated price banner', () => {
-    it('shows info banner when discountType is EXTERNAL', async () => {
-      const product = makeProduct({
-        discountType: 'EXTERNAL',
-        unitPrice: {
-          sellingPriceIncVat: 150,
-          sellingPriceIncVatFormatted: '150,00 kr',
-          isDiscounted: true,
-        },
-      });
-
-      const wrapper = await mountProductDetails(
-        { product, alias: product.alias },
-        { global: { stubs: defaultStubs } },
-      );
-
-      const banner = wrapper.find('[data-testid="negotiated-price-banner"]');
-      expect(banner.exists()).toBe(true);
-      expect(banner.text()).toContain('discount.negotiated_price_info');
-      expect(banner.classes()).toEqual(
-        expect.arrayContaining(['bg-info/10', 'text-info']),
-      );
+  // An EXTERNAL price has no flow in the portal, so it gets no look of its own.
+  it('shows no negotiated-price notice for an EXTERNAL price', async () => {
+    const product = makeProduct({
+      discountType: 'EXTERNAL',
+      unitPrice: {
+        sellingPriceIncVat: 150,
+        sellingPriceIncVatFormatted: '150,00 kr',
+        isDiscounted: true,
+      },
     });
 
-    it('does not show banner for SALE_PRICE', async () => {
-      const product = makeProduct({ discountType: 'SALE_PRICE' });
+    const wrapper = await mountProductDetails(
+      { product, alias: product.alias },
+      { global: { stubs: defaultStubs } },
+    );
 
-      const wrapper = await mountProductDetails(
-        { product, alias: product.alias },
-        { global: { stubs: defaultStubs } },
-      );
-
-      expect(
-        wrapper.find('[data-testid="negotiated-price-banner"]').exists(),
-      ).toBe(false);
-    });
-
-    it('does not show banner for NONE', async () => {
-      const product = makeProduct({ discountType: 'NONE' });
-
-      const wrapper = await mountProductDetails(
-        { product, alias: product.alias },
-        { global: { stubs: defaultStubs } },
-      );
-
-      expect(
-        wrapper.find('[data-testid="negotiated-price-banner"]').exists(),
-      ).toBe(false);
-    });
+    expect(
+      wrapper.find('[data-testid="negotiated-price-banner"]').exists(),
+    ).toBe(false);
+    expect(wrapper.text()).not.toContain('discount.negotiated_price_info');
   });
 
   // The middle column reads: brand row (with stock at its end), name, article
@@ -1029,7 +1000,7 @@ describe('ProductDetails', () => {
     const everything = (overrides: Record<string, unknown> = {}) =>
       makeProduct({
         discountCampaigns: [{ name: 'Spring Sale', hideTitle: false }],
-        discountType: 'EXTERNAL',
+        discountType: 'PRICE_CAMPAIGN',
         texts: { text1: 'Description', text2: 'Short', text3: 'Extra copy' },
         variantDimensions: [{ dimension: 'Variant', value: '88' }],
         skus: [
@@ -1115,7 +1086,7 @@ describe('ProductDetails', () => {
       }
     });
 
-    it('groups the price and the campaign badges, with the negotiated notice after the group', async () => {
+    it('groups the price and the campaign badges', async () => {
       const wrapper = await mount();
 
       const group = wrapper.get('[data-testid="pdp-price-group"]').element;
@@ -1125,9 +1096,6 @@ describe('ProductDetails', () => {
           : child.getAttribute('data-testid'),
       );
       expect(ids).toEqual(['price', 'pdp-campaign-badges']);
-      expect(group.nextElementSibling?.getAttribute('data-testid')).toBe(
-        'negotiated-price-banner',
-      );
     });
 
     it("renders the price as the product page's own, the detail variant", async () => {
@@ -1912,7 +1880,7 @@ describe('ProductDetails', () => {
       makeProduct({
         configurable: true,
         discountCampaigns: [{ name: 'Spring Sale', hideTitle: false }],
-        discountType: 'EXTERNAL',
+        discountType: 'PRICE_CAMPAIGN',
         texts: { text1: 'Description', text2: 'Short', text3: 'Extra copy' },
         variantDimensions: [{ dimension: 'Variant', value: '88' }],
         skus: [
@@ -1950,7 +1918,7 @@ describe('ProductDetails', () => {
       mockIsAuthenticated.value = true;
     });
 
-    it('shows no price, add, stock, campaigns, negotiated banner or variant selector', async () => {
+    it('shows no price, add, stock, campaigns or variant selector', async () => {
       const wrapper = await mountGuest(true);
 
       expect(wrapper.find('[data-testid="pdp-price"]').exists()).toBe(false);
@@ -1965,9 +1933,6 @@ describe('ProductDetails', () => {
       expect(wrapper.find('[data-testid="pdp-campaign-badges"]').exists()).toBe(
         false,
       );
-      expect(
-        wrapper.find('[data-testid="negotiated-price-banner"]').exists(),
-      ).toBe(false);
       expect(wrapper.find('[data-testid="variant-selector"]').exists()).toBe(
         false,
       );
@@ -2047,9 +2012,6 @@ describe('ProductDetails', () => {
       expect(wrapper.find('[data-testid="pdp-campaign-badges"]').exists()).toBe(
         true,
       );
-      expect(
-        wrapper.find('[data-testid="negotiated-price-banner"]').exists(),
-      ).toBe(true);
       expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
         true,
       );
@@ -2073,7 +2035,7 @@ describe('ProductDetails', () => {
       makeProduct({
         configurable: true,
         discountCampaigns: [{ name: 'Spring Sale', hideTitle: false }],
-        discountType: 'EXTERNAL',
+        discountType: 'PRICE_CAMPAIGN',
         texts: { text1: 'Description', text2: 'Short', text3: 'Extra copy' },
         variantDimensions: [{ dimension: 'Variant', value: '88' }],
         skus: [
@@ -2111,7 +2073,7 @@ describe('ProductDetails', () => {
       return toValue(input).offers;
     }
 
-    it('shows no price, stock, campaigns, negotiated banner or variant selector', async () => {
+    it('shows no price, stock, campaigns or variant selector', async () => {
       const wrapper = await mountInCatalogue(true);
 
       expect(wrapper.find('[data-testid="pdp-price"]').exists()).toBe(false);
@@ -2122,9 +2084,6 @@ describe('ProductDetails', () => {
       expect(wrapper.find('[data-testid="pdp-campaign-badges"]').exists()).toBe(
         false,
       );
-      expect(
-        wrapper.find('[data-testid="negotiated-price-banner"]').exists(),
-      ).toBe(false);
       expect(wrapper.find('[data-testid="variant-selector"]').exists()).toBe(
         false,
       );

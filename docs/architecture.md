@@ -993,7 +993,7 @@ Geins GraphQL API → GraphQL fragments (list-product, product) → SDK types
 
 Key enriched fields from GraphQL (not in base SDK types):
 
-- `discountType` — `NONE | SALE_PRICE | PRICE_CAMPAIGN | EXTERNAL`
+- `discountType` — `NONE | SALE_PRICE | PRICE_CAMPAIGN | PRICE_LIST | EXTERNAL`. A `PRICE_LIST` price (a price list that is not enforced) arrives flagged discounted against the ordinary price, but it is the buyer's agreed price and renders as an ordinary price (`isShownAsDiscount`). Cart lines carry it on `product.discountType`.
 - `discountCampaigns` — `{ name, hideTitle }[]`
 - `lowestPrice` — EU omnibus directive lowest price (30-day)
 
@@ -1001,18 +1001,18 @@ The `DetailProduct` interface in `shared/types/commerce.ts` extends `ProductType
 
 ### Components
 
-| Component                 | What it shows                                                                                    |
-| ------------------------- | ------------------------------------------------------------------------------------------------ |
-| `PriceDisplay`            | Selling/regular price, discount percentage badge, discount type label (Sale/Campaign/Your Price) |
-| `ProductCard`             | Campaign badges overlaid on product image                                                        |
-| `ProductDetails`          | Campaign badges, negotiated price banner, PriceDisplay with full context                         |
-| `VolumePricingTable`      | Tiered quantity pricing from `CampaignPriceType[]`                                               |
-| `CartItem`                | Per-item campaign badges                                                                         |
-| `CartDrawer` / `CartPage` | Cart-level discount line, applied campaign names                                                 |
+| Component                 | What it shows                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------- |
+| `PriceDisplay`            | Selling/regular price, discount percentage badge, discount type label (Sale/Campaign) |
+| `ProductCard`             | Campaign badges overlaid on product image                                             |
+| `ProductDetails`          | Campaign badges, PriceDisplay with full context                                       |
+| `VolumePricingTable`      | Tiered quantity pricing from `CampaignPriceType[]`                                    |
+| `CartItem`                | Per-item campaign badges                                                              |
+| `CartDrawer` / `CartPage` | Cart-level discount line, applied campaign names                                      |
 
 ### Shared Patterns
 
-- **Badges**: the shadcn `Badge` with a tone variant — `destructive-soft` (sales/campaigns) and `info` (negotiated/external)
+- **Badges**: the shadcn `Badge` with the `destructive-soft` tone for sales and campaigns
 - **Campaign filter**: `filterVisibleCampaigns()` in `shared/types/commerce.ts` — filters `hideTitle: true` campaigns
 - **Cart discount getters**: `discountAmount` and `visibleCartCampaigns` live in the cart Pinia store to avoid duplication between CartDrawer and CartPage
 

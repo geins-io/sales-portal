@@ -110,6 +110,27 @@ describe('toFavoriteCardItem', () => {
     expect(item.salePrice).toBe('80 kr');
   });
 
+  // Measured on a price list that is not enforced: 270 against 300 inc VAT.
+  it("shows a price-list price as the buyer's ordinary price", () => {
+    const item = toFavoriteCardItem(
+      {
+        ...ORDINARY,
+        discountType: 'PRICE_LIST',
+        unitPrice: {
+          isDiscounted: true,
+          regularPriceIncVat: 300,
+          regularPriceIncVatFormatted: '300 kr',
+          sellingPriceIncVat: 270,
+          sellingPriceIncVatFormatted: '270 kr',
+        },
+      },
+      true,
+    );
+
+    expect(item.price).toBe('270 kr');
+    expect(item.salePrice).toBeNull();
+  });
+
   it('treats a selling price below the regular one as a discount without the flag', () => {
     const item = toFavoriteCardItem(
       {
@@ -127,6 +148,44 @@ describe('toFavoriteCardItem', () => {
 
     expect(item.price).toBe('100 kr');
     expect(item.salePrice).toBe('80 kr');
+  });
+
+  it('shows no discount without the flag when the selling price is above the regular one', () => {
+    const item = toFavoriteCardItem(
+      {
+        ...ORDINARY,
+        unitPrice: {
+          isDiscounted: false,
+          regularPriceIncVat: 100,
+          regularPriceIncVatFormatted: '100 kr',
+          sellingPriceIncVat: 120,
+          sellingPriceIncVatFormatted: '120 kr',
+        },
+      },
+      true,
+    );
+
+    expect(item.price).toBe('120 kr');
+    expect(item.salePrice).toBeNull();
+  });
+
+  // `100 > null` is true in JavaScript, so the guard is what keeps this ordinary.
+  it('shows no discount without the flag when the selling price is missing', () => {
+    const item = toFavoriteCardItem(
+      {
+        ...ORDINARY,
+        unitPrice: {
+          isDiscounted: false,
+          regularPriceIncVat: 100,
+          regularPriceIncVatFormatted: '100 kr',
+          sellingPriceIncVat: null,
+        },
+      },
+      true,
+    );
+
+    expect(item.price).toBeNull();
+    expect(item.salePrice).toBeNull();
   });
 
   it('shows no discount when the selling price equals the regular one', () => {

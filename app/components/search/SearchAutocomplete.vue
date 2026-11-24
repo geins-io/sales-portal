@@ -90,7 +90,11 @@ onUnmounted(() => {
               {{ product.brand?.name }}
             </p>
           </div>
-          <PriceDisplay :price="product.unitPrice" class="shrink-0 text-sm" />
+          <PriceDisplay
+            :price="product.unitPrice"
+            :discount-type="product.discountType"
+            class="shrink-0 text-sm"
+          />
         </li>
       </ul>
 

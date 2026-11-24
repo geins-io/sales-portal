@@ -134,4 +134,31 @@ describe('isShownAsDiscount', () => {
       expect(isShownAsDiscount(total(260.22512604, 260.22))).toBe(true);
     });
   });
+
+  // Measured: a price list that is not enforced answers 216 against 240, 10 %.
+  describe('by discount type', () => {
+    const priceList = {
+      isDiscounted: true,
+      regularPriceExVat: 240,
+      sellingPriceExVat: 216,
+    };
+
+    it("hides a price-list price: it is the buyer's ordinary price", () => {
+      expect(isShownAsDiscount(priceList, 1, 'PRICE_LIST')).toBe(false);
+      expect(isShownAsDiscount(priceList, 3, 'PRICE_LIST')).toBe(false);
+    });
+
+    it.each([
+      'SALE_PRICE',
+      'PRICE_CAMPAIGN',
+      'EXTERNAL',
+      'NONE',
+      undefined,
+    ] as const)(
+      'judges a %s price by its prices, as before',
+      (discountType) => {
+        expect(isShownAsDiscount(priceList, 1, discountType)).toBe(true);
+      },
+    );
+  });
 });

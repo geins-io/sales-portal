@@ -373,16 +373,12 @@ describe('PriceDisplay', () => {
       expect(label.text()).toBe('discount.campaign');
     });
 
-    it('shows "Your price" for EXTERNAL as an info badge', () => {
+    it('shows no label for EXTERNAL', () => {
       const wrapper = mountComponent(PriceDisplay, {
         props: { price: makePrice(), discountType: 'EXTERNAL' },
       });
-      const label = wrapper.find('[data-testid="discount-type-label"]');
-      expect(label.exists()).toBe(true);
-      expect(label.text()).toBe('discount.your_price');
-      expect(label.attributes('data-slot')).toBe('badge');
-      expect(label.classes()).toEqual(
-        expect.arrayContaining(['bg-info/10', 'text-info']),
+      expect(wrapper.find('[data-testid="discount-type-label"]').exists()).toBe(
+        false,
       );
     });
 
@@ -476,17 +472,37 @@ describe('PriceDisplay', () => {
       };
     }
 
-    it.each(['EXTERNAL', 'PRICE_LIST', 'NONE'])(
-      'renders a %s price as without the variant',
+    it.each(['EXTERNAL', 'NONE'])(
+      'renders a discounted %s price like any other discount, as without the variant',
       (discountType) => {
         const detail = mount({ discountType }, 'detail');
         expect(reading(detail)).toEqual(reading(mount({ discountType })));
-        expect(reading(detail)).toMatchObject({
-          labelAbove: discountType === 'EXTERNAL' ? false : null,
+        expect(reading(detail)).toEqual({
+          label: null,
+          labelAbove: null,
           red: true,
+          struck: '299,00 kr',
           percent: true,
           lowest: true,
         });
+      },
+    );
+
+    // A price list that is not enforced: the API flags it discounted against
+    // the ordinary price, but it is the buyer's own price.
+    it.each([undefined, 'detail'] as const)(
+      'renders a PRICE_LIST price as an ordinary price (variant %s)',
+      (variant) => {
+        expect(reading(mount({ discountType: 'PRICE_LIST' }, variant))).toEqual(
+          {
+            label: null,
+            labelAbove: null,
+            red: false,
+            struck: null,
+            percent: false,
+            lowest: false,
+          },
+        );
       },
     );
 

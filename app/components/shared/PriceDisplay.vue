@@ -5,7 +5,7 @@ import type {
   ProductDiscountType,
 } from '#shared/types/commerce';
 import { formatPrice } from '#shared/types/commerce';
-import { Badge, type BadgeVariant } from '~/components/ui/badge';
+import { Badge } from '~/components/ui/badge';
 import { isShownAsDiscount } from '~/utils/price-discount';
 
 const props = withDefaults(
@@ -87,7 +87,9 @@ const regularPrice = computed(() => {
 });
 
 const isDiscounted = computed(
-  () => props.showDiscount && isShownAsDiscount(props.price, props.quantity),
+  () =>
+    props.showDiscount &&
+    isShownAsDiscount(props.price, props.quantity, props.discountType),
 );
 
 const discountPercentage = computed(() => props.price?.discountPercentage ?? 0);
@@ -100,19 +102,15 @@ const discountLabel = computed(() => {
     case 'PRICE_CAMPAIGN':
       if (props.variant === 'detail' && props.campaignNames?.length) return '';
       return props.campaignNames?.[0] || t('discount.campaign');
-    case 'EXTERNAL':
-      return t('discount.your_price');
     default:
       return '';
   }
 });
 
-const discountLabelVariant = computed<BadgeVariant>(() =>
-  props.discountType === 'EXTERNAL' ? 'info' : 'destructive-soft',
-);
-
 const lowestPriceFormatted = computed(() => {
-  if (!props.lowestPrice?.isDiscounted) return '';
+  if (!props.lowestPrice?.isDiscounted || props.discountType === 'PRICE_LIST') {
+    return '';
+  }
   const formatted = effectiveShowVat.value
     ? props.lowestPrice.lowestPriceIncVatFormatted
     : props.lowestPrice.lowestPriceExVatFormatted;
@@ -153,7 +151,7 @@ const lowestPriceFormatted = computed(() => {
       </Badge>
       <Badge
         v-if="discountLabel"
-        :variant="discountLabelVariant"
+        variant="destructive-soft"
         data-testid="discount-type-label"
       >
         {{ discountLabel }}

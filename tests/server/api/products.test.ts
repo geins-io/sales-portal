@@ -437,7 +437,10 @@ describe('Product API Routes', () => {
       skus: [{ skuId: 4201, productId: 42 }],
     };
 
-    function answer(types: { productId: number; type: string }[] | Error) {
+    function answer(
+      types:
+        { productId: number; type: string; discountType?: string }[] | Error,
+    ) {
       mockGraphqlQuery.mockImplementation(
         async ({ queryAsString }: { queryAsString: string }) => {
           if (queryAsString === 'query:products/related-products.graphql') {
@@ -479,6 +482,23 @@ describe('Product API Routes', () => {
       expect(result).toEqual([
         { ...machine, productId: 1359, configurable: true },
         { ...screw, productId: 42 },
+      ]);
+    });
+
+    // The related item type has no discount type; the same lookup brings it,
+    // so a price-list card reads as the buyer's ordinary price.
+    it('gives every related row its discount type from the same lookup', async () => {
+      vi.mocked(getRouterParam).mockReturnValue('my-product');
+      answer([
+        { productId: 1359, type: 'product', discountType: 'PRICE_CAMPAIGN' },
+        { productId: 42, type: 'product', discountType: 'PRICE_LIST' },
+      ]);
+
+      const result = await handler(fakeEvent);
+
+      expect(result).toEqual([
+        { ...machine, productId: 1359, discountType: 'PRICE_CAMPAIGN' },
+        { ...screw, productId: 42, discountType: 'PRICE_LIST' },
       ]);
     });
 
