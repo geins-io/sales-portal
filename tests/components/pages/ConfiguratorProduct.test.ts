@@ -588,6 +588,19 @@ describe('ConfiguratorProduct', () => {
     expect(wrapper.find('h1').text()).toBe('Arbetsbord Pro');
     expect(wrapper.text()).toContain('KONF-1001');
   });
+
+  // The header is the ordinary product page's; the stock at the end of its
+  // brand row is the catalogue SKU's, which a configuration is not.
+  it('shows the brand row without a stock status', () => {
+    const wrapper = mountPage(makeProduct({ brand: { name: 'Verkstad' } }));
+
+    expect(wrapper.get('[data-testid="product-brand"]').text()).toBe(
+      'Verkstad',
+    );
+    expect(wrapper.find('[data-testid="stock-indicator"]').exists()).toBe(
+      false,
+    );
+  });
 });
 
 describe('ConfiguratorProduct breadcrumbs', () => {

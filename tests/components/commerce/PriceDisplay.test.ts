@@ -428,6 +428,113 @@ describe('PriceDisplay', () => {
     });
   });
 
+  // The product page's price: only the campaign name changes there.
+  describe('variant detail', () => {
+    const LOWEST = {
+      lowestPriceIncVat: 149,
+      lowestPriceIncVatFormatted: '149,00 kr',
+      lowestPriceExVat: 119.2,
+      lowestPriceExVatFormatted: '119,20 kr',
+      comparisonPriceIncVat: 299,
+      comparisonPriceExVat: 239.2,
+      isDiscounted: true,
+      discountPercentage: 50,
+    };
+
+    function mount(props: Record<string, unknown>, variant?: 'detail') {
+      return mountComponent(PriceDisplay, {
+        props: {
+          price: makePrice(),
+          lowestPrice: LOWEST,
+          testid: 'amount',
+          ...(variant ? { variant } : {}),
+          ...props,
+        },
+      });
+    }
+    const LABEL = '[data-testid="discount-type-label"]';
+    const AMOUNT = '[data-testid="amount"]';
+
+    /** What a viewer reads, in document order: label, price, strike, percent, lowest. */
+    function reading(wrapper: ReturnType<typeof mount>) {
+      const label = wrapper.find(LABEL);
+      const amount = wrapper.get(AMOUNT);
+      return {
+        label: label.exists() ? label.text() : null,
+        labelAbove: label.exists()
+          ? Boolean(
+              label.element.compareDocumentPosition(amount.element) &
+              Node.DOCUMENT_POSITION_FOLLOWING,
+            ) && !label.element.parentElement?.contains(amount.element)
+          : null,
+        red: amount.classes().includes('text-danger'),
+        struck: wrapper.find('.line-through').exists()
+          ? wrapper.get('.line-through').text()
+          : null,
+        percent: wrapper.text().includes('-33%'),
+        lowest: wrapper.find('[data-testid="lowest-price"]').exists(),
+      };
+    }
+
+    it.each(['EXTERNAL', 'PRICE_LIST', 'NONE'])(
+      'renders a %s price as without the variant',
+      (discountType) => {
+        const detail = mount({ discountType }, 'detail');
+        expect(reading(detail)).toEqual(reading(mount({ discountType })));
+        expect(reading(detail)).toMatchObject({
+          labelAbove: discountType === 'EXTERNAL' ? false : null,
+          red: true,
+          percent: true,
+          lowest: true,
+        });
+      },
+    );
+
+    it('shows no label for PRICE_CAMPAIGN when a campaign name is given', () => {
+      const wrapper = mount(
+        {
+          discountType: 'PRICE_CAMPAIGN',
+          campaignNames: ['Summer Sale', 'Autumn'],
+        },
+        'detail',
+      );
+      expect(wrapper.find(LABEL).exists()).toBe(false);
+      expect(wrapper.text()).not.toContain('Summer Sale');
+    });
+
+    it('keeps the generic campaign label when no campaign name is given', () => {
+      const wrapper = mount(
+        { discountType: 'PRICE_CAMPAIGN', campaignNames: [] },
+        'detail',
+      );
+      expect(wrapper.find(LABEL).text()).toBe('discount.campaign');
+    });
+
+    it('keeps the red price, percent and lowest price for PRICE_CAMPAIGN', () => {
+      const wrapper = mount(
+        { discountType: 'PRICE_CAMPAIGN', campaignNames: ['Summer Sale'] },
+        'detail',
+      );
+      expect(reading(wrapper)).toMatchObject({
+        red: true,
+        percent: true,
+        lowest: true,
+      });
+    });
+
+    it('keeps the SALE_PRICE label beside a red price', () => {
+      const wrapper = mount({ discountType: 'SALE_PRICE' }, 'detail');
+      expect(reading(wrapper)).toEqual(
+        reading(mount({ discountType: 'SALE_PRICE' })),
+      );
+      expect(reading(wrapper)).toMatchObject({
+        label: 'discount.sale',
+        labelAbove: false,
+        red: true,
+      });
+    });
+  });
+
   // One test per configured value of `priceVisibility`, each writing the value
   // itself rather than a decision derived from it. Registered in
   // tests/unit/config-coverage/map.ts, which requires the key in the title.

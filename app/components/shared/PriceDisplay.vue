@@ -22,6 +22,12 @@ const props = withDefaults(
     discountType?: ProductDiscountType;
     campaignNames?: string[];
     /**
+     * `detail`: the product page's price. No campaign name beside the price:
+     * the page lists `campaignNames` itself (without one, the generic
+     * campaign label still shows).
+     */
+    variant?: 'default' | 'detail';
+    /**
      * Test id for the rendered amount. Passed in rather than fixed: this
      * component renders several times on one page (a PDP shows it for the
      * product and again for every related card), so a built-in id would
@@ -92,6 +98,7 @@ const discountLabel = computed(() => {
     case 'SALE_PRICE':
       return t('discount.sale');
     case 'PRICE_CAMPAIGN':
+      if (props.variant === 'detail' && props.campaignNames?.length) return '';
       return props.campaignNames?.[0] || t('discount.campaign');
     case 'EXTERNAL':
       return t('discount.your_price');

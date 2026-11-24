@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, ChevronDown, Search } from 'lucide-vue-next';
+import { ArrowLeft, ChevronRight, Search } from 'lucide-vue-next';
 import type {
   VariantDimensionRow,
   VariantNode,
@@ -23,6 +23,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from '~/components/ui/sheet';
+
+/**
+ * Every trigger that opens the panel. The 4 px corners are fixed: the store's
+ * radius rounds the buy buttons, not these rows.
+ */
+const TRIGGER_CLASS =
+  'border-input bg-muted/50 hover:bg-muted flex h-11 w-full items-center justify-between rounded-[4px] px-3 font-normal shadow-none lg:max-w-80';
 
 const props = defineProps<{
   variantDimensions: VariantDimensionRow[];
@@ -624,19 +631,19 @@ const { showPrice } = usePriceVisibility();
 </script>
 
 <template>
-  <div class="flex flex-col gap-3" data-testid="variant-selector">
+  <div class="flex flex-col gap-4" data-testid="variant-selector">
     <div
       v-for="dimension in visibleDimensions"
       :key="dimension.dimensionName"
       class="flex flex-col gap-1.5"
     >
-      <span class="font-medium">
+      <span class="text-sm font-medium">
         {{ dimensionHeading(dimension.dimensionName) }}
       </span>
       <Button
         type="button"
         variant="outline"
-        class="border-input flex h-[50px] w-4/5 items-center justify-between rounded-md px-3 font-normal"
+        :class="TRIGGER_CLASS"
         :data-testid="`variant-trigger-${dimension.dimensionName}`"
         @click="openSheet(dimension.dimensionName)"
       >
@@ -650,18 +657,18 @@ const { showPrice } = usePriceVisibility();
               : $t('product.select_variant_placeholder')
           }}
         </span>
-        <ChevronDown class="size-4 shrink-0 opacity-50" />
+        <ChevronRight class="size-4 shrink-0 opacity-50" aria-hidden="true" />
       </Button>
     </div>
 
     <div v-if="showSkuGroup" class="flex flex-col gap-1.5">
-      <span class="font-medium">
+      <span class="text-sm font-medium">
         {{ $t('product.variant_heading') }}
       </span>
       <Button
         type="button"
         variant="outline"
-        class="border-input flex h-[50px] w-4/5 items-center justify-between rounded-md px-3 font-normal"
+        :class="TRIGGER_CLASS"
         data-testid="variant-trigger-sku"
         @click="openSkuSheet"
       >
@@ -672,7 +679,7 @@ const { showPrice } = usePriceVisibility();
               : $t('product.select_variant_placeholder')
           }}
         </span>
-        <ChevronDown class="size-4 shrink-0 opacity-50" />
+        <ChevronRight class="size-4 shrink-0 opacity-50" aria-hidden="true" />
       </Button>
     </div>
 
