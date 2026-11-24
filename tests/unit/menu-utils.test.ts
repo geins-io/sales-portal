@@ -162,6 +162,14 @@ describe('getMenuLabel', () => {
   it('returns empty string when neither exists', () => {
     expect(getMenuLabel({})).toBe('');
   });
+
+  it('falls back to title past a blank label', () => {
+    expect(getMenuLabel({ label: ' ', title: 'Title' })).toBe('Title');
+  });
+
+  it('returns empty string when label and title are blank', () => {
+    expect(getMenuLabel({ label: ' ', title: '\t' })).toBe('');
+  });
 });
 
 describe('getVisibleItems', () => {
@@ -188,6 +196,29 @@ describe('getVisibleItems', () => {
 
   it('returns empty array for undefined input', () => {
     expect(getVisibleItems(undefined)).toEqual([]);
+  });
+
+  it('drops an item with neither label nor title', () => {
+    const items: MenuItemType[] = [
+      { id: '1', label: '', title: '' },
+      { id: '2' },
+      { id: '3', label: 'Named' },
+    ];
+    expect(getVisibleItems(items).map((i) => i.id)).toEqual(['3']);
+  });
+
+  it('drops an item whose name is only whitespace', () => {
+    const items: MenuItemType[] = [
+      { id: '1', label: ' ', title: '' },
+      { id: '2', label: '', title: '\t ' },
+      { id: '3', label: 'Named' },
+    ];
+    expect(getVisibleItems(items).map((i) => i.id)).toEqual(['3']);
+  });
+
+  it('keeps an item with an empty label but a title', () => {
+    const items: MenuItemType[] = [{ id: '1', label: '', title: 'Titled' }];
+    expect(getVisibleItems(items).map((i) => i.id)).toEqual(['1']);
   });
 });
 

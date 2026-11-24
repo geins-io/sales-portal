@@ -153,10 +153,11 @@ export function normalizeMenuUrl(
 }
 
 /**
- * Get display label for a menu item. CMS uses `label` as primary, `title` as fallback.
+ * Get display label for a menu item. CMS uses `label` as primary, `title` as
+ * fallback; a blank label falls through to the title.
  */
 export function getMenuLabel(item: Partial<MenuItemType>): string {
-  return item.label || item.title || '';
+  return item.label?.trim() || item.title?.trim() || '';
 }
 
 /**
@@ -184,14 +185,16 @@ export function splitLabelInTwo(label: string): [string] | [string, string] {
 }
 
 /**
- * Filter hidden items and sort by order. Returns a new array.
+ * Filter hidden and unnamed items and sort by order. Returns a new array.
+ * An item has no name in a locale nobody translated it into; dropping it here
+ * drops its children too, since every menu reaches them through this.
  */
 export function getVisibleItems(
   items: MenuItemType[] | undefined | null,
 ): MenuItemType[] {
   if (!items?.length) return [];
   return items
-    .filter((item) => item.hidden !== true)
+    .filter((item) => item.hidden !== true && getMenuLabel(item) !== '')
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
