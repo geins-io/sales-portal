@@ -17,7 +17,7 @@ describe('quickAddChoice', () => {
     });
   });
 
-  it('adds nothing for a product with several variants: the buyer picks one', () => {
+  it('adds nothing for a product with several SKUs: the buyer picks one', () => {
     expect(quickAddChoice(hit([{ skuId: 1 }, { skuId: 2 }]))).toEqual({
       blocked: 'variants',
     });

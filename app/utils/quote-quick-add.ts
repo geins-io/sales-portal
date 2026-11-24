@@ -5,7 +5,7 @@ export type QuickAddChoice =
 
 /**
  * What quick add can put on a draft from a search hit. A configurable product
- * needs a configuration first, and a product with several variants needs the
+ * needs a configuration first, and a product with several SKUs needs the
  * buyer to pick one, so both are shown without an add.
  */
 export function quickAddChoice(
