@@ -110,7 +110,7 @@ const isFramedFormPage = computed(
     <!-- Loading skeleton -->
     <div
       v-if="status === 'pending'"
-      class="mx-auto max-w-7xl px-4 py-8 lg:px-6"
+      class="content-column py-8"
       data-testid="route-loading"
     >
       <div class="flex flex-col gap-4">
@@ -135,7 +135,7 @@ const isFramedFormPage = computed(
     <!-- Sidebar layout: page tagged with 'menu' in CMS -->
     <div
       v-else-if="hasSidebar && page?.containers?.length"
-      class="mx-auto max-w-7xl px-4 py-8 lg:px-6"
+      class="content-column py-8"
     >
       <div class="md:flex md:gap-8">
         <ErrorBoundary v-if="sidebarMenuId" section="sidebar-nav">
@@ -165,7 +165,7 @@ const isFramedFormPage = computed(
          sits on a white bordered card with the content capped for readability. -->
     <div
       v-else-if="isFramedFormPage && page?.containers?.length"
-      class="mx-auto max-w-7xl px-4 py-8 lg:px-6"
+      class="content-column py-8"
     >
       <div
         data-testid="content-frame"

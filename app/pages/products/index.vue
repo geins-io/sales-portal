@@ -140,8 +140,8 @@ useSeoMeta({
 </script>
 
 <template>
-  <div class="px-4 py-8 lg:px-6">
-    <div class="mx-auto max-w-7xl space-y-6">
+  <div class="py-8">
+    <div class="content-column space-y-6">
       <!-- Page header -->
       <div>
         <h1

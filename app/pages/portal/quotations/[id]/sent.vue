@@ -83,7 +83,7 @@ useHead({
 </script>
 
 <template>
-  <div v-if="isSent" class="mx-auto max-w-7xl px-4 py-8 lg:px-6">
+  <div v-if="isSent" class="content-column py-8">
     <QuoteConfirmation
       kind="request"
       :number="quote.quoteNumber"

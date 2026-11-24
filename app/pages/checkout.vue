@@ -241,10 +241,7 @@ async function handlePlaceOrder() {
 
 <template>
   <div class="min-h-full bg-neutral-50">
-    <div
-      class="mx-auto max-w-7xl px-4 py-8 lg:px-6"
-      data-testid="checkout-page"
-    >
+    <div class="content-column py-8" data-testid="checkout-page">
       <!-- Hosted checkout: redirect state -->
       <div
         v-if="checkoutMode === 'hosted'"

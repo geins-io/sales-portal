@@ -153,7 +153,7 @@ describe('CmsContainer', () => {
         props: { container },
         global: { stubs },
       });
-      expect(wrapper.find('section').classes()).toContain('max-w-7xl');
+      expect(wrapper.find('section').classes()).toContain('content-column');
     });
 
     it('applies narrow design classes', () => {
@@ -162,16 +162,20 @@ describe('CmsContainer', () => {
         props: { container },
         global: { stubs },
       });
-      expect(wrapper.find('section').classes()).toContain('max-w-3xl');
+      const classes = wrapper.find('section').classes();
+      expect(classes).toContain('max-w-3xl');
+      // Its own width, the content column's gutter.
+      expect(classes).toContain('content-gutter');
+      expect(classes).not.toContain('px-4');
     });
 
-    it('applies max-w-7xl for default design', () => {
+    it('applies the content column for default design', () => {
       const container = makeContainer('full', [makeWidget()], '');
       const wrapper = mountComponent(CmsContainer, {
         props: { container },
         global: { stubs },
       });
-      expect(wrapper.find('section').classes()).toContain('max-w-7xl');
+      expect(wrapper.find('section').classes()).toContain('content-column');
     });
 
     it('applies w-full for full-width design', () => {
@@ -190,9 +194,9 @@ describe('CmsContainer', () => {
         global: { stubs },
       });
       const classes = wrapper.find('section').classes();
+      expect(classes).not.toContain('content-column');
       expect(classes).not.toContain('max-w-7xl');
       expect(classes).not.toContain('px-4');
-      expect(classes).not.toContain('lg:px-6');
       // Vertical spacing is unchanged so the hero keeps its rhythm.
       expect(classes).toContain('py-4');
     });
@@ -242,7 +246,7 @@ describe('CmsContainer', () => {
       });
       // Outer section is the full-width gutter, not the white card itself.
       const section = wrapper.find('section').classes();
-      expect(section).toContain('max-w-7xl');
+      expect(section).toContain('content-column');
       expect(section).not.toContain('bg-white');
       expect(section).not.toContain('max-w-2xl');
       // The white bordered card spans the wide content width.
@@ -269,7 +273,7 @@ describe('CmsContainer', () => {
       });
       const classes = wrapper.find('section').classes();
       expect(classes).not.toContain('bg-white');
-      expect(classes).toContain('max-w-7xl');
+      expect(classes).toContain('content-column');
     });
 
     it('does not frame a rich-text block when frameRichText is absent', () => {
@@ -280,7 +284,7 @@ describe('CmsContainer', () => {
       });
       const classes = wrapper.find('section').classes();
       expect(classes).not.toContain('bg-white');
-      expect(classes).toContain('max-w-7xl');
+      expect(classes).toContain('content-column');
     });
   });
 

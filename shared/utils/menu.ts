@@ -1,4 +1,5 @@
 import type { MenuItemType } from '../types/cms';
+import type { TenantConfig } from '../types/tenant-config';
 import { ROUTE_PATHS } from '../constants/route-paths';
 import { SUPPORTED_LOCALE_CODES } from '../utils/locale-market';
 
@@ -158,6 +159,14 @@ export function normalizeMenuUrl(
  */
 export function getMenuLabel(item: Partial<MenuItemType>): string {
   return item.label?.trim() || item.title?.trim() || '';
+}
+
+type MenuSettings = NonNullable<TenantConfig['layout']>['menu'];
+
+/** The menu bar's alignment. The catalogue is always left aligned. */
+export function navBarAlignment(menu: MenuSettings | undefined) {
+  if (menu?.type === 'catalogue') return null;
+  return menu?.navbarAlignment;
 }
 
 /**

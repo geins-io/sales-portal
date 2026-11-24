@@ -1,7 +1,8 @@
 <template>
-  <div data-slot="footer-bottom" class="px-6 lg:px-6">
+  <div data-slot="footer-bottom" class="content-column">
+    <!-- The rule separates the copyright from the rows above; with none, no rule. -->
     <div
-      class="border-footer-text mx-auto flex max-w-7xl flex-col items-center gap-4 border-t py-10"
+      class="border-footer-text flex flex-col items-center gap-4 border-t py-10 [:first-child>&]:border-t-0"
     >
       <div class="flex w-full justify-between">
         <Copyright />

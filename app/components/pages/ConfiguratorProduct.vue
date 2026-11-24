@@ -862,8 +862,8 @@ function onRetryOpen(): void {
 </script>
 
 <template>
-  <div class="px-4 py-8 lg:px-6" data-testid="configurator-product">
-    <div class="mx-auto max-w-7xl space-y-8">
+  <div class="py-8" data-testid="configurator-product">
+    <div class="content-column space-y-8">
       <!-- Print-only header: store logo + timestamp + product URL. -->
       <PrintHeader :product-url="printUrl" />
 

@@ -124,8 +124,12 @@ const textColorClass = computed(() => {
     <!-- Overlay mode: text on top of image -->
     <div
       v-if="hasOverlay && isOverlay"
-      class="absolute inset-0 flex flex-col justify-center p-6 md:p-12"
-      :class="[overlayAlignment, textColorClass]"
+      class="absolute inset-0 flex flex-col justify-center"
+      :class="[
+        fullWidth ? 'content-column py-6 md:py-12' : 'p-6 md:p-12',
+        overlayAlignment,
+        textColorClass,
+      ]"
     >
       <div class="max-w-2xl">
         <p

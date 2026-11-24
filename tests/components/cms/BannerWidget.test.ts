@@ -270,6 +270,37 @@ describe('BannerWidget', () => {
       expect(wrapper.find('.items-end').exists()).toBe(true);
     });
 
+    it('full-width: places the text in the content column, not from the window edge', () => {
+      const wrapper = mountComponent(BannerWidget, {
+        props: makeProps({ text1: 'Title', size: 'full' }),
+        global: { stubs },
+      });
+      const overlay = wrapper.find('.absolute');
+      expect(overlay.classes()).toEqual(
+        expect.arrayContaining(['inset-0', 'content-column']),
+      );
+      expect(overlay.classes()).not.toContain('p-6');
+      expect(overlay.classes()).not.toContain('md:p-12');
+    });
+
+    it('not full-width: keeps the overlay padding from the image edge', () => {
+      const wrapper = mountComponent(BannerWidget, {
+        props: makeProps({
+          text1: 'Title',
+          textAndButtonPlacement: 1,
+          size: 'half',
+          layout: 'half',
+          classNames: 'half',
+        }),
+        global: { stubs },
+      });
+      const overlay = wrapper.find('.absolute');
+      expect(overlay.classes()).toEqual(
+        expect.arrayContaining(['p-6', 'md:p-12']),
+      );
+      expect(overlay.classes()).not.toContain('content-column');
+    });
+
     it('not full-width: 0 = below-image (no overlay)', () => {
       const wrapper = mountComponent(BannerWidget, {
         props: makeProps({

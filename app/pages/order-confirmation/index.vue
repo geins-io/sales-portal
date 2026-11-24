@@ -79,7 +79,7 @@ async function fetchAgain() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl px-4 py-8 lg:px-6">
+  <div class="content-column py-8">
     <OrderConfirmation
       :order-number="orderNumber"
       :public-order-id="publicOrderId"

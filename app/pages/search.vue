@@ -24,7 +24,7 @@ if (searchTerm.value) {
 </script>
 
 <template>
-  <div class="mx-auto max-w-2xl px-4 py-12 lg:px-6">
+  <div class="content-gutter mx-auto max-w-2xl py-12">
     <h1 class="mb-4 text-2xl font-bold">{{ $t('search.title') }}</h1>
     <SearchBar autofocus />
     <p class="text-muted-foreground mt-3 text-sm">

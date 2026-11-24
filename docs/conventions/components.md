@@ -50,3 +50,14 @@ const active = computed(() => (props.kind === 'foo' ? Foo : Bar));
 
 Binding the resolved component object is safe — the failure mode is specific to resolving a
 **name** at runtime.
+
+## Page content sits in the content column
+
+Content lines up with the header's logo and cart: one column, defined once in
+`app/assets/css/tailwind.css`. Put `content-column` (centred, 1280 px at most, the 16/24 px
+gutter inside) on the element that holds the content; a background that should run to the window
+edge goes on a wrapper around it. A narrower block keeps its own `mx-auto max-w-*` and takes
+`content-gutter` for the gutter. Never hand-write `max-w-7xl px-4 lg:px-6`, and never put a
+`px-*`, `mx-*` or `max-w-*` class on the same element as `content-column`: tailwind-merge does not
+know the utility, so it would not resolve the clash. Where padding cannot carry the gutter (the
+menu bar's arrow slots), use `--content-max` and `--content-gutter` directly.

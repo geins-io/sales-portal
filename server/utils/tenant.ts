@@ -17,6 +17,7 @@ import {
 } from './storefront-settings-defaults';
 import { KV_STORAGE_KEYS } from '#shared/constants/storage';
 import { normalizeListDefaultSort } from '#shared/utils/filters';
+import { navBarAlignment } from '#shared/utils/menu';
 import { logger } from './logger';
 import { isDevMode } from './dev-mode';
 import { TENANT_LOOKUP_TIMEOUT_MS } from './outbound-timeouts';
@@ -493,12 +494,8 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
 
   const themeName = merged.theme.name ?? merged.accountName;
 
-  // The catalogue is always left aligned; the saved alignment stays in
-  // `layout` for when the merchant switches back to the mega menu.
-  const menu = merged.layout?.menu;
-  const navBarAlignment =
-    menu?.type === 'catalogue' ? null : menu?.navbarAlignment;
-
+  // The saved alignment stays in `layout` for when the merchant switches
+  // back from the catalogue to the mega menu.
   const css = generateTenantCss(
     themeName,
     derivedColors,
@@ -506,7 +503,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     merged.overrides?.css,
     merged.theme.typography,
     merged.theme.cardBorders,
-    navBarAlignment,
+    navBarAlignment(merged.layout?.menu),
   );
 
   const theme: TenantConfig['theme'] = {

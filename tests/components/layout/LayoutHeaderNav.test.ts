@@ -405,6 +405,77 @@ describe('LayoutHeaderNav', () => {
       expect(wrapper.text()).toContain('Leaf');
     }
 
+    describe('the first item at the content edge', () => {
+      beforeEach(() => {
+        mockMenu.value = {
+          id: '1',
+          title: 'Main',
+          menuItems: [
+            {
+              id: '1',
+              label: 'Category',
+              order: 1,
+              children: [
+                { id: '1-1', label: 'Sub', canonicalUrl: '/sub', order: 1 },
+              ],
+            },
+            { id: '2', label: 'Plain', canonicalUrl: '/plain', order: 2 },
+          ],
+        };
+      });
+
+      function firstAndSecond(menu: Menu | undefined) {
+        setMenu(menu);
+        const wrapper = shallowMountComponent(LayoutHeaderNav, options);
+        // The trigger or link: the element that carries the item padding.
+        return wrapper
+          .findAll('[data-slot="navigation-menu-item"]')
+          .map((item) => {
+            const el = item.element.firstElementChild!;
+            return {
+              classes: () => [...el.classList],
+              text: () => el.textContent ?? '',
+            };
+          });
+      }
+
+      it("drops the first item's left padding when the menu is left aligned", () => {
+        const menus: (Menu | undefined)[] = [
+          undefined,
+          { navbarAlignment: 'left' },
+          { navbarAlignment: 'left', collapsibleCategories: true },
+          // The catalogue is always left aligned, whatever was saved.
+          { type: 'catalogue', navbarAlignment: 'center' },
+        ];
+        for (const menu of menus) {
+          const [first, second] = firstAndSecond(menu);
+          expect(first!.classes(), JSON.stringify(menu)).toContain('pl-0');
+          expect(second!.classes()).not.toContain('pl-0');
+        }
+      });
+
+      it('keeps it when the menu is centred', () => {
+        for (const menu of [
+          { navbarAlignment: 'center' },
+          { navbarAlignment: 'center', collapsibleCategories: true },
+        ] as Menu[]) {
+          const [first] = firstAndSecond(menu);
+          expect(first!.classes()).not.toContain('pl-0');
+        }
+      });
+
+      it('drops it on a plain link that comes first', () => {
+        // The bar sorts by order.
+        const [category, plain] = mockMenu.value!.menuItems!;
+        category!.order = 2;
+        plain!.order = 1;
+        const [first, second] = firstAndSecond(undefined);
+        expect(first!.text()).toContain('Plain');
+        expect(first!.classes()).toContain('pl-0');
+        expect(second!.classes()).not.toContain('pl-0');
+      });
+    });
+
     it("renders today's mega menu when the tenant has no menu layout", () => {
       for (const menu of [undefined, null, {}] as const) {
         setMenu(menu);
@@ -480,7 +551,9 @@ describe('LayoutHeaderNav', () => {
       expect(panel.classes()).toEqual(
         expect.arrayContaining(['w-fit', 'shadow-lg']),
       );
-      expect(panel.element.parentElement?.className).toContain('max-w-7xl');
+      expect(panel.element.parentElement?.classList).toContain(
+        'content-column',
+      );
     });
 
     it('drops the catalogue panel down, with no drop when the visitor prefers reduced motion', () => {
@@ -840,11 +913,14 @@ describe('LayoutHeaderNav', () => {
           assert.isNotNull(row);
           expect(row.classList.contains('px-4')).toBe(false);
           expect(row.classList.contains('lg:px-6')).toBe(false);
+          expect(row.classList.contains('max-w-(--content-max)')).toBe(true);
           const [start, , end] = Array.from(row.children);
           expect(start?.getAttribute('data-nav-gutter')).toBe('start');
           expect(end?.getAttribute('data-nav-gutter')).toBe('end');
           for (const gutter of [start, end]) {
-            expect(gutter?.classList.contains('w-6')).toBe(true);
+            expect(gutter?.classList.contains('w-(--content-gutter)')).toBe(
+              true,
+            );
             expect(gutter?.classList.contains('shrink-0')).toBe(true);
             // Two-line labels are taller than the arrow; the gutter must cover
             // the whole row so no descender shows beside it while scrolled.

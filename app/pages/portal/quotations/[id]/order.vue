@@ -134,7 +134,7 @@ function formatDate(iso: string): string {
   <div class="min-h-full bg-neutral-50">
     <div
       v-if="orderable"
-      class="mx-auto max-w-7xl px-4 py-8 lg:px-6"
+      class="content-column py-8"
       data-testid="quote-order-page"
     >
       <NuxtLink

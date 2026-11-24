@@ -10,7 +10,7 @@ const { localePath } = useLocaleMarket();
     <header class="bg-top-bar-background text-primary-foreground">
       <!-- Equal outer columns keep the title centred whatever the left holds. -->
       <div
-        class="mx-auto grid h-14 max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 lg:px-6"
+        class="content-column grid h-14 grid-cols-[1fr_auto_1fr] items-center gap-2"
       >
         <div class="flex items-center gap-2 lg:gap-4">
           <NuxtLink

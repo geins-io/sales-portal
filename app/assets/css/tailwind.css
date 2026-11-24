@@ -80,7 +80,30 @@
   }
 }
 
+/* The content column: the one width and gutter all page content lines up
+   with. Backgrounds may go full width; their content sits in this column.
+   An element with `content-column` takes no other px/mx/max-w class:
+   tailwind-merge does not know the utility, so it would not resolve a clash. */
+@utility content-gutter {
+  padding-inline: var(--content-gutter);
+}
+
+@utility content-column {
+  margin-inline: auto;
+  max-width: var(--content-max);
+  padding-inline: var(--content-gutter);
+}
+
 @layer base {
+  :root {
+    --content-max: --theme(--container-7xl);
+    --content-gutter: --spacing(4);
+
+    @variant lg {
+      --content-gutter: --spacing(6);
+    }
+  }
+
   :root {
     --font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
     --heading-font-family: 'Hanuman', serif;

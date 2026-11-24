@@ -81,7 +81,7 @@ useHead({
 </script>
 
 <template>
-  <div v-if="orderNumber || placed" class="mx-auto max-w-7xl px-4 py-8 lg:px-6">
+  <div v-if="orderNumber || placed" class="content-column py-8">
     <QuoteConfirmation
       :kind="placed ? 'placed' : 'order'"
       :number="orderNumber"

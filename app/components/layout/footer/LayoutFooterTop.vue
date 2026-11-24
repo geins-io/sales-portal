@@ -22,9 +22,9 @@ async function handleSubscribe() {
 </script>
 
 <template>
-  <div data-slot="footer-top" class="px-6 pt-10 pb-2.5 lg:px-6">
+  <div data-slot="footer-top" class="pt-10 pb-2.5">
     <div
-      class="mx-auto flex max-w-7xl flex-col gap-6 lg:flex-row lg:items-center lg:justify-between"
+      class="content-column flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between"
     >
       <div class="flex flex-col gap-1">
         <h2 class="text-lg font-semibold">
