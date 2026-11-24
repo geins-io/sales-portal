@@ -108,6 +108,19 @@ describe('purchaseCandidates', () => {
     expect(result.map((c) => c.alias)).toEqual(['ordinary']);
   });
 
+  // A card cannot add a product with several SKUs, and its PDP needs a pick.
+  it('never chooses a product with several SKUs', () => {
+    const result = purchaseCandidates(
+      [
+        { ...row('sizes', limited(900), 1), skuCount: 3 },
+        { ...row('one-sku', limited(4), 2), skuCount: 1 },
+        row('unknown', limited(2), 3),
+      ],
+      1,
+    );
+    expect(result.map((c) => c.alias)).toEqual(['one-sku', 'unknown']);
+  });
+
   it('keeps a candidate whose stock equals the quantity', () => {
     const result = purchaseCandidates([row('exact', limited(3))], 3);
     expect(result.map((c) => c.alias)).toEqual(['exact']);
@@ -125,7 +138,7 @@ describe('purchaseCandidates', () => {
       ),
     ).toThrow(
       'No product has stock for 3 units: the best is "two" with 2 ' +
-        '(read 3 candidates, the fixture seeds left out).',
+        '(read 3 candidates, the fixture seeds and multi-SKU products left out).',
     );
   });
 
@@ -134,7 +147,7 @@ describe('purchaseCandidates', () => {
       purchaseCandidates([row('seed', limited(900), 1101)], 1),
     ).toThrow(
       'No product has stock for 1 unit: no candidate is left once the ' +
-        'fixture seeds are out (read 1 candidate).',
+        'fixture seeds and multi-SKU products are out (read 1 candidate).',
     );
   });
 

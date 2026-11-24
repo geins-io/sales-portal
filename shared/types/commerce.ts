@@ -535,6 +535,8 @@ export interface PurchasedProduct extends PurchasedProductBase {
 export interface PurchasedProductCard extends PurchasedProductBase {
   /** The sku of the latest order line, which the card adds to the cart. */
   skuId?: number;
+  /** The product's SKUs in the catalogue, not only the ones bought. */
+  skuCount?: number;
   /** Set when the product is configured through the CPQ service. */
   configurable?: boolean;
 }

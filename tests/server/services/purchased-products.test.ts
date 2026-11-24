@@ -1176,6 +1176,66 @@ describe('getPurchasedProductsOverview', () => {
     expect(result.products[0]).not.toHaveProperty('type');
   });
 
+  // A card cannot pick between SKUs, so it needs the product's own count from
+  // the catalogue, not the count of the SKUs bought.
+  describe('the SKU count of the product', () => {
+    function withCatalogueSkus(skus: Array<{ skuId?: number | null } | null>) {
+      mockGetCatalogueProducts.mockResolvedValue(
+        new Map([[1, { productId: 1, name: 'Glasses', skus }]]),
+      );
+    }
+
+    it('carries the catalogue count when only one of its SKUs was bought', async () => {
+      withOrders([makeOrder({ items: [{ skuId: 1115 }] })]);
+      withCatalogueSkus([
+        { skuId: 1099 },
+        { skuId: 1113 },
+        { skuId: 1114 },
+        { skuId: 1115 },
+      ]);
+
+      const result =
+        await purchasedProducts.getPurchasedProductsOverview(mockEvent);
+
+      expect(result.products[0]!.skuCount).toBe(4);
+    });
+
+    it('carries a count of one for a product with one SKU', async () => {
+      withOrders([makeOrder({ items: [{ skuId: 1029 }] })]);
+      withCatalogueSkus([{ skuId: 1029 }]);
+
+      const result =
+        await purchasedProducts.getPurchasedProductsOverview(mockEvent);
+
+      expect(result.products[0]!.skuCount).toBe(1);
+    });
+
+    it('counts only the SKUs that have an id', async () => {
+      withOrders([makeOrder({ items: [{ skuId: 1029 }] })]);
+      withCatalogueSkus([null, { skuId: 1029 }, { skuId: null }]);
+
+      const result =
+        await purchasedProducts.getPurchasedProductsOverview(mockEvent);
+
+      expect(result.products[0]!.skuCount).toBe(1);
+    });
+
+    it('carries no count for a product the catalogue lacks or sends no SKUs for', async () => {
+      withOrders([makeOrder({ items: [{ skuId: 1029 }] })]);
+
+      const missing =
+        await purchasedProducts.getPurchasedProductsOverview(mockEvent);
+      expect(missing.products[0]).not.toHaveProperty('skuCount');
+
+      withOrders([makeOrder({ items: [{ skuId: 1029 }] })]);
+      withCatalogueSkus([]);
+
+      const empty =
+        await purchasedProducts.getPurchasedProductsOverview(mockEvent);
+      expect(empty.products[0]).not.toHaveProperty('skuCount');
+    });
+  });
+
   describe('the sku a row adds to the cart', () => {
     const older = (skuId: number) =>
       makeOrder({

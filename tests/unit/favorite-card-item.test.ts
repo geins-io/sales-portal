@@ -60,6 +60,23 @@ describe('toFavoriteCardItem', () => {
     expect(item.skuId).toBe(7);
   });
 
+  it('counts the skus that have an id, so the card knows a product has several', () => {
+    const item = toFavoriteCardItem(
+      {
+        ...ORDINARY,
+        skus: [null, { skuId: null }, { skuId: 7 }, { skuId: 8 }],
+      },
+      true,
+    );
+    expect(item.skuCount).toBe(2);
+  });
+
+  it('gives the card no sku count when no sku has an id', () => {
+    expect(
+      toFavoriteCardItem({ ...ORDINARY, skus: [{ skuId: null }] }, true),
+    ).not.toHaveProperty('skuCount');
+  });
+
   it('gives the card no sku when none has an id', () => {
     const item = toFavoriteCardItem(
       { ...ORDINARY, skus: [{ skuId: null }] },
@@ -142,6 +159,26 @@ describe('toFavoriteCardItem', () => {
         unitPrice: {
           regularPriceIncVat: 100,
           regularPriceIncVatFormatted: '100 kr',
+        },
+      },
+      true,
+    );
+
+    expect(item.price).toBeNull();
+    expect(item.salePrice).toBeNull();
+  });
+
+  // `100 > null` is true in JavaScript, so a null selling price must not
+  // read as a discount.
+  it('shows no discount when the selling price is null', () => {
+    const item = toFavoriteCardItem(
+      {
+        ...ORDINARY,
+        unitPrice: {
+          regularPriceIncVat: 100,
+          regularPriceIncVatFormatted: '100 kr',
+          sellingPriceIncVat: null,
+          sellingPriceIncVatFormatted: null,
         },
       },
       true,

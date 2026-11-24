@@ -50,4 +50,42 @@ describe('CartSkippedNote', () => {
       wrapper.find('[data-testid="cart-skipped-configurable"]').exists(),
     ).toBe(false);
   });
+
+  it('says how many products in several SKUs a bulk add left out', () => {
+    useCartStore().skippedMultiSku = 3;
+
+    const wrapper = mountComponent(CartSkippedNote);
+
+    expect(wrapper.find('[data-testid="cart-skipped-multi-sku"]').text()).toBe(
+      'cart.skipped_multi_sku {"count":3}',
+    );
+    expect(
+      wrapper.find('[data-testid="cart-skipped-configurable"]').exists(),
+    ).toBe(false);
+  });
+
+  it('shows both counts when a bulk add left out both kinds', () => {
+    const store = useCartStore();
+    store.skippedConfigurable = 1;
+    store.skippedMultiSku = 2;
+
+    const wrapper = mountComponent(CartSkippedNote);
+
+    expect(
+      wrapper.find('[data-testid="cart-skipped-configurable"]').exists(),
+    ).toBe(true);
+    expect(
+      wrapper.find('[data-testid="cart-skipped-multi-sku"]').exists(),
+    ).toBe(true);
+  });
+
+  it('renders no multi-SKU line when none was left out', () => {
+    useCartStore().skippedConfigurable = 1;
+
+    expect(
+      mountComponent(CartSkippedNote)
+        .find('[data-testid="cart-skipped-multi-sku"]')
+        .exists(),
+    ).toBe(false);
+  });
 });

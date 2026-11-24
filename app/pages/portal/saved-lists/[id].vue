@@ -75,6 +75,12 @@ function isConfigurable(product: ListProduct): boolean {
   return pageTypeOf(product) === 'configurable';
 }
 
+// A list keeps the product, never which SKU was meant, so a product in several
+// links to its page, as its product card does.
+function hasSeveralSkus(product: ListProduct): boolean {
+  return (product.skus?.length ?? 0) > 1;
+}
+
 const favoritesStore = useFavoritesStore();
 const cartStore = useCartStore();
 const { showIncVat } = useVatDisplay();
@@ -167,9 +173,14 @@ const filteredProducts = computed(() => {
 const addAll = computed(() => {
   const lines: { skuId: number; quantity: number }[] = [];
   let skipped = 0;
+  let skippedSeveralSkus = 0;
   for (const product of products.value) {
     if (isConfigurable(product)) {
       skipped++;
+      continue;
+    }
+    if (hasSeveralSkus(product)) {
+      skippedSeveralSkus++;
       continue;
     }
     const firstSku = product.skus?.find((s) => s?.skuId != null);
@@ -177,16 +188,16 @@ const addAll = computed(() => {
       lines.push({ skuId: firstSku.skuId, quantity: getQty(product.alias) });
     }
   }
-  return { lines, skipped };
+  return { lines, skipped, skippedSeveralSkus };
 });
 
 const isAddingAll = ref(false);
 async function addAllToCart() {
-  const { lines, skipped } = addAll.value;
+  const { lines, skipped, skippedSeveralSkus } = addAll.value;
   if (isAddingAll.value || !lines.length) return;
   isAddingAll.value = true;
   try {
-    await cartStore.addItems(lines, skipped);
+    await cartStore.addItems(lines, skipped, skippedSeveralSkus);
   } finally {
     isAddingAll.value = false;
   }
@@ -491,7 +502,11 @@ function addToCart(product: ListProduct) {
 
                 <!-- Qty stepper -->
                 <QuantityStepper
-                  v-if="product.alias && !isConfigurable(product)"
+                  v-if="
+                    product.alias &&
+                    !isConfigurable(product) &&
+                    !hasSeveralSkus(product)
+                  "
                   :model-value="getQty(product.alias)"
                   :min="1"
                   class="shrink-0"
@@ -513,6 +528,24 @@ function addToCart(product: ListProduct) {
                   >
                     <SlidersHorizontal class="size-4 shrink-0" />
                     {{ t('configurator.configure_product') }}
+                  </NuxtLink>
+                </Button>
+                <Button
+                  v-else-if="
+                    canPurchase && product.alias && hasSeveralSkus(product)
+                  "
+                  as-child
+                  class="h-9 px-4"
+                >
+                  <NuxtLink
+                    :to="
+                      localePath(
+                        productPath(product.canonicalUrl || product.alias),
+                      )
+                    "
+                    data-testid="list-item-go-to-product-link"
+                  >
+                    {{ t('product.go_to_product') }}
                   </NuxtLink>
                 </Button>
                 <Button

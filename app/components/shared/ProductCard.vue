@@ -35,6 +35,8 @@ export interface ProductCardItem {
   /** The product page, when it differs from the alias's language. */
   canonicalUrl?: string | null;
   skuId?: number;
+  /** Left out for a card that adds one known SKU, such as a purchased one. */
+  skuCount?: number;
   configurable?: boolean;
 }
 
@@ -81,6 +83,14 @@ const isOutOfStock = computed(() => {
   const stock = props.product.totalStock;
   if (!stock) return false;
   return getStockStatus(stock) === 'out-of-stock';
+});
+
+// A card cannot pick between SKUs, so a product with several sends the buyer
+// to its page instead of adding the first.
+const hasSeveralSkus = computed(() => {
+  if (isFullProduct(props.product))
+    return (props.product.skus?.length ?? 0) > 1;
+  return (props.product.skuCount ?? 1) > 1;
 });
 
 const productAlias = computed<string | null>(() => {
@@ -359,6 +369,13 @@ async function addToCart() {
           </Button>
         </div>
         <OutOfStockBlock v-else-if="isOutOfStock" class="mt-auto pt-3" />
+        <div v-else-if="hasSeveralSkus" class="mt-auto flex pt-3">
+          <Button v-if="productUrl" as-child class="h-9 min-w-0 flex-1 px-4">
+            <NuxtLink :to="productUrl" data-testid="go-to-product-link">
+              <span class="truncate">{{ t('product.go_to_product') }}</span>
+            </NuxtLink>
+          </Button>
+        </div>
         <div v-else class="mt-auto flex items-center gap-3 pt-3">
           <QuantityInput
             v-model="quantity"
@@ -525,6 +542,13 @@ async function addToCart() {
             </Button>
           </template>
           <OutOfStockBlock v-else-if="isOutOfStock" class="shrink-0" />
+          <template v-else-if="hasSeveralSkus">
+            <Button v-if="productUrl" as-child class="h-9 px-4">
+              <NuxtLink :to="productUrl" data-testid="go-to-product-link">
+                {{ t('product.go_to_product') }}
+              </NuxtLink>
+            </Button>
+          </template>
           <template v-else>
             <QuantityInput
               v-model="quantity"

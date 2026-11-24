@@ -173,6 +173,7 @@ async function fetchProductCandidates(page: Page): Promise<ListedProduct[]> {
       name: p.name ?? p.alias,
       articleNumber: p.articleNumber ?? null,
       productId: p.productId,
+      skuCount: p.skus!.length,
       stock: p.totalStock,
     }))
     .sort((a, b) => a.alias.localeCompare(b.alias));

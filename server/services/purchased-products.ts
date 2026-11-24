@@ -289,9 +289,13 @@ export async function getPurchasedProductsOverview(
       productId: String(product.productId),
       type: product.type,
     });
+    const catalogued = catalogueOf(product);
+    const skuCount =
+      catalogued?.skus?.filter((sku) => sku?.skuId != null).length ?? 0;
     return {
-      ...shownAs(product, catalogueOf(product)),
+      ...shownAs(product, catalogued),
       ...(product.skuId != null && { skuId: product.skuId }),
+      ...(skuCount > 0 && { skuCount }),
       ...(configurable ? { configurable } : {}),
     };
   });

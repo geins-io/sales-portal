@@ -315,6 +315,7 @@ describe('Saved list detail quantities', () => {
           { skuId: 22, quantity: 1 },
         ],
         0,
+        0,
       ],
     ]);
     expect(mockCartStore.addItem).not.toHaveBeenCalled();
@@ -555,9 +556,102 @@ describe('Saved list detail with a configurable product', () => {
           { skuId: 22, quantity: 1 },
         ],
         1,
+        0,
       ],
     ]);
     // The note is the cart's, not the list page's.
     expect(wrapper.text()).not.toContain('skipped_configurable');
+  });
+});
+
+describe('Saved list detail with a product in several SKUs', () => {
+  // A list keeps the product, never which SKU was meant, so a row of a product
+  // in several sends the buyer to its page, the way its product card does.
+  const GLASSES = {
+    alias: 'glasses',
+    name: 'Safety glasses',
+    articleNumber: 'GL-1',
+    skus: [{ skuId: 41 }, { skuId: 42 }],
+    unitPrice: {
+      sellingPriceIncVat: 100,
+      sellingPriceIncVatFormatted: '100 kr',
+      sellingPriceExVat: 80,
+      sellingPriceExVatFormatted: '80 kr',
+    },
+  };
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    mockShowIncVat.value = true;
+    mockCanAccess.mockReset();
+    mockCanAccess.mockReturnValue(true);
+    mockQuantities.value = {};
+    mockCartStore.addItem.mockClear();
+    mockCartStore.addItems.mockClear();
+    mockFetchProducts.push(GLASSES);
+  });
+
+  afterEach(() => {
+    mockFetchProducts.splice(mockFetchProducts.indexOf(GLASSES), 1);
+  });
+
+  function glassesRow(wrapper: ReturnType<typeof mountPage>) {
+    return wrapper
+      .findAll('[data-testid="list-item-row"]')
+      .find((r) => r.text().includes('Safety glasses'))!;
+  }
+
+  it('links the row to its product page instead of adding a SKU', () => {
+    const row = glassesRow(mountPage());
+
+    const link = row.find('[data-testid="list-item-go-to-product-link"]');
+    expect(link.attributes('href')).toBe('/se/en/p/glasses');
+    expect(link.attributes('href')).toBe(
+      row.find('[data-testid="list-item-product-link"]').attributes('href'),
+    );
+    expect(link.text()).toBe('product.go_to_product');
+    expect(row.find('[data-testid="list-item-add-to-cart"]').exists()).toBe(
+      false,
+    );
+    expect(row.find('[data-testid="qty-stepper"]').exists()).toBe(false);
+    expect(row.text()).toContain('100 kr');
+  });
+
+  it('offers no link without order access', () => {
+    mockCanAccess.mockReturnValue(false);
+    const row = glassesRow(mountPage());
+
+    expect(
+      row.find('[data-testid="list-item-go-to-product-link"]').exists(),
+    ).toBe(false);
+  });
+
+  it('keeps a row with one SKU as it was', () => {
+    const alpha = mountPage().findAll('[data-testid="list-item-row"]')[0]!;
+
+    expect(alpha.find('[data-testid="list-item-add-to-cart"]').exists()).toBe(
+      true,
+    );
+    expect(
+      alpha.find('[data-testid="list-item-go-to-product-link"]').exists(),
+    ).toBe(false);
+  });
+
+  it('leaves the row out of add all and hands the cart the count', async () => {
+    const wrapper = mountPage();
+
+    await wrapper.find('[data-testid="add-all-to-cart-btn"]').trigger('click');
+    await nextTick();
+
+    expect(mockCartStore.addItems.mock.calls).toEqual([
+      [
+        [
+          { skuId: 11, quantity: 1 },
+          { skuId: 22, quantity: 1 },
+        ],
+        0,
+        1,
+      ],
+    ]);
   });
 });
