@@ -19,6 +19,7 @@ import { flushPromises } from '@vue/test-utils';
 import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductDetails from '../../../app/components/pages/ProductDetails.vue';
 import ProductTopArea from '../../../app/components/product/ProductTopArea.vue';
+import ProductAddToQuote from '../../../app/components/product/ProductAddToQuote.vue';
 import type { DetailProduct } from '../../../shared/types/commerce';
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { mockIsCatalogMode } from '../../setup-components';
@@ -990,9 +991,15 @@ describe('ProductDetails', () => {
       const banner = wrapper.find('[data-testid="negotiated-price-banner"]');
       expect(banner.exists()).toBe(true);
       expect(banner.text()).toContain('discount.negotiated_price_info');
+      // A line with an icon, not a box: no fill, no padding. The icon starts
+      // at the first line when the text wraps.
       expect(banner.classes()).toEqual(
-        expect.arrayContaining(['bg-info/10', 'text-info']),
+        expect.arrayContaining(['text-info', 'items-start']),
       );
+      expect(banner.classes()).not.toEqual(
+        expect.arrayContaining(['bg-info/10']),
+      );
+      expect(banner.classes().filter((c) => /^(px|py|p)-/.test(c))).toEqual([]);
     });
 
     it('does not show banner for SALE_PRICE', async () => {
@@ -1019,6 +1026,154 @@ describe('ProductDetails', () => {
       expect(
         wrapper.find('[data-testid="negotiated-price-banner"]').exists(),
       ).toBe(false);
+    });
+  });
+
+  // The middle column reads: brand row (with stock at its end), name, article
+  // number, text 3, the price group, the variant selector.
+  describe('the middle column layout', () => {
+    const everything = (overrides: Record<string, unknown> = {}) =>
+      makeProduct({
+        discountCampaigns: [{ name: 'Spring Sale', hideTitle: false }],
+        discountType: 'EXTERNAL',
+        texts: { text1: 'Description', text2: 'Short', text3: 'Extra copy' },
+        variantDimensions: [{ dimension: 'Variant', value: '88' }],
+        skus: [
+          { skuId: 101, name: '88', stock: { totalStock: 10 } },
+          { skuId: 102, name: '90', stock: { totalStock: 10 } },
+        ],
+        ...overrides,
+      });
+
+    const priceStub = {
+      template: '<span class="price-display" :data-variant="variant" />',
+      props: [
+        'price',
+        'lowestPrice',
+        'discountType',
+        'campaignNames',
+        'variant',
+      ],
+    };
+    const stubs = {
+      ...defaultStubs,
+      PriceDisplay: priceStub,
+      SharedPriceDisplay: priceStub,
+      VariantSelector: { template: '<div data-testid="variant-selector" />' },
+    };
+
+    async function mount(product = everything(), signInToConfigure = false) {
+      return mountProductDetails(
+        { product, alias: product.alias, signInToConfigure },
+        { global: { stubs } },
+      );
+    }
+
+    function follows(first: Element, second: Element): boolean {
+      return Boolean(
+        first.compareDocumentPosition(second) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+    }
+
+    beforeEach(() => {
+      mockIsAuthenticated.value = true;
+    });
+
+    it('puts the stock status at the end of the brand row', async () => {
+      const wrapper = await mount();
+
+      const row = wrapper.get('[data-testid="product-brand"]').element
+        .parentElement;
+      assert.isNotNull(row);
+      const stock = row.querySelector('[data-testid="stock-indicator"]');
+      assert.isNotNull(stock);
+      expect(row.lastElementChild?.contains(stock)).toBe(true);
+      expect(wrapper.findAll('[data-testid="stock-indicator"]')).toHaveLength(
+        1,
+      );
+    });
+
+    it('keeps the stock status at the end of the row without a brand', async () => {
+      const wrapper = await mount(everything({ brand: null }));
+
+      expect(wrapper.find('[data-testid="product-brand"]').exists()).toBe(
+        false,
+      );
+      const stock = wrapper.get('[data-testid="stock-indicator"]').element;
+      const name = wrapper.get('[data-testid="product-name"]').element;
+      expect(follows(stock, name)).toBe(true);
+    });
+
+    it('orders brand, name, article number, text 3, price, variant selector', async () => {
+      const wrapper = await mount();
+
+      const order = [
+        'product-brand',
+        'product-name',
+        'product-article-number',
+        'product-text3',
+        'pdp-price-group',
+        'variant-selector',
+      ].map((id) => wrapper.get(`[data-testid="${id}"]`).element);
+      for (let i = 1; i < order.length; i++) {
+        expect(follows(order[i - 1]!, order[i]!)).toBe(true);
+      }
+    });
+
+    it('groups the price, the campaign badges and the negotiated notice, in that order', async () => {
+      const wrapper = await mount();
+
+      const group = wrapper.get('[data-testid="pdp-price-group"]').element;
+      const ids = Array.from(group.children).map((child) =>
+        child.classList.contains('price-display')
+          ? 'price'
+          : child.getAttribute('data-testid'),
+      );
+      expect(ids).toEqual([
+        'price',
+        'pdp-campaign-badges',
+        'negotiated-price-banner',
+      ]);
+    });
+
+    it("renders the price as the product page's own, the detail variant", async () => {
+      const wrapper = await mount();
+
+      expect(wrapper.get('.price-display').attributes('data-variant')).toBe(
+        'detail',
+      );
+    });
+
+    it('shows the brand but no stock, price or variants to a guest asked to sign in', async () => {
+      mockIsAuthenticated.value = false;
+      const wrapper = await mount(everything({ configurable: true }), true);
+
+      expect(wrapper.find('[data-testid="product-brand"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="stock-indicator"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.find('[data-testid="pdp-price-group"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.find('[data-testid="variant-selector"]').exists()).toBe(
+        false,
+      );
+      expect(
+        wrapper.find('[data-testid="pdp-sign-in-to-configure-box"]').exists(),
+      ).toBe(true);
+    });
+
+    it('makes the buy buttons 44 px high, the quote button 8 px further down', async () => {
+      const wrapper = await mount();
+
+      expect(wrapper.get('.quantity-input').classes()).toContain('h-11');
+      expect(
+        wrapper.get('[data-testid="add-to-cart-button"]').classes(),
+      ).toContain('h-11');
+      const quote = wrapper.findComponent(ProductAddToQuote);
+      expect(quote.props('size')).toBe('lg');
+      expect(quote.classes()).toContain('mt-2');
     });
   });
 

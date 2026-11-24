@@ -9,6 +9,7 @@ import {
   waitForHydration,
   hasE2ECredentials,
   outOfScope,
+  noteOutOfScope,
   pricesShownSignedOut,
   signedInState,
 } from './helpers';
@@ -297,6 +298,78 @@ test.describe('Product Browsing', () => {
         .locator('[data-testid="add-to-cart-button"]')
         .first();
       await expect(addButton).toBeVisible({ timeout: 15000 });
+    });
+
+    // The middle column reads stock (end of the brand row), name, article
+    // number, price; the buy row beside it is 44 px high.
+    test('lays out the PDP header above the price, with a 44 px buy row', async ({
+      page,
+    }) => {
+      // What this signed-in buyer is shown, as `/api/config` says: stock
+      // unless `stockStatus` is configured off (useStockVisibility); the
+      // quote button only with `quotes` and `quoteRequests` both on.
+      const config = await apiGet(page.request, '/api/config');
+      expect(config.ok(), '/api/config did not answer 200').toBe(true);
+      const { features } = await config.json();
+      const on = (key: string): boolean => features?.[key]?.enabled === true;
+      outOfScope(
+        !!features?.stockStatus && !on('stockStatus'),
+        'tenant-config',
+        'stockStatus is off, so the brand row holds no stock status',
+      );
+      const quoteShown = on('quotes') && on('quoteRequests');
+
+      // Purchasable means in stock, so the product has a status to show.
+      const product = await discoverPurchasableProduct(page);
+
+      await page.goto(`/p/${product.alias}`);
+      await waitForHydration(page);
+
+      const box = async (testid: string) => {
+        const found = await page
+          .locator(`[data-testid="${testid}"]`)
+          .first()
+          .boundingBox();
+        expect(found, testid).not.toBeNull();
+        return found!;
+      };
+      await expect(page.locator('[data-testid="pdp-price"]')).toBeVisible({
+        timeout: 15000,
+      });
+
+      const stock = await box('stock-indicator');
+      const name = await box('product-name');
+      const article = await box('product-article-number');
+      const price = await box('pdp-price');
+      expect(stock.y + stock.height).toBeLessThanOrEqual(name.y);
+      // At the end of the row: its right edge is the column's, the name's
+      // block width.
+      expect(
+        Math.abs(stock.x + stock.width - (name.x + name.width)),
+      ).toBeLessThanOrEqual(1);
+      expect(name.y + name.height).toBeLessThanOrEqual(article.y);
+      expect(article.y + article.height).toBeLessThanOrEqual(price.y);
+
+      const actions = await box('pdp-actions');
+      const quantity = await page
+        .locator('[data-testid="pdp-actions"] > :first-child')
+        .boundingBox();
+      expect(quantity, 'quantity field').not.toBeNull();
+      expect(Math.round(quantity!.height)).toBe(44);
+      expect(Math.round((await box('add-to-cart-button')).height)).toBe(44);
+
+      const quote = page.locator('[data-testid="add-to-quote-button"]');
+      if (!quoteShown) {
+        await expect(quote).toHaveCount(0);
+        noteOutOfScope(
+          'tenant-config',
+          'quotes or quoteRequests is off: no quote button to measure',
+        );
+        return;
+      }
+      const quoteBox = await box('add-to-quote-button');
+      expect(Math.round(quoteBox.height)).toBe(44);
+      expect(Math.round(quoteBox.y - (actions.y + actions.height))).toBe(24);
     });
   });
 

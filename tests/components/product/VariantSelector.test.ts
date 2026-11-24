@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { nextTick } from 'vue';
 import type { ComponentPublicInstance } from 'vue';
+import type { DOMWrapper } from '@vue/test-utils';
+import { ChevronDown, ChevronRight } from 'lucide-vue-next';
 import { mountComponent } from '../../utils/component';
 import VariantSelector from '../../../app/components/product/VariantSelector.vue';
 import { mockShowIncVat } from '../../setup-components';
@@ -81,6 +83,24 @@ beforeEach(() => {
   mockShowIncVat.value = true;
 });
 
+/**
+ * The panel trigger: 44 px, full width up to 320 px from lg, a light fill,
+ * 4 px corners whatever the store's radius, a chevron pointing right.
+ */
+function expectPanelTrigger(trigger: DOMWrapper<Element>) {
+  expect(trigger.classes()).toEqual(
+    expect.arrayContaining([
+      'h-11',
+      'w-full',
+      'lg:max-w-80',
+      'bg-muted/50',
+      'rounded-[4px]',
+    ]),
+  );
+  expect(trigger.findComponent(ChevronRight).exists()).toBe(true);
+  expect(trigger.findComponent(ChevronDown).exists()).toBe(false);
+}
+
 const sheetStubs = {
   Sheet: { template: '<div><slot /></div>', props: ['open'] },
   SheetContent: {
@@ -120,6 +140,22 @@ describe('VariantSelector', () => {
     });
     const trigger = wrapper.find('[data-testid="variant-trigger-Color"]');
     expect(trigger.text()).toContain('Red');
+  });
+
+  it('draws every dimension trigger as the panel trigger, under a 14 px label', () => {
+    const wrapper = mountComponent(VariantSelector, {
+      props: { variantDimensions: dimensions, variants, modelValue: {} },
+      global: { stubs: sheetStubs },
+    });
+    for (const name of ['Color', 'Size']) {
+      const trigger = wrapper.find(`[data-testid="variant-trigger-${name}"]`);
+      expectPanelTrigger(trigger);
+      const label = trigger.element.previousElementSibling;
+      expect(label?.classList.contains('text-sm')).toBe(true);
+    }
+    expect(
+      wrapper.find('[data-testid="variant-selector"]').classes(),
+    ).toContain('gap-4');
   });
 
   it('opens sheet with dimension values when trigger clicked', async () => {
@@ -1120,6 +1156,12 @@ describe('VariantSelector SKU choice', () => {
 
     expect(wrapper.find('[data-testid="variant-trigger-sku"]').text()).toBe(
       'S',
+    );
+  });
+
+  it('draws the SKU trigger like the dimension triggers', () => {
+    expectPanelTrigger(
+      mountSkuChoice().find('[data-testid="variant-trigger-sku"]'),
     );
   });
 

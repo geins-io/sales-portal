@@ -532,6 +532,16 @@ const visibleCampaigns = computed(() =>
   filterVisibleCampaigns(product.value?.discountCampaigns ?? []),
 );
 
+const showsPriceGroup = computed(
+  () =>
+    !hidesCatalogueSku.value &&
+    Boolean(
+      (product.value?.unitPrice && showPrice.value) ||
+      visibleCampaigns.value.length ||
+      product.value?.discountType === 'EXTERNAL',
+    ),
+);
+
 // Breadcrumbs
 const { t } = useI18n();
 
@@ -604,32 +614,41 @@ useProductSeo({
           skuOptions.length ? resolvedSku?.articleNumber : undefined
         "
       >
-        <template #info>
-          <!-- Price: sits above the long-form description so the dominant
-             commerce signal anchors the column. -->
-          <PriceDisplay
-            v-if="product.unitPrice && showPrice && !hidesCatalogueSku"
-            :price="product.unitPrice"
-            :lowest-price="product.lowestPrice"
-            :discount-type="product.discountType"
-            :campaign-names="visibleCampaigns.map((c) => c.name)"
-            class="text-2xl font-bold"
-            testid="pdp-price"
-          />
+        <!-- The catalogue SKU's stock, at the end of the brand row. -->
+        <template v-if="!hidesCatalogueSku && displayStock && showStock" #meta>
+          <div data-testid="stock-indicator">
+            <StockIndicator :stock="displayStock" />
+          </div>
+        </template>
 
-          <!-- Text 3: extra detail copy under the price -->
+        <template #info>
           <p
             v-if="text3Plain"
-            class="text-muted-foreground text-sm leading-relaxed"
+            class="text-muted-foreground leading-relaxed"
             data-testid="product-text3"
           >
             {{ text3Plain }}
           </p>
 
-          <!-- The configurator page's top area shows none of what follows:
-               it is about the catalogue SKU, not a configuration. -->
-          <template v-if="!hidesCatalogueSku">
-            <!-- Campaign badges -->
+          <!-- Price, catalogue SKU only: a configurable product's price is
+               not what a configuration costs. The campaign names show once,
+               as the badges under the price. -->
+          <div
+            v-if="showsPriceGroup"
+            class="flex flex-col gap-3"
+            data-testid="pdp-price-group"
+          >
+            <PriceDisplay
+              v-if="product.unitPrice && showPrice"
+              :price="product.unitPrice"
+              :lowest-price="product.lowestPrice"
+              :discount-type="product.discountType"
+              :campaign-names="visibleCampaigns.map((c) => c.name)"
+              variant="detail"
+              class="text-2xl font-bold"
+              testid="pdp-price"
+            />
+
             <div
               v-if="visibleCampaigns.length"
               class="flex flex-wrap gap-1"
@@ -644,27 +663,22 @@ useProductSeo({
               </Badge>
             </div>
 
-            <!-- Negotiated price info banner -->
             <div
               v-if="product.discountType === 'EXTERNAL'"
-              class="bg-info/10 text-info flex items-center gap-2 rounded-md px-3 py-2 text-sm"
+              class="text-info flex items-start gap-2 text-sm"
               data-testid="negotiated-price-banner"
             >
-              <BadgeCheck class="size-4 shrink-0" />
+              <BadgeCheck class="mt-0.5 size-4 shrink-0" />
               <span>{{ $t('discount.negotiated_price_info') }}</span>
             </div>
+          </div>
 
-            <!-- Stock -->
-            <div v-if="displayStock && showStock" data-testid="stock-indicator">
-              <StockIndicator :stock="displayStock" />
-            </div>
-
-            <!-- Variant selector — pass product-level data through so each
+          <!-- Variant selector — pass product-level data through so each
              sheet row can render a real Figma-style item with thumbnail,
              art-nr, stock and price (price is product-level so it's the
-             same on every row). -->
+             same on every row). 22 px above it: the column's 16 plus 6. -->
+          <div v-if="showVariantSelector && !hidesCatalogueSku" class="mt-1.5">
             <VariantSelector
-              v-if="showVariantSelector"
               ref="variantSelector"
               v-model="selectedVariants"
               v-model:sku-id="selectedSkuId"
@@ -684,10 +698,10 @@ useProductSeo({
               :product-article-number="product.articleNumber ?? null"
               :variant-products="variantProductsByAlias"
             />
-          </template>
+          </div>
 
           <Alert
-            v-else-if="signInToConfigure"
+            v-if="signInToConfigure"
             role="note"
             class="bg-muted/30 max-w-md border-dashed"
             data-testid="pdp-sign-in-to-configure-box"
@@ -724,12 +738,12 @@ useProductSeo({
                 :min="1"
                 :max="maxQuantity"
                 :disabled="cartIsFull || switchingVariant"
-                class="h-9 shrink-0"
+                class="h-11 shrink-0"
               />
               <Button
                 variant="purchase"
                 data-testid="add-to-cart-button"
-                class="h-9 flex-1 gap-2 px-4"
+                class="h-11 flex-1 gap-2 px-4"
                 :disabled="cartIsFull || switchingVariant"
                 @click="addToCart"
               >
@@ -752,8 +766,11 @@ useProductSeo({
             </span>
           </template>
 
+          <!-- 24 px below the cart row: the aside's 16 plus 8. -->
           <ProductAddToQuote
             v-if="!hidesCatalogueSku"
+            size="lg"
+            class="mt-2"
             :send="sendToQuote"
             :disabled="switchingVariant"
             :needs-choice="needsSkuPick"

@@ -34,6 +34,8 @@ const props = defineProps<{
    * back passes its own, so the notice outlives the menu.
    */
   scope?: string;
+  /** `lg` matches a 44 px buy row above it. */
+  size?: 'default' | 'lg';
 }>();
 
 const emit = defineEmits<{ choose: [] }>();
@@ -136,7 +138,8 @@ async function createWith(name: string) {
       <DropdownMenuTrigger as-child>
         <Button
           variant="outline"
-          class="h-9 w-full gap-2 shadow-none"
+          class="w-full gap-2 shadow-none"
+          :class="size === 'lg' ? 'h-11' : 'h-9'"
           data-testid="add-to-quote-button"
           :disabled="disabled || working"
         >

@@ -142,6 +142,20 @@ describe('ProductAddToQuote', () => {
     });
   });
 
+  describe('size', () => {
+    it('is 36 px high by default', () => {
+      const classes = mount().find(BUTTON).classes();
+      expect(classes).toContain('h-9');
+      expect(classes).not.toContain('h-11');
+    });
+
+    it('is 44 px high with size lg', () => {
+      const classes = mount({ size: 'lg' }).find(BUTTON).classes();
+      expect(classes).toContain('h-11');
+      expect(classes).not.toContain('h-9');
+    });
+  });
+
   describe('the menu', () => {
     it("lists only the buyer's drafts, most recently changed first, each with its item count", async () => {
       buyerHas(

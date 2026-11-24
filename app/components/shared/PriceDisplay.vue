@@ -22,6 +22,13 @@ const props = withDefaults(
     discountType?: ProductDiscountType;
     campaignNames?: string[];
     /**
+     * `detail`: the product page's price. A negotiated (EXTERNAL) price is not
+     * shown as a sale: "Your price" above it, no red, percent or lowest price.
+     * No campaign name beside the price: the page lists `campaignNames` itself
+     * (without one, the generic campaign label still shows).
+     */
+    variant?: 'default' | 'detail';
+    /**
      * Test id for the rendered amount. Passed in rather than fixed: this
      * component renders several times on one page (a PDP shows it for the
      * product and again for every related card), so a built-in id would
@@ -84,6 +91,16 @@ const isDiscounted = computed(
   () => props.showDiscount && isShownAsDiscount(props.price, props.quantity),
 );
 
+const isDetail = computed(() => props.variant === 'detail');
+
+const isNegotiated = computed(
+  () =>
+    isDetail.value && isDiscounted.value && props.discountType === 'EXTERNAL',
+);
+
+/** A reduction shown as a sale: red, with its percent and lowest price. */
+const isSale = computed(() => isDiscounted.value && !isNegotiated.value);
+
 const discountPercentage = computed(() => props.price?.discountPercentage ?? 0);
 
 const discountLabel = computed(() => {
@@ -92,6 +109,7 @@ const discountLabel = computed(() => {
     case 'SALE_PRICE':
       return t('discount.sale');
     case 'PRICE_CAMPAIGN':
+      if (isDetail.value && props.campaignNames?.length) return '';
       return props.campaignNames?.[0] || t('discount.campaign');
     case 'EXTERNAL':
       return t('discount.your_price');
@@ -105,7 +123,7 @@ const discountLabelVariant = computed<BadgeVariant>(() =>
 );
 
 const lowestPriceFormatted = computed(() => {
-  if (!props.lowestPrice?.isDiscounted) return '';
+  if (isNegotiated.value || !props.lowestPrice?.isDiscounted) return '';
   const formatted = effectiveShowVat.value
     ? props.lowestPrice.lowestPriceIncVatFormatted
     : props.lowestPrice.lowestPriceExVatFormatted;
@@ -121,13 +139,21 @@ const lowestPriceFormatted = computed(() => {
 <template>
   <div>
     <div
+      v-if="isNegotiated && price && showPrice && sellingPrice"
+      class="mb-2 flex"
+    >
+      <Badge :variant="discountLabelVariant" data-testid="discount-type-label">
+        {{ discountLabel }}
+      </Badge>
+    </div>
+    <div
       v-if="price && showPrice && sellingPrice"
       class="inline-flex flex-wrap items-baseline gap-2"
     >
       <span v-if="fromPrice" class="text-muted-foreground text-sm">From</span>
       <span
         class="font-semibold"
-        :class="isDiscounted ? 'text-danger' : ''"
+        :class="isSale ? 'text-danger' : ''"
         :data-testid="testid"
       >
         {{ sellingPrice }}
@@ -138,14 +164,11 @@ const lowestPriceFormatted = computed(() => {
       >
         {{ regularPrice }}
       </span>
-      <Badge
-        v-if="isDiscounted && discountPercentage > 0"
-        variant="destructive-soft"
-      >
+      <Badge v-if="isSale && discountPercentage > 0" variant="destructive-soft">
         -{{ discountPercentage }}%
       </Badge>
       <Badge
-        v-if="discountLabel"
+        v-if="discountLabel && !isNegotiated"
         :variant="discountLabelVariant"
         data-testid="discount-type-label"
       >
