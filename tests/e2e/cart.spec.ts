@@ -779,21 +779,26 @@ test.describe('Cart layout', () => {
     }
   });
 
-  test('a sale-priced line strikes its regular total through before the sale total', async ({
-    page,
-  }) => {
-    await page.goto('/');
-    await waitForHydration(page);
-    type Row = {
-      alias?: string;
-      unitPrice?: {
-        isDiscounted?: boolean;
-        sellingPriceExVat?: number;
-        regularPriceExVat?: number;
-      };
+  type CatalogueRow = {
+    alias?: string;
+    discountType?: string;
+    unitPrice?: {
+      isDiscounted?: boolean;
+      sellingPriceExVat?: number;
+      regularPriceExVat?: number;
     };
-    // The whole catalogue, a page at a time: a sale can sit on any product.
-    const rows: Row[] = [];
+  };
+
+  /**
+   * The first product, not configurable, whose price has this discount type
+   * and is flagged discounted by at least half an öre, the check the line
+   * makes. The whole catalogue, a page at a time: it can sit on any product.
+   */
+  async function flaggedProduct(
+    page: Page,
+    discountTypes: string[],
+  ): Promise<CatalogueRow | undefined> {
+    const rows: CatalogueRow[] = [];
     for (let skip = 0; ; skip += 100) {
       const response = await apiGet(
         page.request,
@@ -807,26 +812,34 @@ test.describe('Cart layout', () => {
         },
       );
       expect(response.ok()).toBe(true);
-      const batch: Row[] = (await response.json()).products ?? [];
+      const batch: CatalogueRow[] = (await response.json()).products ?? [];
       rows.push(...batch);
       if (batch.length < 100) break;
     }
-    // The same check the line makes: the flag, confirmed by half an öre.
-    const onSale = rows.filter(
+    const flagged = rows.filter(
       (r) =>
         !!r.alias &&
+        discountTypes.includes(r.discountType ?? '') &&
         r.unitPrice?.isDiscounted === true &&
         (r.unitPrice.regularPriceExVat ?? 0) -
           (r.unitPrice.sellingPriceExVat ?? 0) >=
           0.005,
     );
-    let product: (typeof onSale)[number] | undefined;
-    for (const row of onSale) {
-      if (!(await isConfigurable(page, row.alias!))) {
-        product = row;
-        break;
-      }
+    for (const row of flagged) {
+      if (!(await isConfigurable(page, row.alias!))) return row;
     }
+    return undefined;
+  }
+
+  test('a sale-priced line strikes its regular total through before the sale total', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await waitForHydration(page);
+    const product = await flaggedProduct(page, [
+      'SALE_PRICE',
+      'PRICE_CAMPAIGN',
+    ]);
     outOfScope(
       !product,
       'tenant-config',
@@ -858,5 +871,36 @@ test.describe('Cart layout', () => {
       'cart-item-total-price',
     ]);
     expect(regularBox!.x).toBeLessThan(totalBox!.x);
+  });
+
+  // A price list that is not enforced arrives flagged discounted against the
+  // ordinary price; to the buyer it is the ordinary price.
+  test("a price-list line reads as the buyer's ordinary price", async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await waitForHydration(page);
+    const product = await flaggedProduct(page, ['PRICE_LIST']);
+    outOfScope(
+      !product,
+      'tenant-config',
+      'the signed-in buyer has no price list that is not enforced',
+    );
+
+    await addToCart(page, product!.alias!);
+    const item = page
+      .locator('[data-testid="cart-drawer"] [data-testid="cart-item"]')
+      .first();
+    await expect(item).toBeVisible({ timeout: 10000 });
+
+    const total = item.locator('[data-testid="cart-item-total-price"]');
+    expect(await readPrice(total)).toBeCloseTo(
+      product!.unitPrice!.sellingPriceExVat!,
+      2,
+    );
+    await expect(
+      item.locator('[data-testid="cart-item-regular-price"]'),
+    ).toHaveCount(0);
+    await expect(total).not.toHaveClass(/text-danger/);
   });
 });
