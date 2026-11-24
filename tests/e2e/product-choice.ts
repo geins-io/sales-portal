@@ -7,6 +7,8 @@
 export interface StockedCandidate {
   alias: string;
   productId?: number | string;
+  /** A card cannot add a product with several, and its PDP needs a pick. */
+  skuCount?: number;
   stock?: {
     totalStock?: number;
     oversellable?: number;
@@ -49,6 +51,7 @@ export function purchaseCandidates<T extends StockedCandidate>(
 ): T[] {
   const eligible = candidates
     .filter((c) => !FIXTURE_SEED_PRODUCT_IDS.includes(String(c.productId)))
+    .filter((c) => (c.skuCount ?? 1) <= 1)
     .map((c) => ({ candidate: c, units: unitsAvailable(c.stock) }))
     .sort(
       // Two unlimited stocks subtract to NaN, which falls through to the alias.
@@ -65,7 +68,8 @@ export function purchaseCandidates<T extends StockedCandidate>(
     `No product has stock for ${plural(quantity, 'unit')}: ` +
       (best
         ? `the best is "${best.candidate.alias}" with ${best.units} ` +
-          `(read ${read}, the fixture seeds left out).`
-        : `no candidate is left once the fixture seeds are out (read ${read}).`),
+          `(read ${read}, the fixture seeds and multi-SKU products left out).`
+        : `no candidate is left once the fixture seeds and multi-SKU products ` +
+          `are out (read ${read}).`),
   );
 }
