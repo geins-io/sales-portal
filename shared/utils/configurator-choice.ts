@@ -28,6 +28,26 @@ export function isSingleSelect(
 }
 
 /**
+ * Whether a change picks again the one row a single choice already holds, so
+ * there is nothing to send. A quantity is a real change, and a group holding
+ * two rows still gets the replace batch, which repairs it.
+ */
+export function repicksTheChoice(
+  group: Pick<ConfigurationOptionGroup, 'maxSelections' | 'options'>,
+  change: ConfigurationChange,
+): boolean {
+  if (!isSingleSelect(group)) return false;
+  if (change.type !== 'option' || !change.selected) return false;
+  if (change.quantity !== undefined) return false;
+  const [only, ...others] = group.options.filter((option) => option.selected);
+  return (
+    !others.length &&
+    only?.id === change.optionId &&
+    only.instanceId === change.instanceId
+  );
+}
+
+/**
  * A pick in a single-choice group as one batch: every other chosen row out
  * first, then the pick. The provider does not release a locked row for a
  * sibling pick, and applies a batch in order. A row it refuses to change is

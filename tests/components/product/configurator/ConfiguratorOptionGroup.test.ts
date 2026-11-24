@@ -226,6 +226,58 @@ describe('ConfiguratorOptionGroup', () => {
     ]);
   });
 
+  describe('a click on the option already chosen', () => {
+    it('sends nothing from a lone chosen row on the page', async () => {
+      const wrapper = mountGroup(oneOption('top'));
+      await wrapper.find('[data-option-id="top-laminate"]').trigger('click');
+
+      expect(wrapper.emitted('change')).toBeUndefined();
+    });
+
+    it('sends nothing from the panel, and closes it', async () => {
+      const wrapper = mountGroup(
+        findOptionGroup(makeInitialConfiguration(), 'top'),
+      );
+      await wrapper.find(CHOOSER).trigger('click');
+      await wrapper
+        .find(`${SHEET} [data-option-id="top-laminate"]`)
+        .trigger('click');
+
+      expect(wrapper.emitted('change')).toBeUndefined();
+      expect(wrapper.find(SHEET).exists()).toBe(false);
+    });
+
+    // A provider that holds two rows of a single choice is repaired by the
+    // replace batch, so that click still sends it.
+    it('still sends the replace batch while another row is chosen too', async () => {
+      const workbench = makeInitialConfiguration();
+      findOption(workbench, 'top-steel').selected = true;
+
+      const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+      await wrapper.find(CHOOSER).trigger('click');
+      await wrapper
+        .find(`${SHEET} [data-option-id="top-laminate"]`)
+        .trigger('click');
+
+      expect(firstBatch(wrapper)).toEqual([
+        {
+          type: 'option',
+          optionId: 'top-steel',
+          instanceId: '0',
+          selected: false,
+          lock: 'none',
+        },
+        {
+          type: 'option',
+          optionId: 'top-laminate',
+          instanceId: '0',
+          selected: true,
+          lock: 'none',
+        },
+      ]);
+    });
+  });
+
   it('sends the same batch from a click anywhere on a row of the panel', async () => {
     const workbench = makeInitialConfiguration();
     findOption(workbench, 'top-laminate').selectionSource = 'locked';
