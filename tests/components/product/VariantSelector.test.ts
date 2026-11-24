@@ -1149,6 +1149,7 @@ describe('VariantSelector SKU choice', () => {
       'product.select_variant_placeholder',
     );
     expect(wrapper.text()).toContain('product.variant_heading');
+    expect(wrapper.text()).not.toContain('product.variant_dimension_heading');
   });
 
   it('names the picked SKU on the trigger', () => {
@@ -1186,9 +1187,7 @@ describe('VariantSelector SKU choice', () => {
       '112,50 kr',
     );
     expect(m.attributes('disabled')).toBeUndefined();
-    expect(wrapper.find('h2').text()).toBe(
-      'product.select_variant — product.variant_heading',
-    );
+    expect(wrapper.find('h2').text()).toBe('product.select_type');
   });
 
   it('emits the picked skuId, never a dimension selection', async () => {
@@ -1269,7 +1268,21 @@ describe('VariantSelector SKU choice', () => {
     expect(triggers).toEqual(['variant-trigger-Färg', 'variant-trigger-sku']);
   });
 
-  it('shows an internal dimension with several values under the generic heading', () => {
+  it('titles a named dimension sheet as a variant choice', async () => {
+    const wrapper = mountSkuChoice({
+      variantDimensions: [row('Färg', 'klar')],
+      variants: [
+        { alias: 'a', dimension: 'Färg', value: 'klar' },
+        { alias: 'b', dimension: 'Färg', value: 'tonad' },
+      ] satisfies VariantNode[],
+    });
+
+    await wrapper.find('[data-testid="variant-trigger-Färg"]').trigger('click');
+
+    expect(wrapper.find('h2').text()).toBe('product.select_variant — Färg');
+  });
+
+  it('shows an internal dimension with several values under the variant heading, not the SKU one', async () => {
     const wrapper = mountSkuChoice({
       skuOptions: [],
       variants: [
@@ -1278,11 +1291,19 @@ describe('VariantSelector SKU choice', () => {
       ] satisfies VariantNode[],
     });
 
-    expect(
-      wrapper.find('[data-testid="variant-trigger-DefaultProduct"]').exists(),
-    ).toBe(true);
+    const trigger = wrapper.find(
+      '[data-testid="variant-trigger-DefaultProduct"]',
+    );
+    expect(trigger.exists()).toBe(true);
     expect(wrapper.text()).not.toContain('DefaultProduct');
-    expect(wrapper.text()).toContain('product.variant_heading');
+    expect(wrapper.text()).toContain('product.variant_dimension_heading');
+    expect(wrapper.text()).not.toContain('product.variant_heading');
+
+    await trigger.trigger('click');
+
+    expect(wrapper.find('h2').text()).toBe(
+      'product.select_variant — product.variant_dimension_heading',
+    );
   });
 
   it("shows the product's own image on every SKU row", async () => {

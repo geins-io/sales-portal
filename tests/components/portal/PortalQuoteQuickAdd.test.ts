@@ -186,7 +186,7 @@ describe('PortalQuoteQuickAdd', () => {
     ]);
   });
 
-  it('shows a product with several variants without an add, and says why', async () => {
+  it('shows a product with several SKUs without an add, and says why', async () => {
     const wrapper = mount();
     answer(product(4, [41, 42]));
     await type(wrapper, 'prod');

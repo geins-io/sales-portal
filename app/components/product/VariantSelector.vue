@@ -137,7 +137,7 @@ const { t, locale } = useI18n();
 
 function dimensionHeading(dimensionName: string): string {
   return isInternalDimension(dimensionName)
-    ? t('product.variant_heading')
+    ? t('product.variant_dimension_heading')
     : dimensionName;
 }
 
@@ -611,11 +611,11 @@ const pickValueLabel = computed(() =>
     : '',
 );
 
-const sheetHeading = computed(() => {
-  if (skuSheetOpen.value) return t('product.variant_heading');
+const sheetTitle = computed(() => {
+  if (skuSheetOpen.value) return t('product.select_type');
   return activeDimension.value
-    ? dimensionHeading(activeDimension.value.dimensionName)
-    : null;
+    ? `${t('product.select_variant')} — ${dimensionHeading(activeDimension.value.dimensionName)}`
+    : t('product.select_variant');
 });
 
 // Every SKU of a product shares its price.
@@ -698,11 +698,7 @@ const { showPrice } = usePriceVisibility();
       >
         <SheetHeader class="border-b px-6 py-4">
           <SheetTitle class="text-lg">
-            {{
-              sheetHeading
-                ? `${$t('product.select_variant')} — ${sheetHeading}`
-                : $t('product.select_variant')
-            }}
+            {{ sheetTitle }}
           </SheetTitle>
         </SheetHeader>
 
