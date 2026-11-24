@@ -581,6 +581,29 @@ describe('Portal Overview page', () => {
     expect(card.props('product')).toMatchObject({ configurable: true });
   });
 
+  it("passes a purchased product's SKU count to ProductCard", async () => {
+    mockProductsData = {
+      products: [
+        {
+          name: 'Skyddsglasögon',
+          articleNumber: 'SKY-GLAS-KLAR',
+          alias: 'skyddsglasogon',
+          priceExVat: 90,
+          totalQuantity: 2,
+          latestOrderDate: '2026-03-01T00:00:00Z',
+          latestOrderId: 'o1',
+          latestOrderPublicId: 'pub-o1',
+          latestBuyerName: 'Jane',
+          skuId: 1099,
+          skuCount: 4,
+        },
+      ],
+    };
+    const wrapper = await mountPage();
+    const card = wrapper.findComponent({ name: 'ProductCard' });
+    expect(card.props('product')).toMatchObject({ skuId: 1099, skuCount: 4 });
+  });
+
   it('shows purchased products loading state', async () => {
     mockProductsPending = true;
     const wrapper = await mountPage();

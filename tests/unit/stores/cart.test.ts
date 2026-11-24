@@ -1289,10 +1289,39 @@ describe('useCartStore', () => {
       expect(store.skippedConfigurable).toBe(1);
     });
 
+    it('counts products in several SKUs apart from the configurable ones', async () => {
+      mockFetch.mockResolvedValue(mockCart);
+      const store = useCartStore();
+
+      await store.addItems([{ skuId: 100, quantity: 1 }], 1, 2);
+
+      expect(store.skippedConfigurable).toBe(1);
+      expect(store.skippedMultiSku).toBe(2);
+    });
+
+    it('opens the drawer with the count when only products in several SKUs were left out', async () => {
+      const store = useCartStore();
+
+      await store.addItems([], 0, 1);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(store.skippedMultiSku).toBe(1);
+      expect(store.isOpen).toBe(true);
+    });
+
+    it('counts no product in several SKUs when the caller names none', async () => {
+      const store = useCartStore();
+
+      await store.addItems([], 0, 4);
+      await store.addItems([], 1);
+
+      expect(store.skippedMultiSku).toBe(0);
+    });
+
     describe('the count after the bulk add', () => {
       async function afterSkip() {
         const store = useCartStore();
-        await store.addItems([], 2);
+        await store.addItems([], 2, 3);
         mockFetch.mockReset();
         mockFetch.mockResolvedValue(mockCart);
         return store;
@@ -1304,6 +1333,7 @@ describe('useCartStore', () => {
         await store.addItem(100, 1);
 
         expect(store.skippedConfigurable).toBe(0);
+        expect(store.skippedMultiSku).toBe(0);
       });
 
       it('is cleared by the next add even when it fails', async () => {
@@ -1314,6 +1344,7 @@ describe('useCartStore', () => {
         await store.addItem(100, 1);
 
         expect(store.skippedConfigurable).toBe(0);
+        expect(store.skippedMultiSku).toBe(0);
       });
 
       it('is cleared by a configured add', async () => {
@@ -1323,6 +1354,7 @@ describe('useCartStore', () => {
         await store.addConfiguredItem('committed-1', 1652, 1);
 
         expect(store.skippedConfigurable).toBe(0);
+        expect(store.skippedMultiSku).toBe(0);
       });
 
       it('is kept through a quantity change and a removal', async () => {
@@ -1332,6 +1364,7 @@ describe('useCartStore', () => {
         await store.removeItem('item-1');
 
         expect(store.skippedConfigurable).toBe(2);
+        expect(store.skippedMultiSku).toBe(3);
       });
 
       it('is cleared when the cart is replaced', async () => {
@@ -1340,6 +1373,7 @@ describe('useCartStore', () => {
         store.cartId = null;
 
         expect(store.skippedConfigurable).toBe(0);
+        expect(store.skippedMultiSku).toBe(0);
       });
     });
   });

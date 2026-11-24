@@ -45,7 +45,8 @@ export function toFavoriteCardItem(
   const sellingFormatted = showIncVat
     ? unitPrice?.sellingPriceIncVatFormatted
     : unitPrice?.sellingPriceExVatFormatted;
-  const skuId = product.skus?.find((s) => s?.skuId != null)?.skuId;
+  const skus = (product.skus ?? []).filter((s) => s?.skuId != null);
+  const skuId = skus[0]?.skuId;
   const hasDiscount =
     unitPrice?.isDiscounted === true ||
     (regular != null && selling != null && regular > selling);
@@ -62,6 +63,7 @@ export function toFavoriteCardItem(
     alias: product.alias ?? null,
     ...(product.canonicalUrl && { canonicalUrl: product.canonicalUrl }),
     ...(skuId != null && { skuId }),
+    ...(skus.length > 0 && { skuCount: skus.length }),
     ...(product.configurable === true && { configurable: true }),
   };
 }

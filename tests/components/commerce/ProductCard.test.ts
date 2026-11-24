@@ -952,6 +952,156 @@ describe('ProductCard', () => {
     });
   });
 
+  // A card cannot pick between SKUs, so it sends the buyer to the product page.
+  describe('product with several SKUs', () => {
+    afterEach(() => {
+      mockCanAccess.mockReset().mockReturnValue(true);
+      mockIsCatalogMode.value = false;
+    });
+
+    const twoSkus = [
+      { skuId: 101, name: 'S', stock: { totalStock: 5 } },
+      { skuId: 102, name: 'M', stock: { totalStock: 5 } },
+    ];
+    const severalSkus = (overrides: Record<string, unknown> = {}) =>
+      makeProduct({ skus: twoSkus, ...overrides });
+    const goToProduct = '[data-testid="go-to-product-link"]';
+
+    it.each(['grid', 'list'] as const)(
+      'offers "Gå till produkt" linking to the product page in the %s variant',
+      (variant) => {
+        const wrapper = mountComponent(ProductCard, {
+          props: { product: severalSkus(), variant },
+          global: { stubs },
+        });
+        const link = wrapper.find(goToProduct);
+        expect(link.exists()).toBe(true);
+        expect(link.element.tagName).toBe('A');
+        expect(link.attributes('href')).toBe('/se/en/p/products/test-product');
+        expect(link.text()).toContain('product.go_to_product');
+      },
+    );
+
+    it.each(['grid', 'list'] as const)(
+      'renders no quantity input and no add-to-cart in the %s variant',
+      (variant) => {
+        const wrapper = mountComponent(ProductCard, {
+          props: { product: severalSkus(), variant },
+          global: { stubs },
+        });
+        expect(wrapper.find('.quantity-input').exists()).toBe(false);
+        expect(
+          wrapper.find('[data-testid="add-to-cart-button"]').exists(),
+        ).toBe(false);
+      },
+    );
+
+    it.each(['grid', 'list'] as const)(
+      'keeps quantity and add-to-cart for a product with one SKU in the %s variant',
+      (variant) => {
+        const wrapper = mountComponent(ProductCard, {
+          props: { product: makeProduct(), variant },
+          global: { stubs },
+        });
+        expect(wrapper.find(goToProduct).exists()).toBe(false);
+        expect(wrapper.find('.quantity-input').exists()).toBe(true);
+        expect(
+          wrapper.find('[data-testid="add-to-cart-button"]').exists(),
+        ).toBe(true);
+      },
+    );
+
+    it.each(['grid', 'list'] as const)(
+      'lets a configurable product keep its configure link in the %s variant',
+      (variant) => {
+        const wrapper = mountComponent(ProductCard, {
+          props: { product: severalSkus({ configurable: true }), variant },
+          global: { stubs },
+        });
+        expect(
+          wrapper.find('[data-testid="configure-product-link"]').exists(),
+        ).toBe(true);
+        expect(wrapper.find(goToProduct).exists()).toBe(false);
+      },
+    );
+
+    it.each(['grid', 'list'] as const)(
+      'shows the out-of-stock block when no SKU has stock in the %s variant',
+      (variant) => {
+        const wrapper = mountComponent(ProductCard, {
+          props: {
+            product: severalSkus({
+              totalStock: {
+                inStock: 0,
+                oversellable: 0,
+                totalStock: 0,
+                static: 0,
+              },
+            }),
+            variant,
+          },
+          global: { stubs },
+        });
+        expect(wrapper.find('[data-testid="oos-block"]').exists()).toBe(true);
+        expect(wrapper.find(goToProduct).exists()).toBe(false);
+      },
+    );
+
+    it.each(['grid', 'list'] as const)(
+      'offers no button without order access in the %s variant',
+      (variant) => {
+        mockCanAccess.mockReturnValue(false);
+        const wrapper = mountComponent(ProductCard, {
+          props: { product: severalSkus(), variant },
+          global: { stubs },
+        });
+        expect(wrapper.find(goToProduct).exists()).toBe(false);
+      },
+    );
+
+    it('offers no button in catalog mode', () => {
+      mockIsCatalogMode.value = true;
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: severalSkus() },
+        global: { stubs },
+      });
+      expect(wrapper.find(goToProduct).exists()).toBe(false);
+    });
+
+    it.each(['grid', 'list'] as const)(
+      'reads the SKU count of a brief card in the %s variant',
+      (variant) => {
+        const brief = {
+          name: 'Favourite',
+          alias: 'favourite',
+          price: '100 kr',
+          skuId: 7,
+        };
+        const several = mountComponent(ProductCard, {
+          props: { product: { ...brief, skuCount: 2 }, variant },
+          global: { stubs },
+        });
+        expect(several.find(goToProduct).attributes('href')).toBe(
+          '/se/en/p/favourite',
+        );
+        expect(
+          several.find('[data-testid="add-to-cart-button"]').exists(),
+        ).toBe(false);
+
+        for (const product of [brief, { ...brief, skuCount: 1 }]) {
+          const one = mountComponent(ProductCard, {
+            props: { product, variant },
+            global: { stubs },
+          });
+          expect(one.find(goToProduct).exists()).toBe(false);
+          expect(one.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+            true,
+          );
+        }
+      },
+    );
+  });
+
   describe('catalog mode', () => {
     afterEach(() => {
       mockIsCatalogMode.value = false;

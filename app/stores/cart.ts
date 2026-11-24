@@ -34,6 +34,8 @@ export const useCartStore = defineStore('cart', () => {
    * through quantity changes: the buyer reads the cart while adjusting it.
    */
   const skippedConfigurable = ref(0);
+  /** The same for products in several SKUs, which a bulk add cannot choose between. */
+  const skippedMultiSku = ref(0);
   /**
    * The cart is there but answers only to the buyer signed in, so it is kept
    * by id and the cart asks for sign-in in place of its lines. Set by the
@@ -51,6 +53,7 @@ export const useCartStore = defineStore('cart', () => {
     cartId,
     () => {
       skippedConfigurable.value = 0;
+      skippedMultiSku.value = 0;
       needsSignIn.value = false;
       loadFailed.value = false;
     },
@@ -149,6 +152,7 @@ export const useCartStore = defineStore('cart', () => {
 
   async function addItem(skuId: number, quantity: number) {
     skippedConfigurable.value = 0;
+    skippedMultiSku.value = 0;
     // An add would be refused too, and a new cart would orphan this one.
     if (needsSignIn.value) {
       isOpen.value = true;
@@ -186,6 +190,7 @@ export const useCartStore = defineStore('cart', () => {
     quantity: number,
   ): Promise<{ cartId: string; itemId: string } | null> {
     skippedConfigurable.value = 0;
+    skippedMultiSku.value = 0;
     if (needsSignIn.value) {
       isOpen.value = true;
       throw new Error('The cart needs the buyer signed in');
@@ -249,18 +254,21 @@ export const useCartStore = defineStore('cart', () => {
 
   /**
    * A bulk add (reorder, a saved list's "add all") that left `skipped`
-   * configurable products out. The drawer opens on a skip even when nothing
-   * was added, since the note in it is the only place the buyer reads why.
+   * configurable products and `skippedSeveralSkus` products in several SKUs
+   * out. The drawer opens on a skip even when nothing was added, since the
+   * note in it is the only place the buyer reads why.
    */
   async function addItems(
     lines: { skuId: number; quantity: number }[],
     skipped: number,
+    skippedSeveralSkus = 0,
   ) {
     for (const line of lines) {
       await addItem(line.skuId, line.quantity);
     }
     skippedConfigurable.value = skipped;
-    if (skipped > 0) isOpen.value = true;
+    skippedMultiSku.value = skippedSeveralSkus;
+    if (skipped > 0 || skippedSeveralSkus > 0) isOpen.value = true;
   }
 
   async function updateQuantity(itemId: string, quantity: number) {
@@ -418,6 +426,7 @@ export const useCartStore = defineStore('cart', () => {
     isLoading,
     error,
     skippedConfigurable,
+    skippedMultiSku,
     needsSignIn,
     loadFailed,
     quoteRequestError,

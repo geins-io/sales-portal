@@ -192,6 +192,7 @@ function mapPurchasedProduct(product: PurchasedProductCard): ProductCardItem {
     imageUrl: product.imageUrl ?? null,
     alias: product.alias ?? null,
     skuId: product.skuId,
+    skuCount: product.skuCount,
     configurable: product.configurable,
   };
 }

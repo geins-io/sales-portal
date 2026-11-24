@@ -194,6 +194,7 @@ export interface CatalogueProduct {
     fileName?: string | null;
     url?: string | null;
   } | null> | null;
+  skus?: Array<{ skuId?: number | null } | null> | null;
 }
 
 /** The ids one `productIds` filter takes. */
@@ -247,8 +248,8 @@ export async function getCatalogueProducts(
  * out of normal product listings. Used to hydrate the PDP variant sheet, where a
  * product can have dozens of siblings, far more than a per-alias fan-out can
  * carry without timing out or blowing the request size. Returns the slim
- * `productsByIds` payload (name + articleNumber + price + images + type, no
- * nested variantGroup).
+ * `productsByIds` payload (name + articleNumber + price + images + type + SKU
+ * ids, no nested variantGroup).
  */
 export async function getProductsByIds(
   args: { productIds: number[]; userToken?: string },

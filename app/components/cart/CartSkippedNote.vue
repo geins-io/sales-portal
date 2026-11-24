@@ -20,4 +20,15 @@ const { t } = useI18n();
       })
     }}</span>
   </p>
+  <p
+    v-if="cartStore.skippedMultiSku > 0"
+    role="status"
+    data-testid="cart-skipped-multi-sku"
+    class="bg-muted flex items-start gap-2 rounded-md px-4 py-3 text-sm"
+  >
+    <Info class="text-muted-foreground mt-0.5 size-4 shrink-0" />
+    <span>{{
+      t('cart.skipped_multi_sku', { count: cartStore.skippedMultiSku })
+    }}</span>
+  </p>
 </template>
