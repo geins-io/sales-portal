@@ -19,6 +19,7 @@ query productsByIds(
       name
       articleNumber
       type
+      discountType
       # The purchased-products cards send a product with several SKUs to its page.
       skus {
         skuId

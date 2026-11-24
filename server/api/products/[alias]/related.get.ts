@@ -7,13 +7,15 @@ import {
 } from '../../../services/products';
 import { logger } from '../../../utils/logger';
 
-// The related query's item type carries neither `productId` nor `type`.
+// The related query's item type carries neither `productId`, `type` nor
+// `discountType`.
 type RelatedRow = {
   productId?: number;
   skus?: { productId?: number | null }[] | null;
 };
+type ProductFacts = { type?: string | null; discountType?: string | null };
 type ProductTypes = {
-  products: { productId: number; type?: string | null }[];
+  products: ({ productId: number } & ProductFacts)[];
 };
 
 function withProductId<T extends RelatedRow>(row: T): T {
@@ -26,13 +28,18 @@ async function productTypes(
   productIds: number[],
   userToken: string | undefined,
   event: H3Event,
-): Promise<ReadonlyMap<number | undefined, string | null | undefined> | null> {
+): Promise<ReadonlyMap<number | undefined, ProductFacts> | null> {
   try {
     const result = (await getProductsByIds(
       { productIds, userToken },
       event,
     )) as ProductTypes;
-    return new Map(result.products.map((p) => [p.productId, p.type]));
+    return new Map(
+      result.products.map((p) => [
+        p.productId,
+        { type: p.type, discountType: p.discountType },
+      ]),
+    );
   } catch {
     logger.warn('[configurator] related product types unavailable');
     return null;
@@ -60,7 +67,7 @@ export default defineEventHandler(async (event) => {
       if (!types) return rows;
       return withConfigurableFlags(
         event,
-        rows.map((row) => ({ ...row, type: types.get(row.productId) })),
+        rows.map((row) => ({ ...row, ...types.get(row.productId) })),
       );
     },
     { operation: 'products.related.get' },

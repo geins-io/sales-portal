@@ -526,8 +526,6 @@
   "discount": {
     "sale": "Sale",
     "campaign": "Campaign",
-    "your_price": "Your price",
-    "negotiated_price_info": "This price is based on your negotiated agreement.",
     "volume_pricing": "Volume pricing",
     "quantity": "Quantity",
     "unit_price": "Unit price",

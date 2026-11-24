@@ -10,7 +10,6 @@ import type { Quote, QuoteAddTarget } from '#shared/types/quote';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { Badge } from '~/components/ui/badge';
 import {
-  BadgeCheck,
   Download,
   ListPlus,
   ShoppingCart,
@@ -661,16 +660,6 @@ useProductSeo({
                 {{ campaign.name }}
               </Badge>
             </div>
-          </div>
-
-          <!-- Negotiated price info banner -->
-          <div
-            v-if="!hidesCatalogueSku && product.discountType === 'EXTERNAL'"
-            class="bg-info/10 text-info flex items-center gap-2 rounded-md px-3 py-2 text-sm"
-            data-testid="negotiated-price-banner"
-          >
-            <BadgeCheck class="size-4 shrink-0" />
-            <span>{{ $t('discount.negotiated_price_info') }}</span>
           </div>
 
           <!-- Variant selector — pass product-level data through so each

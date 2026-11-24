@@ -526,8 +526,6 @@
   "discount": {
     "sale": "Ale",
     "campaign": "Kampanja",
-    "your_price": "Sinun hintasi",
-    "negotiated_price_info": "Tämä hinta perustuu sopimushintaasi.",
     "volume_pricing": "Määräalennukset",
     "quantity": "Määrä",
     "unit_price": "Yksikköhinta",

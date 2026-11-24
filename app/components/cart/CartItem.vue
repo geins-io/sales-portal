@@ -127,7 +127,11 @@ function inVatChoice(
 }
 
 const onSale = computed(() =>
-  isShownAsDiscount(props.item.totalPrice, props.item.quantity),
+  isShownAsDiscount(
+    props.item.totalPrice,
+    props.item.quantity,
+    props.item.product?.discountType,
+  ),
 );
 const totalFormatted = computed(() =>
   inVatChoice(props.item.totalPrice, 'selling'),

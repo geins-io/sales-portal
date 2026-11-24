@@ -526,8 +526,6 @@
   "discount": {
     "sale": "Reduziert",
     "campaign": "Aktion",
-    "your_price": "Ihr Preis",
-    "negotiated_price_info": "Dieser Preis beruht auf Ihrer individuellen Vereinbarung.",
     "volume_pricing": "Staffelpreise",
     "quantity": "Menge",
     "unit_price": "Einzelpreis",

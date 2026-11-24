@@ -35,6 +35,18 @@ describe('GraphQL loader', () => {
     );
   });
 
+  // A card draws its price from the discount type: a price-list price is the
+  // buyer's ordinary price, though its flag says discounted.
+  it.each([
+    'products/product-cards-by-ids.graphql',
+    'products/products-by-ids.graphql',
+    'search/search.graphql',
+    'product-lists/products.graphql',
+    'products/product.graphql',
+  ])('selects the discount type with the price in %s', (file) => {
+    expect(loadQuery(file)).toMatch(/\n\s*discountType\n/);
+  });
+
   describe('loadQuery', () => {
     it('should load a simple query without fragments', () => {
       const query = loadQuery('brands/brands.graphql');

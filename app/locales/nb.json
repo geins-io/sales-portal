@@ -526,8 +526,6 @@
   "discount": {
     "sale": "Salg",
     "campaign": "Kampanje",
-    "your_price": "Din pris",
-    "negotiated_price_info": "Denne prisen er basert på den avtalte prisen din.",
     "volume_pricing": "Volumpriser",
     "quantity": "Antall",
     "unit_price": "Enhetspris",

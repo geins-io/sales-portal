@@ -245,6 +245,60 @@ describe('CartItem', () => {
     ).not.toContain('text-danger');
   });
 
+  // Measured on a price list that is not enforced: 216 against 240, 10 %.
+  describe('by the product discount type', () => {
+    function mountLine(discountType: string) {
+      return mountComponent(CartItem, {
+        props: {
+          item: {
+            ...mockItem,
+            quantity: 1,
+            product: { ...mockItem.product, discountType },
+            totalPrice: {
+              isDiscounted: true,
+              discountPercentage: 10,
+              sellingPriceIncVat: 270,
+              sellingPriceIncVatFormatted: '270 kr',
+              sellingPriceExVat: 216,
+              regularPriceIncVat: 300,
+              regularPriceIncVatFormatted: '300 kr',
+              regularPriceExVat: 240,
+            },
+          } as CartItemType,
+        },
+        global: {
+          stubs: {
+            GeinsImage: true,
+            QuantityInput: {
+              template: '<div />',
+              props: ['modelValue', 'min', 'max'],
+            },
+          },
+        },
+      });
+    }
+
+    it("draws a price-list line as the buyer's ordinary price", () => {
+      const wrapper = mountLine('PRICE_LIST');
+      expect(
+        wrapper.find('[data-testid="cart-item-regular-price"]').exists(),
+      ).toBe(false);
+      expect(
+        wrapper.find('[data-testid="cart-item-total-price"]').classes(),
+      ).not.toContain('text-danger');
+    });
+
+    it.each(['SALE_PRICE', 'PRICE_CAMPAIGN'])(
+      'strikes the regular total of a %s line, as before',
+      (discountType) => {
+        const wrapper = mountLine(discountType);
+        expect(
+          wrapper.get('[data-testid="cart-item-regular-price"]').text(),
+        ).toBe('300 kr');
+      },
+    );
+  });
+
   describe('campaign badges', () => {
     const stubs = {
       GeinsImage: true,

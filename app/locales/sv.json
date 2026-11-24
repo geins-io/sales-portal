@@ -526,8 +526,6 @@
   "discount": {
     "sale": "Rea",
     "campaign": "Kampanj",
-    "your_price": "Ditt pris",
-    "negotiated_price_info": "Detta pris baseras på ditt avtalade pris.",
     "volume_pricing": "Volympriser",
     "quantity": "Antal",
     "unit_price": "Styckpris",

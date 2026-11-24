@@ -199,6 +199,7 @@ function handleRemove(item: CartItemType) {
               v-if="item.totalPrice"
               :price="item.totalPrice"
               :quantity="item.quantity"
+              :discount-type="item.product?.discountType"
               :vat-label="false"
               testid="checkout-line-total"
               class="text-base font-semibold"
@@ -210,6 +211,7 @@ function handleRemove(item: CartItemType) {
             >
               <PriceDisplay
                 :price="item.unitPrice"
+                :discount-type="item.product?.discountType"
                 :vat-label="false"
                 class="inline text-sm [&_span]:font-normal"
               />

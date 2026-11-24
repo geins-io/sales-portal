@@ -245,6 +245,7 @@ describe('buildStoredAliasLookup', () => {
       'canonicalUrl',
       'name',
       'articleNumber',
+      'discountType',
     ]) {
       expect(cardFragment).toMatch(new RegExp(`\\n\\s*${field}\\n`));
     }

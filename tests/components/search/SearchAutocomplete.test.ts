@@ -75,6 +75,31 @@ describe('SearchAutocomplete', () => {
     expect(artNr.text()).toContain('product.article_number');
   });
 
+  it("passes the product's discount type to its price", () => {
+    const wrapper = mountComponent(SearchAutocomplete, {
+      props: {
+        results: {
+          products: [makeProduct({ discountType: 'PRICE_LIST' })],
+          count: 1,
+        },
+        loading: false,
+        open: true,
+      },
+      global: {
+        stubs: {
+          ...stubs,
+          PriceDisplay: {
+            template: '<span data-testid="price" :data-type="discountType" />',
+            props: ['price', 'discountType'],
+          },
+        },
+      },
+    });
+    expect(wrapper.get('[data-testid="price"]').attributes('data-type')).toBe(
+      'PRICE_LIST',
+    );
+  });
+
   it('omits the article number line when articleNumber is empty', () => {
     const results = {
       products: [makeProduct({ articleNumber: '' })],

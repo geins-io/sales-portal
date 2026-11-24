@@ -176,7 +176,7 @@ export type CartType = Omit<SdkCartType, 'items'> & { items: CartItemType[] };
 // Discount & lowest-price types (from enriched pricing GraphQL fragments)
 // ---------------------------------------------------------------------------
 export type ProductDiscountType =
-  'NONE' | 'SALE_PRICE' | 'PRICE_CAMPAIGN' | 'EXTERNAL';
+  'NONE' | 'SALE_PRICE' | 'PRICE_CAMPAIGN' | 'PRICE_LIST' | 'EXTERNAL';
 
 export interface LowestPriceInfo {
   lowestPriceIncVat: number;

@@ -20,4 +20,5 @@ fragment ProductCard on ProductType {
   totalStock {
     ...Stock
   }
+  discountType
 }

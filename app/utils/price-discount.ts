@@ -1,4 +1,4 @@
-import type { PriceType } from '#shared/types/commerce';
+import type { PriceType, ProductDiscountType } from '#shared/types/commerce';
 
 /** Half an öre (or cent) ex VAT: below it, the two prices format the same. */
 const MIN_DISCOUNT_EX_VAT = 0.005;
@@ -14,6 +14,9 @@ const FLOAT_TOLERANCE = 1e-9;
  * because inc VAT that same line differs by a whole öre. A line total takes
  * its quantity: the gap grows with it (0.0017 a unit, 0.0051 on three). A
  * price without both ex-VAT numbers keeps the flag.
+ *
+ * A `PRICE_LIST` price is the buyer's agreed price: the API flags it against
+ * the ordinary price, but to the buyer it is the ordinary price.
  */
 export function isShownAsDiscount(
   price:
@@ -23,8 +26,11 @@ export function isShownAsDiscount(
       >
     | undefined,
   quantity = 1,
+  discountType?: ProductDiscountType,
 ): boolean {
-  if (price?.isDiscounted !== true) return false;
+  if (price?.isDiscounted !== true || discountType === 'PRICE_LIST') {
+    return false;
+  }
   const { regularPriceExVat: regular, sellingPriceExVat: selling } = price;
   if (regular == null || selling == null) return true;
   return regular - selling >= quantity * MIN_DISCOUNT_EX_VAT - FLOAT_TOLERANCE;
