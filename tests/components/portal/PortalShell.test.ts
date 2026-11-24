@@ -216,7 +216,7 @@ describe('PortalShell', () => {
   });
 
   describe('hero width container', () => {
-    it('wraps CMS hero in a max-w-7xl container matching the welcome card', () => {
+    it('wraps CMS hero in the content column, like the welcome card', () => {
       mockHeroData.value = { containers: [{ id: 'c1', widgets: [] }] };
       const wrapper = mountComponent(PortalShell, {
         slots: { default: '<div>content</div>' },
@@ -231,14 +231,12 @@ describe('PortalShell', () => {
         },
       });
       const hero = wrapper.find('[data-testid="portal-hero"]').element;
-      const ancestor = hero.closest('.max-w-7xl') as HTMLElement | null;
+      const ancestor = hero.closest('.content-column') as HTMLElement | null;
       expect(ancestor).not.toBeNull();
-      expect(ancestor!.classList.contains('mx-auto')).toBe(true);
-      expect(ancestor!.classList.contains('px-4')).toBe(true);
-      expect(ancestor!.classList.contains('lg:px-0')).toBe(true);
+      expect(ancestor!.classList.contains('lg:px-0')).toBe(false);
     });
 
-    it('renders hero wrapper and welcome wrapper as separate max-w-7xl mx-auto siblings', () => {
+    it('renders hero wrapper and welcome wrapper as separate content-column siblings', () => {
       mockHeroData.value = { containers: [{ id: 'c1', widgets: [] }] };
       const wrapper = mountComponent(PortalShell, {
         slots: { default: '<div>content</div>' },
@@ -255,11 +253,9 @@ describe('PortalShell', () => {
       const welcome = wrapper.find('[data-testid="portal-welcome"]').element;
       const hero = wrapper.find('[data-testid="portal-hero"]').element;
       const welcomeWrapper = welcome.closest(
-        '.max-w-7xl.mx-auto',
+        '.content-column',
       ) as HTMLElement | null;
-      const heroWrapper = hero.closest(
-        '.max-w-7xl.mx-auto',
-      ) as HTMLElement | null;
+      const heroWrapper = hero.closest('.content-column') as HTMLElement | null;
       expect(welcomeWrapper).not.toBeNull();
       expect(heroWrapper).not.toBeNull();
       expect(welcomeWrapper).not.toBe(heroWrapper);

@@ -483,3 +483,38 @@ describe('JsonWidget cropping boxes', () => {
     expect(ratios(wrapper)).toEqual([undefined]);
   });
 });
+
+describe('JsonWidget cards-rich header alignment', () => {
+  function headerBox(textAlign?: string) {
+    const wrapper = mountJson({
+      templateId: 'cards-rich',
+      header: { heading: 'H', description: 'D', textAlign },
+      items: [],
+    });
+    return wrapper.find('h2').element.parentElement!.classList;
+  }
+
+  it('starts at the content edge when left aligned or unset, like the cards', () => {
+    for (const align of [undefined, 'left', 'unknown']) {
+      const box = headerBox(align);
+      expect([...box], String(align)).not.toContain('mx-auto');
+      expect([...box]).not.toContain('ml-auto');
+      expect([...box]).not.toContain('text-center');
+      expect([...box]).not.toContain('text-right');
+      expect([...box]).toContain('max-w-[670px]');
+    }
+  });
+
+  it('sits in the middle when centred', () => {
+    const box = [...headerBox('center')];
+    expect(box).toEqual(expect.arrayContaining(['mx-auto', 'text-center']));
+    expect(box).toContain('max-w-[670px]');
+  });
+
+  it('ends at the content edge, text right aligned, when right aligned', () => {
+    const box = [...headerBox('right')];
+    expect(box).toEqual(expect.arrayContaining(['ml-auto', 'text-right']));
+    expect(box).not.toContain('mx-auto');
+    expect(box).toContain('max-w-[670px]');
+  });
+});

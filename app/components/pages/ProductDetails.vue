@@ -598,8 +598,8 @@ useProductSeo({
 </script>
 
 <template>
-  <div class="px-4 py-8 lg:px-6">
-    <div class="mx-auto max-w-7xl space-y-8">
+  <div class="py-8">
+    <div class="content-column space-y-8">
       <!-- Print-only header: store logo + timestamp + product URL.
          Hidden on screen, shown via @media print. -->
       <PrintHeader :product-url="printUrl" />

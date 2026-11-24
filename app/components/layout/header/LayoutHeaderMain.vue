@@ -24,7 +24,7 @@ function onSearch(query: string) {
     :class="navVariant === 'white' ? 'border-b' : 'border-b lg:border-b-0'"
   >
     <div
-      class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 lg:h-20 lg:px-6"
+      class="content-column flex h-16 items-center justify-between gap-4 lg:h-20"
     >
       <!-- Logo -->
       <BrandLogo class="shrink-0" />

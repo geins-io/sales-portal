@@ -3,6 +3,7 @@ import { CMS_MENUS } from '#shared/constants/cms';
 import {
   getMenuLabel,
   getVisibleItems,
+  navBarAlignment,
   splitLabelInTwo,
 } from '#shared/utils/menu';
 import {
@@ -37,6 +38,15 @@ const menuLayout = computed<'mega' | 'collapsible' | 'catalogue'>(() => {
   if (settings?.type === 'catalogue') return 'catalogue';
   return settings?.collapsibleCategories === true ? 'collapsible' : 'mega';
 });
+
+// Left aligned, the first label starts at the content edge, under the logo.
+const firstItemFlush = computed(
+  () => navBarAlignment(tenant.value?.layout?.menu) !== 'center',
+);
+
+function itemPad(index: number) {
+  return index === 0 && firstItemFlush.value ? 'pl-0' : '';
+}
 
 // The open top item; '' closes the menu, which the catalogue's dim does.
 const openItem = ref('');
@@ -200,7 +210,7 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
     :aria-label="$t('layout.main_navigation')"
   >
     <!--
-      The side gutters are the container's 24px padding, kept as slots: an
+      The side gutters are the content column's, kept as slots: an
       arrow renders inside one only on overflow, so the items never move when
       the arrows appear. The list's focus-ring padding reaches 3px into each
       gutter, so while items are scrolled under a gutter it paints the bar
@@ -208,9 +218,9 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
       and over the full row height, which two-line labels fill); at an end
       it stays clear for the ring. The row isolates that z-index.
     -->
-    <div class="isolate mx-auto flex w-full max-w-7xl items-center">
+    <div class="isolate mx-auto flex w-full max-w-(--content-max) items-center">
       <div
-        class="flex w-6 shrink-0 items-center self-stretch"
+        class="flex w-(--content-gutter) shrink-0 items-center self-stretch"
         :class="{
           'bg-nav-bar-background relative z-10': overflowing && !atStart,
         }"
@@ -250,13 +260,14 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
             class="mx-[-3px] scrollbar-none [justify-content:var(--nav-bar-justify,flex-start)]! gap-2 overflow-x-auto overflow-y-hidden p-[3px]"
           >
             <NavigationMenuItem
-              v-for="item in visibleItems"
+              v-for="(item, index) in visibleItems"
               :key="item.id"
               :class="visibleChildren(item).length ? 'static!' : ''"
             >
               <!-- Item with children: trigger + mega menu -->
               <template v-if="visibleChildren(item).length">
                 <NavigationMenuTrigger
+                  :class="itemPad(index)"
                   class="bg-transparent underline-offset-4 hover:bg-transparent hover:text-inherit hover:underline focus:bg-transparent focus:text-inherit data-[state=open]:bg-transparent data-[state=open]:text-inherit data-[state=open]:underline data-[state=open]:hover:bg-transparent data-[state=open]:focus:bg-transparent"
                 >
                   {{ getMenuLabel(item) }}
@@ -284,10 +295,7 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
                     data-testid="menu-catalogue-backdrop"
                     @click.self="openItem = ''"
                   >
-                    <div
-                      class="mx-auto max-w-7xl px-6"
-                      @click.self="openItem = ''"
-                    >
+                    <div class="content-column" @click.self="openItem = ''">
                       <div
                         class="bg-popover text-popover-foreground border-border animate-in slide-in-from-top-2 fade-in-0 max-h-[min(500px,calc(100vh-11rem))] w-fit overflow-y-auto rounded-b-md border border-t-0 p-6 shadow-lg duration-150 motion-reduce:animate-none"
                         data-testid="menu-catalogue-panel"
@@ -308,7 +316,7 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
                 -->
                   <div
                     v-else
-                    class="mx-auto max-h-[min(500px,calc(100vh-11rem))] max-w-7xl overflow-y-auto px-4 py-6 lg:px-6"
+                    class="content-column max-h-[min(500px,calc(100vh-11rem))] overflow-y-auto py-6"
                   >
                     <LayoutHeaderMenuCollapsible
                       v-if="menuLayout === 'collapsible'"
@@ -352,6 +360,7 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
               <template v-else>
                 <NavigationMenuLink
                   as-child
+                  :class="itemPad(index)"
                   class="inline-flex h-9 flex-row items-center rounded-md bg-transparent px-4 py-2 text-sm font-medium underline-offset-4 transition-colors hover:bg-transparent hover:text-inherit hover:underline focus:bg-transparent focus:text-inherit focus:underline"
                 >
                   <component :is="linkTag(item)" v-bind="linkAttrs(item)">
@@ -373,7 +382,7 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
         </NavigationMenu>
       </div>
       <div
-        class="flex w-6 shrink-0 items-center self-stretch"
+        class="flex w-(--content-gutter) shrink-0 items-center self-stretch"
         :class="{
           'bg-nav-bar-background relative z-10': overflowing && !atEnd,
         }"

@@ -16,7 +16,7 @@ Standards and patterns for this codebase. Read before contributing.
 ## Files
 
 - [Composables](composables.md) - When and how to create composables
-- [Components](components.md) - Dynamic component resolution and the `<component :is>` trap
+- [Components](components.md) - Dynamic component resolution and the `<component :is>` trap; the content column
 - [Runtime Config](runtime-config.md) - Environment variables and config
 - [Error Handling](error-handling.md) - Error patterns for client and server
 - [Icons](icons.md) - Static vs dynamic icon names, client bundle rules

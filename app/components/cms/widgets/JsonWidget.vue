@@ -74,6 +74,17 @@ const header = computed(
       | { heading?: string; description?: string; textAlign?: string }
       | undefined,
 );
+// The header lines up with the cards' edges; left is the default.
+const headerAlign = computed(() => {
+  switch (header.value?.textAlign) {
+    case 'center':
+      return 'mx-auto text-center';
+    case 'right':
+      return 'ml-auto text-right';
+    default:
+      return '';
+  }
+});
 const items = computed(() => (props.data.items as CardsRichItem[]) ?? []);
 const simpleItems = computed(
   () => (props.data.items as CardsSimpleItem[]) ?? [],
@@ -179,8 +190,8 @@ function bannerPlacementClasses(placement?: string): string {
   <div v-else-if="templateId === 'cards-rich'" class="space-y-6">
     <div
       v-if="header?.heading || header?.description"
-      class="mx-auto max-w-[670px] space-y-2"
-      :class="header?.textAlign === 'center' ? 'text-center' : ''"
+      class="max-w-[670px] space-y-2"
+      :class="headerAlign"
     >
       <!-- eslint-disable tailwindcss/no-unnecessary-arbitrary-value -- leading-1.1 is not a Tailwind 4 class, so the fix would drop line-height 1.1 -->
       <h2

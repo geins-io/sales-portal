@@ -71,6 +71,44 @@ describe('LayoutFooter root', () => {
   });
 });
 
+// The rule above the copyright separates it from the rows above; with none
+// rendered it would sit alone on the footer's top edge. The class drops it
+// under `:first-child > *`, so each case checks the rule against that selector.
+describe('the rule above the copyright', () => {
+  const DROP = '[:first-child>&]:border-t-0';
+  const main = (rendered: boolean) => ({
+    template: rendered ? '<div data-slot="footer-main" />' : '<!---->',
+  });
+
+  function ruleIn(mainRendered: boolean) {
+    const wrapper = mountComponent(LayoutFooter, {
+      global: {
+        stubs: {
+          LayoutFooterTop: { template: '<div data-slot="footer-top" />' },
+          LayoutFooterMain: main(mainRendered),
+        },
+      },
+    });
+    const rule = wrapper.find('[data-slot="footer-bottom"] > .border-t');
+    expect(rule.classes()).toContain(DROP);
+    return rule.element;
+  }
+
+  it('is not drawn when nothing is rendered above it', () => {
+    setFeatures({ newsletterSignup: { enabled: false } });
+    expect(ruleIn(false).matches(':first-child > *')).toBe(true);
+  });
+
+  it('is drawn under the newsletter row', () => {
+    expect(ruleIn(false).matches(':first-child > *')).toBe(false);
+  });
+
+  it('is drawn under the link columns', () => {
+    setFeatures({ newsletterSignup: { enabled: false } });
+    expect(ruleIn(true).matches(':first-child > *')).toBe(false);
+  });
+});
+
 // One test per configured value of `newsletterSignup`, each writing the value
 // itself rather than a decision derived from it. Registered in
 // tests/unit/config-coverage/map.ts, which requires the key in the title.
@@ -123,6 +161,13 @@ describe('LayoutFooterTop', () => {
   it('renders newsletter section', () => {
     const wrapper = mountComponent(LayoutFooterTop);
     expect(wrapper.text()).toContain('layout.subscribe_heading');
+  });
+
+  it('puts the newsletter row in the content column, the gutter inside it', () => {
+    const wrapper = mountComponent(LayoutFooterTop);
+    const outer = wrapper.find('[data-slot="footer-top"]');
+    expect(outer.classes()).not.toContain('px-6');
+    expect(outer.find('.content-column').exists()).toBe(true);
   });
 
   it('renders email input and subscribe button', () => {
@@ -215,6 +260,16 @@ describe('LayoutFooterBottom', () => {
   it('renders copyright component', () => {
     const wrapper = shallowMountComponent(LayoutFooterBottom);
     expect(wrapper.find('copyright-stub').exists()).toBe(true);
+  });
+
+  it('sits in the content column with the rule inside the gutter, spanning the content', () => {
+    const wrapper = shallowMountComponent(LayoutFooterBottom);
+    const outer = wrapper.find('[data-slot="footer-bottom"]');
+    expect(outer.classes()).toContain('content-column');
+    expect(outer.classes()).not.toContain('border-t');
+    const rule = outer.find('.border-t');
+    expect(rule.exists()).toBe(true);
+    expect(rule.classes()).not.toContain('max-w-7xl');
   });
 
   it('does not render hardcoded legal links (moved to CMS menu)', () => {

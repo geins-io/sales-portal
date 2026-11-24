@@ -39,7 +39,7 @@ const showCart = computed(
       v-if="showCart"
       variant="ghost"
       data-slot="cart-button"
-      class="gap-1.5"
+      class="gap-1.5 lg:hover:bg-transparent lg:has-[>svg]:pr-0"
       :aria-label="`${cartStore.itemCount} ${$t('cart.items_short')}`"
       @click="cartStore.isOpen = true"
     >

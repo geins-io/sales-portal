@@ -139,10 +139,7 @@ function isActiveTab(tab: PortalTab): boolean {
     <!-- Hero Banner: rendered only when the CMS area has content. No
          placeholder shell when empty. Wrapper mirrors the welcome wrapper
          width so both align flush. -->
-    <div
-      v-if="heroArea?.containers?.length"
-      class="mx-auto max-w-7xl px-4 lg:px-0"
-    >
+    <div v-if="heroArea?.containers?.length" class="content-column">
       <CmsWidgetArea
         flush
         data-testid="portal-hero"
@@ -152,9 +149,7 @@ function isActiveTab(tab: PortalTab): boolean {
     </div>
 
     <!-- Welcome Card -->
-    <!-- Page content uses 1280px container (max-w-7xl). Side padding only
-         on smaller viewports, flush edges at 1280+ per Figma. -->
-    <div class="mx-auto max-w-7xl px-4 lg:px-0">
+    <div class="content-column">
       <div
         data-testid="portal-welcome"
         class="bg-background border-card-border mt-8 flex flex-col gap-6 rounded-lg border p-6 sm:flex-row sm:items-start sm:justify-between"

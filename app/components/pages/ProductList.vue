@@ -394,8 +394,8 @@ const { data: bottomArea } = useFetch<ContentAreaType>('/api/cms/area', {
 </script>
 
 <template>
-  <div class="px-4 py-8 lg:px-6">
-    <div class="mx-auto max-w-7xl space-y-6">
+  <div class="py-8">
+    <div class="content-column space-y-6">
       <!-- CMS zone above the product grid (tenant-configurable via
          CMS_SLOTS.PRODUCT_LIST_TOP). Omitted if slot unconfigured or
          area empty. -->

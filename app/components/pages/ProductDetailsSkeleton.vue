@@ -1,6 +1,6 @@
 <template>
-  <div class="px-4 py-8 lg:px-6">
-    <div data-testid="pdp-skeleton" class="mx-auto max-w-7xl space-y-8">
+  <div class="py-8">
+    <div data-testid="pdp-skeleton" class="content-column space-y-8">
       <!-- Breadcrumb skeleton -->
       <div class="flex items-center gap-2">
         <Skeleton class="h-4 w-12" />

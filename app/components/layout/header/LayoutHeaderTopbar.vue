@@ -20,7 +20,7 @@ const { to: applyTo, isResolved: applyResolved } = useCmsPageLink(
     data-slot="topbar"
     class="bg-top-bar-background text-top-bar-text w-full text-sm"
   >
-    <div class="flex h-12 items-center justify-between px-4 lg:px-6">
+    <div class="content-column flex h-12 items-center justify-between">
       <!-- Left: Contact + Locale. Below sm each item shows its icon or its
            text, never both: with both, this group alone outgrew a phone
            screen. -->

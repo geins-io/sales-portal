@@ -60,13 +60,13 @@ const designClasses = computed(() => {
   if (props.flush) return '';
   switch (props.container.design) {
     case 'contained':
-      return 'mx-auto max-w-7xl px-4 lg:px-6';
+      return 'content-column';
     case 'narrow':
-      return 'mx-auto max-w-3xl px-4';
+      return 'mx-auto max-w-3xl content-gutter';
     case 'full-width':
       return 'w-full';
     default:
-      return 'mx-auto max-w-7xl px-4 lg:px-6';
+      return 'content-column';
   }
 });
 
@@ -99,7 +99,7 @@ const isCollapse = computed(
   <section
     v-if="activeWidgets.length"
     :class="[
-      isRichTextFramed ? 'mx-auto max-w-7xl px-4 lg:px-6' : designClasses,
+      isRichTextFramed ? 'content-column' : designClasses,
       visibilityClass,
       (isRichTextFramed || container.design !== 'full-width') && 'py-4',
     ]"

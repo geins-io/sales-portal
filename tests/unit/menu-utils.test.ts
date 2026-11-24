@@ -7,6 +7,7 @@ import {
   getVisibleItems,
   isExternalUrl,
   splitLabelInTwo,
+  navBarAlignment,
 } from '../../shared/utils/menu';
 import type { MenuItemType } from '../../shared/types/cms';
 
@@ -399,5 +400,26 @@ describe('splitLabelInTwo', () => {
       'Rör och',
       'kopplingar',
     ]);
+  });
+});
+
+describe('navBarAlignment', () => {
+  it('is the saved alignment for the mega menu', () => {
+    expect(navBarAlignment({ navbarAlignment: 'center' })).toBe('center');
+    expect(navBarAlignment({ type: 'megaMenu', navbarAlignment: 'left' })).toBe(
+      'left',
+    );
+  });
+
+  it('is none for the catalogue, which is always left aligned', () => {
+    expect(
+      navBarAlignment({ type: 'catalogue', navbarAlignment: 'center' }),
+    ).toBeNull();
+  });
+
+  it('is unset without a saved alignment or menu settings', () => {
+    expect(navBarAlignment({})).toBeUndefined();
+    expect(navBarAlignment(null)).toBeUndefined();
+    expect(navBarAlignment(undefined)).toBeUndefined();
   });
 });

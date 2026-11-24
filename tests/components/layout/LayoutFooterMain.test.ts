@@ -600,15 +600,15 @@ describe('LayoutFooterMain', () => {
     expect(wrapper.find('[data-slot="footer-social"]').exists()).toBe(false);
   });
 
-  // --- mx-auto max-w-7xl container preserved ---
-
-  it('contains mx-auto max-w-7xl inner container when rendering', () => {
+  it('puts its columns in the content column, the gutter inside it', () => {
     footerMenus.footer.value = {
       id: '1',
       title: 'Nav',
       menuItems: [{ id: 'a', label: 'Home', canonicalUrl: '/', order: 1 }],
     };
     const wrapper = mount();
-    expect(wrapper.find('.mx-auto.max-w-7xl').exists()).toBe(true);
+    const outer = wrapper.find('[data-slot="footer-main"]');
+    expect(outer.find('.content-column').exists()).toBe(true);
+    expect(outer.classes()).not.toContain('px-6');
   });
 });

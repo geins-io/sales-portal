@@ -119,7 +119,7 @@ async function send() {
   <div class="min-h-full bg-neutral-50">
     <div
       v-if="sendable && quote"
-      class="mx-auto max-w-7xl px-4 py-8 lg:px-6"
+      class="content-column py-8"
       data-testid="quote-request-page"
     >
       <NuxtLink

@@ -54,6 +54,15 @@ describe('LayoutHeaderTopbar', () => {
     applyResolvedRef.value = true;
   });
 
+  it('keeps its background full width and its content in the content column', () => {
+    const wrapper = shallowMountComponent(LayoutHeaderTopbar);
+    const bar = wrapper.find('[data-slot="topbar"]');
+    expect(bar.classes()).toContain('w-full');
+    const row = bar.element.firstElementChild!;
+    expect([...row.classList]).toContain('content-column');
+    expect([...row.classList]).not.toContain('px-4');
+  });
+
   it('renders login link when not authenticated', () => {
     const wrapper = shallowMountComponent(LayoutHeaderTopbar);
     expect(wrapper.text()).toContain('auth.login');

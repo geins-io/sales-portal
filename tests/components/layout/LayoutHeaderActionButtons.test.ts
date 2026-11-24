@@ -25,6 +25,16 @@ describe('LayoutHeaderActionButtons', () => {
     expect(cartButton.element.tagName).toBe('BUTTON');
   });
 
+  it('sits the cart flush with the content column on desktop, keeping the focus ring', () => {
+    const wrapper = mountComponent(LayoutHeaderActionButtons);
+    const classes = wrapper.find('[data-slot="cart-button"]').classes();
+    // The size's own `has-[>svg]:px-3` outranks a plain `lg:pr-0`.
+    expect(classes).toEqual(
+      expect.arrayContaining(['lg:has-[>svg]:pr-0', 'lg:hover:bg-transparent']),
+    );
+    expect(classes).toContain('focus-visible:ring-[3px]');
+  });
+
   it('renders search icon button on mobile', () => {
     const wrapper = mountComponent(LayoutHeaderActionButtons);
     expect(wrapper.find('[data-slot="search-button"]').exists()).toBe(true);

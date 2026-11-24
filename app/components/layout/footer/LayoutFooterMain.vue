@@ -105,12 +105,8 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
 </script>
 
 <template>
-  <div
-    v-if="shouldRender"
-    data-slot="footer-main"
-    class="px-6 py-8 lg:px-6 lg:py-10"
-  >
-    <div class="mx-auto max-w-7xl">
+  <div v-if="shouldRender" data-slot="footer-main" class="py-8 lg:py-10">
+    <div class="content-column">
       <div class="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-5">
         <!-- Contact column -->
         <div v-if="hasContact">
