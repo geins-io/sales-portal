@@ -79,8 +79,13 @@ function mountJson(
         'i18n-t': i18nTStub,
         GeinsImage: {
           template:
-            '<img data-testid="geins-image" :data-priority="String(priority)" :data-aspect-ratio="aspectRatio" />',
-          props: { priority: Boolean, aspectRatio: String },
+            '<img data-testid="geins-image" :data-priority="String(priority)" :data-aspect-ratio="aspectRatio" :data-sizes="sizes" :data-fit="fit" />',
+          props: {
+            priority: Boolean,
+            aspectRatio: String,
+            sizes: String,
+            fit: String,
+          },
         },
       },
     },
@@ -516,5 +521,371 @@ describe('JsonWidget cards-rich header alignment', () => {
     expect(box).toEqual(expect.arrayContaining(['ml-auto', 'text-right']));
     expect(box).not.toContain('mx-auto');
     expect(box).toContain('max-w-[670px]');
+  });
+});
+
+describe('JsonWidget cards-rich settings', () => {
+  const image = { src: 'a.jpg', srcPath: 'content/a.jpg', alt: 'A' };
+  // The start page's live block: flat cards with cta, no settings.
+  const flatCard = (heading: string) => ({
+    heading,
+    description: `${heading} text`,
+    image,
+    cta: { text: `${heading} link`, url: `/${heading}` },
+  });
+  const textCard = (text: Record<string, unknown>) => ({ text });
+  const cards = (wrapper: ReturnType<typeof mountJson>) =>
+    wrapper.findAll('[data-testid="cards-rich-card"]');
+  const grid = (wrapper: ReturnType<typeof mountJson>) =>
+    wrapper.find('[data-testid="cards-rich-grid"]');
+  const sizes = (wrapper: ReturnType<typeof mountJson>) =>
+    wrapper
+      .findAll('[data-testid="geins-image"]')
+      .map((img) => img.attributes('data-sizes'));
+  const BUTTON =
+    'bg-button-background text-button-text inline-block rounded-md px-4 py-2 text-sm font-medium';
+
+  it('renders a flat block with cta as today', () => {
+    const wrapper = mountJson({
+      templateId: 'cards-rich',
+      header: { heading: 'H', textAlign: 'center' },
+      items: [flatCard('a'), flatCard('b'), flatCard('c')],
+    });
+
+    expect(grid(wrapper).classes()).toEqual(
+      expect.arrayContaining(['grid', 'gap-6', 'md:grid-cols-3']),
+    );
+    const card = cards(wrapper)[0]!;
+    expect(card.classes()).toEqual(
+      expect.arrayContaining([
+        'bg-card',
+        'border-card-border',
+        'overflow-hidden',
+        'rounded-md',
+        'border',
+      ]),
+    );
+    expect(card.attributes('style')).toBeUndefined();
+    expect(card.find('h3').text()).toBe('a');
+    expect(card.find('h3').classes()).toEqual([
+      'font-heading',
+      'text-lg',
+      'font-semibold',
+    ]);
+    expect(card.find('p').text()).toBe('a text');
+    expect(card.find('p').classes()).toEqual(
+      expect.arrayContaining(['text-muted-foreground', 'text-sm']),
+    );
+    const link = card.find('a');
+    expect(link.text()).toBe('a link');
+    expect(link.classes().join(' ')).toBe(BUTTON);
+    const text = card.find('[data-testid="cards-rich-card-text"]');
+    expect(text.classes()).toEqual(
+      expect.arrayContaining(['p-4', 'items-start', 'text-left']),
+    );
+    expect(text.classes()).toContain('justify-start');
+    expect(
+      card.find('[data-testid="geins-image"]').attributes('data-fit'),
+    ).toBe('natural');
+  });
+
+  it('reads the grouped shape: text, image and button', () => {
+    const wrapper = mountJson({
+      templateId: 'cards-rich',
+      settings: { cardsPerRow: 'dynamic', spacing: true },
+      items: [
+        {
+          text: { heading: 'Rent', description: 'By the day' },
+          image,
+          button: { text: 'Read more', url: '/rent', buttonStyle: 'button' },
+        },
+      ],
+    });
+
+    const card = cards(wrapper)[0]!;
+    expect(card.find('h3').text()).toBe('Rent');
+    expect(card.find('p').text()).toBe('By the day');
+    expect(card.find('[data-testid="geins-image"]').exists()).toBe(true);
+    expect(card.find('a').text()).toBe('Read more');
+    expect(card.find('a').classes().join(' ')).toBe(BUTTON);
+  });
+
+  it.each([
+    [{}, 2, 'md:grid-cols-2', '(min-width: 768px) 50vw, 100vw'],
+    [{}, 3, 'md:grid-cols-3', '(min-width: 768px) 33vw, 100vw'],
+    [
+      { cardsPerRow: 'dynamic' },
+      1,
+      'md:grid-cols-2',
+      '(min-width: 768px) 50vw, 100vw',
+    ],
+    [{ cardsPerRow: '1' }, 3, 'md:grid-cols-1', '100vw'],
+    [{ cardsPerRow: 2 }, 3, 'md:grid-cols-2', '(min-width: 768px) 50vw, 100vw'],
+    [
+      { cardsPerRow: '3' },
+      2,
+      'md:grid-cols-3',
+      '(min-width: 768px) 33vw, 100vw',
+    ],
+    [
+      { cardsPerRow: '4' },
+      4,
+      'md:grid-cols-2 lg:grid-cols-4',
+      '(min-width: 1024px) 25vw, (min-width: 768px) 50vw, 100vw',
+    ],
+    [
+      { cardsPerRow: '7' },
+      4,
+      'md:grid-cols-3',
+      '(min-width: 768px) 33vw, 100vw',
+    ],
+  ])(
+    'settings %j with %i cards: %s, images sized %s',
+    (settings, count, columns, imageSizes) => {
+      const wrapper = mountJson({
+        templateId: 'cards-rich',
+        settings,
+        items: Array.from({ length: count }, (_, i) => flatCard(`c${i}`)),
+      });
+
+      const classes = grid(wrapper).classes();
+      for (const column of columns.split(' '))
+        expect(classes).toContain(column);
+      const other = [
+        'md:grid-cols-1',
+        'md:grid-cols-2',
+        'md:grid-cols-3',
+        'lg:grid-cols-4',
+      ].filter((c) => !columns.split(' ').includes(c));
+      for (const column of other) expect(classes).not.toContain(column);
+      expect(new Set(sizes(wrapper))).toEqual(new Set([imageSizes]));
+    },
+  );
+
+  it('sets the cards edge to edge, square, when spacing is off', () => {
+    const wrapper = mountJson({
+      templateId: 'cards-rich',
+      settings: { spacing: false },
+      items: [flatCard('a'), flatCard('b')],
+    });
+
+    expect(grid(wrapper).classes()).toContain('gap-0');
+    expect(grid(wrapper).classes()).not.toContain('gap-6');
+    for (const card of cards(wrapper)) {
+      expect(card.classes()).toContain('rounded-none');
+      expect(card.classes()).not.toContain('rounded-md');
+      expect(card.classes()).toContain('border');
+    }
+  });
+
+  it.each([
+    ['left', 'top', ['items-start', 'text-left', 'justify-start']],
+    ['center', 'center', ['items-center', 'text-center', 'justify-center']],
+    ['right', 'bottom', ['items-end', 'text-right', 'justify-end']],
+  ])('places the text %s / %s', (textAlign, verticalAlign, expected) => {
+    const wrapper = mountJson({
+      templateId: 'cards-rich',
+      items: [textCard({ heading: 'A', textAlign, verticalAlign })],
+    });
+
+    const text = wrapper.find('[data-testid="cards-rich-card-text"]');
+    expect(text.classes()).toEqual(
+      expect.arrayContaining(['flex', 'flex-1', 'flex-col', ...expected]),
+    );
+  });
+
+  it('paints a valid background and text colour, the description lighter', () => {
+    const wrapper = mountJson({
+      templateId: 'cards-rich',
+      items: [
+        {
+          ...textCard({
+            heading: 'A',
+            description: 'a',
+            backgroundColor: '#1e3a5f',
+            textColor: '#ffffff',
+          }),
+          button: { text: 'Go', url: '/a' },
+        },
+      ],
+    });
+
+    const card = cards(wrapper)[0]!;
+    expect(card.attributes('style')).toContain('background-color: #1e3a5f');
+    expect(card.attributes('style')).toContain('color: #ffffff');
+    expect(card.find('p').classes()).toContain('opacity-80');
+    expect(card.find('p').classes()).not.toContain('text-muted-foreground');
+    // The button keeps the store's colours.
+    expect(card.find('a').classes().join(' ')).toBe(BUTTON);
+  });
+
+  it('paints only the colour that is set', () => {
+    const wrapper = mountJson({
+      templateId: 'cards-rich',
+      items: [
+        textCard({
+          heading: 'A',
+          description: 'a',
+          backgroundColor: '#f3e8d0',
+        }),
+      ],
+    });
+
+    const card = cards(wrapper)[0]!;
+    expect(card.attributes('style')).toBe('background-color: #f3e8d0;');
+    expect(card.find('p').classes()).toContain('text-muted-foreground');
+  });
+
+  it('ignores empty and invalid colours', () => {
+    const wrapper = mountJson({
+      templateId: 'cards-rich',
+      items: [
+        textCard({ heading: 'A', backgroundColor: '', textColor: '' }),
+        textCard({
+          heading: 'B',
+          backgroundColor: 'red; background-image: url(x)',
+          textColor: 'var(--x)',
+        }),
+      ],
+    });
+
+    for (const card of cards(wrapper))
+      expect(card.attributes('style')).toBeUndefined();
+  });
+
+  it('draws a link style button as an underlined text link', () => {
+    const wrapper = mountJson({
+      templateId: 'cards-rich',
+      items: [
+        {
+          ...textCard({ heading: 'A' }),
+          button: { text: 'Go', url: '/a', buttonStyle: 'link' },
+        },
+      ],
+    });
+
+    const link = wrapper.find('a');
+    expect(link.text()).toBe('Go');
+    expect(link.classes()).toEqual(
+      expect.arrayContaining(['underline', 'text-sm', 'font-medium']),
+    );
+    expect(link.classes()).not.toContain('bg-button-background');
+  });
+
+  it('fills an image-only card with its image, without a text box', () => {
+    const wrapper = mountJson({
+      templateId: 'cards-rich',
+      items: [
+        { image, button: { text: 'Go', url: 'javascript:alert(1)' } },
+        flatCard('b'),
+      ],
+    });
+
+    const [only, full] = cards(wrapper);
+    expect(only!.find('[data-testid="cards-rich-card-text"]').exists()).toBe(
+      false,
+    );
+    const img = only!.find('[data-testid="geins-image"]');
+    expect(img.attributes('data-fit')).toBe('cover');
+    expect(img.classes()).toContain('h-full');
+    expect(
+      full!.find('[data-testid="geins-image"]').attributes('data-fit'),
+    ).toBe('natural');
+  });
+
+  it('draws no image area for a card without an image', () => {
+    const wrapper = mountJson({
+      templateId: 'cards-rich',
+      items: [textCard({ heading: 'A' })],
+    });
+
+    expect(wrapper.find('[data-testid="geins-image"]').exists()).toBe(false);
+  });
+
+  it.each([
+    [{}, 2],
+    [{ cardsPerRow: '1' }, 1],
+    [{ cardsPerRow: '2' }, 4],
+  ])(
+    'makes a text-only card a text banner (settings %j, %i cards)',
+    (settings, count) => {
+      const wrapper = mountJson({
+        templateId: 'cards-rich',
+        settings,
+        items: Array.from({ length: count }, () =>
+          textCard({ heading: 'Big', description: 'text' }),
+        ),
+      });
+
+      const card = cards(wrapper)[0]!;
+      expect(card.find('h3').classes()).toEqual(
+        expect.arrayContaining(['text-[32px]', 'md:text-[40px]', 'font-bold']),
+      );
+      expect(card.find('p').classes()).toEqual(
+        expect.arrayContaining(['text-lg', 'md:text-xl']),
+      );
+      expect(
+        card.find('[data-testid="cards-rich-card-text"]').classes(),
+      ).toEqual(expect.arrayContaining(['p-8', 'md:p-12']));
+    },
+  );
+
+  it.each([
+    [{}, 3],
+    [{ cardsPerRow: '4' }, 2],
+  ])(
+    'gives a text-only card a 24 px heading (settings %j, %i cards)',
+    (settings, count) => {
+      const wrapper = mountJson({
+        templateId: 'cards-rich',
+        settings,
+        items: Array.from({ length: count }, () =>
+          textCard({ heading: 'Mid', description: 'text' }),
+        ),
+      });
+
+      const card = cards(wrapper)[0]!;
+      expect(card.find('h3').classes()).toContain('text-2xl');
+      expect(card.find('h3').classes()).not.toContain('text-[32px]');
+      expect(card.find('p').classes()).toContain('text-sm');
+      expect(
+        card.find('[data-testid="cards-rich-card-text"]').classes(),
+      ).toContain('p-4');
+    },
+  );
+
+  it('applies the text-card rule to a flat card without an image too', () => {
+    const wrapper = mountJson({
+      templateId: 'cards-rich',
+      items: [{ heading: 'Flat', cta: { text: 'Go', url: '/a' } }],
+    });
+
+    expect(wrapper.find('h3').classes()).toContain('text-[32px]');
+  });
+
+  it('collapse: full-width slides sized to the screen, one card component each', () => {
+    const items = [flatCard('a'), textCard({ heading: 'B' })];
+    const wrapper = mountJson(
+      { templateId: 'cards-rich', settings: { cardsPerRow: '4' }, items },
+      true,
+    );
+
+    const slides = wrapper.findAll('[data-slot="carousel-item"]');
+    expect(slides).toHaveLength(2);
+    for (const slide of slides) {
+      expect(slide.classes()).toContain('basis-full');
+      expect(slide.classes()).not.toContain('basis-4/5');
+      expect(slide.findAll('[data-testid="cards-rich-card"]')).toHaveLength(1);
+    }
+    expect(
+      slides[0]!.find('[data-testid="geins-image"]').attributes('data-sizes'),
+    ).toBe('100vw');
+    // Slide and grid cell render the same card.
+    expect(cards(wrapper)).toHaveLength(4);
+    expect(
+      grid(wrapper).findAll('[data-testid="cards-rich-card"]'),
+    ).toHaveLength(2);
+    expect(cards(wrapper)[0]!.html()).toContain('a text');
+    expect(cards(wrapper)[2]!.html()).toContain('a text');
   });
 });

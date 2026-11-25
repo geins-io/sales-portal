@@ -4,6 +4,13 @@ import type { ContentConfigType, FormWidgetData } from '#shared/types/cms';
 import { NuxtLink } from '#components';
 import { normalizeMenuUrl } from '#shared/utils/menu';
 import FormWidget from '~/components/cms/widgets/FormWidget.vue';
+import CardsRichCard from '~/components/cms/widgets/CardsRichCard.vue';
+import {
+  cardsRichPerRow,
+  cardsRichSpacing,
+  readCardsRichCard,
+  type CardsPerRow,
+} from '~/utils/cards-rich';
 import {
   Carousel,
   CarouselContent,
@@ -27,13 +34,6 @@ interface JsonWidgetCta {
   label?: string;
   /** `{horizontal}-{vertical}` overlay placement, e.g. "left-bottom", "middle-center". */
   placement?: string;
-}
-
-interface CardsRichItem {
-  heading?: string;
-  description?: string;
-  image?: JsonWidgetImage;
-  cta?: JsonWidgetCta;
 }
 
 interface CardsSimpleItem {
@@ -85,7 +85,28 @@ const headerAlign = computed(() => {
       return '';
   }
 });
-const items = computed(() => (props.data.items as CardsRichItem[]) ?? []);
+const richCards = computed(() =>
+  Array.isArray(props.data.items)
+    ? props.data.items.map(readCardsRichCard)
+    : [],
+);
+const richPerRow = computed(() =>
+  cardsRichPerRow(props.data.settings, richCards.value.length),
+);
+const richSpacing = computed(() => cardsRichSpacing(props.data.settings));
+const RICH_COLUMNS: Record<CardsPerRow, string> = {
+  1: 'md:grid-cols-1',
+  2: 'md:grid-cols-2',
+  3: 'md:grid-cols-3',
+  4: 'md:grid-cols-2 lg:grid-cols-4',
+};
+// Card widths in the grid; mobile is one column.
+const RICH_SIZES: Record<CardsPerRow, string> = {
+  1: '100vw',
+  2: '(min-width: 768px) 50vw, 100vw',
+  3: '(min-width: 768px) 33vw, 100vw',
+  4: '(min-width: 1024px) 25vw, (min-width: 768px) 50vw, 100vw',
+};
 const simpleItems = computed(
   () => (props.data.items as CardsSimpleItem[]) ?? [],
 );
@@ -118,7 +139,7 @@ function linkTo(url: string | undefined): string {
 // item set changes so dots and scroll snaps recompute (the items swap on a
 // locale/CMS payload change). Embla's own resize observer handles the
 // desktop->mobile reveal of the `md:hidden` track. Mirrors ProductListWidget.
-// ponytail: the card markup is duplicated (carousel item + grid cell) so mobile
+// ponytail: each card renders twice (carousel item + grid cell) so mobile
 // can swipe while desktop keeps the grid. Presentational only, no data fetch, so
 // the double render is cheap; revisit only if a card ever fetches.
 let carouselApi: CarouselApi | undefined;
@@ -216,42 +237,17 @@ function bannerPlacementClasses(placement?: string): string {
     >
       <CarouselContent>
         <CarouselItem
-          v-for="(item, i) in items"
+          v-for="(card, i) in richCards"
           :key="`rich-slide-${i}`"
-          class="basis-4/5"
+          class="basis-full"
         >
-          <div
-            class="bg-card border-card-border h-full overflow-hidden rounded-md border"
-          >
-            <GeinsImage
-              v-if="item.image?.src"
-              :file-name="item.image.src"
-              :path="item.image.srcPath"
-              type="pagewidget"
-              :alt="item.image?.alt ?? ''"
-              fit="natural"
-              sizes="80vw"
-              class="w-full"
-            />
-            <div class="space-y-2 p-4">
-              <h3
-                v-if="item.heading"
-                class="font-heading text-lg font-semibold"
-              >
-                {{ item.heading }}
-              </h3>
-              <p v-if="item.description" class="text-muted-foreground text-sm">
-                {{ item.description }}
-              </p>
-              <NuxtLink
-                v-if="item.cta && linkTo(item.cta.url)"
-                :to="linkTo(item.cta.url)"
-                class="bg-button-background text-button-text inline-block rounded-md px-4 py-2 text-sm font-medium"
-              >
-                {{ item.cta.text }}
-              </NuxtLink>
-            </div>
-          </div>
+          <CardsRichCard
+            :card="card"
+            :link="linkTo(card.button?.url)"
+            :per-row="richPerRow"
+            :spacing="richSpacing"
+            sizes="100vw"
+          />
         </CarouselItem>
       </CarouselContent>
       <CarouselDots v-if="canScrollPrev || canScrollNext" class="mt-4" />
@@ -259,44 +255,23 @@ function bannerPlacementClasses(placement?: string): string {
 
     <!-- Grid: all viewports when Stack; desktop-only when Collapse (slider owns mobile). -->
     <div
-      class="gap-6"
+      data-testid="cards-rich-grid"
       :class="[
-        items.length <= 2 ? 'md:grid-cols-2' : 'md:grid-cols-3',
+        richSpacing ? 'gap-6' : 'gap-0',
+        RICH_COLUMNS[richPerRow],
         collapse ? 'hidden md:grid' : 'grid',
       ]"
     >
-      <div
-        v-for="(item, i) in items"
+      <CardsRichCard
+        v-for="(card, i) in richCards"
         :key="i"
-        class="bg-card border-card-border overflow-hidden rounded-md border"
-      >
-        <GeinsImage
-          v-if="item.image?.src"
-          :file-name="item.image.src"
-          :path="item.image.srcPath"
-          type="pagewidget"
-          :alt="item.image?.alt ?? ''"
-          fit="natural"
-          :priority="priority && !collapse && i === 0"
-          sizes="(min-width: 768px) 50vw, 100vw"
-          class="w-full"
-        />
-        <div class="space-y-2 p-4">
-          <h3 v-if="item.heading" class="font-heading text-lg font-semibold">
-            {{ item.heading }}
-          </h3>
-          <p v-if="item.description" class="text-muted-foreground text-sm">
-            {{ item.description }}
-          </p>
-          <NuxtLink
-            v-if="item.cta && linkTo(item.cta.url)"
-            :to="linkTo(item.cta.url)"
-            class="bg-button-background text-button-text inline-block rounded-md px-4 py-2 text-sm font-medium"
-          >
-            {{ item.cta.text }}
-          </NuxtLink>
-        </div>
-      </div>
+        :card="card"
+        :link="linkTo(card.button?.url)"
+        :per-row="richPerRow"
+        :spacing="richSpacing"
+        :sizes="RICH_SIZES[richPerRow]"
+        :priority="priority && !collapse && i === 0"
+      />
     </div>
   </div>
 
