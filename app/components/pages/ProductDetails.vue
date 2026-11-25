@@ -597,7 +597,7 @@ useProductSeo({
 </script>
 
 <template>
-  <div class="py-8">
+  <div class="space-y-8 py-8">
     <div class="content-column space-y-8">
       <!-- Print-only header: store logo + timestamp + product URL.
          Hidden on screen, shown via @media print. -->
@@ -875,19 +875,21 @@ useProductSeo({
         </div>
       </section>
 
-      <!-- CMS zone on PDP (tenant-configurable via CMS_SLOTS.PRODUCT_DETAIL).
-         Omitted when unconfigured or empty. -->
-      <CmsWidgetArea
-        v-if="pdpCmsArea?.containers?.length"
-        data-testid="pdp-cms-area"
-        :containers="pdpCmsArea.containers"
-      />
-
       <AddToListDialog
         v-if="product"
         v-model:open="showListPicker"
         :product-alias="product.alias"
       />
     </div>
+
+    <!-- CMS zone on PDP (tenant-configurable via CMS_SLOTS.PRODUCT_DETAIL).
+       Omitted when unconfigured or empty. Outside the column: each
+       container's Design settings decide its width, as on the start page. -->
+    <CmsWidgetArea
+      v-if="pdpCmsArea?.containers?.length"
+      data-testid="pdp-cms-area"
+      :containers="pdpCmsArea.containers"
+      full-bleed
+    />
   </div>
 </template>

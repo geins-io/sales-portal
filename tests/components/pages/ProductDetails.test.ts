@@ -543,6 +543,33 @@ describe('ProductDetails', () => {
 
       expect(wrapper.find('[data-testid="pdp-cms-area"]').exists()).toBe(false);
     });
+
+    it('places the pdp zone outside the page column, reaching the screen edge', async () => {
+      const product = makeProduct();
+      configurePdpSlot(PDP_AREA);
+      mockCmsAreas.set(PDP_AREA, { containers: [{ id: 'pdp' }] });
+
+      const wrapper = await mountProductDetails(
+        { product, alias: product.alias },
+        {
+          global: {
+            stubs: {
+              ...cmsStubs,
+              CmsWidgetArea: {
+                template:
+                  '<div class="cms-area" :data-full-bleed="String(fullBleed)" />',
+                props: { containers: Array, fullBleed: Boolean },
+              },
+            },
+          },
+        },
+      );
+
+      const zone = wrapper.find('[data-testid="pdp-cms-area"]');
+      expect(zone.attributes('data-full-bleed')).toBe('true');
+      expect(zone.element.closest('.content-column')).toBeNull();
+      expect(wrapper.find('.content-column').exists()).toBe(true);
+    });
   });
 
   describe('purchase actions per mode and access', () => {

@@ -495,6 +495,33 @@ describe('ProductList.vue', () => {
       expect(wrapper.find('[data-testid="plp-cms-top"]').exists()).toBe(false);
     });
 
+    it('places both zones outside the page column, reaching the screen edge', async () => {
+      configureBothZones();
+      mockCmsAreas.set(TOP_AREA, { containers: [{ id: 'top' }] });
+      mockCmsAreas.set(BOTTOM_AREA, { containers: [{ id: 'bottom' }] });
+
+      const wrapper = await mountProductList(categoryProps, {
+        global: {
+          stubs: {
+            ...cmsStubs,
+            CmsWidgetArea: {
+              template:
+                '<div class="cms-area" :data-full-bleed="String(fullBleed)" />',
+              props: { containers: Array, fullBleed: Boolean },
+            },
+          },
+        },
+      });
+
+      for (const id of ['plp-cms-top', 'plp-cms-bottom']) {
+        const zone = wrapper.find(`[data-testid="${id}"]`);
+        expect(zone.attributes('data-full-bleed')).toBe('true');
+        expect(zone.element.closest('.content-column')).toBeNull();
+      }
+      const header = wrapper.find('[data-testid="plp-header"]');
+      expect(header.element.closest('.content-column')).not.toBeNull();
+    });
+
     /** The CMS query has to carry the page, or a filtered collection never
      *  resolves. Only this page's own category goes out: Geins returns one
      *  collection and the lowest id wins, so sending an ancestor lets a parent's

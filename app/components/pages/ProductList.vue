@@ -394,17 +394,19 @@ const { data: bottomArea } = useFetch<ContentAreaType>('/api/cms/area', {
 </script>
 
 <template>
-  <div class="py-8">
-    <div class="content-column space-y-6">
-      <!-- CMS zone above the product grid (tenant-configurable via
-         CMS_SLOTS.PRODUCT_LIST_TOP). Omitted if slot unconfigured or
-         area empty. -->
-      <CmsWidgetArea
-        v-if="topArea?.containers?.length"
-        data-testid="plp-cms-top"
-        :containers="topArea.containers"
-      />
+  <div class="space-y-6 py-8">
+    <!-- CMS zone above the product grid (tenant-configurable via
+       CMS_SLOTS.PRODUCT_LIST_TOP). Omitted if slot unconfigured or
+       area empty. Both zones sit outside the column: each container's
+       Design settings decide its width, as on the start page. -->
+    <CmsWidgetArea
+      v-if="topArea?.containers?.length"
+      data-testid="plp-cms-top"
+      :containers="topArea.containers"
+      full-bleed
+    />
 
+    <div class="content-column space-y-6">
       <!-- Header: breadcrumbs, title, description, sub-categories -->
       <ProductListHeader
         :page-info="pageInfo ?? null"
@@ -501,15 +503,16 @@ const { data: bottomArea } = useFetch<ContentAreaType>('/api/cms/area', {
           @update:current-page="onPageChange"
         />
       </div>
-
-      <!-- CMS zone below the product grid (tenant-configurable via
-         CMS_SLOTS.PRODUCT_LIST_BOTTOM). Omitted if unconfigured or
-         empty. -->
-      <CmsWidgetArea
-        v-if="bottomArea?.containers?.length"
-        data-testid="plp-cms-bottom"
-        :containers="bottomArea.containers"
-      />
     </div>
+
+    <!-- CMS zone below the product grid (tenant-configurable via
+       CMS_SLOTS.PRODUCT_LIST_BOTTOM). Omitted if unconfigured or
+       empty. -->
+    <CmsWidgetArea
+      v-if="bottomArea?.containers?.length"
+      data-testid="plp-cms-bottom"
+      :containers="bottomArea.containers"
+      full-bleed
+    />
   </div>
 </template>

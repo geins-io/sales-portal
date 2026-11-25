@@ -136,17 +136,15 @@ function isActiveTab(tab: PortalTab): boolean {
 
 <template>
   <div data-testid="portal-shell">
-    <!-- Hero Banner: rendered only when the CMS area has content. No
-         placeholder shell when empty. Wrapper mirrors the welcome wrapper
-         width so both align flush. -->
-    <div v-if="heroArea?.containers?.length" class="content-column">
-      <CmsWidgetArea
-        flush
-        data-testid="portal-hero"
-        :containers="heroArea.containers"
-        priority
-      />
-    </div>
+    <!-- Hero Banner: rendered only when the CMS area has content. Each
+         container's Design settings decide its width, as on the start page. -->
+    <CmsWidgetArea
+      v-if="heroArea?.containers?.length"
+      data-testid="portal-hero"
+      :containers="heroArea.containers"
+      full-bleed
+      priority
+    />
 
     <!-- Welcome Card -->
     <div class="content-column">

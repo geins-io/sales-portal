@@ -215,50 +215,34 @@ describe('PortalShell', () => {
     });
   });
 
-  describe('hero width container', () => {
-    it('wraps CMS hero in the content column, like the welcome card', () => {
+  describe('hero width', () => {
+    function mountWithHero() {
       mockHeroData.value = { containers: [{ id: 'c1', widgets: [] }] };
-      const wrapper = mountComponent(PortalShell, {
+      return mountComponent(PortalShell, {
         slots: { default: '<div>content</div>' },
         global: {
           stubs: {
             ...stubs,
             CmsWidgetArea: {
-              template: '<div data-testid="portal-hero"></div>',
-              props: ['containers'],
+              template: `<div data-testid="portal-hero"
+                :data-full-bleed="String(fullBleed)" :data-flush="String(flush)"></div>`,
+              props: { containers: Array, fullBleed: Boolean, flush: Boolean },
             },
           },
         },
       });
-      const hero = wrapper.find('[data-testid="portal-hero"]').element;
-      const ancestor = hero.closest('.content-column') as HTMLElement | null;
-      expect(ancestor).not.toBeNull();
-      expect(ancestor!.classList.contains('lg:px-0')).toBe(false);
+    }
+
+    it('lets the hero follow Design settings like the start page', () => {
+      const hero = mountWithHero().find('[data-testid="portal-hero"]');
+      expect(hero.attributes('data-full-bleed')).toBe('true');
+      expect(hero.attributes('data-flush')).not.toBe('true');
+      expect(hero.element.closest('.content-column')).toBeNull();
     });
 
-    it('renders hero wrapper and welcome wrapper as separate content-column siblings', () => {
-      mockHeroData.value = { containers: [{ id: 'c1', widgets: [] }] };
-      const wrapper = mountComponent(PortalShell, {
-        slots: { default: '<div>content</div>' },
-        global: {
-          stubs: {
-            ...stubs,
-            CmsWidgetArea: {
-              template: '<div data-testid="portal-hero"></div>',
-              props: ['containers'],
-            },
-          },
-        },
-      });
-      const welcome = wrapper.find('[data-testid="portal-welcome"]').element;
-      const hero = wrapper.find('[data-testid="portal-hero"]').element;
-      const welcomeWrapper = welcome.closest(
-        '.content-column',
-      ) as HTMLElement | null;
-      const heroWrapper = hero.closest('.content-column') as HTMLElement | null;
-      expect(welcomeWrapper).not.toBeNull();
-      expect(heroWrapper).not.toBeNull();
-      expect(welcomeWrapper).not.toBe(heroWrapper);
+    it('keeps the welcome card in the content column', () => {
+      const welcome = mountWithHero().find('[data-testid="portal-welcome"]');
+      expect(welcome.element.closest('.content-column')).not.toBeNull();
     });
   });
 
