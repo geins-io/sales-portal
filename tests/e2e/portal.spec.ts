@@ -5,7 +5,7 @@ import {
   outOfScope,
   fetchOrder,
   fetchOrders,
-  fetchAllOrderRows,
+  discoverPurchasableProduct,
   fetchQuote,
   fetchQuoteList,
   isE2EData,
@@ -1911,21 +1911,22 @@ test.describe('Portal Saved List Total', () => {
 });
 
 /**
- * Bulk adds that leave a configurable product out
+ * Bulk adds against the real cart
  *
- * "Beställ igen" and a saved list's "Lägg alla i varukorgen" cannot put a
- * configurable product in the cart without a configuration, so they leave it
- * out and the cart says how many, above its lines, in the drawer and on the
- * cart page (app/components/cart/CartSkippedNote.vue). The order is discovered
- * by property, never by id: the first one holding a configured row next to an
- * ordinary one. Both tests leave the account's cart as they found it.
+ * "Beställ igen" and a saved list's "Lägg alla i varukorgen" put every row a
+ * plain add can take in the cart, and the buyer stays on the page. A row they
+ * leave out is counted, and the drawer says so above its lines
+ * (app/components/cart/CartSkippedNote.vue). No order on the test account can
+ * hold a configured row, so the note for a configured or configurable row is
+ * left to the component tests; a product in several SKUs is what this account
+ * can leave out. Both tests leave the account's cart as they found it.
  */
-test.describe('Portal bulk adds that leave a configurable product out', () => {
+test.describe('Portal bulk adds', () => {
   interface DetailRow {
     skuId?: number;
     quantity?: number;
     configuration?: unknown;
-    product?: { alias?: string; name?: string; configurable?: boolean };
+    product?: { configurable?: boolean };
   }
 
   interface CartLine {
@@ -1934,17 +1935,8 @@ test.describe('Portal bulk adds that leave a configurable product out', () => {
     quantity: number;
   }
 
-  // A row carries its configuration only when the platform committed one; a
-  // line the fixture (CI) configured is a plain line, so no order there holds one.
-  const NO_CONFIGURED_ORDER =
-    'no order of the test account holds a configured row next to an ordinary one (an order placed through the fixture carries no configuration)';
-
-  const ONE_SKIPPED =
-    '1 produkt kräver konfiguration och lades inte i varukorgen';
-
-  function isLeftOut(row: DetailRow): boolean {
-    return !!row.configuration || row.product?.configurable === true;
-  }
+  const ONE_MULTI_SKU_SKIPPED =
+    '1 produkt finns i flera typer och lades inte i varukorgen';
 
   // By SKU, not by line: an add of a SKU the cart already holds is merged into
   // that line, so a line can be there before and still be the one added to.
@@ -1954,27 +1946,6 @@ test.describe('Portal bulk adds that leave a configurable product out', () => {
       bySku.set(line.skuId, (bySku.get(line.skuId) ?? 0) + line.quantity);
     }
     return bySku;
-  }
-
-  async function findConfiguredOrder(
-    page: Page,
-  ): Promise<{ publicId: string; rows: DetailRow[] } | null> {
-    for (const { publicId } of await fetchAllOrderRows(page)) {
-      if (!publicId) continue;
-      const detail = await apiGet(page.request, `/api/orders/${publicId}`);
-      if (!detail.ok()) continue;
-      const order = (await detail.json())?.order;
-      const rows: DetailRow[] = (order?.cart?.items ?? []).filter(
-        (row: DetailRow | null) => row?.skuId,
-      );
-      if (
-        rows.some((row) => !!row.configuration) &&
-        rows.some((row) => !isLeftOut(row) && row.product?.alias)
-      ) {
-        return { publicId, rows };
-      }
-    }
-    return null;
   }
 
   async function readCartLines(page: Page): Promise<{
@@ -2014,135 +1985,169 @@ test.describe('Portal bulk adds that leave a configurable product out', () => {
     }
   }
 
-  async function expectCartChange(
+  /** The cart's quantity of each SKU, as an object a failure prints whole. */
+  async function quantitiesOf(
     page: Page,
-    before: Map<number, number>,
-    added: Map<number, number>,
-    untouched: number[],
-  ) {
-    const after = quantityBySku((await readCartLines(page)).lines);
-    for (const [sku, quantity] of added) {
-      expect(after.get(sku) ?? 0, `SKU ${sku}`).toBe(
-        (before.get(sku) ?? 0) + quantity,
+    skus: number[],
+  ): Promise<Record<number, number>> {
+    const bySku = quantityBySku((await readCartLines(page)).lines);
+    return Object.fromEntries(skus.map((sku) => [sku, bySku.get(sku) ?? 0]));
+  }
+
+  /** The first catalogue product, alphabetically, sold in several SKUs. */
+  async function productWithSeveralSkus(
+    page: Page,
+  ): Promise<{ alias: string; skuIds: number[] } | undefined> {
+    const PAGE_SIZE = 100;
+    for (let skip = 0; ; skip += PAGE_SIZE) {
+      const response = await apiGet(
+        page.request,
+        '/api/product-lists/products',
+        {
+          params: {
+            take: String(PAGE_SIZE),
+            skip: String(skip),
+            filter: JSON.stringify({ sort: 'ALPHABETICAL' }),
+          },
+        },
       );
-    }
-    for (const sku of untouched) {
-      expect(after.get(sku) ?? 0, `SKU ${sku} was added`).toBe(
-        before.get(sku) ?? 0,
-      );
+      expect(
+        response.ok(),
+        `${response.url()} answered ${response.status()}`,
+      ).toBe(true);
+      const products: { alias?: string; skus?: { skuId: number }[] }[] =
+        (await response.json()).products ?? [];
+      for (const product of products) {
+        if (!product.alias || (product.skus?.length ?? 0) < 2) continue;
+        if (await isConfigurable(page, product.alias)) continue;
+        return {
+          alias: product.alias,
+          skuIds: product.skus!.map((sku) => sku.skuId),
+        };
+      }
+      if (products.length < PAGE_SIZE) return undefined;
     }
   }
 
-  const drawerNote = (page: Page) =>
-    page.locator(
-      '[data-testid="cart-drawer"] [data-testid="cart-skipped-configurable"]',
-    );
+  const ORDERS_TRIED = 5;
 
-  test('reorder adds the ordinary rows and stays on the order, and the drawer says how many it left out', async ({
+  /**
+   * The newest order whose every row reorder adds (app/utils/reorder.ts), so
+   * the expected cart change is the whole order. Other specs place orders on
+   * the account while this runs, so the newest one alone may not be such.
+   */
+  async function orderOfOrdinaryRows(
+    page: Page,
+  ): Promise<{ publicId: string; rows: DetailRow[] } | undefined> {
+    const listed = await apiGet(page.request, '/api/orders', {
+      params: { take: ORDERS_TRIED },
+    });
+    expect(listed.ok(), '/api/orders did not answer 200').toBe(true);
+    const orders: { publicId?: string }[] = (await listed.json())?.orders ?? [];
+    for (const { publicId } of orders) {
+      if (!publicId) continue;
+      const detail = await apiGet(page.request, `/api/orders/${publicId}`);
+      if (!detail.ok()) continue;
+      const rows: DetailRow[] = (
+        (await detail.json())?.order?.cart?.items ?? []
+      ).filter((row: DetailRow | null) => row?.skuId);
+      const ordinary = (row: DetailRow) =>
+        !row.configuration && row.product?.configurable !== true;
+      if (rows.length && rows.every(ordinary)) return { publicId, rows };
+    }
+    return undefined;
+  }
+
+  test('reorder adds the order rows to the cart and stays on the order', async ({
     page,
   }) => {
     await page.goto('/se/sv/portal');
     await waitForHydration(page);
 
-    const order = await findConfiguredOrder(page);
-    outOfScope(order === null, 'tenant-config', NO_CONFIGURED_ORDER);
-    const leftOut = order!.rows.filter(isLeftOut);
+    const found = await orderOfOrdinaryRows(page);
+    outOfScope(
+      !found,
+      'fixture-missing',
+      `none of the account's ${ORDERS_TRIED} newest orders holds only rows a plain add can take`,
+    );
+    const { publicId, rows } = found!;
+
     const added = new Map<number, number>();
-    for (const row of order!.rows) {
-      if (isLeftOut(row)) continue;
+    for (const row of rows) {
       added.set(row.skuId!, (added.get(row.skuId!) ?? 0) + (row.quantity ?? 1));
     }
+
     const before = quantityBySku((await readCartLines(page)).lines);
+    const skus = [...added.keys()];
+    const expected = Object.fromEntries(
+      skus.map((sku) => [sku, (before.get(sku) ?? 0) + added.get(sku)!]),
+    );
 
     try {
-      await page.goto(`/se/sv/portal/orders/${order!.publicId}`);
+      await page.goto(`/se/sv/portal/orders/${publicId}`);
       await waitForHydration(page);
-      await page.locator('[data-testid="reorder-button"]').click();
+      const button = page.locator('[data-testid="reorder-button"]');
+      await button.click();
 
-      const note =
-        leftOut.length === 1
-          ? ONE_SKIPPED
-          : `${leftOut.length} produkter kräver konfiguration och lades inte i varukorgen`;
-      await expect(drawerNote(page)).toHaveText(note, {
-        timeout: PAGE_TIMEOUT,
-      });
-      await expect(
-        page.locator('[data-testid="reorder-button"]'),
-      ).toBeEnabled();
-      // The buyer stays on the order; the drawer is the cart they see.
+      await expect
+        .poll(() => quantitiesOf(page, skus), {
+          message: `reorder of order ${publicId} did not add SKUs ${skus.join(', ')} by their order quantities`,
+          timeout: PAGE_TIMEOUT,
+        })
+        .toEqual(expected);
+      await expect(button).toBeEnabled();
       expect(new URL(page.url()).pathname).toBe(
-        `/se/sv/portal/orders/${order!.publicId}`,
-      );
-      await expectCartChange(
-        page,
-        before,
-        added,
-        leftOut.map((row) => row.skuId!),
+        `/se/sv/portal/orders/${publicId}`,
       );
     } finally {
       await restoreCart(page, before);
     }
   });
 
-  test('a saved list\'s "add all" adds the ordinary product, and the cart says one was left out', async ({
+  test('a saved list\'s "add all" adds the ordinary product, leaves the one in several SKUs out, and the drawer says so', async ({
     page,
   }) => {
     await page.goto('/se/sv/portal');
     await waitForHydration(page);
 
-    // The order supplies one product of each kind, both known to the account.
-    const order = await findConfiguredOrder(page);
-    outOfScope(order === null, 'tenant-config', NO_CONFIGURED_ORDER);
-    const configured = order!.rows.find((row) => !!row.configuration)!;
-    const ordinary = order!.rows.find(
-      (row) => !isLeftOut(row) && row.product?.alias,
-    )!;
+    const ordinary = await discoverPurchasableProduct(page);
+    const multi = await productWithSeveralSkus(page);
+    outOfScope(
+      !multi,
+      'fixture-missing',
+      'no ordinary product in the catalogue is sold in several SKUs',
+    );
     const listId = await createListWith(
       page,
-      [ordinary.product!.alias!],
+      [ordinary.alias, multi!.alias],
       'Add all check',
     );
-
-    // A configurable product's page is the configurator, which has no
-    // add-to-list button; its search card has one.
-    await page.goto(
-      `/se/sv/search?q=${encodeURIComponent(configured.product!.name!)}`,
-    );
-    await waitForHydration(page);
-    const card = page
-      .locator('[data-testid="product-card"]:visible')
-      .filter({
-        has: page.locator(`a[href$="/${configured.product!.alias}"]`),
-      })
-      .first();
-    await card.locator('[data-testid="wishlist-button"]').click();
-    const row = page.locator(
-      `[data-testid="add-to-list-row"][data-list-id="${listId}"]`,
-    );
-    await row.click();
-    await expect(row.locator('[data-slot="checkbox"]')).toHaveAttribute(
-      'data-state',
-      'checked',
-    );
-    await page.locator('[data-testid="add-to-list-done"]').click();
-
     await openList(page, listId);
     await expect(page.locator('[data-testid="list-item-row"]')).toHaveCount(2);
+
     const before = quantityBySku((await readCartLines(page)).lines);
+    const skus = [ordinary.skuId, ...multi!.skuIds];
 
     try {
       await page.locator('[data-testid="add-all-to-cart-btn"]').click();
 
-      await expect(drawerNote(page)).toHaveText(ONE_SKIPPED, {
-        timeout: PAGE_TIMEOUT,
-      });
-      const after = quantityBySku((await readCartLines(page)).lines);
-      const addedSkus = [...after].filter(
-        ([sku, quantity]) => quantity > (before.get(sku) ?? 0),
+      // The store sets the count after the add, so the note means it is done.
+      await expect(
+        page.locator(
+          '[data-testid="cart-drawer"] [data-testid="cart-skipped-multi-sku"]',
+        ),
+      ).toHaveText(ONE_MULTI_SKU_SKIPPED, { timeout: PAGE_TIMEOUT });
+      expect(await quantitiesOf(page, skus)).toEqual(
+        Object.fromEntries(
+          skus.map((sku) => [
+            sku,
+            (before.get(sku) ?? 0) + (sku === ordinary.skuId ? 1 : 0),
+          ]),
+        ),
       );
-      expect(addedSkus, 'one ordinary SKU, one more of it').toHaveLength(1);
-      expect(addedSkus[0]![1] - (before.get(addedSkus[0]![0]) ?? 0)).toBe(1);
-      await expectCartChange(page, before, new Map(), [configured.skuId!]);
+      expect(new URL(page.url()).pathname).toBe(
+        `/se/sv/portal/saved-lists/${listId}`,
+      );
     } finally {
       await restoreCart(page, before);
     }
