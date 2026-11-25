@@ -69,9 +69,17 @@ function mountJson(
   data: Record<string, unknown>,
   collapse = false,
   priority = false,
+  edgeToEdge?: boolean,
 ) {
   return mountComponent(JsonWidget, {
-    props: { data, config: baseConfig, layout: 'full', collapse, priority },
+    props: {
+      data,
+      config: baseConfig,
+      layout: 'full',
+      collapse,
+      priority,
+      edgeToEdge,
+    },
     global: {
       stubs: {
         FormWidget: formWidgetStub,
@@ -521,6 +529,38 @@ describe('JsonWidget cards-rich header alignment', () => {
     expect(box).toEqual(expect.arrayContaining(['ml-auto', 'text-right']));
     expect(box).not.toContain('mx-auto');
     expect(box).toContain('max-w-[670px]');
+  });
+});
+
+describe('JsonWidget cards-rich in an edge-to-edge container', () => {
+  const block = {
+    templateId: 'cards-rich',
+    settings: { spacing: false },
+    header: { heading: 'H', description: 'D', textAlign: 'right' },
+    items: [{ text: { heading: 'a' } }, { text: { heading: 'b' } }],
+  };
+  const headerBox = (wrapper: ReturnType<typeof mountJson>) =>
+    wrapper.find('h2').element.parentElement!;
+
+  it('keeps the header in the gutter, its cap and alignment unchanged', () => {
+    const box = headerBox(mountJson(block, false, false, true));
+    expect([...box.classList]).toEqual(
+      expect.arrayContaining(['max-w-[670px]', 'ml-auto', 'text-right']),
+    );
+    expect([...box.classList]).not.toContain('content-gutter');
+    expect([...box.parentElement!.classList]).toEqual(['content-gutter']);
+  });
+
+  it('leaves the cards at the edge', () => {
+    const wrapper = mountJson(block, false, false, true);
+    const grid = wrapper.find('[data-testid="cards-rich-grid"]');
+    expect(grid.classes()).not.toContain('content-gutter');
+    expect(grid.element.closest('.content-gutter')).toBeNull();
+  });
+
+  it('adds no gutter when the container keeps its own', () => {
+    const wrapper = mountJson(block);
+    expect(wrapper.find('.content-gutter').exists()).toBe(false);
   });
 });
 

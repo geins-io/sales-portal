@@ -64,6 +64,9 @@ const props = defineProps<{
   // The page's first widget. Its first card image gets priority, except in a
   // collapse slider, which renders every card twice (slider and grid).
   priority?: boolean;
+  // The container runs to the screen edge. Cards Rich keeps its header in the
+  // gutter then, so only the cards touch the edge.
+  edgeToEdge?: boolean;
 }>();
 
 const templateId = computed(() => (props.data.templateId as string) ?? '');
@@ -209,22 +212,24 @@ function bannerPlacementClasses(placement?: string): string {
 
   <!-- Cards Rich: image cards with heading, description, CTA -->
   <div v-else-if="templateId === 'cards-rich'" class="space-y-6">
+    <!-- The gutter sits outside the line-length cap so the alignment holds. -->
     <div
       v-if="header?.heading || header?.description"
-      class="max-w-[670px] space-y-2"
-      :class="headerAlign"
+      :class="edgeToEdge && 'content-gutter'"
     >
-      <!-- eslint-disable tailwindcss/no-unnecessary-arbitrary-value -- leading-1.1 is not a Tailwind 4 class, so the fix would drop line-height 1.1 -->
-      <h2
-        v-if="header?.heading"
-        class="font-heading text-[32px] leading-[1.1] font-bold md:text-[40px]"
-      >
-        {{ header.heading }}
-      </h2>
-      <!-- eslint-enable tailwindcss/no-unnecessary-arbitrary-value -->
-      <p v-if="header?.description" class="text-muted-foreground text-sm">
-        {{ header.description }}
-      </p>
+      <div class="max-w-[670px] space-y-2" :class="headerAlign">
+        <!-- eslint-disable tailwindcss/no-unnecessary-arbitrary-value -- leading-1.1 is not a Tailwind 4 class, so the fix would drop line-height 1.1 -->
+        <h2
+          v-if="header?.heading"
+          class="font-heading text-[32px] leading-[1.1] font-bold md:text-[40px]"
+        >
+          {{ header.heading }}
+        </h2>
+        <!-- eslint-enable tailwindcss/no-unnecessary-arbitrary-value -->
+        <p v-if="header?.description" class="text-muted-foreground text-sm">
+          {{ header.description }}
+        </p>
+      </div>
     </div>
 
     <!-- Collapse: mobile-only horizontal slider; the header above stays fixed. -->

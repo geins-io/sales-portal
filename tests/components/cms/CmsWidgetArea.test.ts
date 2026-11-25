@@ -5,8 +5,8 @@ import CmsWidgetArea from '../../../app/components/cms/CmsWidgetArea.vue';
 const stubs = {
   CmsContainer: {
     template:
-      '<div class="cms-container" :data-priority="priority ? \'true\' : \'false\'" />',
-    props: ['container', 'priority'],
+      '<div class="cms-container" :data-priority="priority ? \'true\' : \'false\'" :data-full-bleed="String(fullBleed)" />',
+    props: ['container', 'priority', 'fullBleed'],
   },
   // Render the boundary's default slot so the container still shows; the real
   // boundary's resilience (degrade-on-error) is covered in ErrorBoundary.test.
@@ -82,6 +82,28 @@ describe('CmsWidgetArea', () => {
         .findAll('.cms-container')
         .map((c) => c.attributes('data-priority')),
     ).toEqual(['false', 'false']);
+  });
+
+  it('tells every container the area reaches the screen edge when it does', () => {
+    const wrapper = shallowMountComponent(CmsWidgetArea, {
+      props: { containers, fullBleed: true },
+      global: { stubs },
+    });
+    const flags = wrapper
+      .findAll('.cms-container')
+      .map((c) => c.attributes('data-full-bleed'));
+    expect(flags).toEqual(['true', 'true']);
+  });
+
+  it('leaves it unset for an area inside the page column', () => {
+    const wrapper = shallowMountComponent(CmsWidgetArea, {
+      props: { containers },
+      global: { stubs },
+    });
+    const flags = wrapper
+      .findAll('.cms-container')
+      .map((c) => c.attributes('data-full-bleed'));
+    expect(flags).toEqual(['false', 'false']);
   });
 
   it('renders nothing when containers is empty', () => {

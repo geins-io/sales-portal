@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CmsContentContainer, ContentType } from '#shared/types/cms';
 import { cmsVisibilityClass } from '#shared/utils/cms-visibility';
+import { isEdgeToEdge } from '~/utils/cms-full-width';
 
 const props = defineProps<{
   container: CmsContentContainer;
@@ -16,6 +17,9 @@ const props = defineProps<{
   frameRichText?: boolean;
   // The first container of a page-opening area; its first widget gets it.
   priority?: boolean;
+  // The area reaches the screen edge. Without it, full width stays as it was:
+  // an area inside a column or frame has no screen edge to keep a gutter from.
+  fullBleed?: boolean;
 }>();
 
 const RICH_TEXT_WIDGET = 'Rich textPageWidget';
@@ -56,6 +60,15 @@ const layoutClasses = computed(() => {
   }
 });
 
+// Full width in an area that reaches the screen edge keeps the header's gutter,
+// unless every block runs to the edge.
+const bleeds = computed(
+  () => Boolean(props.fullBleed) && props.container.design === 'full-width',
+);
+const edgeToEdge = computed(
+  () => bleeds.value && isEdgeToEdge(activeWidgets.value),
+);
+
 const designClasses = computed(() => {
   if (props.flush) return '';
   switch (props.container.design) {
@@ -64,7 +77,9 @@ const designClasses = computed(() => {
     case 'narrow':
       return 'mx-auto max-w-3xl content-gutter';
     case 'full-width':
-      return 'w-full';
+      return bleeds.value && !edgeToEdge.value
+        ? 'w-full content-gutter'
+        : 'w-full';
     default:
       return 'content-column';
   }
@@ -112,6 +127,7 @@ const isCollapse = computed(
           :widget="widget"
           :layout="container.layout"
           :collapse="isCollapse"
+          :edge-to-edge="(edgeToEdge && !flush) || undefined"
           :priority="(priority && index === 0) || undefined"
         />
       </div>

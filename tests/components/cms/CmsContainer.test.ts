@@ -7,8 +7,8 @@ import CmsContainer from '../../../app/components/cms/CmsContainer.vue';
 // forwards the collapse flag to each widget, so the stub exposes it as a data
 // attribute to assert on.
 const widgetStub = {
-  template: `<div class="cms-widget" :data-collapse="collapse ? 'true' : 'false'" :data-priority="priority ? 'true' : 'false'" />`,
-  props: ['widget', 'layout', 'collapse', 'priority'],
+  template: `<div class="cms-widget" :data-collapse="collapse ? 'true' : 'false'" :data-priority="priority ? 'true' : 'false'" :data-edge-to-edge="String(edgeToEdge)" />`,
+  props: ['widget', 'layout', 'collapse', 'priority', 'edgeToEdge'],
 };
 
 const stubs = {
@@ -17,7 +17,12 @@ const stubs = {
 };
 
 function makeWidget(
-  overrides: { active?: boolean; sortOrder?: number; type?: string } = {},
+  overrides: {
+    active?: boolean;
+    sortOrder?: number;
+    type?: string;
+    data?: Record<string, unknown>;
+  } = {},
 ) {
   return {
     config: {
@@ -28,7 +33,7 @@ function makeWidget(
       size: 'full',
       sortOrder: overrides.sortOrder ?? 0,
     },
-    data: { name: 'w', active: true, text: '<p>hi</p>' },
+    data: overrides.data ?? { name: 'w', active: true, text: '<p>hi</p>' },
   };
 }
 
@@ -199,6 +204,142 @@ describe('CmsContainer', () => {
       expect(classes).not.toContain('px-4');
       // Vertical spacing is unchanged so the hero keeps its rhythm.
       expect(classes).toContain('py-4');
+    });
+  });
+
+  describe('full width: edge to edge or the gutter', () => {
+    const image = () => makeWidget({ type: 'ImagePageWidget' });
+    const text = () => makeWidget({ type: 'TextPageWidget' });
+    const joinedCards = () =>
+      makeWidget({
+        type: 'JSONPageWidget',
+        data: { templateId: 'cards-rich', settings: { spacing: false } },
+      });
+
+    // The start page and full-bleed content pages: the area reaches the screen edge.
+    function mountFullWidth(
+      content: ReturnType<typeof makeWidget>[],
+      extra: {
+        flush?: boolean;
+        frameRichText?: boolean;
+        fullBleed?: boolean;
+      } = {},
+      design = 'full-width',
+    ) {
+      return mountComponent(CmsContainer, {
+        props: {
+          container: makeContainer('half', content, design),
+          fullBleed: true,
+          ...extra,
+        },
+        global: { stubs },
+      });
+    }
+    const sectionClasses = (wrapper: ReturnType<typeof mountFullWidth>) =>
+      wrapper.find('section').classes();
+    const edgeFlags = (wrapper: ReturnType<typeof mountFullWidth>) =>
+      wrapper
+        .findAll('.cms-widget')
+        .map((w) => w.attributes('data-edge-to-edge'));
+
+    it('keeps the gutter around a text block', () => {
+      const wrapper = mountFullWidth([text()]);
+      expect(sectionClasses(wrapper)).toEqual(
+        expect.arrayContaining(['w-full', 'content-gutter']),
+      );
+      expect(edgeFlags(wrapper)).toEqual(['undefined']);
+    });
+
+    it('runs images to the edge and tells the blocks so', () => {
+      const wrapper = mountFullWidth([image(), image()]);
+      expect(sectionClasses(wrapper)).toContain('w-full');
+      expect(sectionClasses(wrapper)).not.toContain('content-gutter');
+      expect(edgeFlags(wrapper)).toEqual(['true', 'true']);
+    });
+
+    it('runs a Cards Rich with spacing off to the edge', () => {
+      const wrapper = mountFullWidth([joinedCards()]);
+      expect(sectionClasses(wrapper)).not.toContain('content-gutter');
+      expect(edgeFlags(wrapper)).toEqual(['true']);
+    });
+
+    it('keeps the gutter for a mixed container', () => {
+      const wrapper = mountFullWidth([image(), text()]);
+      expect(sectionClasses(wrapper)).toContain('content-gutter');
+      expect(edgeFlags(wrapper)).toEqual(['undefined', 'undefined']);
+    });
+
+    it('decides on the blocks that render, not on inactive ones', () => {
+      const wrapper = mountFullWidth([
+        image(),
+        makeWidget({ type: 'TextPageWidget', active: false }),
+      ]);
+      expect(sectionClasses(wrapper)).not.toContain('content-gutter');
+      expect(edgeFlags(wrapper)).toEqual(['true']);
+    });
+
+    it('keeps py-4 off for full width, as before', () => {
+      expect(sectionClasses(mountFullWidth([text()]))).not.toContain('py-4');
+      expect(sectionClasses(mountFullWidth([image()]))).not.toContain('py-4');
+    });
+
+    it.each(['', 'contained', 'narrow'])(
+      'never tells the blocks of a "%s" container they are edge to edge',
+      (design) => {
+        const wrapper = mountFullWidth([image()], {}, design);
+        expect(sectionClasses(wrapper)).not.toContain('w-full');
+        expect(edgeFlags(wrapper)).toEqual(['undefined']);
+      },
+    );
+
+    it('leaves a flush container to its wrapper', () => {
+      const wrapper = mountFullWidth([text()], { flush: true });
+      expect(sectionClasses(wrapper)).not.toContain('content-gutter');
+      expect(sectionClasses(wrapper)).not.toContain('w-full');
+      expect(edgeFlags(mountFullWidth([image()], { flush: true }))).toEqual([
+        'undefined',
+      ]);
+    });
+
+    describe('in an area that sits inside the page column', () => {
+      const inner = { fullBleed: false };
+
+      it('keeps full width as before: no gutter around a text block', () => {
+        const wrapper = mountFullWidth([text()], inner);
+        expect(sectionClasses(wrapper)).toContain('w-full');
+        expect(sectionClasses(wrapper)).not.toContain('content-gutter');
+        expect(edgeFlags(wrapper)).toEqual(['undefined']);
+      });
+
+      it('never tells the blocks they run to the edge', () => {
+        expect(edgeFlags(mountFullWidth([image()], inner))).toEqual([
+          'undefined',
+        ]);
+        expect(edgeFlags(mountFullWidth([joinedCards()], inner))).toEqual([
+          'undefined',
+        ]);
+      });
+
+      it('is the default when the area does not say', () => {
+        const wrapper = mountComponent(CmsContainer, {
+          props: { container: makeContainer('full', [text()], 'full-width') },
+          global: { stubs },
+        });
+        expect(wrapper.find('section').classes()).not.toContain(
+          'content-gutter',
+        );
+      });
+    });
+
+    it('frames a full-width rich-text block as before', () => {
+      const wrapper = mountFullWidth(
+        [image(), makeWidget({ type: 'Rich textPageWidget' })],
+        { frameRichText: true },
+      );
+      expect(sectionClasses(wrapper)).toContain('content-column');
+      expect(sectionClasses(wrapper)).not.toContain('content-gutter');
+      expect(sectionClasses(wrapper)).not.toContain('w-full');
+      expect(edgeFlags(wrapper)).toEqual(['undefined', 'undefined']);
     });
   });
 
