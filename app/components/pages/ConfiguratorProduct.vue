@@ -879,7 +879,7 @@ function onRetryOpen(): void {
 </script>
 
 <template>
-  <div class="py-8" data-testid="configurator-product">
+  <div class="space-y-8 py-8" data-testid="configurator-product">
     <div class="content-column space-y-8">
       <!-- Print-only header: store logo + timestamp + product URL. -->
       <PrintHeader :product-url="printUrl" />
@@ -1581,13 +1581,15 @@ function onRetryOpen(): void {
           />
         </div>
       </section>
-
-      <!-- CMS zone, the same slot the ordinary product page renders. -->
-      <CmsWidgetArea
-        v-if="pdpCmsArea?.containers?.length"
-        data-testid="pdp-cms-area"
-        :containers="pdpCmsArea.containers"
-      />
     </div>
+
+    <!-- CMS zone, the same slot the ordinary product page renders, outside the
+       column in the same way. -->
+    <CmsWidgetArea
+      v-if="pdpCmsArea?.containers?.length"
+      data-testid="pdp-cms-area"
+      :containers="pdpCmsArea.containers"
+      full-bleed
+    />
   </div>
 </template>

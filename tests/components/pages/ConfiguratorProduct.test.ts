@@ -1596,6 +1596,32 @@ describe('ConfiguratorProduct frame', () => {
     expect(wrapper.find('[data-testid="pdp-cms-area"]').exists()).toBe(true);
     mockCmsArea.value = null;
   });
+
+  it('places the CMS zone outside the page column, reaching the screen edge', async () => {
+    mockCmsArea.value = { containers: [{ id: 'pdp' }] };
+    const product = makeProduct();
+    const wrapper = mountComponent(ConfiguratorProduct, {
+      props: { product, alias: product.alias ?? '' },
+      global: {
+        stubs: {
+          ...stubs,
+          CmsWidgetArea: {
+            template:
+              '<div class="cms-area" :data-full-bleed="String(fullBleed)" />',
+            props: { containers: Array, fullBleed: Boolean },
+          },
+        },
+      },
+    });
+    await flushPromises();
+
+    const zone = wrapper.find('[data-testid="pdp-cms-area"]');
+    expect(zone.attributes('data-full-bleed')).toBe('true');
+    expect(zone.element.closest('.content-column')).toBeNull();
+    const tabs = wrapper.find('[data-testid="product-tabs"]');
+    expect(tabs.element.closest('.content-column')).not.toBeNull();
+    mockCmsArea.value = null;
+  });
 });
 
 describe('ConfiguratorProduct sections rail', () => {

@@ -3,9 +3,6 @@ import type { CmsContentContainer } from '#shared/types/cms';
 
 defineProps<{
   containers: CmsContentContainer[];
-  // Forwarded to each CmsContainer. When true, containers render without their
-  // own max-width/horizontal padding so an outer wrapper controls the width.
-  flush?: boolean;
   // Forwarded to each CmsContainer. When true, a block containing a rich-text
   // widget self-frames (contained bordered sheet) while other blocks stay
   // full-bleed. See CmsContainer.
@@ -13,7 +10,7 @@ defineProps<{
   // The area opens the page: its first widget holds the largest image
   // candidate, which then loads at high priority.
   priority?: boolean;
-  // The area reaches the screen edge (start page, full-bleed content page).
+  // The area reaches the screen edge: it sits outside any page column or frame.
   // Forwarded to each CmsContainer; only then does full width keep the gutter.
   fullBleed?: boolean;
 }>();
@@ -36,7 +33,6 @@ defineProps<{
     >
       <CmsContainer
         :container="container"
-        :flush="flush"
         :frame-rich-text="frameRichText"
         :full-bleed="fullBleed"
         :priority="priority && index === 0"

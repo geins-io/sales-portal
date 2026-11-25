@@ -5,10 +5,6 @@ import { isEdgeToEdge } from '~/utils/cms-full-width';
 
 const props = defineProps<{
   container: CmsContentContainer;
-  // When true, the container renders without its own max-width and horizontal
-  // padding so an outer wrapper controls the width. Used by the portal hero,
-  // which is already wrapped to the page-content width and must align flush.
-  flush?: boolean;
   // When true, a container whose content includes a rich-text widget renders as
   // a contained, bordered "sheet" (background + border + reading-width cap)
   // instead of full-bleed. Lets a page render most blocks edge-to-edge like the
@@ -70,7 +66,6 @@ const edgeToEdge = computed(
 );
 
 const designClasses = computed(() => {
-  if (props.flush) return '';
   switch (props.container.design) {
     case 'contained':
       return 'content-column';
@@ -127,7 +122,7 @@ const isCollapse = computed(
           :widget="widget"
           :layout="container.layout"
           :collapse="isCollapse"
-          :edge-to-edge="(edgeToEdge && !flush) || undefined"
+          :edge-to-edge="edgeToEdge || undefined"
           :priority="(priority && index === 0) || undefined"
         />
       </div>

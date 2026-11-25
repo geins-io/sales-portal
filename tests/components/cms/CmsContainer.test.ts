@@ -191,20 +191,6 @@ describe('CmsContainer', () => {
       });
       expect(wrapper.find('section').classes()).toContain('w-full');
     });
-
-    it('drops max-width and horizontal padding when flush, keeping py-4', () => {
-      const container = makeContainer('full', [makeWidget()], 'contained');
-      const wrapper = mountComponent(CmsContainer, {
-        props: { container, flush: true },
-        global: { stubs },
-      });
-      const classes = wrapper.find('section').classes();
-      expect(classes).not.toContain('content-column');
-      expect(classes).not.toContain('max-w-7xl');
-      expect(classes).not.toContain('px-4');
-      // Vertical spacing is unchanged so the hero keeps its rhythm.
-      expect(classes).toContain('py-4');
-    });
   });
 
   describe('full width: edge to edge or the gutter', () => {
@@ -220,7 +206,6 @@ describe('CmsContainer', () => {
     function mountFullWidth(
       content: ReturnType<typeof makeWidget>[],
       extra: {
-        flush?: boolean;
         frameRichText?: boolean;
         fullBleed?: boolean;
       } = {},
@@ -291,15 +276,6 @@ describe('CmsContainer', () => {
         expect(edgeFlags(wrapper)).toEqual(['undefined']);
       },
     );
-
-    it('leaves a flush container to its wrapper', () => {
-      const wrapper = mountFullWidth([text()], { flush: true });
-      expect(sectionClasses(wrapper)).not.toContain('content-gutter');
-      expect(sectionClasses(wrapper)).not.toContain('w-full');
-      expect(edgeFlags(mountFullWidth([image()], { flush: true }))).toEqual([
-        'undefined',
-      ]);
-    });
 
     describe('in an area that sits inside the page column', () => {
       const inner = { fullBleed: false };
