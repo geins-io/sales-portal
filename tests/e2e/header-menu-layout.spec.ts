@@ -136,7 +136,9 @@ function rowLook(row: Locator) {
       fontWeight: style.fontWeight,
       padding: style.padding,
       radius: style.borderTopLeftRadius,
-      height: Math.round(el.getBoundingClientRect().height),
+      // Layout height: the panel opens with a zoom, and a rendered height
+      // read mid-animation is scaled by it.
+      height: (el as HTMLElement).offsetHeight,
     };
   });
 }
