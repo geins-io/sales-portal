@@ -238,9 +238,14 @@ const stubs = {
   CmsWidgetArea: {
     // frameRichText typed as Boolean so a bare `frame-rich-text` attribute
     // coerces to true, mirroring the real component's typed prop.
-    props: { containers: Array, flush: Boolean, frameRichText: Boolean },
+    props: {
+      containers: Array,
+      flush: Boolean,
+      frameRichText: Boolean,
+      fullBleed: Boolean,
+    },
     template:
-      '<div data-testid="cms-widget-area" :data-frame-rich-text="frameRichText" />',
+      '<div data-testid="cms-widget-area" :data-frame-rich-text="frameRichText" :data-full-bleed="fullBleed" />',
   },
   PageSidebarNav: {
     props: ['menuLocationId'],
@@ -590,6 +595,24 @@ describe('[...slug] page: content frame', () => {
       const area = wrapper.find('[data-testid="cms-widget-area"]');
       expect(area.exists()).toBe(true);
       expect(area.attributes('data-frame-rich-text')).toBe('true');
+      expect(area.attributes('data-full-bleed')).toBe('true');
+    },
+    MOUNT_TIMEOUT,
+  );
+
+  it.each([
+    ['a sidebar page', ['menu']],
+    ['an apply/contact form page', ['apply']],
+  ])(
+    'keeps the area of %s inside its frame, not full bleed',
+    async (_name, tags) => {
+      mockCmsData.value = { id: 1, containers: [{ name: 'main' }], tags };
+
+      const wrapper = await mountCatchAll();
+
+      const area = wrapper.find('[data-testid="cms-widget-area"]');
+      expect(area.exists()).toBe(true);
+      expect(area.attributes('data-full-bleed')).toBe('false');
     },
     MOUNT_TIMEOUT,
   );

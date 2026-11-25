@@ -13,6 +13,9 @@ defineProps<{
   // The area opens the page: its first widget holds the largest image
   // candidate, which then loads at high priority.
   priority?: boolean;
+  // The area reaches the screen edge (start page, full-bleed content page).
+  // Forwarded to each CmsContainer; only then does full width keep the gutter.
+  fullBleed?: boolean;
 }>();
 </script>
 
@@ -35,6 +38,7 @@ defineProps<{
         :container="container"
         :flush="flush"
         :frame-rich-text="frameRichText"
+        :full-bleed="fullBleed"
         :priority="priority && index === 0"
       />
     </ErrorBoundary>

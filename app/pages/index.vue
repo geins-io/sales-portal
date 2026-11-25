@@ -56,6 +56,7 @@ useSeoLinks('/');
     <CmsWidgetArea
       v-if="area?.containers?.length"
       :containers="area.containers"
+      full-bleed
       priority
     />
     <div

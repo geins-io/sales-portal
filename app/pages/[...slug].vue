@@ -186,7 +186,12 @@ const isFramedFormPage = computed(
          long-form copy stays readable (frame-rich-text). -->
     <div v-else-if="page?.containers?.length">
       <ErrorBoundary section="cms-content">
-        <CmsWidgetArea :containers="page.containers" frame-rich-text priority />
+        <CmsWidgetArea
+          :containers="page.containers"
+          frame-rich-text
+          full-bleed
+          priority
+        />
       </ErrorBoundary>
     </div>
 

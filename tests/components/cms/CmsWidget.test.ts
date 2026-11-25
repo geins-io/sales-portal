@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { mountComponent, shallowMountComponent } from '../../utils/component';
 import CmsWidget from '../../../app/components/cms/CmsWidget.vue';
 
@@ -155,6 +155,59 @@ describe('CmsWidget', () => {
       const probe = await mountProbe('TextPageWidget');
       expect(probe.props('images')).toBeUndefined();
       expect(probe.attributes('images')).toBeUndefined();
+    });
+  });
+
+  describe('edge to edge', () => {
+    const edgeProbe = {
+      name: 'EdgeProbe',
+      template: '<div class="edge-probe" />',
+      props: ['data', 'config', 'layout', 'collapse', 'priority', 'edgeToEdge'],
+    };
+    const otherProbe = {
+      ...edgeProbe,
+      props: ['data', 'config', 'layout', 'collapse', 'priority'],
+    };
+    const edgeStubs = {
+      JsonWidget: edgeProbe,
+      ImageWidget: otherProbe,
+    };
+
+    // CmsWidget imports the real module before the stub replaces it. Load it
+    // here, so the wait below times rendering, not the module's first import.
+    beforeAll(
+      () => import('../../../app/components/cms/widgets/JsonWidget.vue'),
+    );
+
+    async function mountEdge(type: string, edgeToEdge?: boolean) {
+      const wrapper = mountComponent(CmsWidget, {
+        props: { ...makeWidget(type), edgeToEdge },
+        global: { stubs: edgeStubs },
+      });
+      await vi.waitFor(() =>
+        expect(wrapper.find('.edge-probe').exists()).toBe(true),
+      );
+      return wrapper;
+    }
+
+    it('tells a JSON block its container runs to the edge', async () => {
+      const wrapper = await mountEdge('JSONPageWidget', true);
+      expect(wrapper.findComponent(edgeProbe).props('edgeToEdge')).toBe(true);
+    });
+
+    it('leaves it unset when the container keeps the gutter', async () => {
+      const wrapper = await mountEdge('JSONPageWidget');
+      expect(wrapper.findComponent(edgeProbe).props('edgeToEdge')).toBe(
+        undefined,
+      );
+    });
+
+    it('puts no stray attribute on another widget', async () => {
+      const probe = (await mountEdge('ImagePageWidget', true)).find(
+        '.edge-probe',
+      );
+      expect(probe.attributes('edge-to-edge')).toBeUndefined();
+      expect(probe.attributes('edgetoedge')).toBeUndefined();
     });
   });
 

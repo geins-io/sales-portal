@@ -10,6 +10,9 @@ const props = defineProps<{
   collapse?: boolean;
   // Set on a page's first widget. Forwarded; only the image widgets act on it.
   priority?: boolean;
+  // The parent full-width container runs to the screen edge. Only Cards Rich
+  // acts on it, keeping its header in the gutter.
+  edgeToEdge?: boolean;
 }>();
 
 const widgetRegistry: Record<
@@ -60,6 +63,10 @@ const images = computed(() =>
     : undefined,
 );
 
+const edgeToEdge = computed(() =>
+  props.widget.config?.type === 'JSONPageWidget' ? props.edgeToEdge : undefined,
+);
+
 const isDev = import.meta.env.DEV;
 
 const unknownType = computed(() => {
@@ -78,6 +85,7 @@ const unknownType = computed(() => {
     :collapse="collapse"
     :priority="priority || undefined"
     :images="images"
+    :edge-to-edge="edgeToEdge"
   />
   <div
     v-else-if="unknownType && isDev"

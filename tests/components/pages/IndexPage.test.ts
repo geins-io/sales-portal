@@ -61,8 +61,10 @@ vi.stubGlobal('useSeoLinks', vi.fn());
 
 const stubs = {
   CmsWidgetArea: {
-    template: '<div data-testid="frontpage-area" />',
-    props: ['containers'],
+    template:
+      '<div data-testid="frontpage-area" :data-full-bleed="String(fullBleed)" />',
+    // Boolean, so the bare `full-bleed` attribute reads as true.
+    props: { containers: Array, fullBleed: Boolean },
   },
   FrontpageFallback: {
     template:
@@ -103,6 +105,18 @@ describe('index page CMS area', () => {
     expect(wrapper.find('[data-testid="frontpage-fallback"]').exists()).toBe(
       false,
     );
+  });
+
+  it('renders the frontpage area full bleed, to the screen edge', () => {
+    mockCmsAreas.set(CONFIGURED_AREA, { containers: [{ id: 'c1' }] });
+
+    const wrapper = mountComponent(IndexPage, { global: { stubs } });
+
+    expect(
+      wrapper
+        .find('[data-testid="frontpage-area"]')
+        .attributes('data-full-bleed'),
+    ).toBe('true');
   });
 
   it('falls back when the configured slot names a different area', () => {
