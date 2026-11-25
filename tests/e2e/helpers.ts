@@ -1223,27 +1223,6 @@ export async function fetchOrders(
   );
 }
 
-/** Every order `/api/orders` lists for the buyer's company, page by page. */
-export async function fetchAllOrderRows(
-  page: Page,
-): Promise<{ publicId?: string; createdAt?: string }[]> {
-  const rows: { publicId?: string; createdAt?: string }[] = [];
-  for (let total = Infinity; rows.length < total;) {
-    const response = await apiGet(page.request, '/api/orders', {
-      params: { skip: rows.length, take: 100 },
-    });
-    expect(response.ok(), '/api/orders did not answer 200').toBe(true);
-    const read = (await response.json()) as {
-      orders: { publicId?: string; createdAt?: string }[];
-      total: number;
-    };
-    if (!read.orders.length) break;
-    rows.push(...read.orders);
-    total = read.total;
-  }
-  return rows;
-}
-
 /**
  * Fill the login form fields without submitting.
  */
