@@ -184,7 +184,7 @@ test.describe('Header menu layout from the store settings', () => {
     await onlyFor(page, 'mega');
     const { panel } = await openMenu(page);
 
-    await expect(panel.locator('.grid.grid-cols-4')).toBeVisible();
+    await expect(panel.locator('.grid.grid-cols-5')).toBeVisible();
     await expect(panel.locator('a').first()).toBeVisible();
     await expect(panel.locator('button[aria-expanded]')).toHaveCount(0);
     await expect(panel.locator('[data-testid="menu-collapsible"]')).toHaveCount(

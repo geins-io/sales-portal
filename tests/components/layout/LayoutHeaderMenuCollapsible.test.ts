@@ -52,20 +52,23 @@ function toggle(wrapper: VueWrapper, label: string) {
 }
 
 describe('LayoutHeaderMenuCollapsible', () => {
-  it('lays the headings out in four columns in reading order', () => {
-    const items = Array.from({ length: 6 }, (_, i) =>
+  it('lays the headings out in five columns in reading order', () => {
+    const items = Array.from({ length: 7 }, (_, i) =>
       item(String(i + 1), `Heading ${i + 1}`),
     );
     const wrapper = mountMenu(items);
+    expect(
+      wrapper.find('[data-testid="menu-collapsible"]').classes(),
+    ).toContain('grid-cols-5');
     const columns = wrapper.findAll('[data-testid="menu-collapsible"] > ul');
-    expect(columns).toHaveLength(4);
+    expect(columns).toHaveLength(5);
     expect(columns.map((c) => c.findAll(':scope > li').length)).toEqual([
-      2, 2, 1, 1,
+      2, 2, 1, 1, 1,
     ]);
     expect(columns[0]!.text()).toContain('Heading 1');
-    expect(columns[0]!.text()).toContain('Heading 5');
+    expect(columns[0]!.text()).toContain('Heading 6');
     expect(columns[1]!.text()).toContain('Heading 2');
-    expect(columns[1]!.text()).toContain('Heading 6');
+    expect(columns[1]!.text()).toContain('Heading 7');
   });
 
   it('stacks each column on its own, so an open heading moves only its column', () => {

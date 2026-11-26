@@ -7,9 +7,9 @@ const props = defineProps<{
   items: MenuItemType[];
 }>();
 
-const COLUMNS = 4;
+const COLUMNS = 5;
 
-// Row by row, as the mega menu reads: item 1 in column 1, item 5 under it.
+// Row by row, as the mega menu reads: item 1 in column 1, item 6 under it.
 // Each column is its own stack, so an open heading moves only its column.
 const columns = computed(() =>
   Array.from({ length: COLUMNS }, (_, c) =>
@@ -20,7 +20,7 @@ const columns = computed(() =>
 
 <template>
   <div
-    class="grid grid-cols-4 items-start gap-x-8"
+    class="grid grid-cols-5 items-start gap-x-8"
     data-testid="menu-collapsible"
   >
     <ul v-for="(column, c) in columns" :key="c" class="flex flex-col gap-1">

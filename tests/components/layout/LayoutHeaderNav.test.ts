@@ -400,7 +400,7 @@ describe('LayoutHeaderNav', () => {
       expect(wrapper.findComponent(LayoutHeaderMenuCatalogue).exists()).toBe(
         false,
       );
-      expect(wrapper.find('.grid.grid-cols-4').exists()).toBe(true);
+      expect(wrapper.find('.grid.grid-cols-5').exists()).toBe(true);
       expect(wrapper.text()).toContain('Sub A');
       expect(wrapper.text()).toContain('Leaf');
     }
@@ -502,7 +502,7 @@ describe('LayoutHeaderNav', () => {
         expect(wrapper.findComponent(LayoutHeaderMenuCatalogue).exists()).toBe(
           false,
         );
-        expect(wrapper.find('.grid.grid-cols-4').exists()).toBe(false);
+        expect(wrapper.find('.grid.grid-cols-5').exists()).toBe(false);
       }
     });
 
@@ -518,7 +518,7 @@ describe('LayoutHeaderNav', () => {
         expect(
           wrapper.findComponent(LayoutHeaderMenuCollapsible).exists(),
         ).toBe(false);
-        expect(wrapper.find('.grid.grid-cols-4').exists()).toBe(false);
+        expect(wrapper.find('.grid.grid-cols-5').exists()).toBe(false);
       }
     });
 
