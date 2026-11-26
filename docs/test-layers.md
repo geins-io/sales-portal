@@ -35,7 +35,7 @@ flowchart LR
         direction TB
         BUILD["Job: E2E · build · one production build"]
 
-        subgraph LEGS["Six jobs in parallel · one browser project each, every project in two shards"]
+        subgraph LEGS["Six jobs in parallel · one browser project each, every project in two legs"]
             direction LR
             B1["Job: E2E · chromium 1/2"]
             B2["Job: E2E · chromium 2/2"]
@@ -49,7 +49,7 @@ flowchart LR
     end
 ```
 
-Each of the six browser jobs runs the same chain against its own server before its shard:
+Each of the six browser jobs runs the same chain against its own server before its leg:
 
 ```mermaid
 flowchart LR
@@ -57,14 +57,14 @@ flowchart LR
     P1 --> P2["L2 identity · the right tenant answers"]
     P2 --> P3["L3 delivery · the bundle loads and Vue mounts"]
     P3 --> P4["L4 session · the configured account signs in"]
-    P4 --> PROJ["this job's shard of its browser project"]
+    P4 --> PROJ["this job's leg of its browser project"]
 ```
 
 **The five checks before the browsers.** L0 to L4 are _preflight_: cheap checks that run before
 any spec, each depending on the one below it. In CI each is a step of its own in every browser
 job, invoked with `--no-deps`, so a red layer fails that job and the steps after it never start.
 The step view names the check that broke instead of showing a wall of red specs. The six jobs
-do not stop one another: a red shard leaves the other five running to the end.
+do not stop one another: a red leg leaves the other five running to the end.
 
 **"Blocked" belongs to a different kind of run.** Where the dependencies are resolved inside one
 invocation — a bare `pnpm test:e2e` locally, or the order workflow, which does not pass

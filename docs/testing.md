@@ -741,32 +741,41 @@ fails when it is missing.
 
 **E2E · build** builds the production build once and hands it on as the `e2e-build` artifact: one
 tarball of `.output`, because `.output/server/node_modules` holds directory symlinks that a folder
-upload would not keep. Then six jobs start in parallel, two shards per browser project —
+upload would not keep. Then six jobs start in parallel, two legs per browser project —
 **E2E · chromium 1/2** and **2/2**, **E2E · Mobile Chrome 1/2** and **2/2**, **E2E · webkit 1/2**
 and **2/2**. Each unpacks the build, starts its own `pnpm preview` (over https), runs one step per
 preflight layer against that server with `E2E_EXTERNAL_SERVER=1` and `--no-deps` —
-`Preflight L0 · reachability` … `L4 · session` — and then its shard of its one project:
+`Preflight L0 · reachability` … `L4 · session` — and then its leg of its one project:
 
 ```
---no-deps --project="Mobile Chrome" --shard=1/2   # the matrix values of this job
+--no-deps --project="Mobile Chrome" <this leg's spec files>   # node tests/e2e/ci-legs.mjs "Mobile Chrome" 1/2
 ```
 
 On the 4-vCPU runner, 4 workers instead of 2 made chromium 24 % and Mobile Chrome 14 % faster and
 webkit 3 % slower, so `playwright.config.ts` runs CI at 4 workers and caps webkit at 2.
 
-Two shards, not more: Playwright shards whole spec files, cut by test count, so a shard cannot
-finish before its longest file does (`portal.spec.ts`, about 5.5 min on chromium). Measured on
-2026-11-19, a third shard per project would save well under a minute, while every leg adds a
-sign-in, four more workers against Geins, and one more of the organization's concurrent jobs.
+**The legs are dealt by time, not by `--shard`.** `--shard` cuts the ordered spec list into equal
+test counts, and the slow specs (`cart*`, `checkout`, `configurator*`) sit together alphabetically,
+so one shard got far more seconds than the other. `tests/e2e/ci-legs.mjs` deals every spec file,
+heaviest first, to the leg with the fewest seconds so far, using the seconds per project and spec in
+`tests/e2e/ci-legs.json`; the step passes that leg's files to Playwright as anchored patterns, and
+fails when the list is empty, because Playwright with no file arguments runs every spec. A new spec
+weighs the table's median until the table is refreshed; a table entry with no spec fails the script.
+`tests/unit/e2e-ci-legs.test.ts` holds the script's spec set to the one Playwright collects.
+
+Refresh `ci-legs.json` when a leg drifts well past the others: download a green run's
+`playwright-report-*` artifacts and, per project, sum each spec file's test durations. A spec file
+still sets the floor of the leg it lands in, which is why the portal specs are four files. Every
+leg adds a sign-in, more workers against Geins, and one more of the organization's concurrent jobs.
 
 Each job uploads its own `preview-log-<slug>`, `playwright-report-<slug>` and, when a test
-failed, `test-results-<slug>`, where `<slug>` is `chromium-1`, `chromium-2`, `mobile-chrome-1`,
+failed or the job was cancelled, `test-results-<slug>`, where `<slug>` is `chromium-1`, `chromium-2`, `mobile-chrome-1`,
 `mobile-chrome-2`, `webkit-1` or `webkit-2`.
 
 Within a job, a red step stops it at the layer or project that broke and the later steps are
 skipped, so the step view names it. Across jobs nothing stops: the matrix runs with
-`fail-fast: false`, so a red shard leaves the other five running to the end, and the
-run reports every shard's answer. A red build skips all six browser jobs; they show as
+`fail-fast: false`, so a red leg leaves the other five running to the end, and the
+run reports every leg's answer. A red build skips all six browser jobs; they show as
 skipped, not red, and the build job is the red one. The target and account come from repository
 variables (`E2E_BASE_URL`, `E2E_EXPECTED_TENANT_ID`) and secrets (`E2E_USERNAME`,
 `E2E_PASSWORD`), with the committed defaults when unset.
@@ -774,7 +783,8 @@ variables (`E2E_BASE_URL`, `E2E_EXPECTED_TENANT_ID`) and secrets (`E2E_USERNAME`
 **Each browser job signs in once, so a run signs in six times.** Preflight L4 in each job signs
 in against that job's own server and writes the session file only that job reads. The login rate
 limit (`loginRateLimiter`, 5 per minute per IP) lives in each preview server's own memory, so the
-six sign-ins do not count against one another.
+six sign-ins do not count against one another. The platform's own limit on signing the shared
+test account in does apply across legs (`e2e-full.yml`).
 
 A green run is still not evidence that the Geins backend is healthy: the identity layer fails
 against an unreachable merchant API (503) or an unregistered hostname, but the specs run
