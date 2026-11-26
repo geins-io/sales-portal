@@ -712,14 +712,14 @@ Three workflows run tests; none runs on a schedule, and only the third writes so
 nothing deletes — every run leaves carts behind, see
 [What a run leaves behind](#what-a-run-leaves-behind).
 
-| Workflow · Job                                              | Trigger                                       | What                                                                             |
-| ----------------------------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------- |
-| `ci.yml` · Lint & Type Check                                | PRs into `main`/`production`, pushes to `dev` | `pnpm lint`, `pnpm format:check`, `pnpm typecheck` (app, `tests/`, `tests/e2e/`) |
-| `ci.yml` · Unit & Component                                 | same                                          | `pnpm test:coverage` (full vitest suite)                                         |
-| `ci.yml` · E2E · build                                      | PRs only                                      | `pnpm build`, handed to the six jobs below                                       |
-| `ci.yml` · E2E · chromium / Mobile Chrome / webkit 1/2, 2/2 | PRs only, in parallel after the build         | **Preflight, then half of the specs on that one project**                        |
-| `e2e-full.yml` · E2E Suite (manual)                         | `workflow_dispatch`, any branch               | **Preflight, then every spec on all three projects**                             |
-| `e2e-order-placement.yml` · E2E Order Placement (mutating)  | `workflow_dispatch` only, with a tenant name  | **Preflight, then the `orders` project — places one real order**                 |
+| Workflow · Job                                                       | Trigger                                       | What                                                                             |
+| -------------------------------------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------- |
+| `ci.yml` · Lint & Type Check                                         | PRs into `main`/`production`, pushes to `dev` | `pnpm lint`, `pnpm format:check`, `pnpm typecheck` (app, `tests/`, `tests/e2e/`) |
+| `ci.yml` · Unit & Component                                          | same                                          | `pnpm test:coverage` (full vitest suite)                                         |
+| `ci.yml` · E2E · build                                               | PRs only                                      | `pnpm build`, handed to the eight jobs below                                     |
+| `ci.yml` · E2E · chromium / Mobile Chrome 1/2, 2/2; webkit 1/4 … 4/4 | PRs only, in parallel after the build         | **Preflight, then that leg's share of the specs on its one project**             |
+| `e2e-full.yml` · E2E Suite (manual)                                  | `workflow_dispatch`, any branch               | **Preflight, then every spec on all three projects**                             |
+| `e2e-order-placement.yml` · E2E Order Placement (mutating)           | `workflow_dispatch` only, with a tenant name  | **Preflight, then the `orders` project — places one real order**                 |
 
 The Lint & Type Check job also runs `pnpm test:schema` (`vitest.config.schema.ts`): every
 GraphQL document the server sends, through the real loader, validated against the live Merchant
@@ -741,9 +741,9 @@ fails when it is missing.
 
 **E2E · build** builds the production build once and hands it on as the `e2e-build` artifact: one
 tarball of `.output`, because `.output/server/node_modules` holds directory symlinks that a folder
-upload would not keep. Then six jobs start in parallel, two legs per browser project —
-**E2E · chromium 1/2** and **2/2**, **E2E · Mobile Chrome 1/2** and **2/2**, **E2E · webkit 1/2**
-and **2/2**. Each unpacks the build, starts its own `pnpm preview` (over https), runs one step per
+upload would not keep. Then eight jobs start in parallel —
+**E2E · chromium 1/2** and **2/2**, **E2E · Mobile Chrome 1/2** and **2/2**, and **E2E · webkit
+1/4** to **4/4**, because webkit runs 2 workers where the others run 4. Each unpacks the build, starts its own `pnpm preview` (over https), runs one step per
 preflight layer against that server with `E2E_EXTERNAL_SERVER=1` and `--no-deps` —
 `Preflight L0 · reachability` … `L4 · session` — and then its leg of its one project:
 
@@ -770,20 +770,20 @@ leg adds a sign-in, more workers against Geins, and one more of the organization
 
 Each job uploads its own `preview-log-<slug>`, `playwright-report-<slug>` and, when a test
 failed or the job was cancelled, `test-results-<slug>`, where `<slug>` is `chromium-1`, `chromium-2`, `mobile-chrome-1`,
-`mobile-chrome-2`, `webkit-1` or `webkit-2`.
+`mobile-chrome-2`, or `webkit-1` to `webkit-4`.
 
 Within a job, a red step stops it at the layer or project that broke and the later steps are
 skipped, so the step view names it. Across jobs nothing stops: the matrix runs with
-`fail-fast: false`, so a red leg leaves the other five running to the end, and the
-run reports every leg's answer. A red build skips all six browser jobs; they show as
+`fail-fast: false`, so a red leg leaves the other seven running to the end, and the
+run reports every leg's answer. A red build skips all eight browser jobs; they show as
 skipped, not red, and the build job is the red one. The target and account come from repository
 variables (`E2E_BASE_URL`, `E2E_EXPECTED_TENANT_ID`) and secrets (`E2E_USERNAME`,
 `E2E_PASSWORD`), with the committed defaults when unset.
 
-**Each browser job signs in once, so a run signs in six times.** Preflight L4 in each job signs
+**Each browser job signs in once, so a run signs in eight times.** Preflight L4 in each job signs
 in against that job's own server and writes the session file only that job reads. The login rate
 limit (`loginRateLimiter`, 5 per minute per IP) lives in each preview server's own memory, so the
-six sign-ins do not count against one another. The platform's own limit on signing the shared
+eight sign-ins do not count against one another. The platform's own limit on signing the shared
 test account in does apply across legs (`e2e-full.yml`).
 
 A green run is still not evidence that the Geins backend is healthy: the identity layer fails

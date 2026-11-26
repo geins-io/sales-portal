@@ -201,14 +201,24 @@ jobs:
             label: Mobile Chrome 2/2
             slug: mobile-chrome-2
             leg: 2/2
+          # webkit runs 2 workers (playwright.config.ts) where the others run
+          # 4, so it needs twice the legs for the same leg time.
           - project: webkit
-            label: webkit 1/2
+            label: webkit 1/4
             slug: webkit-1
-            leg: 1/2
+            leg: 1/4
           - project: webkit
-            label: webkit 2/2
+            label: webkit 2/4
             slug: webkit-2
-            leg: 2/2
+            leg: 2/4
+          - project: webkit
+            label: webkit 3/4
+            slug: webkit-3
+            leg: 3/4
+          - project: webkit
+            label: webkit 4/4
+            slug: webkit-4
+            leg: 4/4
     env:
       # Empty repository variables fall through to the committed defaults in
       # tests/e2e/target-defaults.mjs, the one place the target is spelled out.
