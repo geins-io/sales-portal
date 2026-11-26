@@ -443,3 +443,120 @@ describe('CMS cache — caller isolation', () => {
     expect(mockAreaGet).toHaveBeenCalledTimes(4);
   });
 });
+
+describe('CMS cache — menu depth', () => {
+  let getMenu: typeof import('../../../server/services/cms').getMenu;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) =>
+      fn(),
+    );
+    vi.stubGlobal('getRequestLocale', getRequestLocaleMock);
+    vi.stubGlobal('getRequestMarket', getRequestMarketMock);
+    vi.stubGlobal('getCustomerType', vi.fn().mockResolvedValue(undefined));
+    vi.stubGlobal('getRequestHeader', vi.fn().mockReturnValue(undefined));
+    vi.stubGlobal('getCookie', getCookieStub);
+    getRequestLocaleMock.mockReturnValue('sv-SE');
+    getRequestMarketMock.mockReturnValue('se');
+    getMenu = (await import('../../../server/services/cms')).getMenu;
+  });
+
+  const menu = { id: 'main', menuItems: [{ title: 'Hem' }] };
+
+  it.each([3, 4] as const)(
+    'asks the SDK for the depth the caller asks for: %i',
+    async (depth) => {
+      mockMenuGet.mockResolvedValue(menu);
+      await getMenu({ menuLocationId: 'main', depth }, mockEvent());
+      expect(mockMenuGet).toHaveBeenCalledWith(
+        expect.objectContaining({ menuLocationId: 'main', depth }),
+        undefined,
+      );
+    },
+  );
+
+  it('asks for three levels when the caller names no depth', async () => {
+    mockMenuGet.mockResolvedValue(menu);
+    await getMenu({ menuLocationId: 'main' }, mockEvent());
+    expect(mockMenuGet.mock.calls[0]![0]).toHaveProperty('depth', 3);
+  });
+
+  it('decides the depth from the caller, not the saved layout', async () => {
+    mockMenuGet.mockResolvedValue(menu);
+    const event = mockEvent();
+    Object.assign(event.context.tenant, {
+      config: { layout: { menu: { type: 'catalogue' } } },
+    });
+    await getMenu({ menuLocationId: 'main', depth: 3 }, event);
+    expect(mockMenuGet.mock.calls[0]![0]).toHaveProperty('depth', 3);
+  });
+
+  it('asks for the depth in the language fallback read too', async () => {
+    mockMenuGet
+      .mockResolvedValueOnce({ id: 'main', menuItems: [] })
+      .mockResolvedValueOnce(menu);
+    const result = await getMenu(
+      { menuLocationId: 'main', depth: 4 },
+      mockEvent(),
+    );
+    expect(result).toEqual(menu);
+    expect(mockMenuGet).toHaveBeenCalledTimes(2);
+    expect(mockMenuGet.mock.calls[1]![0]).not.toHaveProperty('languageId');
+    expect(mockMenuGet.mock.calls[1]![0]).toHaveProperty('depth', 4);
+  });
+
+  it('keeps each depth in its own cache entry', async () => {
+    const shallow = { id: 'main', menuItems: [{ title: 'Tre' }] };
+    const deep = { id: 'main', menuItems: [{ title: 'Fyra' }] };
+    mockMenuGet.mockResolvedValueOnce(shallow).mockResolvedValueOnce(deep);
+
+    const three = await getMenu(
+      { menuLocationId: 'main', depth: 3 },
+      mockEvent(),
+    );
+    const four = await getMenu(
+      { menuLocationId: 'main', depth: 4 },
+      mockEvent(),
+    );
+    expect(three).toEqual(shallow);
+    expect(four).toEqual(deep);
+    expect(mockMenuGet).toHaveBeenCalledTimes(2);
+
+    // Each depth is then served from its own entry.
+    expect(
+      await getMenu({ menuLocationId: 'main', depth: 3 }, mockEvent()),
+    ).toEqual(shallow);
+    expect(
+      await getMenu({ menuLocationId: 'main', depth: 4 }, mockEvent()),
+    ).toEqual(deep);
+    expect(mockMenuGet).toHaveBeenCalledTimes(2);
+  });
+
+  it('cannot be led into another depth’s entry by a menu location name', async () => {
+    // With the depth after the name, `main::d4` at depth 3 would build the
+    // key `main` gets at depth 4.
+    const named = { id: 'x', menuItems: [{ title: 'Named' }] };
+    const deep = { id: 'main', menuItems: [{ title: 'Fyra' }] };
+    mockMenuGet.mockResolvedValueOnce(named).mockResolvedValueOnce(deep);
+
+    await getMenu({ menuLocationId: 'main::d4', depth: 3 }, mockEvent());
+    const four = await getMenu(
+      { menuLocationId: 'main', depth: 4 },
+      mockEvent(),
+    );
+    expect(four).toEqual(deep);
+    expect(mockMenuGet).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not serve another depth’s last good copy when a read fails', async () => {
+    mockMenuGet
+      .mockResolvedValueOnce(menu)
+      .mockRejectedValueOnce(new Error('merchant API down'));
+    await getMenu({ menuLocationId: 'main', depth: 3 }, mockEvent());
+    await expect(
+      getMenu({ menuLocationId: 'main', depth: 4 }, mockEvent()),
+    ).rejects.toThrow('merchant API down');
+  });
+});

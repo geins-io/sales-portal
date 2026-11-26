@@ -52,6 +52,13 @@ export const CMS_MENUS = {
 export type CmsMenuKey = (typeof CMS_MENUS)[keyof typeof CMS_MENUS];
 
 /**
+ * Levels of menu items a menu read fetches, counting the top items as 1.
+ * Every menu shows three; the catalogue header opens a fourth.
+ */
+export type MenuDepth = 3 | 4;
+export const DEFAULT_MENU_DEPTH: MenuDepth = 3;
+
+/**
  * The shape stored under `tenant.cms.menus[key]`. `menuLocationId` is
  * the Merchant Center identifier for the menu (e.g. "main", "footer",
  * or a tenant-chosen name).

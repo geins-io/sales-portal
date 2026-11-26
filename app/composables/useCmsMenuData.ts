@@ -1,5 +1,9 @@
 import type { MenuType } from '#shared/types/cms';
-import type { CmsMenuKey } from '#shared/constants/cms';
+import {
+  DEFAULT_MENU_DEPTH,
+  type CmsMenuKey,
+  type MenuDepth,
+} from '#shared/constants/cms';
 
 /**
  * High-level menu fetcher keyed by CMS menu registry key.
@@ -14,9 +18,16 @@ import type { CmsMenuKey } from '#shared/constants/cms';
  *   - `error.value` is set, OR
  *   - the fetch succeeds but `menu.value.menuItems` is empty.
  *
+ * `depth` is the levels of menu items the caller renders. The default is left
+ * out of the query, so the read is the one every other menu of the location
+ * sends, and shares its fetch.
+ *
  * This is the only way new code should read CMS menus.
  */
-export function useCmsMenuData(key: CmsMenuKey) {
+export function useCmsMenuData(
+  key: CmsMenuKey,
+  depth: MaybeRefOrGetter<MenuDepth> = DEFAULT_MENU_DEPTH,
+) {
   const { localeQuery } = useLocaleMarket();
   const menuCfg = useCmsMenu(key);
   const isConfigured = computed(() => !!menuCfg.value?.menuLocationId);
@@ -30,6 +41,9 @@ export function useCmsMenuData(key: CmsMenuKey) {
       isConfigured.value
         ? {
             menuLocationId: menuCfg.value!.menuLocationId,
+            ...(toValue(depth) === DEFAULT_MENU_DEPTH
+              ? {}
+              : { depth: String(toValue(depth)) }),
             ...localeQuery.value,
           }
         : { skip: '1' },

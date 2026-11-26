@@ -388,14 +388,86 @@ test.describe('Header menu layout from the store settings', () => {
       );
       const catalogue = panel.locator('[data-testid="menu-catalogue"]');
       await expect(catalogue).toBeVisible();
+      const columns = catalogue.locator('[data-menu-column]');
       return {
         bar,
         catalogue,
         box: page.locator('[data-testid="menu-catalogue-panel"]'),
         dim: page.locator('[data-testid="menu-catalogue-backdrop"]'),
-        columns: catalogue.locator('[data-menu-column]'),
-        categories: catalogue.locator('button[aria-expanded]'),
+        columns,
+        // The second level only: an open column holds toggles too.
+        categories: columns.first().locator('button[aria-expanded]'),
       };
+    }
+
+    type MenuNode = {
+      label?: string | null;
+      title?: string | null;
+      hidden?: boolean | null;
+      children?: MenuNode[] | null;
+    };
+
+    /**
+     * Whether the header menu's data holds a visible fourth level, read as
+     * the catalogue reads it, four levels deep. The test is out of scope only
+     * when the data has none; a menu that holds one must show it.
+     */
+    async function menuHasFourthLevel(page: Page): Promise<boolean> {
+      const config = await (await apiGet(page.request, '/api/config')).json();
+      const location =
+        config?.cms?.menus?.header_main?.menuLocationId ?? 'main';
+      const response = await apiGet(
+        page.request,
+        `/api/cms/menu?menuLocationId=${encodeURIComponent(location)}&depth=4`,
+      );
+      expect(response.ok(), '/api/cms/menu did not answer 200').toBe(true);
+      const visible = (items?: MenuNode[] | null) =>
+        (items ?? []).filter(
+          (item) =>
+            item.hidden !== true &&
+            !!(item.label?.trim() || item.title?.trim()),
+        );
+      const deeper = (
+        items: MenuNode[] | null | undefined,
+        levels: number,
+      ): boolean =>
+        levels === 0 ||
+        visible(items).some((item) => deeper(item.children, levels - 1));
+      return deeper((await response.json())?.menuItems, 4);
+    }
+
+    /**
+     * Opens the first second-level category whose column holds a toggle, a
+     * third-level item with children, in whichever top item has one.
+     */
+    async function openThirdLevelToggle(page: Page) {
+      outOfScope(
+        !(await menuHasFourthLevel(page)),
+        'tenant-config',
+        'the header menu holds no fourth level',
+      );
+      const { bar, triggers } = await loadBar(page);
+      const count = await triggers.count();
+      for (let i = 0; i < count; i++) {
+        await triggers.nth(i).hover();
+        await expect(triggers.nth(i)).toHaveAttribute('data-state', 'open');
+        const columns = bar
+          .locator(OPEN_PANEL)
+          .locator('[data-testid="menu-catalogue"] [data-menu-column]');
+        const categories = columns.first().locator('button[aria-expanded]');
+        const n = await categories.count();
+        for (let j = 0; j < n; j++) {
+          await categories.nth(j).click();
+          await expect(columns).toHaveCount(2);
+          const toggles = columns.nth(1).locator('button[aria-expanded]');
+          if ((await toggles.count()) > 0) {
+            return { columns, category: categories.nth(j), toggles };
+          }
+        }
+      }
+      throw new Error(
+        'the menu holds a fourth level, but no third-level item opens it',
+      );
     }
 
     test('shows a category without children like the category buttons', async ({
@@ -441,9 +513,12 @@ test.describe('Header menu layout from the store settings', () => {
         'id',
         (await first.getAttribute('aria-controls'))!,
       );
-      // Three levels at most: the column holds links only.
-      await expect(columns.nth(1).locator('button')).toHaveCount(0);
+      // The column opens headed by a link, with every third level folded.
       await expect(columns.nth(1).locator('a').first()).toBeVisible();
+      const toggles = columns.nth(1).locator('button');
+      for (let i = 0; i < (await toggles.count()); i++) {
+        await expect(toggles.nth(i)).toHaveAttribute('aria-expanded', 'false');
+      }
 
       if (count > 1) {
         await categories.nth(1).click();
@@ -452,6 +527,73 @@ test.describe('Header menu layout from the store settings', () => {
       }
       await categories.nth(count > 1 ? 1 : 0).click();
       await expect(columns).toHaveCount(1);
+    });
+
+    test('a third-level category with children opens a fourth level beside it', async ({
+      page,
+    }) => {
+      await onlyFor(page, 'catalogue');
+      const { columns, category, toggles } = await openThirdLevelToggle(page);
+      const toggle = toggles.first();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+      await toggle.click();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      await expect(columns).toHaveCount(3);
+      await expect(columns.nth(2)).toHaveAttribute(
+        'id',
+        (await toggle.getAttribute('aria-controls'))!,
+      );
+      // Four levels at most: the fourth holds links only, headed by the item.
+      const fourth = columns.nth(2);
+      await expect(fourth.locator('button')).toHaveCount(0);
+      await expect(fourth.locator('a').first()).toHaveAttribute(
+        'aria-label',
+        /.+/,
+      );
+      expect(await fourth.locator('a').count()).toBeGreaterThan(1);
+      await expect(fourth.locator('a').nth(1)).toBeVisible();
+
+      await toggle.click();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await expect(columns).toHaveCount(2);
+
+      // Closing its second-level category closes the fourth level with it.
+      await toggle.click();
+      await expect(columns).toHaveCount(3);
+      await category.click();
+      await expect(columns).toHaveCount(1);
+    });
+
+    test('opens the fourth level from the keyboard, and keeps it out of Tab while closed', async ({
+      page,
+    }) => {
+      await onlyFor(page, 'catalogue');
+      const { columns, toggles } = await openThirdLevelToggle(page);
+      const toggle = toggles.first();
+      const panel = page.locator(OPEN_PANEL);
+
+      await toggle.focus();
+      await page.keyboard.press('Enter');
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      await expect(toggle).toBeFocused();
+      const fourth = columns.nth(2);
+      // As from the second level to the third: the open column comes after
+      // the rest of its parent's column in the Tab order.
+      const { of } = await focusInPanel(panel);
+      let reached = false;
+      for (let i = 0; i < of && !reached; i++) {
+        await page.keyboard.press('Tab');
+        reached = await fourth.evaluate((el) =>
+          el.contains(document.activeElement),
+        );
+      }
+      expect(reached, 'Tab never reached the fourth level').toBe(true);
+
+      await toggle.focus();
+      await page.keyboard.press('Enter');
+      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await expect(columns).toHaveCount(2);
     });
 
     test('sits at the content edge below the bar, only as wide as its columns, over a dimmed page', async ({

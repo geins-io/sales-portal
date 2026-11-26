@@ -23,14 +23,7 @@ withDefaults(defineProps<{ variant?: 'grey' | 'white' }>(), {
   variant: 'grey',
 });
 
-// Resolves the menuLocationId from `tenant.cms.menus[HEADER_MAIN]`.
-// Falls back gracefully to "no nav bar shown" when the tenant hasn't
-// configured the slot — the header still has the logo + search + cart.
-const { menu } = useCmsMenuData(CMS_MENUS.HEADER_MAIN);
-const { visibleChildren, linkTag, linkAttrs } = useHeaderMenuLinks();
 const { tenant } = useTenant();
-
-const visibleItems = computed(() => getVisibleItems(menu.value?.menuItems));
 
 // Store setting Menu layout. Absent keys are today's mega menu.
 const menuLayout = computed<'mega' | 'collapsible' | 'catalogue'>(() => {
@@ -38,6 +31,17 @@ const menuLayout = computed<'mega' | 'collapsible' | 'catalogue'>(() => {
   if (settings?.type === 'catalogue') return 'catalogue';
   return settings?.collapsibleCategories === true ? 'collapsible' : 'mega';
 });
+
+// Resolves the menuLocationId from `tenant.cms.menus[HEADER_MAIN]`.
+// Falls back gracefully to "no nav bar shown" when the tenant hasn't
+// configured the slot — the header still has the logo + search + cart.
+// The depth follows the layout rendered, which a store-settings preview sets.
+const { menu } = useCmsMenuData(CMS_MENUS.HEADER_MAIN, () =>
+  menuLayout.value === 'catalogue' ? 4 : 3,
+);
+const { visibleChildren, linkTag, linkAttrs } = useHeaderMenuLinks();
+
+const visibleItems = computed(() => getVisibleItems(menu.value?.menuItems));
 
 // Left aligned, the first label starts at the content edge, under the logo.
 const firstItemFlush = computed(

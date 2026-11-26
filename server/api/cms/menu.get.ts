@@ -3,7 +3,7 @@ import { getMenu } from '../../services/cms';
 import { hasCmsUserToken } from '../../utils/request-identity';
 
 export default defineEventHandler(async (event) => {
-  const { menuLocationId } = await getValidatedQuery(
+  const { menuLocationId, depth } = await getValidatedQuery(
     event,
     CmsMenuSchema.parse,
   );
@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
 
   return withErrorHandling(
     async () => {
-      const result = await getMenu({ menuLocationId }, event);
+      const result = await getMenu({ menuLocationId, depth }, event);
 
       return result;
     },

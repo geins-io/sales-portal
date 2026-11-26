@@ -20,6 +20,7 @@ import {
   getRequestIdentity,
 } from '../utils/request-identity';
 import { hasPageTag } from '#shared/utils/cms-tags';
+import { DEFAULT_MENU_DEPTH, type MenuDepth } from '#shared/constants/cms';
 import { mergeContainersByVisibility } from '#shared/utils/cms-visibility';
 import { isSafeInternalPath } from '#shared/utils/redirect';
 import { parseLocaleMarketPrefix } from '#shared/utils/locale-market';
@@ -137,14 +138,23 @@ function cmsRequestContext(event: H3Event) {
 // Service Functions
 // =============================================================================
 
+/**
+ * A menu, `depth` levels deep: the caller asks for the depth of the layout it
+ * renders.
+ */
 export async function getMenu(
-  args: { menuLocationId: string },
+  {
+    menuLocationId,
+    depth = DEFAULT_MENU_DEPTH,
+  }: { menuLocationId: string; depth?: MenuDepth },
   event: H3Event,
 ): Promise<MenuType> {
+  const args = { menuLocationId, depth };
   // A preview's draft is no copy to cache or keep.
   if (getPreviewToken(event)) return readMenu(args, event);
 
-  const cacheKey = `${buildCachePrefix(event)}::menu::${args.menuLocationId}`;
+  // The depth sits before the name, so no name can spell another depth's key.
+  const cacheKey = `${buildCachePrefix(event)}::menu::d${depth}::${menuLocationId}`;
   const cached = menuCache.get(cacheKey);
   if (cached) {
     return cached;
@@ -159,7 +169,7 @@ export async function getMenu(
     const lastGood = copies.get(cacheKey);
     if (!lastGood) throw error;
     logger.warn('[cms] menu read failed; serving the last good copy', {
-      menuLocationId: args.menuLocationId,
+      menuLocationId,
     });
     result = lastGood;
   }
@@ -168,7 +178,7 @@ export async function getMenu(
 }
 
 async function readMenu(
-  args: { menuLocationId: string },
+  args: { menuLocationId: string; depth: MenuDepth },
   event: H3Event,
 ): Promise<MenuType> {
   const sdk = await getTenantSDK(event);

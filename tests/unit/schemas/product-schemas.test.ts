@@ -567,4 +567,25 @@ describe('CmsMenuSchema', () => {
     const result = CmsMenuSchema.safeParse({ menuLocationId: '' });
     expect(result.success).toBe(false);
   });
+
+  it.each([
+    ['3', 3],
+    ['4', 4],
+  ])('reads depth %s as %i', (depth, expected) => {
+    const result = CmsMenuSchema.safeParse({ menuLocationId: 'main', depth });
+    expect(result.success && result.data.depth).toBe(expected);
+  });
+
+  it('reads a missing depth as three levels', () => {
+    const result = CmsMenuSchema.safeParse({ menuLocationId: 'main' });
+    expect(result.success && result.data.depth).toBe(3);
+  });
+
+  it.each(['2', '5', '6', '04', '4.0', 'four', ''])(
+    'rejects depth %p',
+    (depth) => {
+      const result = CmsMenuSchema.safeParse({ menuLocationId: 'main', depth });
+      expect(result.success).toBe(false);
+    },
+  );
 });

@@ -40,7 +40,11 @@ const mockMenu = ref<MenuType | null>(null);
 // falls alongside them and is the one that explains why.
 const HEADER_MENU_LOCATION = 'header-main-location';
 
-type MenuQuery = { menuLocationId?: string };
+type MenuQuery = { menuLocationId?: string; depth?: string };
+
+// The header menu's query as last handed to useFetch, still reactive.
+let headerQuery: { value: MenuQuery } | undefined;
+const sentHeaderQuery = (): MenuQuery | undefined => headerQuery?.value;
 
 function menuFetchReturn(_url: unknown, options?: { query?: unknown }) {
   const raw = options?.query;
@@ -49,6 +53,9 @@ function menuFetchReturn(_url: unknown, options?: { query?: unknown }) {
     raw != null && typeof raw === 'object' && 'value' in raw
       ? (raw as { value: MenuQuery }).value
       : (raw as MenuQuery | undefined);
+  if (resolved?.menuLocationId === HEADER_MENU_LOCATION) {
+    headerQuery = raw as { value: MenuQuery };
+  }
   return {
     data:
       resolved?.menuLocationId === HEADER_MENU_LOCATION ? mockMenu : ref(null),
@@ -474,6 +481,37 @@ describe('LayoutHeaderNav', () => {
         expect(first!.classes()).toContain('pl-0');
         expect(second!.classes()).not.toContain('pl-0');
       });
+    });
+
+    it('asks for a fourth level for the catalogue only', () => {
+      setMenu({ type: 'catalogue' });
+      shallowMountComponent(LayoutHeaderNav, options);
+      expect(sentHeaderQuery()?.depth).toBe('4');
+
+      for (const menu of [
+        undefined,
+        { type: 'megaMenu' as const },
+        { type: 'megaMenu' as const, collapsibleCategories: true },
+      ]) {
+        headerQuery = undefined;
+        setMenu(menu);
+        shallowMountComponent(LayoutHeaderNav, options);
+        expect(sentHeaderQuery()).toBeDefined();
+        expect(sentHeaderQuery()).not.toHaveProperty('depth');
+      }
+    });
+
+    it('asks for the depth of the layout it renders when that changes, as in a store-settings preview', async () => {
+      setMenu({ type: 'megaMenu' });
+      const wrapper = shallowMountComponent(LayoutHeaderNav, options);
+      expect(sentHeaderQuery()).not.toHaveProperty('depth');
+
+      setMenu({ type: 'catalogue' });
+      await nextTick();
+      expect(wrapper.findComponent(LayoutHeaderMenuCatalogue).exists()).toBe(
+        true,
+      );
+      expect(sentHeaderQuery()?.depth).toBe('4');
     });
 
     it("renders today's mega menu when the tenant has no menu layout", () => {
