@@ -669,7 +669,7 @@ useProductSeo({
              art-nr, stock and price (price is product-level so it's the
              same on every row). 22 px above it: the column's 16 plus 6. -->
           <div v-if="showVariantSelector && !hidesCatalogueSku" class="mt-1.5">
-            <VariantSelector
+            <ProductVariantPicker
               ref="variantSelector"
               v-model="selectedVariants"
               v-model:sku-id="selectedSkuId"
@@ -688,6 +688,7 @@ useProductSeo({
               "
               :product-article-number="product.articleNumber ?? null"
               :variant-products="variantProductsByAlias"
+              :disabled="switchingVariant"
             />
           </div>
 

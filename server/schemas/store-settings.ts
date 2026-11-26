@@ -330,6 +330,13 @@ export const LayoutConfigSchema = z.object({
     })
     .nullable()
     .optional(),
+  variantSelector: z
+    .object({
+      display: z.enum(['panel', 'dropdown']).nullable().optional(),
+      grouping: z.enum(['dimension', 'none']).nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 /**

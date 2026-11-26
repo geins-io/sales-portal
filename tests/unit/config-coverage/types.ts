@@ -261,6 +261,7 @@ export type BrandingCoverage = {
 };
 
 type Menu = NonNullable<Layout['menu']>;
+type VariantSelector = NonNullable<Layout['variantSelector']>;
 
 export type LayoutCoverage = {
   [K in keyof Layout]-?: K extends 'headerNavVariant'
@@ -274,7 +275,18 @@ export type LayoutCoverage = {
           >;
           collapsibleCategories: Record<'on' | 'off' | 'absent', Coverage>;
         }
-      : Coverage;
+      : K extends 'variantSelector'
+        ? {
+            display: Record<
+              NonNullable<VariantSelector['display']> | 'absent',
+              Coverage
+            >;
+            grouping: Record<
+              NonNullable<VariantSelector['grouping']> | 'absent',
+              Coverage
+            >;
+          }
+        : Coverage;
 };
 
 export type CmsCoverage = {

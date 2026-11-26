@@ -298,6 +298,8 @@
     "variant_group_matching_named": "Passar med {dimension}: {value}",
     "variant_group_other_named": "Fler alternativ (med annan {dimension})",
     "variant_group_more": "Fler alternativ",
+    "variant_group_more_changes": "Fler alternativ, ändrar {dimension}",
+    "variant_no_match": "Inga träffar",
     "variant_pick_heading": "{value} finns i",
     "variant_pick_back": "Tillbaka",
     "image_counter": "Bild {current} av {total}",
