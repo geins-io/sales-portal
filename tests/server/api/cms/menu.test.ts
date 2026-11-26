@@ -76,6 +76,24 @@ describe('GET /api/cms/menu', () => {
     });
   });
 
+  it.each([3, 4] as const)(
+    'asks the SDK for the validated depth: %i',
+    async (depth) => {
+      vi.mocked(getValidatedQuery).mockResolvedValue({
+        menuLocationId: 'main-menu',
+        depth,
+      });
+      mockMenuGet.mockResolvedValue({ id: 'main-menu', menuItems: [] });
+      const handler = (await import('../../../../server/api/cms/menu.get'))
+        .default as unknown as AnyFn;
+      await handler(mockEvent);
+      expect(mockMenuGet).toHaveBeenCalledWith(
+        expect.objectContaining({ menuLocationId: 'main-menu', depth }),
+        undefined,
+      );
+    },
+  );
+
   it('returns menu data from SDK', async () => {
     const mockMenuData = {
       id: 'main-menu',
@@ -90,6 +108,7 @@ describe('GET /api/cms/menu', () => {
     expect(mockMenuGet).toHaveBeenCalledWith(
       {
         menuLocationId: 'main-menu',
+        depth: 3,
         channelId: '1',
         languageId: 'sv-SE',
         marketId: 'se',
@@ -112,6 +131,7 @@ describe('GET /api/cms/menu', () => {
     expect(mockMenuGet).toHaveBeenCalledWith(
       {
         menuLocationId: 'footer-menu',
+        depth: 3,
         channelId: '1',
         languageId: 'sv-SE',
         marketId: 'se',

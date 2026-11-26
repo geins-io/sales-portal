@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ref, computed } from 'vue';
+import { ref, computed, unref } from 'vue';
 import { CMS_MENUS } from '../../shared/constants/cms';
 
 // A server render waits on the menu; a retry after a timed-out read doubles
@@ -53,5 +53,29 @@ describe('menu fetches', () => {
     const [url, options] = useFetchMock.mock.calls[0]!;
     expect(url).toBe('/api/cms/menu');
     expect(options.retry).toBe(0);
+  });
+
+  const sentQuery = () =>
+    unref(useFetchMock.mock.calls[0]![1].query) as Record<string, string>;
+
+  it('useCmsMenuData asks for the depth it is given', () => {
+    useCmsMenuData(CMS_MENUS.HEADER_MAIN, 4);
+    expect(sentQuery()).toMatchObject({ menuLocationId: 'main', depth: '4' });
+  });
+
+  it('useCmsMenuData leaves the default depth out, so its read is every other read of the location', () => {
+    useCmsMenuData(CMS_MENUS.HEADER_MAIN, 3);
+    expect(sentQuery()).not.toHaveProperty('depth');
+    useFetchMock.mockClear();
+    useCmsMenuData(CMS_MENUS.MOBILE_DRAWER);
+    expect(sentQuery()).not.toHaveProperty('depth');
+  });
+
+  it('useCmsMenuData follows a depth that changes', () => {
+    const depth = ref<3 | 4>(3);
+    useCmsMenuData(CMS_MENUS.HEADER_MAIN, depth);
+    expect(sentQuery()).not.toHaveProperty('depth');
+    depth.value = 4;
+    expect(sentQuery()).toHaveProperty('depth', '4');
   });
 });

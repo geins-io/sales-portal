@@ -174,7 +174,7 @@ describe('CMS reads in preview send the preview token, never a preview flag', ()
     expect(mockMenuGet).toHaveBeenCalledTimes(2);
     const { languageId: _l, ...withoutLanguage } = channelVars;
     expect(mockMenuGet).toHaveBeenLastCalledWith(
-      { menuLocationId, ...withoutLanguage },
+      { menuLocationId, depth: 3, ...withoutLanguage },
       { userToken: PREVIEW },
     );
   });

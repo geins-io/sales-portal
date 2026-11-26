@@ -151,6 +151,7 @@ describe('CMS service customerType threading', () => {
       expect(mockMenuGet).toHaveBeenCalledWith(
         {
           menuLocationId: 'main',
+          depth: 3,
           ...channelVars,
         },
         undefined,

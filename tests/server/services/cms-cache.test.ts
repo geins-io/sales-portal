@@ -447,17 +447,6 @@ describe('CMS cache — caller isolation', () => {
 describe('CMS cache — menu depth', () => {
   let getMenu: typeof import('../../../server/services/cms').getMenu;
 
-  type MenuLayout = 'megaMenu' | 'catalogue' | null;
-  function layoutEvent(type?: MenuLayout) {
-    const event = mockEvent();
-    if (type !== undefined) {
-      Object.assign(event.context.tenant, {
-        config: { layout: { menu: { type } } },
-      });
-    }
-    return event;
-  }
-
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
@@ -476,50 +465,41 @@ describe('CMS cache — menu depth', () => {
 
   const menu = { id: 'main', menuItems: [{ title: 'Hem' }] };
 
-  it.each([
-    ['no tenant', {}],
-    ['no config', { tenant: { hostname: 'test.com' } }],
-    ['no layout', { tenant: { hostname: 'test.com', config: {} } }],
-    [
-      'a null layout',
-      { tenant: { hostname: 'test.com', config: { layout: null } } },
-    ],
-    [
-      'a null menu setting',
-      { tenant: { hostname: 'test.com', config: { layout: { menu: null } } } },
-    ],
-  ])('asks for no depth for a tenant with %s', async (_, context) => {
-    mockMenuGet.mockResolvedValue(menu);
-    const event = { context, _cookies: {} } as unknown as import('h3').H3Event;
-    await getMenu({ menuLocationId: 'main' }, event);
-    expect(mockMenuGet.mock.calls[0]![0]).not.toHaveProperty('depth');
-  });
-
-  it('asks for four levels under the catalogue layout', async () => {
-    mockMenuGet.mockResolvedValue(menu);
-    await getMenu({ menuLocationId: 'main' }, layoutEvent('catalogue'));
-    expect(mockMenuGet).toHaveBeenCalledWith(
-      expect.objectContaining({ menuLocationId: 'main', depth: 4 }),
-      undefined,
-    );
-  });
-
-  it.each([['megaMenu'], [null], [undefined]] as const)(
-    'asks for no depth, the SDK default, under layout %s',
-    async (type) => {
+  it.each([3, 4] as const)(
+    'asks the SDK for the depth the caller asks for: %i',
+    async (depth) => {
       mockMenuGet.mockResolvedValue(menu);
-      await getMenu({ menuLocationId: 'main' }, layoutEvent(type));
-      expect(mockMenuGet.mock.calls[0]![0]).not.toHaveProperty('depth');
+      await getMenu({ menuLocationId: 'main', depth }, mockEvent());
+      expect(mockMenuGet).toHaveBeenCalledWith(
+        expect.objectContaining({ menuLocationId: 'main', depth }),
+        undefined,
+      );
     },
   );
 
-  it('asks for four levels in the language fallback read too', async () => {
+  it('asks for three levels when the caller names no depth', async () => {
+    mockMenuGet.mockResolvedValue(menu);
+    await getMenu({ menuLocationId: 'main' }, mockEvent());
+    expect(mockMenuGet.mock.calls[0]![0]).toHaveProperty('depth', 3);
+  });
+
+  it('decides the depth from the caller, not the saved layout', async () => {
+    mockMenuGet.mockResolvedValue(menu);
+    const event = mockEvent();
+    Object.assign(event.context.tenant, {
+      config: { layout: { menu: { type: 'catalogue' } } },
+    });
+    await getMenu({ menuLocationId: 'main', depth: 3 }, event);
+    expect(mockMenuGet.mock.calls[0]![0]).toHaveProperty('depth', 3);
+  });
+
+  it('asks for the depth in the language fallback read too', async () => {
     mockMenuGet
       .mockResolvedValueOnce({ id: 'main', menuItems: [] })
       .mockResolvedValueOnce(menu);
     const result = await getMenu(
-      { menuLocationId: 'main' },
-      layoutEvent('catalogue'),
+      { menuLocationId: 'main', depth: 4 },
+      mockEvent(),
     );
     expect(result).toEqual(menu);
     expect(mockMenuGet).toHaveBeenCalledTimes(2);
@@ -527,40 +507,56 @@ describe('CMS cache — menu depth', () => {
     expect(mockMenuGet.mock.calls[1]![0]).toHaveProperty('depth', 4);
   });
 
-  it('does not serve one layout the menu cached for the other', async () => {
+  it('keeps each depth in its own cache entry', async () => {
     const shallow = { id: 'main', menuItems: [{ title: 'Tre' }] };
     const deep = { id: 'main', menuItems: [{ title: 'Fyra' }] };
     mockMenuGet.mockResolvedValueOnce(shallow).mockResolvedValueOnce(deep);
 
-    const mega = await getMenu(
-      { menuLocationId: 'main' },
-      layoutEvent('megaMenu'),
+    const three = await getMenu(
+      { menuLocationId: 'main', depth: 3 },
+      mockEvent(),
     );
-    const catalogue = await getMenu(
-      { menuLocationId: 'main' },
-      layoutEvent('catalogue'),
+    const four = await getMenu(
+      { menuLocationId: 'main', depth: 4 },
+      mockEvent(),
     );
-    expect(mega).toEqual(shallow);
-    expect(catalogue).toEqual(deep);
+    expect(three).toEqual(shallow);
+    expect(four).toEqual(deep);
     expect(mockMenuGet).toHaveBeenCalledTimes(2);
 
-    // Each layout is then served from its own entry.
+    // Each depth is then served from its own entry.
     expect(
-      await getMenu({ menuLocationId: 'main' }, layoutEvent('megaMenu')),
+      await getMenu({ menuLocationId: 'main', depth: 3 }, mockEvent()),
     ).toEqual(shallow);
     expect(
-      await getMenu({ menuLocationId: 'main' }, layoutEvent('catalogue')),
+      await getMenu({ menuLocationId: 'main', depth: 4 }, mockEvent()),
     ).toEqual(deep);
     expect(mockMenuGet).toHaveBeenCalledTimes(2);
   });
 
-  it('does not serve the other layout’s last good copy when a read fails', async () => {
+  it('cannot be led into another depth’s entry by a menu location name', async () => {
+    // With the depth after the name, `main::d4` at depth 3 would build the
+    // key `main` gets at depth 4.
+    const named = { id: 'x', menuItems: [{ title: 'Named' }] };
+    const deep = { id: 'main', menuItems: [{ title: 'Fyra' }] };
+    mockMenuGet.mockResolvedValueOnce(named).mockResolvedValueOnce(deep);
+
+    await getMenu({ menuLocationId: 'main::d4', depth: 3 }, mockEvent());
+    const four = await getMenu(
+      { menuLocationId: 'main', depth: 4 },
+      mockEvent(),
+    );
+    expect(four).toEqual(deep);
+    expect(mockMenuGet).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not serve another depth’s last good copy when a read fails', async () => {
     mockMenuGet
       .mockResolvedValueOnce(menu)
       .mockRejectedValueOnce(new Error('merchant API down'));
-    await getMenu({ menuLocationId: 'main' }, layoutEvent('megaMenu'));
+    await getMenu({ menuLocationId: 'main', depth: 3 }, mockEvent());
     await expect(
-      getMenu({ menuLocationId: 'main' }, layoutEvent('catalogue')),
+      getMenu({ menuLocationId: 'main', depth: 4 }, mockEvent()),
     ).rejects.toThrow('merchant API down');
   });
 });

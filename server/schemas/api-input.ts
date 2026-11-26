@@ -10,6 +10,7 @@ import {
   QUOTE_REQUEST_MAX_LINES,
   QUOTE_SEARCH_MAX_LENGTH,
 } from '#shared/constants/quote';
+import { DEFAULT_MENU_DEPTH, type MenuDepth } from '#shared/constants/cms';
 import {
   ORDER_LIST_MAX_TAKE,
   ORDER_LIST_PAGE_SIZE,
@@ -83,6 +84,10 @@ export type CmsAreaInput = z.infer<typeof CmsAreaSchema>;
 export const CmsMenuSchema = z.object({
   menuLocationId: z.string().min(1).max(100),
   locale: z.string().min(2).max(10).optional(),
+  depth: z
+    .enum(['3', '4'])
+    .optional()
+    .transform((depth): MenuDepth => (depth === '4' ? 4 : DEFAULT_MENU_DEPTH)),
 });
 
 export type CmsMenuInput = z.infer<typeof CmsMenuSchema>;
