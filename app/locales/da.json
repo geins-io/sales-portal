@@ -298,6 +298,8 @@
     "variant_group_matching_named": "Passer med {dimension}: {value}",
     "variant_group_other_named": "Flere muligheder (med anden {dimension})",
     "variant_group_more": "Flere muligheder",
+    "variant_group_more_changes": "Flere muligheder, ændrer {dimension}",
+    "variant_no_match": "Ingen resultater",
     "variant_pick_heading": "{value} findes i",
     "variant_pick_back": "Tilbage",
     "image_counter": "Billede {current} af {total}",

@@ -427,6 +427,58 @@ describe('StoreSettingsSchema', () => {
     });
   });
 
+  describe('layout.variantSelector', () => {
+    const withVariantSelector = (variantSelector: unknown) => ({
+      ...ALPHA_MOCK,
+      layout: { variantSelector },
+    });
+
+    it('accepts every display and grouping Studio saves, null and absent', () => {
+      for (const variantSelector of [
+        { display: 'panel', grouping: 'dimension' },
+        { display: 'panel', grouping: 'none' },
+        { display: 'dropdown', grouping: 'dimension' },
+        { display: 'dropdown', grouping: 'none' },
+        { display: null, grouping: null },
+        {},
+        null,
+      ]) {
+        const result = StoreSettingsSchema.safeParse(
+          withVariantSelector(variantSelector),
+        );
+        const label = JSON.stringify(variantSelector);
+        expect(result.success, label).toBe(true);
+        expect(result.data?.layout?.variantSelector, label).toEqual(
+          variantSelector,
+        );
+      }
+    });
+
+    it('rejects a display outside panel and dropdown', () => {
+      const result = StoreSettingsSchema.safeParse(
+        withVariantSelector({ display: 'list' }),
+      );
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.path).toEqual([
+        'layout',
+        'variantSelector',
+        'display',
+      ]);
+    });
+
+    it('rejects a grouping outside dimension and none', () => {
+      const result = StoreSettingsSchema.safeParse(
+        withVariantSelector({ grouping: 'colour' }),
+      );
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.path).toEqual([
+        'layout',
+        'variantSelector',
+        'grouping',
+      ]);
+    });
+  });
+
   describe('missing required fields', () => {
     it('should reject missing required color fields', () => {
       const incomplete = {

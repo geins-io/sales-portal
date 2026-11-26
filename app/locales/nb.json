@@ -298,6 +298,8 @@
     "variant_group_matching_named": "Passer med {dimension}: {value}",
     "variant_group_other_named": "Flere alternativer (med annen {dimension})",
     "variant_group_more": "Flere alternativer",
+    "variant_group_more_changes": "Flere alternativer, endrer {dimension}",
+    "variant_no_match": "Ingen treff",
     "variant_pick_heading": "{value} finnes i",
     "variant_pick_back": "Tilbake",
     "image_counter": "Bilde {current} av {total}",

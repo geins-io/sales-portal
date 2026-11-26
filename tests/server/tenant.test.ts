@@ -3022,6 +3022,55 @@ describe('the nav bar settings Studio saves', () => {
     expect(config.layout?.menu).not.toHaveProperty('collapsibleCategories');
   });
 
+  it('serves layout.variantSelector.display and grouping', async () => {
+    const config = await serve(
+      rawAnswer(
+        {},
+        {
+          layout: {
+            variantSelector: { display: 'dropdown', grouping: 'none' },
+          },
+        },
+      ),
+    );
+    expect(config.layout?.variantSelector).toEqual({
+      display: 'dropdown',
+      grouping: 'none',
+    });
+  });
+
+  it('drops an unknown variantSelector display, keeps the grouping, and still serves the tenant', async () => {
+    const config = await serve(
+      rawAnswer(
+        {},
+        {
+          layout: {
+            menu: { type: 'catalogue' },
+            variantSelector: { display: 'list', grouping: 'none' },
+          },
+        },
+      ),
+    );
+    expect(config.layout?.variantSelector).not.toHaveProperty('display');
+    expect(config.layout?.variantSelector?.grouping).toBe('none');
+    expect(config.layout?.menu?.type).toBe('catalogue');
+  });
+
+  it('drops an unknown variantSelector grouping and keeps the display', async () => {
+    const config = await serve(
+      rawAnswer(
+        {},
+        {
+          layout: {
+            variantSelector: { display: 'panel', grouping: 'colour' },
+          },
+        },
+      ),
+    );
+    expect(config.layout?.variantSelector).not.toHaveProperty('grouping');
+    expect(config.layout?.variantSelector?.display).toBe('panel');
+  });
+
   it('drops an unknown nav bar alignment and still serves the tenant', async () => {
     const config = await serve(
       rawAnswer({}, { layout: { menu: { navbarAlignment: 'right' } } }),

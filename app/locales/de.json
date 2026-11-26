@@ -298,6 +298,8 @@
     "variant_group_matching_named": "Passt zu {dimension}: {value}",
     "variant_group_other_named": "Weitere Optionen (mit anderer {dimension})",
     "variant_group_more": "Weitere Optionen",
+    "variant_group_more_changes": "Weitere Optionen, ändert {dimension}",
+    "variant_no_match": "Keine Treffer",
     "variant_pick_heading": "{value} ist erhältlich in",
     "variant_pick_back": "Zurück",
     "image_counter": "Bild {current} von {total}",

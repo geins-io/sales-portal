@@ -102,6 +102,11 @@ export interface TenantConfig {
       navbarAlignment?: 'left' | 'center' | null;
       collapsibleCategories?: boolean | null;
     } | null;
+    /** The PDP variant selector; absent means the panel grouped by dimension. */
+    variantSelector?: {
+      display?: 'panel' | 'dropdown' | null;
+      grouping?: 'dimension' | 'none' | null;
+    } | null;
   } | null;
 
   // Features — keyed by feature name

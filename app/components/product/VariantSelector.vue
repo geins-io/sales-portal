@@ -15,6 +15,7 @@ import {
   resolveCombination,
   type VariantCombination,
 } from '~/utils/variant-tree';
+import { VARIANT_TRIGGER_CLASS as TRIGGER_CLASS } from '~/utils/variant-rows';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import {
@@ -23,13 +24,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '~/components/ui/sheet';
-
-/**
- * Every trigger that opens the panel. The 4 px corners are fixed: the store's
- * radius rounds the buy buttons, not these rows.
- */
-const TRIGGER_CLASS =
-  'border-input bg-muted/50 hover:bg-muted flex h-11 w-full items-center justify-between rounded-[4px] px-3 font-normal shadow-none lg:max-w-80';
 
 const props = defineProps<{
   variantDimensions: VariantDimensionRow[];

@@ -57,7 +57,8 @@ export function variantCombinations(
 /**
  * The variant a pick of `value` on `dimension` leads to: among the variants
  * with that value, the one agreeing with `current` on the most other
- * dimensions, payload order breaking ties.
+ * dimensions. A tie keeps the earlier dimensions and changes the later ones;
+ * payload order breaks what is left.
  */
 export function resolveCombination(
   combinations: readonly VariantCombination[],
@@ -65,16 +66,25 @@ export function resolveCombination(
   dimension: string,
   value: string,
 ): VariantCombination | null {
+  // The picked dimension agrees for every candidate, so it never decides.
+  const order = dimensionsOf(combinations)
+    .map((d) => d.dimensionName)
+    .filter((dim) => dim in current);
+  const agreement = (combo: VariantCombination) =>
+    order.map((dim) => combo.selection[dim] === current[dim]);
   let best: VariantCombination | null = null;
+  let bestAgrees: boolean[] = [];
   let bestScore = -1;
   for (const combo of combinations) {
     if (combo.selection[dimension] !== value) continue;
-    let score = 0;
-    for (const [dim, val] of Object.entries(current)) {
-      if (dim !== dimension && combo.selection[dim] === val) score++;
-    }
-    if (score > bestScore) {
+    const agrees = agreement(combo);
+    const score = agrees.filter(Boolean).length;
+    // On a tie, the first dimension where the two differ decides.
+    const first = agrees.findIndex((a, i) => a !== bestAgrees[i]);
+    const keepsEarlier = score === bestScore && agrees[first] === true;
+    if (score > bestScore || keepsEarlier) {
       best = combo;
+      bestAgrees = agrees;
       bestScore = score;
     }
   }

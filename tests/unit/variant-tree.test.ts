@@ -115,6 +115,91 @@ describe('resolveCombination', () => {
     ).toBe('blue-s');
   });
 
+  describe('on a tie, keeps the earlier dimensions and changes the later one', () => {
+    const combo = (
+      alias: string,
+      selection: Record<string, string>,
+    ): VariantCombination => ({
+      alias,
+      productId: null,
+      selection,
+      labels: selection,
+      stock: null,
+    });
+    const current = { Poler: '3P', Kapsling: 'IP65', Märkström: '16 A' };
+
+    it('whatever the payload order', () => {
+      const keepsPoler = combo('3p-ip66-40', {
+        Poler: '3P',
+        Kapsling: 'IP66',
+        Märkström: '40 A',
+      });
+      const keepsKapsling = combo('4p-ip65-40', {
+        Poler: '4P',
+        Kapsling: 'IP65',
+        Märkström: '40 A',
+      });
+      for (const order of [
+        [keepsPoler, keepsKapsling],
+        [keepsKapsling, keepsPoler],
+      ]) {
+        expect(
+          resolveCombination(order, current, 'Märkström', '40 A')?.alias,
+        ).toBe('3p-ip66-40');
+      }
+    });
+
+    it('when each candidate changes two of three other dimensions', () => {
+      const four = { A: 'a1', B: 'b1', C: 'c1', D: 'd1' };
+      const changesAB = combo('ab', { A: 'a2', B: 'b2', C: 'c1', D: 'd2' });
+      const changesAC = combo('ac', { A: 'a2', B: 'b1', C: 'c2', D: 'd2' });
+      const changesBC = combo('bc', { A: 'a1', B: 'b2', C: 'c2', D: 'd2' });
+      expect(
+        resolveCombination([changesAB, changesAC, changesBC], four, 'D', 'd2')
+          ?.alias,
+      ).toBe('bc');
+    });
+
+    it('counts agreement first: two kept dimensions beat one earlier one', () => {
+      const four = { A: 'a1', B: 'b1', C: 'c1', D: 'd1' };
+      const keepsBC = combo('bc', { A: 'a2', B: 'b1', C: 'c1', D: 'd2' });
+      const keepsA = combo('a', { A: 'a1', B: 'b2', C: 'c2', D: 'd2' });
+      expect(
+        resolveCombination([keepsBC, keepsA], four, 'D', 'd2')?.alias,
+      ).toBe('bc');
+    });
+
+    it('weighs only the dimensions the current choice has', () => {
+      const shallow = combo('shallow', { Färg: 'röd', Storlek: 'M' });
+      const deep = combo('deep', { Färg: 'röd', Storlek: 'M', Extra: 'x' });
+      expect(
+        resolveCombination(
+          [deep, shallow],
+          { Färg: 'svart', Storlek: 'S' },
+          'Storlek',
+          'M',
+        )?.alias,
+      ).toBe('deep');
+    });
+
+    it('falls back to payload order between equal variants', () => {
+      const first = combo('first', {
+        Poler: '3P',
+        Kapsling: 'IP66',
+        Märkström: '40 A',
+      });
+      const second = combo('second', {
+        Poler: '3P',
+        Kapsling: 'IP66',
+        Märkström: '40 A',
+      });
+      expect(
+        resolveCombination([first, second], current, 'Märkström', '40 A')
+          ?.alias,
+      ).toBe('first');
+    });
+  });
+
   it('returns null for a value no variant has', () => {
     expect(resolveCombination(two, current, 'Gänga', 'm99')).toBeNull();
   });

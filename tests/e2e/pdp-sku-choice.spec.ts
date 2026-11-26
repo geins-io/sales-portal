@@ -7,6 +7,10 @@ import {
 } from './helpers';
 import { localeText } from './locale-text';
 import { apiGet } from './api-call';
+import {
+  savedVariantSelector,
+  type VariantSelectorStyle,
+} from './variant-selector-setting';
 
 /**
  * A product sold in several SKUs of its own, not as sibling products. Geins
@@ -17,6 +21,9 @@ import { apiGet } from './api-call';
  * The product is one on the test account with SKUs S, M and L beside its
  * original. Where it is missing or has lost them, the file is out of scope
  * rather than failing. The test removes the line it added and places no order.
+ *
+ * The SKU choice takes the display the store settings name: today's panel,
+ * one list in a panel, or a dropdown.
  */
 
 const ALIAS = 'skyddsglasogon-klar-en-166';
@@ -43,6 +50,28 @@ async function productSkus(page: Page): Promise<Sku[]> {
   return ((await response.json()) as { skus?: Sku[] }).skus ?? [];
 }
 
+/** The SKU control's test ids in the store's saved style. */
+function skuControl(style: VariantSelectorStyle) {
+  if (style.display === 'dropdown') {
+    return {
+      trigger: 'sku-dropdown-trigger',
+      list: 'sku-dropdown-content',
+      option: 'sku-dropdown-option',
+    };
+  }
+  return style.grouping === 'none'
+    ? {
+        trigger: 'sku-list-trigger',
+        list: 'sku-list-sheet',
+        option: 'sku-list-option',
+      }
+    : {
+        trigger: 'variant-trigger-sku',
+        list: 'variant-sheet',
+        option: 'variant-option',
+      };
+}
+
 /** This host's cart only: the stored session may hold other tenants' cookies. */
 async function cartIdOf(page: Page): Promise<string | undefined> {
   return (await page.context().cookies(page.url())).find(
@@ -65,11 +94,12 @@ test('the buyer picks a SKU and the picked SKU is the one added', async ({
   await page.waitForLoadState('load');
   await waitForHydration(page);
 
+  const ids = skuControl(await savedVariantSelector(page));
   const topArea = page.getByTestId('pdp-top-area');
-  await expect(page.getByTestId('variant-trigger-sku')).toBeVisible();
+  await expect(page.getByTestId(ids.trigger)).toBeVisible();
   await expect(topArea).not.toContainText('DefaultProduct');
 
-  // Nothing is added before a pick: the button asks for one and opens the sheet.
+  // Nothing is added before a pick: the button asks for one and opens the list.
   const addButton = page.getByTestId('add-to-cart-button');
   await expect(addButton).toHaveText(
     await localeText(page, 'product.choose_variant'),
@@ -82,16 +112,16 @@ test('the buyer picks a SKU and the picked SKU is the one added', async ({
   });
   await addButton.click();
 
-  const sheet = page.getByTestId('variant-sheet');
-  await expect(sheet).toBeVisible();
-  await expect(sheet.getByTestId('variant-option')).toHaveCount(skus.length);
+  const list = page.getByTestId(ids.list);
+  await expect(list).toBeVisible();
+  await expect(list.getByTestId(ids.option)).toHaveCount(skus.length);
   expect(adds).toEqual([]);
 
-  await sheet
-    .locator(`[data-testid="variant-option"][data-value="${picked!.skuId}"]`)
+  await list
+    .locator(`[data-testid="${ids.option}"][data-value="${picked!.skuId}"]`)
     .click();
-  await expect(sheet).toBeHidden();
-  await expect(page.getByTestId('variant-trigger-sku')).toHaveText(PICK_NAME);
+  await expect(list).toBeHidden();
+  await expect(page.getByTestId(ids.trigger)).toHaveText(PICK_NAME);
   await expect(page.getByTestId('product-article-number')).toContainText(
     picked!.articleNumber!,
   );

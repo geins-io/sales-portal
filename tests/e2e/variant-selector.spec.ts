@@ -7,6 +7,7 @@ import {
   waitForHydration,
 } from './helpers';
 import { apiRoute, apiGet } from './api-call';
+import { onlyForVariantSelector } from './variant-selector-setting';
 
 /**
  * Variant selector E2E Tests
@@ -17,6 +18,9 @@ import { apiRoute, apiGet } from './api-call';
  * pick has to reach the sibling's own page, and siblings are not always in
  * the current product's category, so the page must land on the sibling's
  * canonical without passing through a rebuilt path.
+ *
+ * The store setting PDP variant selection style picks how the choice is made;
+ * each describe runs for the style the target has saved.
  */
 
 interface VariantNode {
@@ -222,6 +226,10 @@ async function pick(
 }
 
 test.describe('Variant selector', () => {
+  test.beforeEach(async ({ page }) => {
+    await onlyForVariantSelector(page, 'panel', 'dimension');
+  });
+
   test('one dimension: shows the current variant and moves to the picked sibling', async ({
     page,
   }) => {
@@ -415,6 +423,10 @@ test.describe('Variant selector and the cart', () => {
   );
   test.use({ storageState: signedInState });
 
+  test.beforeEach(async ({ page }) => {
+    await onlyForVariantSelector(page, 'panel', 'dimension');
+  });
+
   /** A variant on another value of the first dimension, and its article. */
   async function cartTarget(page: Page) {
     await page.goto('/');
@@ -529,5 +541,143 @@ test.describe('Variant selector and the cart', () => {
 
     const cart = await fetchCart(page);
     expect(cart.items.map((i) => i.articleNumber)).toEqual([articleNumber]);
+  });
+});
+
+/** "Svart, M": the variant's values, top dimension first. */
+const labelOf = (variant: Variant) => Object.values(variant.labels).join(', ');
+
+/**
+ * The variant a pick of `value` on `dimension` leads to: the one agreeing with
+ * `own` on the most other dimensions; a tie keeps the earlier dimensions, and
+ * payload order breaks what is left.
+ */
+function closest(
+  product: VariantProduct,
+  own: Variant,
+  dimension: string,
+  value: string,
+): Variant {
+  const others = Object.keys(own.selection).filter((d) => d !== dimension);
+  const agrees = (v: Variant) =>
+    others.map((d) => v.selection[d] === own.selection[d]);
+  let best: Variant | null = null;
+  let bestAgrees: boolean[] = [];
+  for (const v of product.variants) {
+    if (v.selection[dimension] !== value) continue;
+    const a = agrees(v);
+    const score = a.filter(Boolean).length;
+    const bestScore = bestAgrees.filter(Boolean).length;
+    const first = a.findIndex((x, i) => x !== bestAgrees[i]);
+    if (
+      !best ||
+      score > bestScore ||
+      (score === bestScore && first !== -1 && a[first])
+    ) {
+      best = v;
+      bestAgrees = a;
+    }
+  }
+  return best!;
+}
+
+test.describe('Variant selector in one list', () => {
+  for (const display of ['panel', 'dropdown'] as const) {
+    test(`${display}, no grouping: every variant in one list, and a pick lands on its sibling`, async ({
+      page,
+    }) => {
+      await onlyForVariantSelector(page, display, 'none');
+      await page.goto('/');
+      await waitForHydration(page);
+      const product = await productOf(page, 'several');
+      const own = product.variants.find((v) => v.alias === product.alias)!;
+      const target = product.variants.find((v) => v.alias !== own.alias)!;
+      const expected = await canonicalPath(page, target.alias);
+      const prefix = display === 'panel' ? 'variant-list' : 'variant-dropdown';
+
+      await openProduct(page, product.alias);
+      const trigger = page.getByTestId(`${prefix}-trigger`);
+      await expect(trigger).toHaveText(labelOf(own));
+      await trigger.click();
+      const options = page.getByTestId(
+        display === 'panel' ? 'variant-list-option' : 'variant-dropdown-option',
+      );
+      await expect(options.first()).toBeVisible();
+      const offered = await options.evaluateAll((rows) =>
+        rows.map((r) => r.getAttribute('data-value')),
+      );
+      expect(offered).toEqual(product.variants.map((v) => v.alias));
+
+      await options.and(page.locator(`[data-value="${target.alias}"]`)).click();
+      await expect(page).toHaveURL((url) => url.pathname === expected);
+      await waitForHydration(page);
+      await expect(page.getByTestId(`${prefix}-trigger`)).toHaveText(
+        labelOf(target),
+      );
+    });
+  }
+});
+
+test.describe('Variant selector as one dropdown per dimension', () => {
+  test.beforeEach(async ({ page }) => {
+    await onlyForVariantSelector(page, 'dropdown', 'dimension');
+  });
+
+  test('a value that changes another choice leads to the closest variant, no step between', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await waitForHydration(page);
+    const product = await productOf(page, 'several');
+    const own = product.variants.find((v) => v.alias === product.alias)!;
+    const dimensions = Object.keys(own.selection);
+    const choice =
+      dimensions
+        .flatMap((dimension) =>
+          product.variants
+            .filter(
+              (v) =>
+                !isDirect(product, own, dimension, v.selection[dimension]!),
+            )
+            .map((v) => ({ dimension, value: v.selection[dimension]! })),
+        )
+        .at(0) ??
+      // Every value keeps the other choices: a direct pick instead.
+      dimensions
+        .map((dimension) => ({
+          dimension,
+          value: targetOn(product, own, dimension).selection[dimension]!,
+        }))
+        .at(0)!;
+    const target = closest(product, own, choice.dimension, choice.value);
+    const expected = await canonicalPath(page, target.alias);
+
+    await openProduct(page, product.alias);
+    for (const d of dimensions) {
+      await expect(page.getByTestId(`variant-select-trigger-${d}`)).toHaveText(
+        own.labels[d]!,
+      );
+    }
+    await page
+      .getByTestId(`variant-select-trigger-${choice.dimension}`)
+      .click();
+    await page
+      .getByRole('option', {
+        name: target.labels[choice.dimension]!,
+        exact: true,
+      })
+      .click();
+    await expect(page.getByTestId('variant-pick-sheet')).toHaveCount(0);
+    // Right away, before and after the sibling's page lands.
+    await expect(
+      page.getByTestId(`variant-select-trigger-${choice.dimension}`),
+    ).toHaveText(target.labels[choice.dimension]!);
+    await expect(page).toHaveURL((url) => url.pathname === expected);
+    await waitForHydration(page);
+    for (const d of dimensions) {
+      await expect(page.getByTestId(`variant-select-trigger-${d}`)).toHaveText(
+        target.labels[d]!,
+      );
+    }
   });
 });

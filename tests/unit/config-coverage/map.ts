@@ -175,6 +175,7 @@ const NEWSLETTER_VISIBILITY =
 const CMS_SLOT = 'tests/composables/useCmsSlot.test.ts';
 const CMS_MENU = 'tests/composables/useCmsMenu.test.ts';
 const HEADER_NAV = 'tests/components/layout/LayoutHeaderNav.test.ts';
+const VARIANT_PICKER = 'tests/components/product/ProductVariantPicker.test.ts';
 const SLUG_PAGE = 'tests/unit/pages/slug-catch-all.test.ts';
 const MOBILE_NAV = 'tests/components/layout/MobileNavPanel.test.ts';
 const ANALYTICS_CONSENT = 'tests/composables/useAnalyticsConsent.test.ts';
@@ -2117,6 +2118,118 @@ export const CONFIG_COVERAGE_MAP = {
               spec: SERVER_TENANT,
               title:
                 'drops an unknown nav bar alignment and still serves the tenant',
+              kind: 'consumer',
+              drives: 'field',
+            },
+          ],
+          note: 'An unknown value is leaf-stripped and lands here too.',
+        },
+      },
+    },
+    variantSelector: {
+      display: {
+        panel: {
+          status: 'has-test',
+          test: [
+            {
+              spec: VARIANT_PICKER,
+              title:
+                'renders one list in a panel for variantSelector display panel and grouping none',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: SERVER_TENANT,
+              title:
+                'drops an unknown variantSelector grouping and keeps the display',
+              kind: 'consumer',
+              drives: 'field',
+            },
+          ],
+          note: 'With grouping dimension (or none saved) this is the panel the PDP has always had.',
+        },
+        dropdown: {
+          status: 'has-test',
+          test: [
+            {
+              spec: VARIANT_PICKER,
+              title:
+                'renders one select per dimension for variantSelector display dropdown and grouping dimension',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: SERVER_TENANT,
+              title: 'serves layout.variantSelector.display and grouping',
+              kind: 'consumer',
+              drives: 'field',
+            },
+          ],
+        },
+        absent: {
+          status: 'has-test',
+          test: [
+            {
+              spec: VARIANT_PICKER,
+              title:
+                "renders today's panel when the store has no variantSelector",
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: SERVER_TENANT,
+              title:
+                'drops an unknown variantSelector display, keeps the grouping, and still serves the tenant',
+              kind: 'consumer',
+              drives: 'field',
+            },
+          ],
+          note: 'An unknown value is leaf-stripped and lands here too.',
+        },
+      },
+      grouping: {
+        dimension: {
+          status: 'has-test',
+          test: {
+            spec: VARIANT_PICKER,
+            title:
+              'renders one select per dimension for variantSelector display dropdown and grouping dimension',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        },
+        none: {
+          status: 'has-test',
+          test: [
+            {
+              spec: VARIANT_PICKER,
+              title:
+                'renders one list in a panel for variantSelector display panel and grouping none',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: SERVER_TENANT,
+              title: 'serves layout.variantSelector.display and grouping',
+              kind: 'consumer',
+              drives: 'field',
+            },
+          ],
+        },
+        absent: {
+          status: 'has-test',
+          test: [
+            {
+              spec: VARIANT_PICKER,
+              title:
+                'groups by dimension for variantSelector display dropdown without a grouping',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: SERVER_TENANT,
+              title:
+                'drops an unknown variantSelector grouping and keeps the display',
               kind: 'consumer',
               drives: 'field',
             },

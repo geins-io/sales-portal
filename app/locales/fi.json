@@ -298,6 +298,8 @@
     "variant_group_matching_named": "Sopii, {dimension}: {value}",
     "variant_group_other_named": "Lisää vaihtoehtoja (muu {dimension})",
     "variant_group_more": "Lisää vaihtoehtoja",
+    "variant_group_more_changes": "Lisää vaihtoehtoja, muuttaa: {dimension}",
+    "variant_no_match": "Ei osumia",
     "variant_pick_heading": "{value} saatavilla:",
     "variant_pick_back": "Takaisin",
     "image_counter": "Kuva {current}/{total}",
