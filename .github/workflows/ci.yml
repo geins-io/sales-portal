@@ -163,9 +163,8 @@ jobs:
     needs: e2e-build
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # Measured: ~1.5 min of fixed steps per leg. Unsharded chromium legs took
-    # up to 13 min; a half-project leg is expected near 9, and 18 keeps room
-    # for a slow merchant API.
+    # Measured 2026-11-25 with two legs per project: 4.8 to 9.4 min per leg,
+    # 1.2 to 1.4 min of it fixed steps. 18 keeps room for a slow merchant API.
     timeout-minutes: 18
     # Playwright's image carries the browsers and their system libraries, so
     # no leg runs apt or downloads a browser. The tag must equal the locked
@@ -176,39 +175,50 @@ jobs:
       image: mcr.microsoft.com/playwright:v1.64.1-noble
       options: --ipc=host
     strategy:
-      # Each leg is its own answer: a red webkit shard leaves the other legs
+      # Each leg is its own answer: a red webkit leg leaves the other legs
       # running to the end.
       fail-fast: false
       matrix:
         # `slug` names the artifacts, which should not carry a space.
-        # Every project runs as two shards, each its own leg. More shards gain
-        # little: Playwright shards whole spec files, and portal.spec.ts alone
-        # sets a floor; each leg is also one more of the org's concurrent jobs.
+        # `leg` is this job's share of its project's spec files, dealt by
+        # measured time (tests/e2e/ci-legs.mjs). Not `--shard`: that cuts by
+        # test count, and the slow specs sit together alphabetically. Each leg
+        # is one more of the org's concurrent jobs and one more sign-in.
         include:
           - project: chromium
             label: chromium 1/2
             slug: chromium-1
-            shard: 1/2
+            leg: 1/2
           - project: chromium
             label: chromium 2/2
             slug: chromium-2
-            shard: 2/2
+            leg: 2/2
           - project: Mobile Chrome
             label: Mobile Chrome 1/2
             slug: mobile-chrome-1
-            shard: 1/2
+            leg: 1/2
           - project: Mobile Chrome
             label: Mobile Chrome 2/2
             slug: mobile-chrome-2
-            shard: 2/2
+            leg: 2/2
+          # webkit runs 2 workers (playwright.config.ts) where the others run
+          # 4, so it needs twice the legs for the same leg time.
           - project: webkit
-            label: webkit 1/2
+            label: webkit 1/4
             slug: webkit-1
-            shard: 1/2
+            leg: 1/4
           - project: webkit
-            label: webkit 2/2
+            label: webkit 2/4
             slug: webkit-2
-            shard: 2/2
+            leg: 2/4
+          - project: webkit
+            label: webkit 3/4
+            slug: webkit-3
+            leg: 3/4
+          - project: webkit
+            label: webkit 4/4
+            slug: webkit-4
+            leg: 4/4
     env:
       # Empty repository variables fall through to the committed defaults in
       # tests/e2e/target-defaults.mjs, the one place the target is spelled out.
@@ -292,12 +302,23 @@ jobs:
       - name: Preflight L4 · session
         run: pnpm test:e2e --no-deps --project "L4 session"
 
-      # This leg's one browser project, every spec, or its shard of them.
-      # `--no-deps` because the preflight layers above already ran.
+      # This leg's one browser project, its share of the spec files as
+      # anchored file patterns. `--no-deps` because the preflight layers above
+      # already ran. With no file arguments Playwright would run every spec,
+      # so an empty or failed list fails the step instead.
       - name: Project · ${{ matrix.label }}
+        shell: bash
         env:
-          SHARD: ${{ matrix.shard }}
-        run: pnpm test:e2e --no-deps --project="${{ matrix.project }}" ${SHARD:+--shard=$SHARD}
+          PROJECT: ${{ matrix.project }}
+          LEG: ${{ matrix.leg }}
+        run: |
+          files="$(node tests/e2e/ci-legs.mjs "$PROJECT" "$LEG")"
+          if [ -z "$files" ]; then
+            echo "::error::tests/e2e/ci-legs.mjs gave $PROJECT leg $LEG no spec files"
+            exit 1
+          fi
+          mapfile -t patterns <<< "$files"
+          pnpm test:e2e --no-deps --project="$PROJECT" "${patterns[@]}"
 
       - name: Upload preview server log
         uses: actions/upload-artifact@v7
@@ -315,9 +336,11 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+      # Traces and screenshots are kept for failed tests only, so a green leg
+      # has nothing here.
       - name: Upload test results
         uses: actions/upload-artifact@v7
-        if: always()
+        if: failure() || cancelled()
         with:
           name: test-results-${{ matrix.slug }}
           path: test-results/

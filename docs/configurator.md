@@ -322,7 +322,7 @@ only with reorder access, outside catalogue mode, and with a line left to add.
 - `tests/components/pages/order-detail.test.ts`
 - `tests/components/portal/PortalItemRowsSheet.test.ts`
 - `tests/e2e/configurator-from-order.spec.ts`
-- `tests/e2e/portal.spec.ts`
+- `tests/e2e/portal-orders.spec.ts`, `tests/e2e/portal-saved-lists.spec.ts` (reorder)
 - `tests/e2e/orders/order-placement.spec.ts`
 
 ## How it works underneath
