@@ -137,6 +137,16 @@ function cmsRequestContext(event: H3Event) {
 // Service Functions
 // =============================================================================
 
+/**
+ * The menu levels to fetch: the catalogue opens a column for a fourth level.
+ * Every other layout shows three, the SDK's default, so it asks for none.
+ */
+function menuDepth(event: H3Event): number | undefined {
+  return event.context?.tenant?.config?.layout?.menu?.type === 'catalogue'
+    ? 4
+    : undefined;
+}
+
 export async function getMenu(
   args: { menuLocationId: string },
   event: H3Event,
@@ -144,7 +154,9 @@ export async function getMenu(
   // A preview's draft is no copy to cache or keep.
   if (getPreviewToken(event)) return readMenu(args, event);
 
-  const cacheKey = `${buildCachePrefix(event)}::menu::${args.menuLocationId}`;
+  // The depth is in the key, so a layout switch never serves the other shape.
+  const depth = menuDepth(event);
+  const cacheKey = `${buildCachePrefix(event)}::menu::${args.menuLocationId}${depth ? `::d${depth}` : ''}`;
   const cached = menuCache.get(cacheKey);
   if (cached) {
     return cached;
@@ -174,7 +186,9 @@ async function readMenu(
   const sdk = await getTenantSDK(event);
   const channelVars = getRequestChannelVariables(sdk, event);
   const ctx = cmsRequestContext(event);
-  const queryArgs = { ...args, ...channelVars };
+  const depth = menuDepth(event);
+  const menuArgs = depth ? { ...args, depth } : args;
+  const queryArgs = { ...menuArgs, ...channelVars };
 
   let result = (await wrapServiceCall(
     () => sdk.cms.menu.get(queryArgs, ctx),
@@ -189,7 +203,7 @@ async function readMenu(
   if (!result?.menuItems?.length && channelVars.languageId) {
     const { languageId: _v, ...varsWithoutLang } = channelVars;
     const { languageId: _c, ...ctxWithoutLang } = ctx ?? {};
-    const fallbackBase = { ...args, ...varsWithoutLang };
+    const fallbackBase = { ...menuArgs, ...varsWithoutLang };
     const fallbackCtx = Object.keys(ctxWithoutLang).length
       ? ctxWithoutLang
       : undefined;

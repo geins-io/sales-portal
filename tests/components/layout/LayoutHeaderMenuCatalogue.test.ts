@@ -32,8 +32,12 @@ function item(
 }
 
 const tools = item('1', 'Verktyg', [
-  item('11', 'Elverktyg', [item('111', 'Borrmaskiner')]),
+  item('11', 'Elverktyg', [
+    item('111', 'Borrmaskiner'),
+    item('112', 'Slipmaskiner'),
+  ]),
   item('12', 'Handverktyg'),
+  item('13', 'Mätverktyg', [item('131', 'Vattenpass')]),
 ]);
 const build = item('2', 'Byggmaterial', [item('21', 'Virke')]);
 const garden = item('3', 'Trädgård');
@@ -101,8 +105,9 @@ describe('LayoutHeaderMenuCatalogue', () => {
   it("puts the column links' classes on the menu link, not on the anchor", async () => {
     const wrapper = mountMenu();
     await category(wrapper, 'Verktyg').trigger('click');
+    // The heading link and Handverktyg; Elverktyg and Mätverktyg are toggles.
     const links = columns(wrapper)[1]!.findAll('[data-link]');
-    expect(links.length).toBe(3);
+    expect(links.length).toBe(2);
     for (const link of links) {
       expect(link.find('a').attributes('class')).toBeUndefined();
       expect(link.classes()).toEqual(
@@ -129,10 +134,12 @@ describe('LayoutHeaderMenuCatalogue', () => {
     expect(links[0]!.text()).toBe('Verktyg');
     expect(links[0]!.attributes('href')).toBe('/se/en/c/1');
     expect(links[0]!.attributes('aria-label')).toBe('layout.menu_go_to');
-    expect(links.slice(1).map((a) => a.text())).toEqual([
-      'Elverktyg',
-      'Handverktyg',
-    ]);
+    expect(
+      cols[1]!
+        .findAll('a, button')
+        .slice(1)
+        .map((row) => row.text()),
+    ).toEqual(['Elverktyg', 'Handverktyg', 'Mätverktyg']);
   });
 
   it('closes the open category on a second click', async () => {
@@ -161,14 +168,157 @@ describe('LayoutHeaderMenuCatalogue', () => {
     expect(cols[1]!.text()).not.toContain('Elverktyg');
   });
 
-  it('shows no fourth level: a third-level item with children is a plain link', async () => {
+  it('makes a third-level item with children a toggle in the column and one without a link', async () => {
     const wrapper = mountMenu();
     await category(wrapper, 'Verktyg').trigger('click');
     const cols = columns(wrapper);
-    expect(cols[1]!.find('button').exists()).toBe(false);
-    const link = cols[1]!.findAll('a').find((a) => a.text() === 'Elverktyg');
-    expect(link?.attributes('href')).toBe('/se/en/c/11');
+    const toggle = cols[1]!.find('button');
+    expect(toggle.text()).toBe('Elverktyg');
+    expect(toggle.attributes('aria-expanded')).toBe('false');
+    expect(toggle.attributes()).not.toHaveProperty('aria-controls');
+    expect(toggle.classes()).not.toContain('bg-muted');
+    const link = cols[1]!.findAll('a').find((a) => a.text() === 'Handverktyg');
+    expect(link?.attributes('href')).toBe('/se/en/c/12');
     expect(wrapper.text()).not.toContain('Borrmaskiner');
+  });
+
+  it("sizes a column's toggle like the column's links, with the chevron", async () => {
+    const wrapper = mountMenu();
+    await category(wrapper, 'Verktyg').trigger('click');
+    const col = columns(wrapper)[1]!;
+    const toggle = col.find('button');
+    const link = col
+      .findAll('[data-link]')
+      .find((l) => l.text() === 'Handverktyg');
+    for (const cls of [
+      'text-sm',
+      'py-1.5',
+      'px-3',
+      'rounded-md',
+      'hover:bg-muted',
+    ]) {
+      expect(toggle.classes()).toContain(cls);
+      expect(link?.classes()).toContain(cls);
+    }
+    expect(toggle.classes()).not.toContain('text-base');
+    expect(toggle.find('span + span').exists()).toBe(true);
+  });
+
+  it('opens the fourth level in a column beside the third, headed by a link to the item', async () => {
+    const wrapper = mountMenu();
+    await category(wrapper, 'Verktyg').trigger('click');
+    const toggle = category(wrapper, 'Elverktyg');
+    await toggle.trigger('click');
+
+    expect(toggle.attributes('aria-expanded')).toBe('true');
+    expect(toggle.classes()).toContain('bg-muted');
+    const cols = columns(wrapper);
+    expect(cols).toHaveLength(3);
+    expect(cols[2]!.attributes('id')).toBe(toggle.attributes('aria-controls'));
+    expect(cols[2]!.attributes('id')).not.toBe(
+      category(wrapper, 'Verktyg').attributes('aria-controls'),
+    );
+
+    const links = cols[2]!.findAll('a');
+    expect(links.map((a) => a.text())).toEqual([
+      'Elverktyg',
+      'Borrmaskiner',
+      'Slipmaskiner',
+    ]);
+    expect(links[0]!.attributes('aria-label')).toBe('layout.menu_go_to');
+    expect(links[0]!.attributes('href')).toBe('/se/en/c/11');
+    expect(links[1]!.attributes('href')).toBe('/se/en/c/111');
+    expect(cols[2]!.find('button').exists()).toBe(false);
+  });
+
+  it("gives the fourth column the third column's look", async () => {
+    const wrapper = mountMenu();
+    await category(wrapper, 'Verktyg').trigger('click');
+    await category(wrapper, 'Elverktyg').trigger('click');
+    const cols = columns(wrapper);
+    expect(cols[2]!.classes()).toEqual(cols[1]!.classes());
+    const third = cols[1]!.findAll('[data-link]');
+    const fourth = cols[2]!.findAll('[data-link]');
+    expect(fourth[0]!.classes()).toEqual(third[0]!.classes());
+    expect(fourth[1]!.classes()).toEqual(third[1]!.classes());
+  });
+
+  it('closes the fourth column on a second click, and keeps the third', async () => {
+    const wrapper = mountMenu();
+    await category(wrapper, 'Verktyg').trigger('click');
+    const toggle = category(wrapper, 'Elverktyg');
+    await toggle.trigger('click');
+    await toggle.trigger('click');
+    expect(toggle.attributes('aria-expanded')).toBe('false');
+    expect(toggle.attributes()).not.toHaveProperty('aria-controls');
+    expect(columns(wrapper)).toHaveLength(2);
+  });
+
+  it('switches the fourth column to another third-level item', async () => {
+    const wrapper = mountMenu();
+    await category(wrapper, 'Verktyg').trigger('click');
+    await category(wrapper, 'Elverktyg').trigger('click');
+    await category(wrapper, 'Mätverktyg').trigger('click');
+    expect(category(wrapper, 'Elverktyg').attributes('aria-expanded')).toBe(
+      'false',
+    );
+    expect(category(wrapper, 'Mätverktyg').attributes('aria-expanded')).toBe(
+      'true',
+    );
+    const cols = columns(wrapper);
+    expect(cols).toHaveLength(3);
+    expect(cols[2]!.text()).toContain('Vattenpass');
+    expect(cols[2]!.text()).not.toContain('Borrmaskiner');
+  });
+
+  it('closes the fourth column with its second-level category, and does not reopen it', async () => {
+    const wrapper = mountMenu();
+    await category(wrapper, 'Verktyg').trigger('click');
+    await category(wrapper, 'Elverktyg').trigger('click');
+    await category(wrapper, 'Byggmaterial').trigger('click');
+    expect(columns(wrapper)).toHaveLength(2);
+    expect(wrapper.text()).not.toContain('Borrmaskiner');
+
+    await category(wrapper, 'Verktyg').trigger('click');
+    expect(columns(wrapper)).toHaveLength(2);
+    expect(category(wrapper, 'Elverktyg').attributes('aria-expanded')).toBe(
+      'false',
+    );
+
+    await category(wrapper, 'Elverktyg').trigger('click');
+    await category(wrapper, 'Verktyg').trigger('click');
+    expect(columns(wrapper)).toHaveLength(1);
+  });
+
+  it('makes a fourth-level item a link whether it has no children or an empty list', async () => {
+    const leaf: MenuItemType = {
+      id: '113',
+      label: 'Utan barn',
+      canonicalUrl: '/se/sv/c/113',
+      order: 113,
+    };
+    const menu = item('1', 'Verktyg', [
+      item('11', 'Elverktyg', [leaf, item('112', 'Tom lista', [])]),
+    ]);
+    const wrapper = mountMenu([menu]);
+    await category(wrapper, 'Verktyg').trigger('click');
+    await category(wrapper, 'Elverktyg').trigger('click');
+    const col = columns(wrapper)[2]!;
+    expect(col.find('button').exists()).toBe(false);
+    expect(col.findAll('a').map((a) => a.text())).toEqual([
+      'Elverktyg',
+      'Tom lista',
+      'Utan barn',
+    ]);
+  });
+
+  it('closes the fourth column when its item leaves the menu', async () => {
+    const wrapper = mountMenu();
+    await category(wrapper, 'Verktyg').trigger('click');
+    await category(wrapper, 'Elverktyg').trigger('click');
+    const fresh = item('1', 'Verktyg', [item('12', 'Handverktyg')]);
+    await wrapper.setProps({ items: [fresh] });
+    expect(columns(wrapper)).toHaveLength(1);
   });
 
   it('gives each catalogue in the app its own column id', async () => {

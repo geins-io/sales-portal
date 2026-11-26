@@ -443,3 +443,124 @@ describe('CMS cache — caller isolation', () => {
     expect(mockAreaGet).toHaveBeenCalledTimes(4);
   });
 });
+
+describe('CMS cache — menu depth', () => {
+  let getMenu: typeof import('../../../server/services/cms').getMenu;
+
+  type MenuLayout = 'megaMenu' | 'catalogue' | null;
+  function layoutEvent(type?: MenuLayout) {
+    const event = mockEvent();
+    if (type !== undefined) {
+      Object.assign(event.context.tenant, {
+        config: { layout: { menu: { type } } },
+      });
+    }
+    return event;
+  }
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) =>
+      fn(),
+    );
+    vi.stubGlobal('getRequestLocale', getRequestLocaleMock);
+    vi.stubGlobal('getRequestMarket', getRequestMarketMock);
+    vi.stubGlobal('getCustomerType', vi.fn().mockResolvedValue(undefined));
+    vi.stubGlobal('getRequestHeader', vi.fn().mockReturnValue(undefined));
+    vi.stubGlobal('getCookie', getCookieStub);
+    getRequestLocaleMock.mockReturnValue('sv-SE');
+    getRequestMarketMock.mockReturnValue('se');
+    getMenu = (await import('../../../server/services/cms')).getMenu;
+  });
+
+  const menu = { id: 'main', menuItems: [{ title: 'Hem' }] };
+
+  it.each([
+    ['no tenant', {}],
+    ['no config', { tenant: { hostname: 'test.com' } }],
+    ['no layout', { tenant: { hostname: 'test.com', config: {} } }],
+    [
+      'a null layout',
+      { tenant: { hostname: 'test.com', config: { layout: null } } },
+    ],
+    [
+      'a null menu setting',
+      { tenant: { hostname: 'test.com', config: { layout: { menu: null } } } },
+    ],
+  ])('asks for no depth for a tenant with %s', async (_, context) => {
+    mockMenuGet.mockResolvedValue(menu);
+    const event = { context, _cookies: {} } as unknown as import('h3').H3Event;
+    await getMenu({ menuLocationId: 'main' }, event);
+    expect(mockMenuGet.mock.calls[0]![0]).not.toHaveProperty('depth');
+  });
+
+  it('asks for four levels under the catalogue layout', async () => {
+    mockMenuGet.mockResolvedValue(menu);
+    await getMenu({ menuLocationId: 'main' }, layoutEvent('catalogue'));
+    expect(mockMenuGet).toHaveBeenCalledWith(
+      expect.objectContaining({ menuLocationId: 'main', depth: 4 }),
+      undefined,
+    );
+  });
+
+  it.each([['megaMenu'], [null], [undefined]] as const)(
+    'asks for no depth, the SDK default, under layout %s',
+    async (type) => {
+      mockMenuGet.mockResolvedValue(menu);
+      await getMenu({ menuLocationId: 'main' }, layoutEvent(type));
+      expect(mockMenuGet.mock.calls[0]![0]).not.toHaveProperty('depth');
+    },
+  );
+
+  it('asks for four levels in the language fallback read too', async () => {
+    mockMenuGet
+      .mockResolvedValueOnce({ id: 'main', menuItems: [] })
+      .mockResolvedValueOnce(menu);
+    const result = await getMenu(
+      { menuLocationId: 'main' },
+      layoutEvent('catalogue'),
+    );
+    expect(result).toEqual(menu);
+    expect(mockMenuGet).toHaveBeenCalledTimes(2);
+    expect(mockMenuGet.mock.calls[1]![0]).not.toHaveProperty('languageId');
+    expect(mockMenuGet.mock.calls[1]![0]).toHaveProperty('depth', 4);
+  });
+
+  it('does not serve one layout the menu cached for the other', async () => {
+    const shallow = { id: 'main', menuItems: [{ title: 'Tre' }] };
+    const deep = { id: 'main', menuItems: [{ title: 'Fyra' }] };
+    mockMenuGet.mockResolvedValueOnce(shallow).mockResolvedValueOnce(deep);
+
+    const mega = await getMenu(
+      { menuLocationId: 'main' },
+      layoutEvent('megaMenu'),
+    );
+    const catalogue = await getMenu(
+      { menuLocationId: 'main' },
+      layoutEvent('catalogue'),
+    );
+    expect(mega).toEqual(shallow);
+    expect(catalogue).toEqual(deep);
+    expect(mockMenuGet).toHaveBeenCalledTimes(2);
+
+    // Each layout is then served from its own entry.
+    expect(
+      await getMenu({ menuLocationId: 'main' }, layoutEvent('megaMenu')),
+    ).toEqual(shallow);
+    expect(
+      await getMenu({ menuLocationId: 'main' }, layoutEvent('catalogue')),
+    ).toEqual(deep);
+    expect(mockMenuGet).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not serve the other layout’s last good copy when a read fails', async () => {
+    mockMenuGet
+      .mockResolvedValueOnce(menu)
+      .mockRejectedValueOnce(new Error('merchant API down'));
+    await getMenu({ menuLocationId: 'main' }, layoutEvent('megaMenu'));
+    await expect(
+      getMenu({ menuLocationId: 'main' }, layoutEvent('catalogue')),
+    ).rejects.toThrow('merchant API down');
+  });
+});
