@@ -76,16 +76,70 @@ describe('isEdgeToEdge', () => {
     ).toBe(false);
   });
 
+  describe('a USP block', () => {
+    it.each(['#0b2e4f', 'rgb(11 46 79)', 'navy'])(
+      'runs to the edge as a band with background %s',
+      (backgroundColor) => {
+        expect(
+          isEdgeToEdge([
+            json({ templateId: 'usp', settings: { backgroundColor } }),
+          ]),
+        ).toBe(true);
+      },
+    );
+
+    it.each([
+      ['no settings', { templateId: 'usp' }],
+      ['settings null', { templateId: 'usp', settings: null }],
+      [
+        'an empty background',
+        { templateId: 'usp', settings: { backgroundColor: '' } },
+      ],
+      [
+        'an invalid background',
+        { templateId: 'usp', settings: { backgroundColor: 'red;x:y' } },
+      ],
+      [
+        'only a text colour',
+        { templateId: 'usp', settings: { textColor: '#fff' } },
+      ],
+      [
+        'a background on another template',
+        { templateId: 'cards-simple', settings: { backgroundColor: '#000' } },
+      ],
+    ])('keeps the gutter with %s', (_name, data) => {
+      expect(isEdgeToEdge([json(data)])).toBe(false);
+    });
+
+    it('keeps the gutter when the band is not a JSON block', () => {
+      expect(
+        isEdgeToEdge([
+          widget('TextPageWidget', {
+            templateId: 'usp',
+            settings: { backgroundColor: '#000' },
+          }),
+        ]),
+      ).toBe(false);
+    });
+  });
+
   describe('a container with several blocks', () => {
+    const band = json({
+      templateId: 'usp',
+      settings: { backgroundColor: '#000' },
+    });
+
     it('runs to the edge when every block does', () => {
       expect(isEdgeToEdge([image, widget('VideoPageWidget')])).toBe(true);
       expect(isEdgeToEdge([image, joinedCards])).toBe(true);
+      expect(isEdgeToEdge([band, image])).toBe(true);
     });
 
     it('keeps the gutter when any block does', () => {
       expect(isEdgeToEdge([image, text])).toBe(false);
       expect(isEdgeToEdge([text, image])).toBe(false);
       expect(isEdgeToEdge([joinedCards, text])).toBe(false);
+      expect(isEdgeToEdge([band, text])).toBe(false);
     });
   });
 

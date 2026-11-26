@@ -248,6 +248,21 @@ describe('CmsContainer', () => {
       expect(edgeFlags(wrapper)).toEqual(['true']);
     });
 
+    it('runs a USP band to the edge, but not a USP without a background', () => {
+      const usp = (settings: Record<string, unknown>) =>
+        makeWidget({
+          type: 'JSONPageWidget',
+          data: { templateId: 'usp', settings },
+        });
+      const band = mountFullWidth([usp({ backgroundColor: '#1e3a5f' })]);
+      expect(sectionClasses(band)).not.toContain('content-gutter');
+      expect(edgeFlags(band)).toEqual(['true']);
+
+      const plain = mountFullWidth([usp({ backgroundColor: '' })]);
+      expect(sectionClasses(plain)).toContain('content-gutter');
+      expect(edgeFlags(plain)).toEqual(['undefined']);
+    });
+
     it('keeps the gutter for a mixed container', () => {
       const wrapper = mountFullWidth([image(), text()]);
       expect(sectionClasses(wrapper)).toContain('content-gutter');

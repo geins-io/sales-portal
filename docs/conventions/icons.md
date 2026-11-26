@@ -66,6 +66,23 @@ array, a social-icon map, a tenant-driven menu entry. Two requirements:
 | New prop-driven or map-driven icon   | Add to `nuxt.config.ts` `icon.clientBundle.icons`.                 |
 | Icon name from tenant/CMS at runtime | Map to a fixed enum in code first, then bundle that enum's values. |
 
+## Icons named by the CMS
+
+The USP block lets a merchant name any Material icon, as fonts.google.com/icons
+shows it (`local_shipping`). No closed set exists, so these names cannot be
+client-bundled:
+
+- `uspIconName` (`app/utils/usp.ts`) normalises the name to
+  `material-symbols:<name>-outline-rounded` and refuses anything that is not
+  lowercase letters, digits and single hyphens.
+- `serverBundle` holds Material Symbols in the rounded outline style only
+  (`config/icon-collections.ts`), where a name with no outline form points at
+  its rounded drawing.
+- The icon renders with `mode="svg"`: a full load gets it from the SSR payload;
+  a client-side navigation fetches it from `/api/_nuxt_icon`, into a fixed box.
+- `fallbackToApi: false`: a name the bundle lacks renders nothing. Neither the
+  server nor the browser asks `api.iconify.design`.
+
 ## Verifying
 
 After adding icons, verify both paths:

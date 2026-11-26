@@ -10,8 +10,8 @@ const props = defineProps<{
   collapse?: boolean;
   // Set on a page's first widget. Forwarded; only the image widgets act on it.
   priority?: boolean;
-  // The parent full-width container runs to the screen edge. Only Cards Rich
-  // acts on it, keeping its header in the gutter.
+  // The parent full-width container runs to the screen edge. Cards Rich keeps
+  // its header in the gutter; a USP band keeps its content in the column.
   edgeToEdge?: boolean;
 }>();
 

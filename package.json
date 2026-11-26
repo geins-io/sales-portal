@@ -86,6 +86,7 @@
     "@commitlint/cli": "^20.5.2",
     "@commitlint/config-conventional": "^20.5.0",
     "@iconify-json/lucide": "^1.2.157",
+    "@iconify-json/material-symbols": "^1.2.101",
     "@nuxt/eslint": "^1.17.0",
     "@nuxt/eslint-config": "^1.12.1",
     "@nuxt/kit": "^4.6.4",
