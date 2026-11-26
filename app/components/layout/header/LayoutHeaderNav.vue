@@ -322,7 +322,7 @@ useEventListener(bar, 'wheel', onWheel, { passive: false });
                       v-if="menuLayout === 'collapsible'"
                       :items="visibleChildren(item)"
                     />
-                    <div v-else class="grid grid-cols-4 gap-x-8 gap-y-4">
+                    <div v-else class="grid grid-cols-5 gap-x-8 gap-y-4">
                       <div
                         v-for="child in visibleChildren(item)"
                         :key="child.id"

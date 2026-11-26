@@ -1086,6 +1086,14 @@ describe('ProductDetails', () => {
       );
     });
 
+    it('lays the stock status out as a box, so the row centres it on the brand', async () => {
+      const wrapper = await mount();
+
+      expect(
+        wrapper.get('[data-testid="stock-indicator"]').classes(),
+      ).toContain('flex');
+    });
+
     it('keeps the stock status at the end of the row without a brand', async () => {
       const wrapper = await mount(everything({ brand: null }));
 
