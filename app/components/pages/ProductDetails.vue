@@ -612,9 +612,11 @@ useProductSeo({
           skuOptions.length ? resolvedSku?.articleNumber : undefined
         "
       >
-        <!-- The catalogue SKU's stock, at the end of the brand row. -->
+        <!-- The catalogue SKU's stock, at the end of the brand row. `flex`
+             keeps it off a body-size line box, which sinks it below the
+             brand in WebKit. -->
         <template v-if="!hidesCatalogueSku && displayStock && showStock" #meta>
-          <div data-testid="stock-indicator">
+          <div class="flex" data-testid="stock-indicator">
             <StockIndicator :stock="displayStock" />
           </div>
         </template>
