@@ -10,7 +10,7 @@ import {
   fetchQuoteList,
   isE2EData,
   SENT_QUOTE_STATUSES,
-  fetchQuotes,
+  findSentQuote,
   fetchProductCatalogue,
   fetchProductsByAliases,
   isConfigurable,
@@ -1441,8 +1441,7 @@ test.describe('Portal Quotation Values', () => {
   async function unroundedQuote(page: Page): Promise<ApiQuote> {
     // The inc side: that is where the account's quotations were priced in
     // more than two decimals, so the tests using this set that side too.
-    const quotes = await fetchQuotes(page, 'inc');
-    const quote = quotes.find((candidate) =>
+    const quote = await findSentQuote(page, 'inc', (candidate) =>
       candidate.items.some((line) => isUnrounded(line.unitPrice)),
     );
     expect(

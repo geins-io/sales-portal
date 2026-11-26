@@ -1557,24 +1557,26 @@ export async function fetchQuoteList(
 }
 
 /**
- * Every quotation the seller has sent to the account, each read in full. A
- * draft can be deleted by another spec between the list and its read.
+ * The oldest quotation the seller has sent that `matches` takes, read in full;
+ * undefined when none does. Oldest first because the seeded quotations are the
+ * oldest and new ones keep arriving on top of the newest-first list, so the
+ * first match is the same every run and reads stop there.
  *
- * Not memoised, and never picked by a fixed id: the account is reseeded from
- * time to time, so a quotation is chosen by what it contains — the line whose
- * unit price needs more than two decimals, the one with a quantity above one.
+ * Never picked by a fixed id: the account is reseeded from time to time, so a
+ * quotation is chosen by what it contains — the line whose unit price needs
+ * more than two decimals, the one with a quantity above one.
  */
-export async function fetchQuotes(
+export async function findSentQuote(
   page: Page,
   side: VatSide,
-): Promise<ApiQuote[]> {
-  const list = await fetchQuoteList(page, side);
-  const quotes: ApiQuote[] = [];
-  for (const item of list) {
+  matches: (quote: ApiQuote) => boolean,
+): Promise<ApiQuote | undefined> {
+  for (const item of (await fetchQuoteList(page, side)).reverse()) {
     if (!SENT_QUOTE_STATUSES.includes(item.status)) continue;
-    quotes.push(await fetchQuote(page, item.id, side));
+    const quote = await fetchQuote(page, item.id, side);
+    if (matches(quote)) return quote;
   }
-  return quotes;
+  return undefined;
 }
 
 // ---------- Saved lists ----------
