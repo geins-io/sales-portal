@@ -1,4 +1,4 @@
-import { cardsRichSpacing } from '~/utils/cards-rich';
+import { cardsRichSpacing, cssColor } from '~/utils/cards-rich';
 
 /** What a block can be at runtime: the CMS may send one without config or data. */
 interface CmsBlock {
@@ -21,10 +21,25 @@ function isJoinedCardsRich(widget: CmsBlock): boolean {
   );
 }
 
+/** USP with a background is a band; its content stays in the column. */
+function isUspBand(widget: CmsBlock): boolean {
+  if (
+    widget.config?.type !== 'JSONPageWidget' ||
+    widget.data?.templateId !== 'usp'
+  )
+    return false;
+  const settings = widget.data.settings;
+  return (
+    typeof settings === 'object' &&
+    settings !== null &&
+    cssColor((settings as Record<string, unknown>).backgroundColor) !== ''
+  );
+}
+
 /**
  * Whether a full-width container runs its blocks to the screen edge. Only when
- * every block is an image, banner, video or joined Cards Rich; any other block,
- * a mixed container included, keeps the header's gutter.
+ * every block is an image, banner, video, joined Cards Rich or USP band; any
+ * other block, a mixed container included, keeps the header's gutter.
  */
 export function isEdgeToEdge(widgets: readonly CmsBlock[]): boolean {
   return (
@@ -32,7 +47,8 @@ export function isEdgeToEdge(widgets: readonly CmsBlock[]): boolean {
     widgets.every(
       (widget) =>
         EDGE_TO_EDGE_TYPES.has(widget.config?.type ?? '') ||
-        isJoinedCardsRich(widget),
+        isJoinedCardsRich(widget) ||
+        isUspBand(widget),
     )
   );
 }

@@ -5,12 +5,14 @@ import { NuxtLink } from '#components';
 import { normalizeMenuUrl } from '#shared/utils/menu';
 import FormWidget from '~/components/cms/widgets/FormWidget.vue';
 import CardsRichCard from '~/components/cms/widgets/CardsRichCard.vue';
+import UspPoint from '~/components/cms/widgets/UspPoint.vue';
 import {
   cardsRichPerRow,
   cardsRichSpacing,
   readCardsRichCard,
   type CardsPerRow,
 } from '~/utils/cards-rich';
+import { readUsp, uspDesktopPerRow, uspTabletPerRow } from '~/utils/usp';
 import {
   Carousel,
   CarouselContent,
@@ -110,6 +112,48 @@ const RICH_SIZES: Record<CardsPerRow, string> = {
   3: '(min-width: 768px) 33vw, 100vw',
   4: '(min-width: 1024px) 25vw, (min-width: 768px) 50vw, 100vw',
 };
+// USP: selling points, centred, the last row centred.
+const usp = computed(() => readUsp(props.data));
+const USP_MD_WIDTH: Record<number, string> = {
+  1: 'md:w-full',
+  2: 'md:w-1/2',
+  3: 'md:w-1/3',
+};
+const USP_LG_WIDTH: Record<number, string> = {
+  1: 'lg:w-full',
+  2: 'lg:w-1/2',
+  3: 'lg:w-1/3',
+  4: 'lg:w-1/4',
+};
+const uspItemWidth = computed(() => {
+  const count = usp.value.items.length;
+  return [
+    USP_MD_WIDTH[uspTabletPerRow(count)],
+    USP_LG_WIDTH[uspDesktopPerRow(count)],
+  ];
+});
+const uspStyle = computed(() => {
+  const { backgroundColor, textColor } = usp.value;
+  if (!backgroundColor && !textColor) return undefined;
+  return {
+    ...(backgroundColor && { backgroundColor }),
+    ...(textColor && { color: textColor }),
+  };
+});
+// With its own text colour, the icons and texts follow it.
+const uspIconClass = computed(() =>
+  usp.value.textColor ? '' : 'text-primary',
+);
+const uspTextClass = computed(() =>
+  usp.value.textColor ? 'opacity-80' : 'text-muted-foreground',
+);
+// A band at the screen edge keeps its content in the header's column; a band
+// inside the column keeps its text off the band's edge.
+const uspContentClass = computed(() => {
+  if (props.edgeToEdge) return 'content-column';
+  return usp.value.backgroundColor ? 'content-gutter' : '';
+});
+
 const simpleItems = computed(
   () => (props.data.items as CardsSimpleItem[]) ?? [],
 );
@@ -360,6 +404,77 @@ function bannerPlacementClasses(placement?: string): string {
           {{ item.title }}
         </p>
       </component>
+    </div>
+  </div>
+
+  <!-- USP: selling points, icon + heading + short text, centred -->
+  <div
+    v-else-if="templateId === 'usp'"
+    data-testid="usp"
+    :class="usp.backgroundColor && 'py-10 md:py-12'"
+    :style="uspStyle"
+  >
+    <div data-testid="usp-content" class="space-y-6" :class="uspContentClass">
+      <div
+        v-if="usp.heading || usp.description"
+        class="mx-auto max-w-[670px] space-y-2 text-center"
+      >
+        <h2
+          v-if="usp.heading"
+          class="font-heading text-2xl font-bold md:text-3xl"
+        >
+          {{ usp.heading }}
+        </h2>
+        <p v-if="usp.description" class="text-sm" :class="uspTextClass">
+          {{ usp.description }}
+        </p>
+      </div>
+
+      <!-- Collapse: mobile-only swipe row, one selling point per slide. -->
+      <Carousel
+        v-if="collapse"
+        v-slot="{ canScrollPrev, canScrollNext }"
+        class="md:hidden"
+        :opts="{ slidesToScroll: 'auto', loop: false }"
+        @init-api="onCarouselInit"
+      >
+        <CarouselContent>
+          <CarouselItem
+            v-for="(item, i) in usp.items"
+            :key="`usp-slide-${i}`"
+            class="basis-full"
+          >
+            <div class="flex flex-col items-center gap-2 px-3 py-2 text-center">
+              <UspPoint
+                :item="item"
+                :icon-class="uspIconClass"
+                :text-class="uspTextClass"
+              />
+            </div>
+          </CarouselItem>
+        </CarouselContent>
+        <CarouselDots v-if="canScrollPrev || canScrollNext" class="mt-4" />
+      </Carousel>
+
+      <!-- Rows: every screen when Stack; tablet and up when Collapse. -->
+      <ul
+        data-testid="usp-list"
+        class="-mx-3 flex-wrap justify-center"
+        :class="collapse ? 'hidden md:flex' : 'flex'"
+      >
+        <li
+          v-for="(item, i) in usp.items"
+          :key="i"
+          class="flex w-full flex-col items-center gap-2 px-3 py-4 text-center"
+          :class="uspItemWidth"
+        >
+          <UspPoint
+            :item="item"
+            :icon-class="uspIconClass"
+            :text-class="uspTextClass"
+          />
+        </li>
+      </ul>
     </div>
   </div>
 

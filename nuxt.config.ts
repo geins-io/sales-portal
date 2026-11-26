@@ -1,6 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import type { Environment } from './shared/types/common';
 import type { NuxtPage } from 'nuxt/schema';
+import { outlineRoundedSubset, readIconSet } from './config/icon-collections';
 import {
   RESOLVE_URL_CACHE_BASE,
   resolveUrlCacheMount,
@@ -408,12 +409,19 @@ export default defineNuxtConfig({
   ],
 
   icon: {
-    // SSR: full lucide collection bundled into the server, served via the
-    // /api/_nuxt_icon endpoint as a fallback for icons not in the client
-    // bundle below.
+    // SSR: collections bundled into the server, served via the /api/_nuxt_icon
+    // endpoint for icons not in the client bundle below. lucide in full;
+    // Material Symbols only in the rounded outline style, the icons a merchant
+    // names in a USP block (app/utils/usp.ts).
     serverBundle: {
-      collections: ['lucide'],
+      collections: [
+        'lucide',
+        outlineRoundedSubset(readIconSet('material-symbols')),
+      ],
     },
+    // Off: an icon missing from the bundle renders nothing instead of being
+    // fetched from api.iconify.design, by the server or the browser.
+    fallbackToApi: false,
     // Client bundle: statically-named icons are auto-discovered via `scan`.
     // Names that are only known at runtime (passed as props, computed from
     // config, looked up in a map) MUST be listed here. The scanner cannot

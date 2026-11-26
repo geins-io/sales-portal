@@ -18,6 +18,17 @@ describe('nuxt.config.ts icon configuration', () => {
     expect(configSource).toMatch(/collections\s*:\s*\[.*['"]lucide['"].*\]/s);
   });
 
+  it('bundles the material symbols subset beside lucide', () => {
+    expect(configSource).toMatch(
+      /collections\s*:\s*\[[^\]]*outlineRoundedSubset\(/s,
+    );
+  });
+
+  // An icon the bundle lacks must render nothing, never ask api.iconify.design.
+  it('turns off the public Iconify API fallback', () => {
+    expect(configSource).toMatch(/fallbackToApi\s*:\s*false/);
+  });
+
   it('does not add cdn.jsdelivr.net to connect-src', () => {
     expect(configSource).not.toContain('cdn.jsdelivr.net');
   });

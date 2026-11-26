@@ -929,3 +929,285 @@ describe('JsonWidget cards-rich settings', () => {
     expect(cards(wrapper)[2]!.html()).toContain('a text');
   });
 });
+
+describe('JsonWidget usp', () => {
+  afterEach(() => {
+    canScrollPrev.value = false;
+    canScrollNext.value = false;
+  });
+
+  const point = (n: number) => ({
+    icon: 'local_shipping',
+    heading: `Heading ${n}`,
+    description: `Text ${n}`,
+  });
+  const usp = (count: number, extra: Record<string, unknown> = {}) => ({
+    templateId: 'usp',
+    items: Array.from({ length: count }, (_, i) => point(i + 1)),
+    ...extra,
+  });
+  const items = (wrapper: ReturnType<typeof mountJson>) =>
+    wrapper.find('[data-testid="usp-list"]').findAll('li');
+  const block = (wrapper: ReturnType<typeof mountJson>) =>
+    wrapper.find('[data-testid="usp"]');
+
+  it('shows each selling point centred: icon, then heading, then text', () => {
+    const wrapper = mountJson(usp(3));
+    expect(items(wrapper)).toHaveLength(3);
+    const item = items(wrapper)[1]!;
+    expect(item.classes()).toEqual(
+      expect.arrayContaining([
+        'flex',
+        'flex-col',
+        'items-center',
+        'text-center',
+      ]),
+    );
+    const tags = (el: Element) =>
+      [...el.children].map((child) => child.tagName.toLowerCase());
+    expect(tags(item.element)).toEqual(['span', 'div']);
+    expect(tags(item.find('[data-testid="usp-text"]').element)).toEqual([
+      'h3',
+      'p',
+    ]);
+    expect(item.find('h3').text()).toBe('Heading 2');
+    expect(item.find('p').text()).toBe('Text 2');
+  });
+
+  it('keeps 8 px between icon and heading, 4 px between heading and text', () => {
+    const wrapper = mountJson(usp(1), true);
+    const slide = wrapper.find('[data-slot="carousel-item"] > div');
+    for (const item of [items(wrapper)[0]!, slide]) {
+      expect(item.classes()).toContain('gap-2');
+      const text = item.find('[data-testid="usp-text"]');
+      expect(text.classes()).toEqual(
+        expect.arrayContaining(['flex', 'flex-col', 'items-center', 'gap-1']),
+      );
+      expect(text.classes()).not.toContain('gap-2');
+    }
+  });
+
+  it('draws no text group for a selling point with only an icon', () => {
+    const item = items(mountJson(usp(1, { items: [{ icon: 'eco' }] })))[0]!;
+    expect(item.find('[data-testid="usp-icon-box"]').exists()).toBe(true);
+    expect(item.find('[data-testid="usp-text"]').exists()).toBe(false);
+  });
+
+  it('draws the rounded outline icon in a 32 px box, as svg, hidden from readers', () => {
+    const item = items(
+      mountJson(usp(1, { items: [{ ...point(1), icon: 'Local Shipping' }] })),
+    )[0]!;
+    const box = item.find('[data-testid="usp-icon-box"]');
+    expect(box.classes()).toContain('size-8');
+    // The shared Icon stub (tests/utils/component.ts).
+    const icon = box.find('.icon');
+    expect(icon.attributes('data-name')).toBe(
+      'material-symbols:local-shipping-outline-rounded',
+    );
+    expect(icon.attributes('mode')).toBe('svg');
+    expect(icon.classes()).toContain('size-8');
+    expect(icon.attributes('aria-hidden')).toBe('true');
+  });
+
+  it('shows heading and text without an icon when the name is empty or malformed', () => {
+    const wrapper = mountJson(
+      usp(2, {
+        items: [
+          { icon: '', heading: 'A', description: 'a' },
+          { icon: 'bad;name', heading: 'B', description: 'b' },
+        ],
+      }),
+    );
+    expect(items(wrapper)).toHaveLength(2);
+    expect(wrapper.find('[data-testid="usp-icon-box"]').exists()).toBe(false);
+    expect(wrapper.findAll('h3').map((h) => h.text())).toEqual(['A', 'B']);
+  });
+
+  it('leaves out a heading or text that is empty', () => {
+    const item = items(
+      mountJson(usp(1, { items: [{ icon: 'eco', heading: 'Only' }] })),
+    )[0]!;
+    expect(item.find('h3').text()).toBe('Only');
+    expect(item.find('p').exists()).toBe(false);
+  });
+
+  it('sizes the heading 18 px, 20 px from tablet, and the text 14 px', () => {
+    const item = items(mountJson(usp(1)))[0]!;
+    expect(item.find('h3').classes()).toEqual(
+      expect.arrayContaining(['text-lg', 'md:text-xl']),
+    );
+    expect(item.find('p').classes()).toContain('text-sm');
+  });
+
+  it.each([
+    [1, 'md:w-full', 'lg:w-full'],
+    [2, 'md:w-1/2', 'lg:w-1/2'],
+    [3, 'md:w-1/3', 'lg:w-1/3'],
+    [4, 'md:w-1/2', 'lg:w-1/4'],
+    [5, 'md:w-1/3', 'lg:w-1/3'],
+    [6, 'md:w-1/3', 'lg:w-1/3'],
+    [7, 'md:w-1/2', 'lg:w-1/4'],
+    [8, 'md:w-1/2', 'lg:w-1/4'],
+    [9, 'md:w-1/3', 'lg:w-1/3'],
+  ])(
+    '%i selling points: %s on tablet, %s on desktop, full width on mobile',
+    (count, md, lg) => {
+      const wrapper = mountJson(usp(count));
+      for (const item of items(wrapper)) {
+        expect(item.classes()).toEqual(
+          expect.arrayContaining(['w-full', md, lg]),
+        );
+      }
+    },
+  );
+
+  it('centres the last row', () => {
+    const list = mountJson(usp(5)).find('[data-testid="usp-list"]');
+    expect(list.classes()).toEqual(
+      expect.arrayContaining(['flex', 'flex-wrap', 'justify-center']),
+    );
+  });
+
+  it('shows an optional header, centred, above the selling points', () => {
+    const wrapper = mountJson(
+      usp(2, { header: { heading: 'Why us', description: 'Reasons' } }),
+    );
+    const heading = wrapper.find('h2');
+    expect(heading.text()).toBe('Why us');
+    const header = heading.element.parentElement!;
+    expect([...header.classList]).toEqual(
+      expect.arrayContaining(['mx-auto', 'text-center']),
+    );
+    expect(header.textContent).toContain('Reasons');
+    expect(
+      header.compareDocumentPosition(
+        wrapper.find('[data-testid="usp-list"]').element,
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('has no header when both its fields are empty', () => {
+    const wrapper = mountJson(
+      usp(1, { header: { heading: '', description: '' } }),
+    );
+    expect(wrapper.find('h2').exists()).toBe(false);
+  });
+
+  it('without colours sits on the page: no style, no padding, primary icons', () => {
+    const wrapper = mountJson(
+      usp(1, { settings: { backgroundColor: '', textColor: '' } }),
+    );
+    expect(block(wrapper).attributes('style')).toBeUndefined();
+    expect(block(wrapper).classes()).not.toContain('py-10');
+    expect(wrapper.find('[data-testid="usp-icon-box"]').classes()).toContain(
+      'text-primary',
+    );
+    expect(items(wrapper)[0]!.find('p').classes()).toContain(
+      'text-muted-foreground',
+    );
+  });
+
+  it('paints the background over the whole block, with padding above and below', () => {
+    const wrapper = mountJson(
+      usp(1, { settings: { backgroundColor: '#0b2e4f' } }),
+    );
+    expect(block(wrapper).attributes('style')).toContain(
+      'background-color: #0b2e4f',
+    );
+    expect(block(wrapper).attributes('style')).not.toMatch(/(^|;\s*)color:/);
+    expect(block(wrapper).classes()).toEqual(
+      expect.arrayContaining(['py-10', 'md:py-12']),
+    );
+  });
+
+  it('with a text colour, icons, headings and texts follow it, the texts lighter', () => {
+    const wrapper = mountJson(
+      usp(1, {
+        header: { heading: 'H', description: 'D' },
+        settings: { backgroundColor: '#0b2e4f', textColor: '#ffffff' },
+      }),
+    );
+    expect(block(wrapper).attributes('style')).toContain('color: #ffffff');
+    expect(
+      wrapper.find('[data-testid="usp-icon-box"]').classes(),
+    ).not.toContain('text-primary');
+    for (const p of wrapper.findAll('p')) {
+      expect(p.classes()).toContain('opacity-80');
+      expect(p.classes()).not.toContain('text-muted-foreground');
+    }
+  });
+
+  it('ignores an invalid colour', () => {
+    const wrapper = mountJson(
+      usp(1, {
+        settings: { backgroundColor: 'red;x:y', textColor: 'url(x)' },
+      }),
+    );
+    expect(block(wrapper).attributes('style')).toBeUndefined();
+    expect(block(wrapper).classes()).not.toContain('py-10');
+  });
+
+  it('as an edge-to-edge band, keeps its content in the content column', () => {
+    const wrapper = mountJson(
+      usp(2, { settings: { backgroundColor: '#000' } }),
+      false,
+      false,
+      true,
+    );
+    const inner = wrapper.find('[data-testid="usp-content"]');
+    expect(inner.classes()).toContain('content-column');
+    expect(inner.classes()).not.toContain('content-gutter');
+  });
+
+  it('with a background inside the column, keeps its content off the band edge', () => {
+    const inner = mountJson(
+      usp(2, { settings: { backgroundColor: '#000' } }),
+    ).find('[data-testid="usp-content"]');
+    expect(inner.classes()).toContain('content-gutter');
+    expect(inner.classes()).not.toContain('content-column');
+  });
+
+  it('without a background adds no column or gutter of its own', () => {
+    const inner = mountJson(usp(2)).find('[data-testid="usp-content"]');
+    expect(inner.classes()).not.toContain('content-gutter');
+    expect(inner.classes()).not.toContain('content-column');
+  });
+
+  it('stack: the rows on every screen, no slider', () => {
+    const wrapper = mountJson(usp(3), false);
+    expect(wrapper.find('[data-slot="carousel"]').exists()).toBe(false);
+    const list = wrapper.find('[data-testid="usp-list"]');
+    expect(list.classes()).toContain('flex');
+    expect(list.classes()).not.toContain('hidden');
+  });
+
+  it('collapse: one full-width selling point per slide on mobile, the rows from tablet', () => {
+    canScrollNext.value = true;
+    const wrapper = mountJson(usp(3, { header: { heading: 'H' } }), true);
+    const carousel = wrapper.find('[data-slot="carousel"]');
+    expect(carousel.classes()).toContain('md:hidden');
+    const slides = wrapper.findAll('[data-slot="carousel-item"]');
+    expect(slides).toHaveLength(3);
+    for (const slide of slides) expect(slide.classes()).toContain('basis-full');
+    expect(slides[0]!.find('h3').text()).toBe('Heading 1');
+    expect(slides[0]!.find('.icon').exists()).toBe(true);
+    expect(wrapper.find('[data-slot="carousel-dots"]').exists()).toBe(true);
+    // The header stays above the slider.
+    expect(carousel.find('h2').exists()).toBe(false);
+    const list = wrapper.find('[data-testid="usp-list"]');
+    expect(list.classes()).toEqual(
+      expect.arrayContaining(['hidden', 'md:flex']),
+    );
+  });
+
+  it('collapse: no dots when the slider cannot scroll', () => {
+    const wrapper = mountJson(usp(1), true);
+    expect(wrapper.find('[data-slot="carousel-dots"]').exists()).toBe(false);
+  });
+
+  it('renders nothing for a block without selling points or header', () => {
+    const wrapper = mountJson({ templateId: 'usp' });
+    expect(wrapper.text()).not.toContain('Unknown template');
+    expect(wrapper.find('li').exists()).toBe(false);
+  });
+});
