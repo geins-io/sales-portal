@@ -408,9 +408,9 @@ test.describe('Header menu layout from the store settings', () => {
     };
 
     /**
-     * Whether the header menu's data holds a visible fourth level, read from
-     * the menu the page itself fetches. The test is out of scope only when
-     * the data has none; a menu that holds one must show it.
+     * Whether the header menu's data holds a visible fourth level, read as
+     * the catalogue reads it, four levels deep. The test is out of scope only
+     * when the data has none; a menu that holds one must show it.
      */
     async function menuHasFourthLevel(page: Page): Promise<boolean> {
       const config = await (await apiGet(page.request, '/api/config')).json();
@@ -418,7 +418,7 @@ test.describe('Header menu layout from the store settings', () => {
         config?.cms?.menus?.header_main?.menuLocationId ?? 'main';
       const response = await apiGet(
         page.request,
-        `/api/cms/menu?menuLocationId=${encodeURIComponent(location)}`,
+        `/api/cms/menu?menuLocationId=${encodeURIComponent(location)}&depth=4`,
       );
       expect(response.ok(), '/api/cms/menu did not answer 200').toBe(true);
       const visible = (items?: MenuNode[] | null) =>
