@@ -211,7 +211,7 @@ function handleRemove(item: CartItemType) {
             >
               <PriceDisplay
                 :price="item.unitPrice"
-                :discount-type="item.product?.discountType"
+                :show-discount="false"
                 :vat-label="false"
                 class="inline text-sm [&_span]:font-normal"
               />
