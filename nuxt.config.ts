@@ -366,12 +366,6 @@ export default defineNuxtConfig({
         analytics: false,
       },
 
-      // Client API configuration (usually no need to override)
-      api: {
-        baseUrl: '/api',
-        timeout: 30000,
-      },
-
       // Sentry (browser). These keys must be declared here even though both
       // default to empty: Nitro's applyEnv walks only keys that already
       // exist, so an undeclared nested key means NUXT_PUBLIC_SENTRY_* is

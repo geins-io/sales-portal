@@ -16,8 +16,6 @@ const mockPending = ref(false);
 const mockError = ref<Error | null>(null);
 const mockRefresh = vi.fn();
 
-const mockApi = vi.fn();
-
 // The parameters are the ones useTenant() calls useFetch with. Declaring them
 // here is what makes every `mock.calls` read below type-checked; a bare
 // `vi.fn(() => …)` infers zero arguments.
@@ -119,7 +117,6 @@ describe('useTenant', () => {
     vi.stubGlobal('useFetch', (...args: Parameters<typeof mockUseFetch>) =>
       mockUseFetch(...args),
     );
-    vi.stubGlobal('useNuxtApp', () => ({ $api: mockApi }));
     vi.stubGlobal('useRoute', () => mockRoute);
     vi.stubGlobal('useRequestHeaders', () => mockRequestHeaders);
 
@@ -142,9 +139,8 @@ describe('useTenant', () => {
       expect(typeof url).toBe('function');
       expect(url()).toBe('/api/config');
       expect(options.dedupe).toBe('defer');
-      // The composable no longer routes through $api ($api forwards a header
-      // allowlist that excludes cookies, so it would silently return the LIVE
-      // config during SSR preview requests).
+      // A custom $fetch that drops cookies during SSR would silently return
+      // the LIVE config on preview requests.
       expect(options.$fetch).toBeUndefined();
     });
 
@@ -720,7 +716,6 @@ describe('useTenantTheme', () => {
     vi.stubGlobal('useFetch', (...args: Parameters<typeof mockUseFetch>) =>
       mockUseFetch(...args),
     );
-    vi.stubGlobal('useNuxtApp', () => ({ $api: mockApi }));
 
     const module = await import('../../app/composables/useTenant');
     useTenantTheme = module.useTenantTheme;
