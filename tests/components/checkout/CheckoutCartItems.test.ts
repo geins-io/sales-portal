@@ -279,7 +279,7 @@ describe('CheckoutCartItems', () => {
     expect(total.attributes('data-quantity')).toBe(String(item.quantity));
   });
 
-  it("passes the line product's discount type to the total and the unit price", () => {
+  it("marks the line product's discount on the line total only", () => {
     const item = createItem({
       product: { ...createItem().product, discountType: 'PRICE_LIST' },
     } as Partial<CartItemType>);
@@ -289,16 +289,23 @@ describe('CheckoutCartItems', () => {
         stubs: {
           ...stubs,
           PriceDisplay: {
-            template: '<span data-testid="price" :data-type="discountType" />',
-            props: ['price', 'discountType'],
+            template:
+              '<span data-testid="price" :data-type="discountType" :data-discount="String(showDiscount)" />',
+            props: ['price', 'discountType', 'showDiscount'],
           },
         },
       },
     });
-    const types = wrapper
+    const prices = wrapper
       .findAll('[data-testid="price"]')
-      .map((price) => price.attributes('data-type'));
-    expect(types).toEqual(['PRICE_LIST', 'PRICE_LIST']);
+      .map((price) => [
+        price.attributes('data-type'),
+        price.attributes('data-discount'),
+      ]);
+    expect(prices).toEqual([
+      ['PRICE_LIST', 'undefined'],
+      [undefined, 'false'],
+    ]);
   });
 
   it('handles item with missing product data gracefully', () => {
@@ -716,6 +723,74 @@ describe('CheckoutCartItems', () => {
       expect(unit).toContain('50,00 kr');
       expect(unit).not.toContain('62,50 kr');
     });
+  });
+
+  describe('a discounted line', () => {
+    function discountedItem() {
+      const price = {
+        sellingPriceIncVatFormatted: '24,00 kr',
+        regularPriceIncVatFormatted: '30,00 kr',
+        sellingPriceExVatFormatted: '19,20 kr',
+        regularPriceExVatFormatted: '24,00 kr',
+        sellingPriceIncVat: 24,
+        regularPriceIncVat: 30,
+        sellingPriceExVat: 19.2,
+        regularPriceExVat: 24,
+        isDiscounted: true,
+        discountPercentage: 20,
+        currency: { code: 'SEK' },
+      };
+      return createItem({
+        quantity: 1,
+        product: { ...createItem().product, discountType: 'PRICE_CAMPAIGN' },
+        totalPrice: { ...price },
+        unitPrice: { ...price },
+      } as Partial<CartItemType>);
+    }
+
+    function mountDiscounted() {
+      return mountComponent(CheckoutCartItems, {
+        props: { items: [discountedItem()] },
+        global: { stubs: { ...stubs, PriceDisplay } },
+      });
+    }
+
+    it('keeps the struck price, the percent and the label on the line total', () => {
+      const total = mountDiscounted().find(
+        '[data-testid="checkout-line-total"]',
+      ).element.parentElement!;
+
+      expect(total.textContent).toContain('24,00 kr');
+      expect(total.querySelector('.line-through')?.textContent).toContain(
+        '30,00 kr',
+      );
+      expect(total.textContent).toContain('-20%');
+      expect(
+        total.querySelector('[data-testid="discount-type-label"]')?.textContent,
+      ).toContain('discount.campaign');
+    });
+
+    it.each([
+      [true, '24,00 kr'],
+      [false, '19,20 kr'],
+    ])(
+      'shows the unit price as plain text, selling price and "per unit" only (incl. VAT: %s)',
+      (incVat, selling) => {
+        mockShowIncVat.value = incVat;
+        const unit = mountDiscounted().find(
+          '[data-testid="checkout-unit-price"]',
+        );
+
+        expect(unit.text().replace(/\s+/g, ' ')).toBe(
+          `${selling} checkout.per_unit`,
+        );
+        expect(unit.find('.line-through').exists()).toBe(false);
+        expect(unit.find('.text-danger').exists()).toBe(false);
+        expect(unit.find('[data-testid="discount-type-label"]').exists()).toBe(
+          false,
+        );
+      },
+    );
   });
 });
 
