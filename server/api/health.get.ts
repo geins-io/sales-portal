@@ -102,18 +102,11 @@ async function checkStorage(event: H3Event): Promise<ComponentHealth> {
       };
     }
 
-    // get number of items in the storage
-    const storageKeys = await storage.keys();
-
-    const storageItems = storageKeys.length;
-
     return {
       status: 'healthy',
       latency,
       details: {
         driver: storageDriver,
-        storageItems: storageItems,
-        storageKeys,
       },
     };
   } catch (error) {
