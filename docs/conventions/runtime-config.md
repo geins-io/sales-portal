@@ -17,7 +17,6 @@ export default defineNuxtConfig({
 
     // Public (exposed to client)
     public: {
-      apiBaseUrl: '/api',
       appName: 'Sales Portal',
     },
   },
@@ -28,10 +27,10 @@ export default defineNuxtConfig({
 
 Nuxt auto-maps env vars:
 
-| Config Path                       | Environment Variable       |
-| --------------------------------- | -------------------------- |
-| `runtimeConfig.apiSecret`         | `NUXT_API_SECRET`          |
-| `runtimeConfig.public.apiBaseUrl` | `NUXT_PUBLIC_API_BASE_URL` |
+| Config Path                    | Environment Variable   |
+| ------------------------------ | ---------------------- |
+| `runtimeConfig.apiSecret`      | `NUXT_API_SECRET`      |
+| `runtimeConfig.public.appName` | `NUXT_PUBLIC_APP_NAME` |
 
 ## Usage
 
@@ -48,7 +47,7 @@ export default defineEventHandler(async (event) => {
   const secret = config.apiSecret;
 
   // Access public values
-  const baseUrl = config.public.apiBaseUrl;
+  const appName = config.public.appName;
 });
 ```
 
@@ -60,7 +59,7 @@ export default defineEventHandler(async (event) => {
 const config = useRuntimeConfig();
 
 // Only public values available
-const baseUrl = config.public.apiBaseUrl;
+const appName = config.public.appName;
 ```
 
 ## Common Mistakes
@@ -100,8 +99,6 @@ See `nuxt.config.ts` for the full runtime config. Key values:
 
 **Public (exposed to client):**
 
-- `public.api.baseUrl` - Internal API base URL
-- `public.api.timeout` - Request timeout
 - `public.appName` - Application name
 - `public.appVersion` - Application version
 - `public.environment` - Current environment

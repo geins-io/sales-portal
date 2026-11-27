@@ -106,7 +106,6 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   ├── quote-status.ts        # One map: quote status → Badge variant and label key
 │   │   └── logger.ts              # Client-side structured logging
 │   └── plugins/
-│       ├── api.ts              # Custom $api fetch instance
 │       ├── auth-init.ts        # Early auth session check (parallel with tenant)
 │       ├── auth-redirect.client.ts # Global $fetch interceptor — SESSION_EXPIRED → /login redirect
 │       ├── cart-init.ts        # SSR cart hydration; client reuses Nuxt payload

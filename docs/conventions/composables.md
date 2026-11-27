@@ -72,7 +72,6 @@ Always use `useFetch` with `dedupe: 'defer'`:
 // Good
 const { data } = useFetch<Config>('/api/config', {
   dedupe: 'defer',
-  $fetch: useNuxtApp().$api, // Only if retry logic needed
 });
 
 // Bad - don't wrap useFetch

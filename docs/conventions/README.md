@@ -20,7 +20,7 @@ Standards and patterns for this codebase. Read before contributing.
 - [Runtime Config](runtime-config.md) - Environment variables and config
 - [Error Handling](error-handling.md) - Error patterns for client and server
 - [Icons](icons.md) - Static vs dynamic icon names, client bundle rules
-- [API Clients](api-clients.md) - useFetch vs internalFetch vs $api, SSR cookie forwarding
+- [API Clients](api-clients.md) - useFetch vs internalFetch, SSR cookie forwarding
 - [SSR](ssr.md) - Null safety for async data, browser-API guards, locale resolution
 - [i18n](i18n.md) - Locale and market handling, BCP-47 expansion at the API boundary
 
