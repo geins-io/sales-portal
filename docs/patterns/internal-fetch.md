@@ -97,4 +97,4 @@ must be zero; every line must carry the tenant's hostname. The unit tests in
 `tests/server/plugins/02.tenant-context.test.ts` pin the mechanism.
 
 See also [conventions/api-clients.md](../conventions/api-clients.md) for the
-choice between `useFetch`, `internalFetch` and `$api`.
+choice between `useFetch` and `internalFetch`.

@@ -2,6 +2,7 @@
 title: API patterns - useFetch client-side, $fetch server-side
 status: accepted
 created: 2026-02-02
+updated: 2026-11-27
 author: '@3li7alaki'
 tags: [api, fetch, nuxt]
 ---
@@ -45,23 +46,16 @@ export default defineEventHandler(async (event) => {
 });
 ```
 
-### The `$api` plugin
-
-Keep `app/plugins/api.ts` and `app/utils/api-client.ts` for:
-
-- Retry logic with exponential backoff
-- Header forwarding during SSR
-- Centralized error handling
-
-Used via `useNuxtApp().$api` when retry behavior is needed.
-
 ### Deleted
 
 - `useApi` composable - unnecessary wrapper, use `useFetch` directly
+- `$api` plugin and `createApiClient` - removed 2026-11-27. Nothing called it, and its header
+  allowlist left out `cookie`, so it could not authenticate an auth-gated route during SSR. Calls
+  to our own `/api/*` routes from outside a page use `internalFetch`
+  ([conventions/api-clients.md](../conventions/api-clients.md)).
 
 ## Consequences
 
 - Consistent patterns across codebase
 - Nuxt's built-in caching and SSR work correctly
-- `$api` plugin reserved for cases needing retry logic
 - Simpler mental model: `useFetch` for components, `$fetch` for server

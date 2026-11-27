@@ -49,11 +49,6 @@ export function internalFetcher(server: boolean): InternalFetcher {
  * middleware or any other non-page context. `useFetch` does the same
  * forwarding for page-level data loads. `options.headers` are merged on top.
  *
- * The companion `$api` (`app/plugins/api.ts`) targets the same `/api` routes
- * but adds retry-with-backoff, and forwards a header allowlist that excludes
- * `cookie`. Prefer this helper unless a call specifically needs the retries;
- * `$api` cannot authenticate an auth-gated route during SSR.
- *
  * See `docs/conventions/api-clients.md`.
  */
 export function internalFetch<T>(

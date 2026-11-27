@@ -71,19 +71,6 @@ a payment provider).
 - You are inside an event handler that has to call SSR-safe code (e.g. an
   imperatively triggered prefetch that also runs in `useAsyncData`).
 
-## `$api` is not a general-purpose fetcher
-
-`app/plugins/api.ts` provides `useNuxtApp().$api`: an `ofetch` instance with
-retry-with-backoff, a timeout and error interceptors. Its `baseURL` is
-`runtimeConfig.public.api.baseUrl`, which is `/api` — **our own routes, not the
-Geins API.** Read the name as "the retrying client", not "the Geins client": the
-browser never calls the Geins API directly, since the SDK runs server-side only
-([ADR-004](../adr/004-geins-sdk-service-layer.md)).
-
-During SSR it forwards an allowlist of headers only — `accept`,
-`accept-language`, `user-agent`, `host` — so it cannot authenticate an auth-gated
-route. Use `useFetch` or `internalFetch` for those.
-
 ## Migration audit (2026-05-14)
 
 After the "Failed to load checkout" incident, we audited every `$fetch` call
